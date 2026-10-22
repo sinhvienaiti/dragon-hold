@@ -1,0 +1,36 @@
+/* Rồng Giữ Ải base styles. Owner: ui (LANES.md). Semantic colours come from kit/ui tokens. */
+:root {
+  --dh-bark: #2b2118;
+  --dh-moss: #5d7a4a;
+  --dh-parchment: #efe6d2;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #1d1a16;
+  color: var(--dh-parchment);
+  overflow: hidden;
+}
+
+.dh-app,
+.dh-canvas,
+.dh-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.dh-overlay {
+  pointer-events: none;
+}
+
+.dh-boot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 600 20px/1.4 "Be Vietnam Pro", system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}

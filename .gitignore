@@ -1,0 +1,36 @@
+node_modules/
+dist/
+tmp/
+.vite/
+.DS_Store
+*.log
+coverage/
+
+# No media in Git, ever: models, images, audio and video live on Google Drive
+# (parent repo `pnpm media:push`). Only code, JSON data and docs are tracked.
+public/assets/**
+art-src/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.avif
+*.gif
+*.glb
+*.gltf
+*.bin
+*.ktx2
+*.mp3
+*.ogg
+*.wav
+*.m4a
+*.flac
+*.mp4
+*.mov
+*.webm
+
+# Local credentials never belong in a repo.
+.env
+.env.*
+rclone.conf
+*.rclone.conf

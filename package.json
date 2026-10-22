@@ -1,0 +1,31 @@
+{
+  "name": "dragon-hold",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rồng Giữ Ải (Dragonhold): 3D typing lane defense.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 3005 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 3005 --strictPort",
+    "test": "vitest run",
+    "check": "node src/kit/verify-kit.mjs && pnpm test && pnpm build",
+    "dh:balance": "tsx scripts/balance/run.ts",
+    "dh:golden:update": "tsx scripts/balance/golden.ts --update",
+    "visual": "node scripts/visual/cdp-run.mjs"
+  },
+  "dependencies": {
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "@fontsource/cormorant-garamond": "^5.2.0",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "@types/three": "0.170.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.2",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@11.21.0"
+}
