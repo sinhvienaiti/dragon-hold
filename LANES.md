@@ -129,11 +129,19 @@ plan in `waves.ts` (timing and loads only; groups are TODO for sim-battle) were
 filled from the design so the types meet real data. Their owners verify them
 against 02 and 03 and keep them.
 
-## Open items for the wiring step
+## Kit (synced at the wiring step)
 
-- Sync the full kit (`three`, `feedback` modules were missing at 05:39) and
-  commit `src/kit/**` with its manifest.
-- Switch `vite.config.ts` from `scripts/dev/serve-shared.ts` to the kit's
-  `serveSharedFolders` once `src/kit/tools` is committed.
+- `src/kit/**` holds all 11 modules of `kit.config.json` and is committed with
+  `kit-manifest.json`; `node src/kit/verify-kit.mjs` checks every sha256.
+- Import kit modules by folder (`../kit/typing`, `../kit/feedback`, …). Pure
+  rules (`src/sim`, `src/typing`, `src/content`) may import only
+  `kit/platform` and `kit/typing`; browser code never imports `kit/tools`.
+- `vite.config.ts` serves `/vocabulary/` and `/typing-texts/` with the kit's
+  `serveSharedFolders` (`scripts/dev/serve-shared.ts` is gone).
+- A kit bug is fixed in `shared/game-kit`, then re-synced from the parent repo
+  (`node scripts/sync-game-kit.mjs --target games/dragon-hold`); never here.
+
+## Open items for the integrator
+
 - `src/app/app.ts` only shows a notice; the integrator wires stage, world,
   loop, input router and presenters.

@@ -1,11 +1,11 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import { serveShared } from "./scripts/dev/serve-shared";
+import { serveSharedFolders } from "./src/kit/tools";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-/** The parent repo's shared/ (vocabulary, typing texts), served read-only in dev. */
-const shared = join(root, "..", "..", "shared");
+/** The parent repo's shared/ (/vocabulary/, /typing-texts/), served read-only in dev by the kit plugin. */
+const sharedRoot = join(root, "..", "..", "shared");
 
 const env = (name: string): string | undefined => process.env[name]?.trim() || undefined;
 
@@ -15,7 +15,7 @@ const hmrHost = env("DEV_HMR_HOST");
 
 export default defineConfig({
   base: "/",
-  plugins: [serveShared(shared)],
+  plugins: [serveSharedFolders({ sharedRoot })],
   server: {
     host: env("DEV_HOST") ?? "127.0.0.1",
     port: 3005,
