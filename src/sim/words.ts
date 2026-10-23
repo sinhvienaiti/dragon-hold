@@ -642,19 +642,18 @@ export function typeBackspace(world: World): void {
 
 /**
  * Esc, first step: let go of the locked word; what was typed is dropped. Its
- * wrong keys stay with the word until it is done or gone, as with Backspace,
- * so Esc never wipes a word clean (00 D14: its grade and learning event count them).
+ * wrong keys stay with the word until it is done or gone, as with Backspace
+ * (kit router.unlockErrors "keep", typing/config.ts), so Esc never wipes a
+ * word clean (01 §3.3, 00 D14: its grade and learning event count them).
  */
 export function releaseLock(world: World): void {
   const w = world.words;
   const before = w.session.router.lock;
-  const errors = before >= 0 ? w.session.words.errors[before]! : 0;
   // A lock let go with letters in feeds the pace director's "bỏ khóa" count (BALANCE.md §3 O).
   if (before >= 0 && w.session.words.typed[before]! > 0) world.director.abandons += 1;
   if (!unlock(w.session)) return;
   w.lock = -1;
   if (before < 0) return;
-  w.session.words.errors[before] = errors;
   sync(w, before);
   w.wall.firstKeyMs[before] = w.wall.lastKeyMs[before] = -1;
   emit(world, { type: "word-progress", word: before, typed: 0, key: "back", letter: -1 });

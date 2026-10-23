@@ -17,8 +17,18 @@ import { buildWordDeck, isDeckText, type DeckCandidate } from "../typing/deck";
 import type { Gloss } from "../ui/learning-frame";
 
 const GAME_ID = LEARNING.gameId;
-/** Activities that are real recalls: always sent, and they count toward hiding the meaning (01 §6.3, §6.6). */
+/** Recall activities: always sent (01 §6.6), and a right answer without a hint counts toward hiding the meaning (01 §6.3). */
 const RECALLS: ReadonlySet<string> = new Set(["meaning-recall", "listening", "review-card"]);
+
+/**
+ * One rule for "a right recall" (01 §6.3, 00 D14), on this device and in the
+ * portal's samples: a right answer in a recall activity with no hint shown.
+ * Học trước goes out as `review-card` with hintUsed (its word, IPA and
+ * meaning show while it is typed, 01 §6.3, §6.6), so it is never one.
+ */
+export const isRightRecall = (activityType: unknown, result: unknown, hintUsed: unknown): boolean =>
+  RECALLS.has(String(activityType)) && result === "correct" && hintUsed !== true;
+
 const STORE_KEY = GAME_ID + ":words:v1";
 const LEVEL_KEY = GAME_ID + ":vocab-level";
 
@@ -120,9 +130,11 @@ export interface LearningClient {
   /** The deck the last buildDeck made (null before). */
   readonly deck: WordDeck | null;
   /**
-   * A recall answer (Học trước, Thẻ Ôn): always sent (01 §6.6). Copying a word
-   * shown on screen (Học trước) passes hintUsed: it is sent as such and never
-   * counts as a right recall (00 D14: copy typing is not remembering).
+   * A recall-activity answer (Học trước, Thẻ Ôn), `review-card` unless
+   * `activity` says otherwise: always sent (01 §6.6). Học trước passes
+   * hintUsed, since its meaning and IPA show while the word is typed
+   * (01 §6.3): sent as such, it never counts as a right recall (00 D14: copy
+   * typing is not remembering), here or when the portal sends it back.
    */
   recordRecall(text: string, correct: boolean, detail?: { activity?: ActivityType; responseMs?: number; hintUsed?: boolean; userAnswer?: string }): void;
   /** Up to 3 Thẻ Ôn questions from `wave`: Ẩu words, then words typed with a hint, then new words (01 §6.5). */
@@ -174,7 +186,7 @@ export function parseLookup(value: unknown, now: number): Map<string, WordRecord
     const samples = [record["recentAnswers"], record["recentSamples"]].flatMap((list) => (Array.isArray(list) ? list : []));
     const recalls = samples.filter((sample) => {
       const s = sample as Record<string, unknown> | null;
-      return s !== null && typeof s === "object" && RECALLS.has(String(s["activityType"])) && s["result"] === "correct";
+      return s !== null && typeof s === "object" && isRightRecall(s["activityType"], s["result"], s["hintUsed"]);
     }).length;
     out.set(normalizeLearningEntityId(id), { mastery, due: (Number.isFinite(next) && next <= now) || mastery < LEARNING.weakMastery, recalls });
   }
@@ -400,14 +412,16 @@ export function createLearningClient(options: LearningClientOptions = {}): Learn
     recordRecall(text, correct, detail = {}) {
       const record = touch(text);
       record.lastSeen = now();
+      const activityType: ActivityType = detail.activity ?? "review-card";
+      const hintUsed = detail.hintUsed ?? false;
       // Only a real recall hides the meaning later (01 §6.3, D14); a copy with the answer shown does not.
-      if (correct && detail.hintUsed !== true) record.recalls += 1;
+      if (isRightRecall(activityType, correct ? "correct" : "wrong", hintUsed)) record.recalls += 1;
       const base = buildCombatLearningEvent({ gameId: GAME_ID, entry: { id: text, en: text, vi: "", ipa: "" }, perfect: correct, occurredAt: new Date(now()).toISOString() });
       pending.push({
         ...base,
-        activityType: detail.activity ?? "review-card",
+        activityType,
         responseMs: Math.max(0, Math.round(detail.responseMs ?? 0)),
-        hintUsed: detail.hintUsed ?? false,
+        hintUsed,
         replayUsed: replayed.has(text),
         ...(detail.userAnswer !== undefined ? { userAnswer: detail.userAnswer } : {}),
       });

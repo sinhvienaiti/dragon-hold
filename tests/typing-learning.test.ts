@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { STAGE_M0 } from "../src/content/data/stages";
 import { LEARNING } from "../src/content/rules";
 import type { SimEvent } from "../src/content/types";
-import { Pronouncer, candidatesFrom, createLearningClient, localRecord, parseLookup, typedWordEvent, type LearningClient } from "../src/app/learning";
+import { Pronouncer, candidatesFrom, createLearningClient, isRightRecall, localRecord, parseLookup, typedWordEvent, type LearningClient } from "../src/app/learning";
 import { createLearningBridge, type LearningBridge, type LearningEvent } from "../src/kit/learning";
 import type { VocabularyEntry } from "../src/kit/vocab";
 import { buildWordDeck, newWordsOf, type DeckCandidate } from "../src/typing/deck";
@@ -97,6 +97,29 @@ describe("learning events (01 §6.6, 00 D14)", () => {
     const view = localRecord(record, record.lastSeen);
     expect(view.recalls).toBeLessThanOrEqual(1);
     expect(view.mastery).toBeLessThan(LEARNING.knownMastery);
+  });
+
+  it("sends Học trước as review-card with hintUsed (01 §6.6: its meaning and IPA show while typed) and never counts it as a recall, here or from the portal", () => {
+    const storage = memoryStorage();
+    const { bridge, sent } = fakeBridge();
+    const learning = createLearningClient({ bridge, storage, every: () => () => {} });
+    // As app.ts wires Học trước: no activity given, hintUsed set.
+    learning.recordRecall("place", true, { responseMs: 900, userAnswer: "place", hintUsed: true });
+    learning.recordRecall("place", false, { responseMs: 1500, userAnswer: "plase", hintUsed: true });
+    learning.flush();
+    expect(sent).toHaveLength(2);
+    expect(sent[0]).toMatchObject({ gameId: "dragon-hold", entityType: "vocabulary", entityId: "place", activityType: "review-card", result: "correct", hintUsed: true, responseMs: 900, userAnswer: "place", expectedAnswer: "place" });
+    expect(sent[1]).toMatchObject({ activityType: "review-card", result: "wrong", errorType: "spelling", hintUsed: true, userAnswer: "plase" });
+    expect((storage.readJson("dragon-hold:words:v1") as Record<string, { recalls: number }>)["place"]!.recalls).toBe(0);
+    // The same events read back from the portal's samples: only the Thẻ Ôn answer without a hint is a recall.
+    const samples = [
+      { activityType: "review-card", result: "correct", hintUsed: true },
+      { activityType: "review-card", result: "correct", hintUsed: false },
+      { activityType: "review-card", result: "correct" },
+      { activityType: "review-card", result: "wrong", hintUsed: false },
+    ];
+    expect(parseLookup([{ entityId: "place", mastery: 50, recentSamples: samples }], 0).get("place")!.recalls).toBe(2);
+    expect([isRightRecall("review-card", "correct", true), isRightRecall("meaning-recall", "correct", false), isRightRecall("typing-enemy", "correct", false)]).toEqual([false, true, false]);
   });
 
   it("queues events locally when there is no portal parent", () => {

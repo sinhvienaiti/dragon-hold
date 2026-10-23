@@ -1,6 +1,7 @@
 /**
  * Calibrates the typist (hands.ts, typist.ts) without a battle: a stream of
- * live words on kit/typing's own router and letters (TD rules), always
+ * live words on kit/typing's own router and letters (TD rules, with the
+ * game's Esc rule: wrong keys stay with the word, 01 §3.3), always
  * `live` words up, oldest first. Measures words a minute, letters, slips and
  * soft switches, and the formula's words a minute for the very words typed
  * (C(E) per word with its length and d, 00 §4.3), so a test can hold the bot
@@ -9,7 +10,7 @@
  * Owner: bot-balance (LANES.md).
  */
 import { createRng } from "../../src/kit/platform";
-import { TD_TYPING, KEY, addWord, compileDeck, compileTyping, createSession, dropWord, typeBackspace, typeLetter, unlock, wordText } from "../../src/kit/typing";
+import { TD_TYPING, KEY, addWord, compileDeck, compileTyping, createSession, dropWord, typeBackspace, typeLetter, typingConfig, unlock, wordText } from "../../src/kit/typing";
 import type { DeckWord, WordGroup } from "../../src/content/types";
 import { BOT_WORDS } from "./deck";
 import { BASE_LATENCY_MS, Hands, dOf, type HandsSpec } from "./hands";
@@ -34,7 +35,8 @@ export function calibrate(hands: HandsSpec, options: { minutes?: number; seed?: 
   const minutes = options.minutes ?? 20;
   const live = options.live ?? 6;
   const rng = createRng(options.seed ?? 1);
-  const rules = compileTyping(TD_TYPING);
+  // Esc keeps a word's wrong keys, as in the game (typing/config.ts, kit router.unlockErrors).
+  const rules = compileTyping(typingConfig(TD_TYPING, { router: { unlockErrors: "keep" } }));
   const deck = compileDeck(words.map((word) => ({ id: word.text, text: word.text, level: word.level })), { min: 3, max: 12 });
   const groupOf = new Map<string, WordGroup>(words.map((word) => [word.text, word.group]));
   const session = createSession(rules, deck, 24);

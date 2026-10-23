@@ -1,8 +1,9 @@
 /**
  * Rồng Giữ Ải typing numbers for kit/typing: TD 1A.6 defaults changed where
  * 01 §3 and 00 §5 differ (letter rest 1 s, 3 reserve letters, lock
- * protection 1.2 s from the first lethal blow, grades of 00 §4.2, words of
- * 3–10 letters, letter priority of 01 §3.3). Pure.
+ * protection 1.2 s from the first lethal blow, Esc keeps a word's wrong
+ * keys, grades of 00 §4.2, words of 3–10 letters, letter priority of
+ * 01 §3.3). Pure.
  * Owner: typing-learning (LANES.md).
  */
 import { GRADE, LETTER_BUDGET, WORDS } from "../content/rules";
@@ -32,7 +33,8 @@ export const DH_TYPING: TypingConfig = typingConfig(TD_TYPING, {
     // "form" and "from" never live together, at any length the run deals.
     maxEditCheckLen: MAX_WORD_LETTERS,
   },
-  router: { softSwitchMaxTyped: 1, protectS: WORDS.lockProtectMs / 1000, protectFrom: "lethal" },
+  // Esc drops the letters typed; the wrong keys stay with the word for its grade and learning event (01 §3.3, 00 D14).
+  router: { softSwitchMaxTyped: 1, protectS: WORDS.lockProtectMs / 1000, protectFrom: "lethal", unlockErrors: "keep" },
   grade: {
     perChar: GRADE.tExpSecondsPerLetterX,
     flashPct: GRADE.flashTimePm / 10,
