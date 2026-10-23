@@ -34,5 +34,9 @@ export default defineConfig({
   },
   build: {
     target: "es2022",
+    // three.js in its own chunk: cached across game updates, and no chunk over the 500 kB warning.
+    rollupOptions: { output: { manualChunks: { three: ["three"] } } },
+    // three.js alone is ~560 kB minified (140 kB gzip).
+    chunkSizeWarningLimit: 600,
   },
 });

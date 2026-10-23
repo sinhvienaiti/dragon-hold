@@ -1,0 +1,110 @@
+/* App-level layers: loading notice, focus veil, countdown, pause menu, hurt edge (06 §2, 05 §5).
+   Uses the ui skin's tokens and panel. Owner: integrator (LANES.md). */
+
+.dh-veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(18, 14, 10, 0.62);
+  backdrop-filter: blur(calc(6px * var(--ui)));
+  pointer-events: auto;
+  z-index: 40;
+}
+
+/* Only a hint before the first key: the map stays visible, presses go through. */
+.dh-veil.is-soft {
+  background: rgba(18, 14, 10, 0.28);
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+.dh-veil__text {
+  font: 700 calc(26px * var(--ui)) / 1.3 var(--dh-font);
+  color: var(--dh-cream);
+  text-align: center;
+  padding: calc(16px * var(--ui)) calc(28px * var(--ui));
+  border-radius: calc(10px * var(--ui));
+  background: rgba(32, 24, 17, 0.85);
+  box-shadow: inset 0 0 0 calc(1.5px * var(--ui)) var(--dh-wood-edge);
+}
+
+.dh-countdown {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  translate: -50% -50%;
+  font: 800 calc(96px * var(--ui)) / 1 var(--dh-font-title);
+  color: var(--dh-cream);
+  text-shadow: 0 calc(3px * var(--ui)) calc(14px * var(--ui)) rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 41;
+}
+
+.dh-pausemenu {
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  min-width: calc(320px * var(--ui));
+  padding: calc(20px * var(--ui)) calc(24px * var(--ui));
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--ui));
+  z-index: 42;
+}
+
+.dh-pausemenu__title {
+  font: 700 calc(30px * var(--ui)) / 1.1 var(--dh-font-title);
+  color: var(--dh-cream);
+  margin-bottom: calc(4px * var(--ui));
+}
+
+.dh-pausemenu__item {
+  all: unset;
+  cursor: pointer;
+  padding: calc(9px * var(--ui)) calc(14px * var(--ui));
+  border-radius: calc(7px * var(--ui));
+  font: 700 calc(18px * var(--ui)) / 1.2 var(--dh-font);
+  color: var(--dh-parchment);
+  background: rgba(255, 236, 200, 0.05);
+  box-shadow: inset 0 0 0 calc(1px * var(--ui)) rgba(154, 122, 85, 0.5);
+}
+
+.dh-pausemenu__item.is-on {
+  color: var(--dh-cream);
+  background: rgba(134, 168, 97, 0.22);
+  box-shadow: inset 0 0 0 calc(1.5px * var(--ui)) var(--dh-moss-hi);
+}
+
+.dh-pausemenu__keys {
+  font: 500 calc(14px * var(--ui)) / 1.3 var(--dh-font);
+  color: var(--dh-muted);
+}
+
+/* 120 ms dark edge when Hỏa Long is hit (05 §5); never over the centre. */
+.dh-hurt {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 62%, rgba(40, 6, 4, 0.55) 100%);
+  transition: opacity 120ms ease-out;
+  z-index: 5;
+}
+
+.dh-hurt.is-on {
+  opacity: 1;
+  transition: none;
+}
+
+.dh-ff {
+  position: absolute;
+  right: calc(16px * var(--ui));
+  top: calc(70px * var(--ui));
+  font: 800 calc(16px * var(--ui)) / 1 var(--dh-font);
+  color: var(--dh-cream);
+  padding: calc(5px * var(--ui)) calc(10px * var(--ui));
+  border-radius: calc(6px * var(--ui));
+  background: rgba(32, 24, 17, 0.8);
+  pointer-events: none;
+}
