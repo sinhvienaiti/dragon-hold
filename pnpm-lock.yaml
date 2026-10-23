@@ -14,6 +14,9 @@ importers:
       '@fontsource/cormorant-garamond':
         specifier: ^5.2.0
         version: 5.3.0
+      '@fontsource/noto-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
       three:
         specifier: 0.170.0
         version: 0.170.0
@@ -200,6 +203,9 @@ packages:
 
   '@fontsource/cormorant-garamond@5.3.0':
     resolution: {integrity: sha512-weuGsCirGVWBWqpt6YUp0yLThTe4G8YO45noq8wxeJCRvEpq5lFrxNMFSTxcyOyV5k5otzJ8guDzYegdYlcLMQ==}
+
+  '@fontsource/noto-sans@5.3.0':
+    resolution: {integrity: sha512-fBCog2PY7DiVVTEEqtI/Qdinx/knobHYfoGpjFXdfBX5RoJaBp1Prw2G75p0OIsdlMZg3cLo0c+YbIUYOxnQJw==}
 
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
@@ -724,6 +730,8 @@ snapshots:
   '@fontsource/be-vietnam-pro@5.3.0': {}
 
   '@fontsource/cormorant-garamond@5.3.0': {}
+
+  '@fontsource/noto-sans@5.3.0': {}
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
 

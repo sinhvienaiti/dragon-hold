@@ -1,12 +1,313 @@
 /**
- * Carry strip (Bộ Mang Theo, 03 §4.2): bottom-right item cells with icon,
- * price and number key; consumables with stacks and the shared cooldown;
- * Tim Rồng and Vảy Cứng in breaks. Sends buy commands through the sink.
- * Owner: ui (LANES.md). Stub: signatures fixed, body TODO.
+ * Carry strip (Bộ Mang Theo, 03 §4.2, 05 §4.5): bottom-right item cells with
+ * icon, price and number key (1…9 in the stage's carry order, then Tim Rồng
+ * and Vảy Cứng in breaks). Placeables enter placement mode; Bình Máu Nhỏ,
+ * Tim Rồng and Vảy Cứng are bought through the sink. In prep and breaks the
+ * strip shows names, prices and why a cell is off (grey price, faint gold
+ * edge, never red); in a wave it folds to icons and keys. Upgrade and sell
+ * live on the map (placement-ui edit mode). Using consumables is the HUD's.
+ * Owner: ui (LANES.md).
  */
-import type { ActionHandler, CommandSink, Presenter } from "../app/contracts";
+import type { ActionHandler, CommandSink, FrameInfo, Presenter } from "../app/contracts";
+import { CONSUMABLES, HERO_UPGRADES, HOUSES, TRAPS, UNITS } from "../content/data/our-side";
+import { OUR_SIDE } from "../content/rules";
+import type { ConsumableId, HeroUpgradeId, PlaceableId, SimEvent } from "../content/types";
+import type { World } from "../sim/world";
+import { buildPhase, isPlaceable, placeableInfo, SIM_PLACEMENT_RULES, type PlacementControl, type PlacementRules } from "./placement-ui";
+import { el, icon, setClass, setShown, setText, uiButton, viNumber } from "./skin";
 
-export function createShopStrip(root: HTMLElement, sink: CommandSink): Presenter & ActionHandler {
-  // TODO(ui)
-  throw new Error("ui/shop-strip: not built yet (ui lane)");
+// ── Pure cell model (tests/ui/shop-strip.test.ts) ──────────────────────────
+
+export type CellKind = "place" | "consumable" | "hero";
+
+export interface StripCell {
+  readonly id: PlaceableId | ConsumableId | HeroUpgradeId;
+  readonly kind: CellKind;
+  /** Number key 1…9, or null past 9 (mouse only). */
+  readonly key: number | null;
+  readonly nameVi: string;
+  readonly icon: string;
+  /** Price now (hero buys rise per buy); null when nothing more can be bought. */
+  readonly price: number | null;
+  readonly enabled: boolean;
+  /** Why it is off now, Vietnamese; null when enabled. */
+  readonly reason: string | null;
+  /** The same in a few letters for the cell ("Thiếu 20", "Hết ô"). */
+  readonly short: string | null;
+  /** State in words ("Có 2", "Đã mua 1/3") and as a corner badge ("2", "1/3"). */
+  readonly note: string | null;
+  readonly badge: string | null;
+  /** One line of what it does (hover and the info line). */
+  readonly effect: string;
+}
+
+const isConsumable = (id: string): id is ConsumableId => id in CONSUMABLES;
+
+const SHORT: Readonly<Record<string, string>> = {
+  "Chỉ đặt lúc nghỉ": "Lúc nghỉ",
+  "Mua lúc nghỉ": "Lúc nghỉ",
+  "Hết ô trống": "Hết ô",
+  "Túi đã đầy": "Túi đầy",
+};
+const sec = (ms: number): string => viNumber(ms / 1000) + " s";
+const metres = (mm: number): string => viNumber(mm / 1000) + " m";
+
+/** One line of what an item does, from its data (03 §6–§9). */
+export function effectLine(id: PlaceableId | ConsumableId | HeroUpgradeId): string {
+  if (id in TRAPS) {
+    const trap = TRAPS[id as keyof typeof TRAPS];
+    const e = trap.effect;
+    if (e.kind === "spikes") return `Chậm ${e.slowPct} %, ${e.dps} sát thương mỗi giây trên đường`;
+    if (e.kind === "bomb") return `Nổ ${e.damage} sát thương khi ≥ ${trap.triggerMin} quái, đẩy lùi ${metres(e.pushMm)}; nạp ${sec(trap.rechargeMs)}`;
+    return `Lưới quái bay thấp xuống đất ${sec(e.groundMs)} trong ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
+  }
+  if (id in HOUSES) {
+    const house = HOUSES[id as keyof typeof HOUSES];
+    return `Hồi ${viNumber(house.effect.healPmPerS / 10)} % máu mỗi giây cho phe ta trong ${metres(house.radiusMm)}; đủ 5 lần gõ hạ quái gần nhà: hồi ${house.pulse.healPct} %`;
+  }
+  if (id in UNITS) {
+    const unit = UNITS[id as keyof typeof UNITS];
+    return `Lính chặn ${unit.blockSlots} quái, ${unit.hp} máu, đánh ${unit.attack.damage} mỗi ${sec(unit.attack.periodMs)}`;
+  }
+  if (isConsumable(id)) {
+    const item = CONSUMABLES[id];
+    return `Hồi ${item.effect.healPct} % máu Hỏa Long trong ${sec(item.effect.durationMs)}; dùng trong đợt`;
+  }
+  const buy = HERO_UPGRADES[id as HeroUpgradeId];
+  return buy.effect.kind === "max-hp" ? `+${buy.effect.pct} % máu tối đa Hỏa Long, hồi luôn phần tăng` : `+${buy.effect.amount} ${buy.effect.kind === "armour" ? "Giáp" : "Kháng phép"} Hỏa Long`;
+}
+
+/** The strip's cells now: carry items (keys 1…), then the stage's in-run buys (03 §6.2). */
+export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_RULES): StripCell[] {
+  const gold = world.economy.gold;
+  const building = buildPhase(world.phase);
+  const lack = (price: number): string => "Thiếu " + (price - gold) + " vàng";
+  const shortOf = (reason: string | null): string | null => (reason === null ? null : SHORT[reason] ?? reason.replace(/ vàng$/, ""));
+  const cells: StripCell[] = [];
+  let key = 1;
+  const nextKey = (): number | null => (key <= 9 ? key++ : null);
+
+  for (const id of world.stage.carry) {
+    const k = nextKey();
+    if (isPlaceable(id)) {
+      const info = placeableInfo(id);
+      let reason: string | null = null;
+      if (!building) reason = "Chỉ đặt lúc nghỉ";
+      else if (gold < info.cost) reason = lack(info.cost);
+      else if (rules.suggestedSlots(world, id).length === 0) reason = "Hết ô trống";
+      const built = world.slots.filter((slot) => slot.item === id).length;
+      cells.push({
+        id, kind: "place", key: k, nameVi: info.nameVi, icon: info.icon, price: info.cost, enabled: reason === null, reason, short: shortOf(reason),
+        note: built > 0 ? "Đã đặt " + built : null, badge: built > 0 ? String(built) : null, effect: effectLine(id),
+      });
+    } else if (isConsumable(id)) {
+      const def = CONSUMABLES[id];
+      const held = Object.entries(world.shop.held).reduce((sum, [, n]) => sum + n, 0);
+      const room = OUR_SIDE.consumableSlots * def.stackMax;
+      const mine = world.shop.held[id] ?? 0;
+      let reason: string | null = null;
+      if (!building) reason = "Mua lúc nghỉ";
+      else if (held >= room) reason = "Túi đã đầy";
+      else if (gold < def.cost) reason = lack(def.cost);
+      cells.push({
+        id, kind: "consumable", key: k, nameVi: def.nameVi, icon: id, price: def.cost, enabled: reason === null, reason, short: shortOf(reason),
+        note: mine > 0 ? "Có " + mine : null, badge: mine > 0 ? String(mine) : null, effect: effectLine(id),
+      });
+    }
+  }
+  for (const id of world.stage.unlocks.heroUpgrades) {
+    const def = HERO_UPGRADES[id];
+    const bought = world.shop.heroBuys[id] ?? 0;
+    const price = bought < def.maxPerRun ? def.costs[bought] ?? null : null;
+    let reason: string | null = null;
+    if (price === null) reason = "Đủ " + def.maxPerRun + " lần";
+    else if (!building) reason = "Mua lúc nghỉ";
+    else if (gold < price) reason = lack(price);
+    cells.push({
+      id,
+      kind: "hero",
+      key: nextKey(),
+      nameVi: def.nameVi,
+      icon: id,
+      price,
+      enabled: reason === null,
+      reason,
+      short: shortOf(reason),
+      note: bought > 0 ? "Đã mua " + bought + "/" + def.maxPerRun : null,
+      badge: bought > 0 ? bought + "/" + def.maxPerRun : null,
+      effect: effectLine(id),
+    });
+  }
+  return cells;
+}
+
+// ── The strip ───────────────────────────────────────────────────────────────
+
+export interface ShopStripOptions {
+  /** Placement mode the placeable cells start (placement-ui); without it those cells only show. */
+  placement?: PlacementControl;
+  rules?: PlacementRules;
+}
+
+interface CellNodes {
+  readonly button: HTMLButtonElement;
+  readonly name: HTMLElement;
+  readonly price: HTMLElement;
+  readonly priceValue: HTMLElement;
+  readonly reason: HTMLElement;
+  readonly badge: HTMLElement;
+  readonly key: HTMLElement;
+}
+
+export function createShopStrip(root: HTMLElement, sink: CommandSink, options: ShopStripOptions = {}): Presenter & ActionHandler {
+  const doc = root.ownerDocument;
+  const rules = options.rules ?? SIM_PLACEMENT_RULES;
+  let world: World | null = null;
+  let cells: StripCell[] = [];
+  let hover: string | null = null;
+  let flash: { text: string; until: number } | null = null;
+  let now = 0;
+
+  const strip = el(doc, "section", "dh-panel dh-strip");
+  strip.dataset.ui = "shop-strip";
+  strip.dataset.keepout = "";
+  const head = el(doc, "div", "dh-strip__head");
+  const title = el(doc, "span", "dh-title", "Bộ Mang Theo");
+  const info = el(doc, "span", "dh-strip__info");
+  head.append(title, info);
+  const rows = el(doc, "div", "dh-strip__rows");
+  const placeRow = el(doc, "div", "dh-strip__row");
+  const buyRow = el(doc, "div", "dh-strip__row");
+  rows.append(placeRow, buyRow);
+  strip.append(head, rows);
+  root.append(strip);
+
+  const nodes = new Map<string, CellNodes>();
+
+  const press = (cell: StripCell): void => {
+    const node = nodes.get(cell.id)?.button;
+    const bump = (ok: boolean): void => {
+      if (!node) return;
+      node.classList.remove("is-pressed", "is-nope");
+      void node.offsetWidth;
+      node.classList.add(ok ? "is-pressed" : "is-nope");
+    };
+    if (cell.kind === "place") {
+      if (!options.placement) return;
+      const ok = cell.enabled && options.placement.begin(cell.id as PlaceableId);
+      bump(ok);
+      if (!ok && cell.reason) flash = { text: cell.nameVi + ": " + cell.reason, until: now + 1800 };
+      return;
+    }
+    if (!cell.enabled) {
+      bump(false);
+      flash = { text: cell.nameVi + ": " + (cell.reason ?? "chưa mua được"), until: now + 1800 };
+      return;
+    }
+    bump(true);
+    sink({ type: "buy", item: cell.id as ConsumableId | HeroUpgradeId });
+  };
+
+  const build = (list: StripCell[]): void => {
+    placeRow.replaceChildren();
+    buyRow.replaceChildren();
+    nodes.clear();
+    for (const cell of list) {
+      const button = uiButton(doc, "dh-cell", () => {
+        const current = cells.find((entry) => entry.id === cell.id);
+        if (current) press(current);
+      });
+      button.dataset.item = cell.id;
+      button.addEventListener("mouseenter", () => (hover = cell.id));
+      button.addEventListener("mouseleave", () => {
+        if (hover === cell.id) hover = null;
+      });
+      const key = el(doc, "span", "dh-key", cell.key === null ? "" : String(cell.key));
+      const iconNode = el(doc, "span", "dh-icon");
+      iconNode.innerHTML = icon(cell.icon);
+      const name = el(doc, "span", "dh-cell__name", cell.nameVi);
+      const price = el(doc, "span", "dh-cell__price");
+      price.innerHTML = `<span class="dh-icon">${icon("coin")}</span>`;
+      const priceValue = el(doc, "span");
+      price.append(priceValue);
+      const textCol = el(doc, "span", "dh-cell__text");
+      textCol.append(name, price);
+      const reason = el(doc, "span", "dh-cell__reason");
+      const badge = el(doc, "span", "dh-cell__badge");
+      button.append(key, badge, iconNode, textCol, reason);
+      setShown(key, cell.key !== null);
+      (cell.kind === "place" ? placeRow : buyRow).append(button);
+      nodes.set(cell.id, { button, name, price, priceValue, reason, badge, key });
+    }
+    setShown(buyRow, buyRow.childElementCount > 0);
+  };
+
+  const frame = (w: World, frameInfo: FrameInfo): void => {
+    world = w;
+    now = frameInfo.now;
+    cells = stripCells(w, rules);
+    const ids = cells.map((cell) => cell.id).join(",");
+    if (ids !== [...nodes.keys()].join(",")) build(cells);
+    const building = buildPhase(w.phase);
+    setClass(strip, "is-compact", !building);
+    setShown(strip, w.phase !== "victory" && w.phase !== "defeat");
+    for (const cell of cells) {
+      const n = nodes.get(cell.id);
+      if (!n) continue;
+      setText(n.priceValue, cell.price === null ? "—" : String(cell.price));
+      setText(n.reason, cell.short ?? "");
+      setShown(n.reason, cell.short !== null);
+      setText(n.badge, cell.badge ?? "");
+      setShown(n.badge, cell.badge !== null);
+      const poor = cell.reason !== null && cell.reason.startsWith("Thiếu");
+      setClass(n.button, "is-poor", poor);
+      setClass(n.button, "is-blocked", !cell.enabled && !poor);
+      setClass(n.button, "is-on", options.placement?.item === cell.id && options.placement.mode === "place");
+      const keyText = cell.key === null ? "" : " (phím " + cell.key + ")";
+      n.button.title = cell.nameVi + keyText + ": " + cell.effect + (cell.note ? " · " + cell.note : "") + (cell.reason ? " · " + cell.reason : "");
+    }
+    // Info line: a notice, the hovered cell, or the keys.
+    let html: string;
+    if (flash && now < flash.until) html = `<b>${flash.text}</b>`;
+    else {
+      const cell = hover ? cells.find((entry) => entry.id === hover) : undefined;
+      html = cell
+        ? `<b>${cell.nameVi}</b> · ${cell.effect}` + (cell.reason ? ` · <b>${cell.reason}</b>` : "")
+        : `Phím <b>1–${Math.min(9, cells.length)}</b> chọn món · <b>\`</b> sửa món đã đặt`;
+    }
+    if (info.innerHTML !== html) info.innerHTML = html;
+  };
+
+  const onEvents = (events: readonly SimEvent[], w: World): void => {
+    world = w;
+    for (const event of events) {
+      if (event.type !== "bought") continue;
+      const node = nodes.get(event.item)?.button;
+      if (!node) continue;
+      node.classList.remove("is-pressed");
+      void node.offsetWidth;
+      node.classList.add("is-pressed");
+    }
+  };
+
+  const handleAction = (action: string): boolean => {
+    if (!world) return false;
+    const match = /^carry-(\d)$/.exec(action);
+    if (!match) return false;
+    const cell = stripCells(world, rules).find((entry) => entry.key === Number(match[1]));
+    if (!cell) return false;
+    // Placeables go to placement-ui when the strip was not given it.
+    if (cell.kind === "place" && !options.placement) return false;
+    press(cell);
+    return true;
+  };
+
+  return {
+    onEvents,
+    frame,
+    handleAction,
+    dispose(): void {
+      strip.remove();
+    },
+  };
 }
