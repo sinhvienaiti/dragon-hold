@@ -8,8 +8,8 @@
    "seed": 20261023,
    "ticks": 600,
    "every": 60,
-   "final": "a6e8c82d",
-   "hashes": ["ff4e4985","9aead7ad","4f567655","6a45358d","e6b177a5","52fdd00d","08caef55","0c03646d","63275745","a6e8c82d"],
+   "final": "70563e53",
+   "hashes": ["5e89e81b","4fe5d413","af9150fb","e5b03983","d5741f7b","767647b3","fe39f01b","82f97843","d685c8db","70563e53"],
    "log": []
   },
   {
@@ -18,8 +18,8 @@
    "seed": 1,
    "ticks": 10800,
    "every": 300,
-   "final": "53787a2e",
-   "hashes": ["800d9a8d","a7d283dc","025ade36","d97fa9ed","be11910e","992ee00c","d3217466","50f0cc83","2b63addb","f39474fa","278ec5de","637271bb","4c3b755a","93773e6a","786100fa","57cf272e","c7a53884","e5dfce28","966bd45a","00833e35","b3cd77ce","fc25a1cf","b2f505a9","49dfc828","7c197557","6ceae0a5","7cd14e55","5debdcb9","33dc209d","5155d1dd","02590943","d5336a99","2bc633ef","52bd4aea","e6abf229","53787a2e"],
+   "final": "682f4878",
+   "hashes": ["a1de0965","d1448f34","b210ac52","cb72b2f5","6c35117e","903caa80","c747e08a","b5c8207f","131705c3","8a54c916","76d1b236","dc6ac849","2abbb2e0","0c112a18","67a8b110","7b99dba4","e0f86e86","9564c55a","a471dab0","8630766f","61059e80","eae4ddb1","5a8c0293","27f71dc6","e02d5e91","47b8049f","b2474bc7","6c63b97f","d654169b","338dc77b","f9389925","551847db","3355082d","64253d6c","d66d6147","682f4878"],
    "log": [
     [0,{"type":"buy","item":"small-potion"}],
     [30,{"type":"place","item":"spikes","slot":"cau-t3"}],
@@ -157,8 +157,8 @@
    "seed": 2,
    "ticks": 10800,
    "every": 300,
-   "final": "eb93bf9a",
-   "hashes": ["a247827f","98c87b4f","f1214ab9","58436660","d0aac716","503b5394","74c8e5c4","58befb79","c12067ff","0ac19a83","1a3f31b8","fc647bd4","4aaab4f9","f7b594bf","36c330e5","d25e68b5","92e7d3f5","2257eaf1","aabeaedb","c65e0103","63861037","9d1a3218","75fac2b9","db9a620f","e02d6163","5152c7c2","f2cc53d4","b687e7b8","f69a8e78","38691e95","f838ccdd","d50dff25","a94522e4","2a93e56f","c18676e8","eb93bf9a"],
+   "final": "51c705a4",
+   "hashes": ["87998747","660e5ec7","6f982975","b28665b0","5bd872c2","ed256820","05b74544","dff261cd","2f8ba50f","aa4c7063","32277f94","b4cf947c","9fad5395","6d41f263","8b916699","4aeed1c1","fabf2497","8996737b","b685aba1","d83d5cb1","8493bd9d","b2cbd0ee","c5acf4d3","5a0a0ea5","323df245","7316aa88","48ee34d2","afcecd36","0b2a7eb6","602cb74f","6d032687","9a87a7c3","9ee9deae","f16f6ba5","9248f5e6","51c705a4"],
    "log": [
     [0,{"type":"buy","item":"small-potion"}],
     [30,{"type":"place","item":"spikes","slot":"cau-t3"}],

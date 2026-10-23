@@ -410,8 +410,12 @@ export function enemyAt(world: World, ref: { readonly slot: number; readonly ser
   return enemy && enemy.alive && enemy.serial === ref.serial ? enemy : null;
 }
 
-/** Everything a step reads back is state; these keys are static input or output and stay out of the hash. */
-const HASH_SKIP: ReadonlySet<string> = new Set(["stage", "map", "lanes", "events", "deck", "wall"]);
+/**
+ * Everything a step reads back is state; these keys are static input or output and stay out of the hash.
+ * `rules` (the typing session's compiled config, seconds as floats) and `def` (slot definitions, metres)
+ * are static config: the hashed state is integers only (LANES.md).
+ */
+const HASH_SKIP: ReadonlySet<string> = new Set(["stage", "map", "lanes", "events", "deck", "wall", "rules", "def"]);
 
 /** The world folded into 32 bits (golden tests, 05 §10). */
 export function hashWorld(world: World): number {
