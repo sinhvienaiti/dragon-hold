@@ -5,6 +5,8 @@
  * sim-battle (LANES.md), who verifies and extends them.
  * Grey-box placeholders: one colour per family, silhouette by gait (biped
  * tall capsule, quadruped long low box, flyer floating sphere, swarm tiny box).
+ * Sizes are set so the default camera draws them at 05 §2.3's pixel bands
+ * (dh-scale.mjs at 1080p): bipeds and flyers 32–44 px, swarms ≥ 26 px.
  */
 import type { EnemyDef, EnemyId, Family, PlaceholderDef } from "../types";
 
@@ -59,7 +61,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     firstChapter: 1,
     show: {
       model: "enemies/moss-grunt",
-      placeholder: box("moss", "capsule", [0.6, 1.3, 0.5]),
+      placeholder: box("moss", "capsule", [0.72, 1.56, 0.6]),
       material: "leaf",
       audioSet: "infantry",
       sounds: sounds("moss-grunt"),
@@ -90,7 +92,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     firstChapter: 2,
     show: {
       model: "enemies/moss-archer",
-      placeholder: box("moss", "capsule", [0.6, 1.4, 0.5]),
+      placeholder: box("moss", "capsule", [0.72, 1.68, 0.6]),
       material: "leaf",
       audioSet: "marksman",
       sounds: sounds("moss-archer", true),
@@ -184,7 +186,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     firstChapter: 1,
     show: {
       model: "enemies/thorn-wasp",
-      placeholder: box("bug", "sphere", [0.5, 0.4, 0.7], 3),
+      placeholder: box("bug", "sphere", [0.7, 0.56, 1.0], 3),
       material: "chitin",
       audioSet: "flyer",
       sounds: sounds("thorn-wasp", true),
@@ -216,7 +218,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     firstChapter: 1,
     show: {
       model: "enemies/thorn-ant",
-      placeholder: box("bug", "box", [0.35, 0.2, 0.5]),
+      placeholder: box("bug", "box", [0.63, 0.36, 0.9]),
       material: "chitin",
       audioSet: "pack",
       sounds: sounds("thorn-ant"),

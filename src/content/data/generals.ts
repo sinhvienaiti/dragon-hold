@@ -38,7 +38,7 @@ export const GENERALS: Readonly<Record<GeneralId, GeneralDef>> = {
     firstChapter: 1,
     show: {
       model: "generals/moss-banner",
-      placeholder: { shape: "capsule", color: FAMILY_COLORS.moss, sizeM: [0.8, 1.9, 0.7], hoverM: 0 },
+      placeholder: { shape: "capsule", color: FAMILY_COLORS.moss, sizeM: [1.0, 2.4, 0.9], hoverM: 0 },
       material: "leaf",
       audioSet: "general",
       sounds: { attack: "general.moss-banner.attack", hit: "general.moss-banner.hit", death: "general.moss-banner.death", skill: "general.moss-banner.skill" },

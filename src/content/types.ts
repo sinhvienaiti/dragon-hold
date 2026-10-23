@@ -475,8 +475,12 @@ export interface MapDef {
   readonly river: RiverDef | null;
   readonly slots: readonly SlotDef[];
   readonly terrain: TerrainDef;
-  /** Default camera (05 §3): yaw 0 looks north from the south. */
-  readonly camera: { readonly yawDeg: number; readonly pitchDeg: number; readonly distanceM: number };
+  /**
+   * Default camera (05 §3): yaw 0 looks north from the south. `lookM`: the
+   * default look point's offset from the dais centre (the HUD's top panels
+   * must not cover the slots near the far gates); default [0, 0].
+   */
+  readonly camera: { readonly yawDeg: number; readonly pitchDeg: number; readonly distanceM: number; readonly lookM?: Vec2 };
 }
 
 // ── Waves and stages (02 §5, 04 §11) ────────────────────────────────────────
@@ -497,7 +501,26 @@ export interface SpawnGroupDef {
   /** Escorts around a general or heavy foe, half ahead, half behind (02 §5.2). */
   readonly escort?: { readonly foe: EnemyId; readonly count: number };
   readonly elite?: boolean;
+  /** Elite traits (02 §2.4); M0 spawns none. */
+  readonly traits?: readonly EliteTraitId[];
+  /** Chapter variant id (02 §2.3, C12–C19); none in M0. */
+  readonly variant?: string;
 }
+
+/** Elite traits (02 §2.4): attack, defence and control groups. Hooks only until M1. */
+export type EliteTraitId =
+  | "frenzy" // Cuồng Nộ
+  | "death-blast" // Nổ Khi Chết
+  | "blight-trail" // Lửa Mục
+  | "double-shot" // Đòn Kép
+  | "stone-armour" // Giáp Đá: +1 armour tier
+  | "mist-shield" // Khiên Sương
+  | "regrowth" // Tái Sinh
+  | "thorns" // Gai Ngược
+  | "swift" // Nhanh: +25 % speed
+  | "unstoppable" // Xuyên Chặn
+  | "trap-proof" // Kháng Bẫy
+  | "drain"; // Hút Nạp
 
 export interface WaveDef {
   /** 1-based. */
@@ -750,7 +773,23 @@ export type SimEvent = { readonly tick: number } & (
   | { readonly type: "unit-down"; readonly unit: number; readonly x: number; readonly z: number }
   | { readonly type: "unit-up"; readonly unit: number; readonly x: number; readonly z: number }
   | { readonly type: "house-pulse"; readonly slot: number; readonly house: HouseId; readonly x: number; readonly z: number }
+  /** A general's aura ring turns on or off (spawn, Ấn Phá, silence, death); members are read from world.auras each frame. */
   | { readonly type: "aura"; readonly enemy: EnemyRef; readonly aura: AuraKind; readonly on: boolean; readonly radiusM: number }
+  /**
+   * G01's Cắm Cờ (02 §3.2): "windup" while the general stands 1 s (banner −1),
+   * "plant" when the banner stands (its D1 word follows), "pulled" when the
+   * word is typed, "expired" when its time is up, "cancel" when the wind-up broke.
+   */
+  | {
+      readonly type: "banner";
+      readonly banner: number;
+      readonly owner: EnemyRef;
+      readonly stage: "windup" | "plant" | "pulled" | "expired" | "cancel";
+      readonly x: number;
+      readonly z: number;
+      readonly radiusM: number;
+      readonly durationMs: number;
+    }
   | { readonly type: "defeat"; readonly wave: number }
   | { readonly type: "victory"; readonly stars: 1 | 2 | 3 }
 );

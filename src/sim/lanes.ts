@@ -12,6 +12,11 @@ export interface LaneSpan {
   readonly to: number;
 }
 
+export interface BridgeSpan extends LaneSpan {
+  /** Half the deck width, u: foes squeeze onto it (the choke point). */
+  readonly halfWidth: number;
+}
+
 export interface FordSpan extends LaneSpan {
   readonly slowPct: number;
   readonly wetTicks: number;
@@ -32,7 +37,7 @@ export interface LaneRuntime {
   readonly altitude: number;
   /** Half the dirt path width, u (0 for sky lanes). */
   readonly halfWidth: number;
-  readonly bridges: readonly LaneSpan[];
+  readonly bridges: readonly BridgeSpan[];
   readonly fords: readonly FordSpan[];
 }
 
@@ -62,7 +67,7 @@ export function compileLanes(map: MapDef, ids: readonly string[]): LaneRuntime[]
       length: cum[cum.length - 1]!,
       altitude: sky ? mToU(sky.altitudeM) : 0,
       halfWidth: ground ? mToU(ground.widthM / 2) : 0,
-      bridges: features.flatMap((f) => (f.kind === "bridge" ? [{ from: mToU(f.fromM), to: mToU(f.toM) }] : [])),
+      bridges: features.flatMap((f) => (f.kind === "bridge" ? [{ from: mToU(f.fromM), to: mToU(f.toM), halfWidth: mToU(f.widthM / 2) }] : [])),
       fords: features.flatMap((f) =>
         f.kind === "ford" ? [{ from: mToU(f.fromM), to: mToU(f.toM), slowPct: f.slowPct, wetTicks: msToTicks(f.wetMs) }] : [],
       ),

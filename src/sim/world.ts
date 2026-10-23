@@ -32,7 +32,7 @@ import { createSpawnState, stepSpawn, type SpawnState } from "./spawn";
 import { createStatusSet, stepStatus, type StatusSet } from "./status";
 import { createTrapsState, stepTraps, type TrapsState } from "./traps";
 import { createUnitsState, stepUnits, type UnitsState } from "./units";
-import { callEarly, continueBreak, createWaveState, startRun, stepWaves, type WaveState } from "./waves";
+import { callEarly, continueBreak, createWaveState, onEnemyGone as wavesOnGone, startRun, stepWaves, type WaveState } from "./waves";
 import { createWordsState, markEnemy, onEnemyGone, releaseLock, stepWords, typeBackspace, typeKey, type WordsState } from "./words";
 
 export interface WorldOptions {
@@ -116,8 +116,10 @@ export interface EnemyState {
   /** Next strike tick and the wind-up end (−1: none). */
   attackAt: number;
   windupUntil: number;
-  /** What it attacks now. */
+  /** What it attacks now (movement picks it each tick). */
   target: EntityRef | null;
+  /** What the strike in wind-up will hit (locked when the wind-up starts). */
+  aim: EntityRef | null;
   /** Unit index blocking it (−1: free). */
   blockedBy: number;
   statuses: StatusSet;
@@ -127,6 +129,28 @@ export interface EnemyState {
   killedBy: KillSource | null;
   /** Cleanup has handled the death and freed the slot. */
   freed: boolean;
+  // Battle fields (sim-battle: spawn, movement, combat, boss).
+  /** Tick it left the gate. */
+  bornAt: number;
+  /** u from the gate where it stops: the melee ring (lane end), its shooting band, a general's 8 m. */
+  stopAt: number;
+  /** Its own side of the path (u right of travel) before separation and the swarm zigzag. */
+  homeLateral: number;
+  /** Special action (ACTION in movement.ts): pounce, charge, retreat, banner wind-up; 0 none. */
+  action: number;
+  /** The action's end; with no action, the earliest tick of the next retreat or pounce. */
+  actionUntil: number;
+  /** Lane point (u from the gate) the action started from or aims at. */
+  actionAlong: number;
+  /** Tick its species skill or charge may fire again. */
+  skillAt: number;
+  /** Pounces over a blocker left (E18). */
+  pounces: number;
+  /** Was in a ford last tick: Wet when it leaves the water (03 §2.4). */
+  wading: boolean;
+  /** Elite trait bits (ELITE_TRAITS order in spawn.ts) and chapter variant; none in M0. */
+  traits: number;
+  variant: string | null;
 }
 
 export interface EnemyStore {
@@ -340,6 +364,7 @@ function cleanup(world: World): void {
   for (const enemy of store.list) {
     if (enemy.alive || enemy.freed) continue;
     onEnemyGone(world, enemy);
+    wavesOnGone(world, enemy);
     if (enemy.killedBy !== null) {
       combatOnKill(world, enemy);
       economyOnKill(world, enemy);
@@ -368,7 +393,9 @@ export function allocEnemy(world: World, foe: FoeId): EnemyState {
   const enemy: EnemyState = {
     slot, serial: store.nextSerial, alive: true, foe, general: false, elite: false, wave: world.wave, lane: 0, along: 0, lateral: 0,
     x: 0, z: 0, y: 0, hp: 1, hpMax: 1, armour: 0, resist: 0, speed: 0, mode: "walk", modeUntil: -1, cluster: -1, word: -1, wordsLeft: 0,
-    attackAt: -1, windupUntil: -1, target: null, blockedBy: -1, statuses: createStatusSet(), protectedUntil: -1, killedBy: null, freed: false,
+    attackAt: -1, windupUntil: -1, target: null, aim: null, blockedBy: -1, statuses: createStatusSet(), protectedUntil: -1, killedBy: null, freed: false,
+    bornAt: world.tick, stopAt: 0, homeLateral: 0, action: 0, actionUntil: -1, actionAlong: 0, skillAt: 0, pounces: 0, wading: false,
+    traits: 0, variant: null,
   };
   store.nextSerial += 1;
   store.live += 1;

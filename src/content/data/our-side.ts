@@ -2,11 +2,38 @@
  * M0 items of our side (03; DESIGN.md §9 M0): traps Gai Chông, Bom Hạt Thông,
  * Lưới Phóng; blocker Vệ Binh Rêu; magic house Nhà Thuốc Lá; Bình Máu Nhỏ;
  * in-run buys Tim Rồng, Vảy Cứng. Chapter-1 numbers (×g(c) for damage and HP).
- * Seeded by the architect from 03 §6–§9; owner: sim-ourside (LANES.md).
+ * Seeded by the architect from 03 §6–§9, checked against 03 §6.2–§9.2 by
+ * sim-ourside (owner, LANES.md). Bots tune numbers here, never in code
+ * (03 §13.1: over the 40 % non-typing cap, lower these numbers).
  * Placeholders: bark brown for traps, pale blue for houses, moss green for
  * units (05 §2.2 own colours), primitives only until the owner's GLB.
  */
-import type { ConsumableDef, ConsumableId, HeroUpgradeDef, HeroUpgradeId, HouseDef, HouseId, TrapDef, TrapId, UnitDef, UnitId } from "../types";
+import type { ConsumableDef, ConsumableId, HeroUpgradeDef, HeroUpgradeId, HouseDef, HouseId, PlaceableId, TrapDef, TrapId, UnitDef, UnitId } from "../types";
+
+/**
+ * Our-side behaviour numbers the design leaves open (sim-ourside starting
+ * values; rules live in src/sim, these are data the bots may tune).
+ */
+export const OUR_SIDE_TUNING = {
+  /** Units step out to meet foes inside their 4 m leash at this speed (03 §9.1 gives none). */
+  unitSpeedMmS: 2500,
+  /** A unit and a foe on its lane touch within this distance (same as movement's contact, inside melee 1.5 m, 02 §1.3). */
+  contactMm: 1200,
+  /** Several units on one block point stand this far apart across the lane. */
+  unitSpreadMm: 700,
+  /** Gai Chông stabs every 0.5 s (8 VL/s → 4 a stab at C1); its slow lingers 0.3 s after a foe steps off. */
+  spikesPulseMs: 500,
+  spikesLingerMs: 300,
+  /** The Dragons count as inside a house's area up to the dais edge (dais 4 m, 01 §2.1). */
+  heroReachMm: 4000,
+  /** Houses heal on a 1 s beat. */
+  houseBeatMs: 1000,
+  /** C6+ quick place: one item a wave, built in 2 s (03 §0.1 rule 6, §4.1). */
+  quickBuildMs: 2000,
+  /** G15 guard (00 §7): our hard control on one foe ≤ 35 % of max(its life, 10 s). */
+  hardControlCapPct: 35,
+  hardControlMinLifeMs: 10_000,
+} as const;
 
 const TRAP_UPGRADE = { costPct: [70, 100], mainPct: [45, 35], rechargePctAt3: -15 } as const;
 
@@ -188,3 +215,6 @@ export const HERO_UPGRADES: Readonly<Record<HeroUpgradeId, HeroUpgradeDef>> = {
     },
   },
 };
+
+/** Every placeable item, for kind and price lookups. */
+export const PLACEABLES: Readonly<Record<PlaceableId, TrapDef | HouseDef | UnitDef>> = { ...TRAPS, ...HOUSES, ...UNITS };

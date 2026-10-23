@@ -378,6 +378,40 @@ export const HERO_SKILLS = {
   skillWordChain: 1,
 } as const;
 
+/**
+ * Battle values the design leaves open (sim-battle starting values; bots tune
+ * them like the rest): E18's leap, E19's run, crowding on the path, G01's
+ * planting. Speeds in mm/s equal u per tick (src/sim/fixed.ts).
+ */
+export const BATTLE = {
+  /** E18 leaps 3 m past its blocker in 0.3 s, 1 m high (02 §2.2 sets the 0.5 s warning). */
+  pounceMm: 3000,
+  pounceMs: 300,
+  pounceHeightMm: 1000,
+  /** E19 runs its 8 m charge at 12 m/s. */
+  chargeMmS: 12_000,
+  /** E11 steps back at most once in 4 s; E18 waits as long after landing before another pounce. */
+  retreatCooldownMs: 4000,
+  /** A knockback reads as a short slide. */
+  knockSlideMs: 250,
+  /** Foes closer than 0.8 m along and 0.7 m across slide apart at 1.5 m/s. */
+  separateAlongMm: 800,
+  separateAcrossMm: 700,
+  separateMmS: 1500,
+  /** Room across: 3.5 m either side on the melee ring, 2 m on a sky lane, 0.25 m kept from the path edge. */
+  ringRoomMm: 3500,
+  skyRoomMm: 2000,
+  edgeMm: 250,
+  /** E25 zigzags ±0.25 m every 1.2 s (02 §2.2 "dòng zigzag"). */
+  zigzagMm: 250,
+  zigzagMs: 1200,
+  /** A shooter takes a unit within 3 m as its target even when that unit holds nobody (E11 after stepping back). */
+  shooterCloseMm: 3000,
+  /** G01 plants no sooner than 4 s after it appears, with ≥ 2 allies within the banner radius or once at its stop. */
+  firstPlantMs: 4000,
+  plantAllies: 2,
+} as const;
+
 /** Urgent word, Từ Khẩn (01 §3.6): once a wave, when ≥ 3 foes are in the melee ring or the Fire Dragon is under 35 % HP. */
 export const URGENT = { perWave: 1, meleeFoes: 3, heroHpPct: 35 } as const;
 

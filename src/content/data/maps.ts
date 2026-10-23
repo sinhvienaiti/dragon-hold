@@ -106,7 +106,8 @@ export const MAP_L2_CAU: MapDef = {
     pad("h-w", "outer", [-14, 6.5]),
   ],
   terrain: { seed: 20_261_023, sizeM: 144, playRadiusM: 32, reliefM: 1.6, kit: "pine-river" },
-  camera: { yawDeg: 0, pitchDeg: 55, distanceM: 95 },
+  // Looks 4 m north of the dais: the wave card no longer covers the Đường Cầu slots by the north gate.
+  camera: { yawDeg: 0, pitchDeg: 55, distanceM: 95, lookM: [0, -4] },
 };
 
 export const MAPS: Readonly<Record<string, MapDef>> = { [MAP_L2_CAU.id]: MAP_L2_CAU };
