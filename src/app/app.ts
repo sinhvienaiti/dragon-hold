@@ -15,11 +15,9 @@
 import "./app.css";
 import { Vector3, type Object3D } from "three";
 import { createAudio, type GameAudio } from "../audio";
-import { ENEMIES } from "../content/data/enemies";
-import { GENERALS } from "../content/data/generals";
 import { MAPS } from "../content/data/maps";
 import { STAGE_M0 } from "../content/data/stages";
-import type { Difficulty, EnemyId, GeneralId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
+import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
 import { createLearningBridge } from "../kit/learning";
 import { setSpeechGate } from "../kit/speech";
 import { uToM } from "../sim/fixed";
@@ -34,7 +32,7 @@ import { el, installSkin, setShown, uiButton } from "../ui/skin";
 import { createTags } from "../ui/tags";
 import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
-import { CHARACTER_SCALE } from "../view/crowd";
+import { foeDrawnSize } from "../view/foe-look";
 import { createFx, type FxPresenter } from "../view/fx";
 import { createHeroes } from "../view/heroes";
 import { createHpBars } from "../view/hpbars";
@@ -816,8 +814,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         map.worldToScreen(base.x, base.y, base.z, a);
         map.worldToScreen(top.x, top.y, top.z, b);
         if (!a.visible || !b.visible) continue;
-        const show = (enemy.general ? GENERALS[enemy.foe as GeneralId] : ENEMIES[enemy.foe as EnemyId]).show.placeholder;
-        const halfW = (Math.max(show.sizeM[0], show.sizeM[2]) * CHARACTER_SCALE) / 2;
+        // As drawn (foe-look.ts: the tier's draw scale), the same size dh-scale measures.
+        const [drawnW, , drawnL] = foeDrawnSize(enemy.foe as FoeId);
+        const halfW = Math.max(drawnW, drawnL) / 2;
         map.worldToScreen(base.x + halfW, base.y, base.z, c);
         out.push({ foe: enemy.foe, px: Math.abs(a.y - b.y), widthPx: Math.abs(c.x - a.x) * 2, distM: Math.hypot(base.x, base.z) });
       }
