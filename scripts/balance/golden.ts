@@ -1,9 +1,10 @@
 /**
- * pnpm dh:golden:update: rewrites tests/golden/*.json (world hashes at fixed
- * ticks for fixed seeds and command logs). Run only after a deliberate rule
- * change, and say why in the changelog.
- * Owner: bot-balance (LANES.md). Stub: scenarios are TODO.
+ * pnpm dh:golden:update (package.json runs this file with --update): the
+ * golden runs of golden-update.ts. With --update it rewrites
+ * tests/golden/m0.json when anything moved; without it, it only checks.
+ * Owner: bot-balance (LANES.md).
  */
-const update = process.argv.includes("--update");
-// TODO(bot-balance): golden scenarios (seed, command log, ticks) → hashes.
-console.log(JSON.stringify({ update, golden: "TODO" }));
+import { goldenUpdate } from "./golden-update";
+
+const argv = process.argv.slice(2);
+process.exitCode = goldenUpdate(argv.includes("--update") ? argv.filter((a) => a !== "--update") : ["--check", ...argv]);
