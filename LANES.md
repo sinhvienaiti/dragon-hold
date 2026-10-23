@@ -89,6 +89,11 @@ Every system file exports `create<X>State(init: WorldInit)` and `step<X>(world)`
 | `canPlace`, `suggestedSlots`, `slotIndex` | sim-ourside `placement.ts` | shop, UI, bots |
 | `dealWord(world, kind, target)` | typing-learning `words.ts` | boss (banner word), combat (urgent, skill words) |
 | `isLockProtected`, `chainTier` | typing-learning | combat |
+| `damageUnit(world, unit, …)`, `blockPassPct`, `canMove`, `canAttack`, `statusSpeedPm` | sim-ourside `units.ts`, `status.ts` | combat, movement |
+| `damageHouse(world, slotIndex, …)` (map slot index, not the house list) | sim-ourside `houses.ts` | combat |
+| `delayTrap(world, slot, ticks)` | sim-ourside `traps.ts` | combat (E11 fire arrow) |
+| `waveEndGold`, `heroMaxHpBonus` | sim-ourside `economy.ts`, `shop.ts` | waves, combat (level-up), UI |
+| `releaseWord(world, slot, reason)` | typing-learning `words.ts` | boss (flag word when its banner expires) |
 
 Presentation side (`src/app/contracts.ts`): every view, UI and audio part is a
 `Presenter { onEvents(events, world); frame(world, info); dispose() }`. Player
@@ -141,7 +146,108 @@ against 02 and 03 and keep them.
 - A kit bug is fixed in `shared/game-kit`, then re-synced from the parent repo
   (`node scripts/sync-game-kit.mjs --target games/dragon-hold`); never here.
 
-## Open items for the integrator
+## sim-battle (M0a): shared changes and contracts
 
-- `src/app/app.ts` only shows a notice; the integrator wires stage, world,
-  loop, input router and presenters.
+Additive changes to shared files (sim-battle owns them):
+
+- `types.ts`: `EliteTraitId`; `SpawnGroupDef.traits?`, `.variant?` (hooks, none in
+  M0); new event `banner` (G01's Cắm Cờ: `windup`, `plant`, `pulled`,
+  `expired`, `cancel`, with position, radius, duration); `aura` events mark a
+  general's ring turning on or off (members: `world.auras.bySlot` each frame).
+- `world.ts` `EnemyState`: `aim`, `bornAt`, `stopAt`, `homeLateral`, `action`,
+  `actionUntil`, `actionAlong`, `skillAt`, `pounces`, `wading`, `traits`,
+  `variant`. `cleanup` also calls `waves.onEnemyGone` (wave alive counts).
+- `lanes.ts`: bridges carry `halfWidth` (foes squeeze onto the deck).
+- `rules.ts`: `BATTLE` holds the battle values the design leaves open (leap,
+  charge speed, crowding, banner planting).
+
+Contracts other lanes use:
+
+- `queueWordStrike(world, strike)` takes an optional `skill` (Chữ Chiêu); it
+  stores the target's position for the 4 m redirect. A small foe always dies
+  to a word that is not Ẩu (00 §4.6); `cluster` strikes deal 1 W × M_q × M_c
+  to every member within 3 m.
+- `castSkill(world, "roar")` works without a key (the urgent word); every cast
+  is rejected outside a wave. A 4th argument adds a power bonus in %.
+- `sealGeneral` ignores a repeat within the same seal, so words may call it
+  and also queue the `seal` strike.
+- `bannerStanding(world, index)` / `bannerForWord(world, wordSlot)` in
+  `boss.ts`: the flag word is dealt with a null target; drop it when its
+  banner is gone.
+- `clusterLeader(world, cluster)` in `spawn.ts`: the first live member in slot
+  order (the one words gives the cluster word).
+- Plan analysis in `waves.ts` (`planArrivals`, `waveW100`, `waveLoad100`,
+  `peakLoad100` with the 8 s window, `groupsIn`, `headsIn`, `lullsOf`,
+  `threatByLane10`): the same timing the spawner uses, the same measure as
+  `scripts/balance/load.ts`.
+- Foes hit our side through sim-ourside's `damageUnit`, `damageHouse` and
+  `delayTrap` (E11's fire arrow); blocking goes through `blockerFor` and
+  `blockPassPct` every tick.
+
+## Integration (M0a, done)
+
+- `src/main.ts` routes the page: the game by default; `?view=terrain`
+  (diorama only), `?view=ui` (UI preview on a mock world), `?bench=crowd|fx`
+  (left empty for `dh-bench.mjs`, which imports `view/bench.ts` itself).
+- `src/app/app.ts` (`startApp`): map stage, deck (≤ 2 s portal wait), world,
+  loop, key router and every presenter. Frame order: drain events →
+  `learning.onEvents` → app flow (Thẻ Ôn, flushes) → `onEvents` of every
+  presenter (actors first) → `map.update(dt)` (camera before DOM projection)
+  → `frame` of every presenter → `map.render()` → `fx.renderOverlay()`.
+- Commands from keys, mouse and panels go into the world at once
+  (`applyCommand`) and are logged with their tick; `step` applies input
+  first, so the log replays to the same hash (`__dh.replayCheck()`). A
+  hit-stop slows only the world, never the typing.
+- The sim stands still while a learning panel is open (the break clock stops,
+  00 §4.5), in the pause menu, under the focus veil and during the 3-2-1 after
+  a pause in a wave (06 §2).
+- `src/app/input-router.ts`: one keydown listener on window, capture phase.
+  Letters (kit `typedLetter`) go to the open panel or become `key` commands;
+  command keys map by `event.code` through `KEYS` (Shift + digit = Alt + digit
+  for Linux). Order: intercept (menu, veil, countdown) → open panel → Esc
+  releases a lock → Backspace → handlers `[results, placement, strip,
+  waveCard, hud, learning replay, camera rig]` → app fallback (pause menu,
+  fast-forward).
+- Dev URL flags: `?q=low|medium|high|ultra`, `?seed=`, `?difficulty=`,
+  `?wpm=`, `?prelearn=0`, and in dev builds only `?speed=N` (world time × N,
+  rules unchanged). `window.__dh` (dev, or `?debug=1`) is the scenario handle.
+- Browser scenarios: `scripts/visual/scenarios/dh-*.mjs` with helpers in
+  `scripts/visual/scenarios/lib/dh.mjs`.
+
+## Changes made at integration (other lanes' files)
+
+- `src/ui/learning-frame.ts`: the panel class `dh-panel` became `dh-lpanel`
+  (it clashed with the ui skin's carved panel and moved every HUD panel).
+- `src/sim/boss.ts`: a banner that expires releases its flag word.
+- `src/content/data/{enemies,generals}.ts`: bigger placeholders so the default
+  camera draws them at 05 §2.3's bands (`dh-scale.mjs`); the swarm test in
+  `tests/sim/battle-species.test.ts` allows a swarm up to 1 m long, under 0.5 m tall.
+- `src/content/types.ts` + `data/maps.ts` + `view/camera.ts`: `camera.lookM`,
+  the default look point's offset from the dais (L2-cau: 4 m north, so the
+  wave card no longer covers the slots by the north gate).
+- `src/content/data/waves.ts`: waves 2, 3, 6, 9, 10 brought inside 00 §4.4's
+  load bands (golden replays regenerated).
+- `src/ui/skin.ts`: Noto Sans (latin, latin-ext, greek) for IPA lines.
+- `src/ui/results.ts` + `styles/dh.css`: the word book's status chip class
+  `dh-tag` became `dh-wstatus` (it took the word tags' absolute position and
+  sat in the panel's corner).
+- `src/ui/learning-frame.ts`: the "Vừa học" line reads `small (nhỏ) · big (to, lớn)`
+  (runs of spaces collapse in HTML, entries ran together).
+- `src/sim/world.ts`: `rules` (the typing session's compiled float config) and
+  `def` (slot definitions) stay out of the hash: hashed state is integers only.
+  Command logs unchanged, golden hashes regenerated.
+- `src/content/rules.ts` + `scripts/balance/report.ts`: G5 is judged by 00 §7
+  (typing only wins ≥ 70 % on stages 1–10); DESIGN.md §9's "≤ 40 %" contradicts
+  it and the canon wins.
+
+## Open items after M0a integration
+
+- Balance: with canon numbers the 35 WPM bot with the average kit wins 100 %
+  at 100 % HP (G1 wants 75–90 %); even load × 1.5 with foe damage × 3 leaves
+  it at 99 % HP (blockers, traps, Thiên Hỏa on clusters). Foes die a median
+  20 m out in a 26 m word zone. The owner decides where the pressure comes
+  from (`docs/changelog/2026-10-23-m0a-integration.md`).
+- Wave 9 is a middle wave by load (1.00) but its wolf pack peaks at 1.24
+  (middle cap 1.15); wave 5 the same with the first general.
+- Map slots `suoi-t2`/`suoi-b1` and `suoi-t3`/`suoi-b2` sit 0.5 m apart on the
+  ground (trap under a blocker by design); the DOM markers offset blockers 2.2 m.
