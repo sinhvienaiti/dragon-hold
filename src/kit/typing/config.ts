@@ -32,6 +32,14 @@ export type RouterRules = {
   readonly protectS: number;
   /** The window opens at the first lethal blow from another source, or at the lock's first letter. */
   readonly protectFrom: "lethal" | "lock";
+  /**
+   * Esc (unlock) always drops the letters typed. "drop" (TD, and the default
+   * when absent) also wipes the word's wrong keys, so typed again it starts
+   * clean; "keep" leaves them on the word until it is done or gone, as
+   * Backspace does, so its grade and learning event still count them
+   * (dragon-hold 01 §3.3).
+   */
+  readonly unlockErrors?: "drop" | "keep";
 };
 
 /** TD 6.4's word life L_w = clamp(base + perChar·(len + 1)/(E·d); min; max) × k. */
@@ -106,7 +114,7 @@ export const TD_TYPING: TypingConfig = {
   reserveKinds: ["call", "review"],
   words: { min: 3, max: 8 },
   letters: { cooldownS: 1.0, reserve: 3, avoid: "qxzj", avoidUntilLevel: 10, tier2EarlyFree: 5, tier2EarlyMaxLevel: 3, maxEditCheckLen: 8, minWordsPerLetter: 3 },
-  router: { softSwitchMaxTyped: 1, protectS: 0, protectFrom: "lethal" },
+  router: { softSwitchMaxTyped: 1, protectS: 0, protectFrom: "lethal", unlockErrors: "drop" },
   picker: { tries: 12 },
   life: { base: 1.2, perChar: 12, min: 3.0, max: 6.0 },
   score: { errNum: 1.5, errMin: 0.15, errMax: 0.4, fastBase: 0.35, fastK: 0.8, effBase: 0.4, effK: 0.6, qA: 0.6, qS: 0.4, flashS: 0.7 },

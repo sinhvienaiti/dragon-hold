@@ -211,10 +211,10 @@ export function typeBackspace(t: TypingSession): boolean {
   return acted;
 }
 
-/** Esc: lets go of the locked word, what was typed dropped, its errors uncounted. */
+/** Esc: lets go of the locked word, what was typed dropped; its errors go too unless rules.router.unlockErrors is "keep". */
 export function unlock(t: TypingSession): boolean {
   t.guardSlot = -1;
-  return routeUnlock(t.router, t.words);
+  return routeUnlock(t.router, t.words, t.rules.router.unlockErrors === "keep");
 }
 
 /**

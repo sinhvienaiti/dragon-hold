@@ -94,10 +94,17 @@ export function routeBackspace(router: Router, live: TypedWords): boolean {
   return true;
 }
 
-/** Esc: lets go of the word and drops what was typed, its errors uncounted (typed again, it starts clean). */
-export function routeUnlock(router: Router, live: TypedWords): boolean {
+/**
+ * Esc: lets go of the word and drops what was typed. Its errors go too
+ * (typed again, it starts clean) unless `keepErrors` (RouterRules.unlockErrors
+ * "keep"): then they stay with the word, as with Backspace.
+ */
+export function routeUnlock(router: Router, live: TypedWords, keepErrors = false): boolean {
   const had = router.lock >= 0 || router.group >= 0;
-  if (router.lock >= 0) live.typed[router.lock] = live.errors[router.lock] = 0;
+  if (router.lock >= 0) {
+    live.typed[router.lock] = 0;
+    if (!keepErrors) live.errors[router.lock] = 0;
+  }
   router.lock = -1;
   router.group = -1;
   return had;
