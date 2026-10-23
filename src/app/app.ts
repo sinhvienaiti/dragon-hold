@@ -17,10 +17,11 @@ import { Vector3, type Object3D } from "three";
 import { createAudio, type GameAudio } from "../audio";
 import { MAPS } from "../content/data/maps";
 import { STAGE_M0 } from "../content/data/stages";
+import { RINGS } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
 import { createLearningBridge } from "../kit/learning";
 import { setSpeechGate } from "../kit/speech";
-import { uToM } from "../sim/fixed";
+import { mmToU, uToM } from "../sim/fixed";
 import { applyCommand, createWorld, hashWorldHex, runLog, step, type World } from "../sim/world";
 import { newWordsOf } from "../typing/deck";
 import { createHud, type Hud } from "../ui/hud";
@@ -70,8 +71,8 @@ const COUNTDOWN_MS = 3000;
 const PROTECT_EVERY_MS = 250;
 /** Foe pick radius for a left click, CSS px (00 §6 mouse). */
 const PICK_PX = 44;
-/** Word zone (01 §3.1): fast-forward stays off while a foe is inside it. */
-const WORD_ZONE_M = 26;
+/** Word zone (01 §2.1, rules RINGS), sim u: fast-forward stays off while a foe is inside it. */
+const WORD_ZONE_U = mmToU(RINGS.wordZoneMm);
 
 /** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?tagsize=80–150, and in dev ?speed=. */
 export function optionsFromUrl(search: string, dev: boolean): AppOptions {
@@ -533,7 +534,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     if (world.phase === "break") return true;
     if (world.phase !== "wave" && world.phase !== "warning") return false;
     if (world.words.live.some((word) => word !== null)) return false;
-    const r = WORD_ZONE_M * 60_000;
+    const r = WORD_ZONE_U;
     return !world.enemies.list.some((enemy) => enemy.alive && enemy.x * enemy.x + enemy.z * enemy.z <= r * r);
   }
 
