@@ -680,7 +680,10 @@ export const KEYS_UNUSED = ["Insert", "Delete", "PageUp", "PageDown", "Pause", "
 export const M0_GATES = {
   win35: [75, 90],
   win25Min: 70,
+  /** DESIGN.md §9's M0 row: typing only wins ≤ 40 %. It contradicts 00 §7 G5 below; the canon wins. */
   typingOnlyWinMax: 40,
+  /** 00 §7 G5 for stages 1–10: 35 WPM typing only, no buys, wins ≥ 70 % (the gate the report judges). */
+  typingOnlyWinMin: 70,
   /** 0 WPM with the best buys loses before the end of wave 3 (G6). */
   noTypingLoseByWave: 3,
   peakLoadMax100: 140,

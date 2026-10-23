@@ -219,7 +219,8 @@ export function m0Gates(summaries: Readonly<Record<string, BotSummary>>): Gate[]
   };
   win("b35", "G1", "35 WPM, đồ trung bình", M0_GATES.win35[0] + "–" + M0_GATES.win35[1] + " %", (w) => w >= M0_GATES.win35[0] && w <= M0_GATES.win35[1]);
   win("b25", "G3", "25 WPM, đồ trung bình", "≥ " + M0_GATES.win25Min + " %", (w) => w >= M0_GATES.win25Min);
-  win("typingOnly", "G5", "Chỉ gõ, không mua (10 đợt)", "≤ " + M0_GATES.typingOnlyWinMax + " %", (w) => w <= M0_GATES.typingOnlyWinMax);
+  // DESIGN.md §9 asks ≤ 40 %, 00 §7 G5 asks ≥ 70 % for stages 1–10: the canon wins (00-canon.md is the single source).
+  win("typingOnly", "G5", "Chỉ gõ, không mua (10 đợt)", "≥ " + M0_GATES.typingOnlyWinMin + " % (00 §7; DESIGN §9 ghi ≤ " + M0_GATES.typingOnlyWinMax + " %, canon thắng)", (w) => w >= M0_GATES.typingOnlyWinMin);
   const none = summaries.noTyping;
   const lostEarly = none ? none.defeatWaves.filter((wave) => wave <= M0_GATES.noTypingLoseByWave).length : 0;
   gates.push({
