@@ -10,14 +10,13 @@
  */
 import * as THREE from "three";
 import { DRAGON, Reactions } from "../kit/feedback";
-import { ENEMIES } from "../content/data/enemies";
-import { GENERALS } from "../content/data/generals";
 import { HOUSES, TRAPS, UNITS } from "../content/data/our-side";
-import type { EntityRef, FoeId, Gait, MoveMode, PlaceholderDef, SimEvent, StatusId } from "../content/types";
+import type { EntityRef, FoeId, MoveMode, PlaceholderDef, SimEvent, StatusId } from "../content/types";
 import { uToM } from "../sim/fixed";
 import type { EnemyState, World } from "../sim/world";
 import type { FrameInfo, Presenter } from "../app/contracts";
-import { CHARACTER_SCALE, createCrowd, TINT, type Crowd, type CrowdGait, type CrowdInstance, type TintId } from "./crowd";
+import { createCrowd, TINT, type Crowd, type CrowdGait, type CrowdInstance, type CrowdLook, type CrowdRing, type TintId } from "./crowd";
+import { foeDrawLook, swarmOffset, UNIT_DRAW_SCALE, type FoeLook } from "./foe-look";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 
@@ -29,16 +28,19 @@ export interface FoeLocator {
   locate(slot: number, serial: number, at: FoeAnchor, out: THREE.Vector3): boolean;
 }
 
-/** The disc under our units (a flat pale-blue ellipse, one layer for all of them). */
-const UNIT_DISC: PlaceholderDef = { shape: "sphere", color: "#5f9fe0", sizeM: [1.5, 0.08, 1.5], hoverM: 0 };
+/** The disc under our units (a flat pale-blue ellipse, one layer for all of them), as wide as the drawn unit. */
+const UNIT_DISC: PlaceholderDef = { shape: "sphere", color: "#5f9fe0", sizeM: [2.3, 0.08, 2.3], hoverM: 0 };
+const UNIT_DISC_LOOK: CrowdLook = { foe: false, outline: 0 };
+const UNIT_LOOK: CrowdLook = { foe: false, scale: UNIT_DRAW_SCALE };
 
-/** A foe's placeholder and gait (enemies and generals). */
-export function foeLook(foe: FoeId): { placeholder: PlaceholderDef; gait: Gait } {
-  const enemy = ENEMIES[foe as keyof typeof ENEMIES];
-  if (enemy !== undefined) return { placeholder: enemy.show.placeholder, gait: enemy.gait };
-  const general = GENERALS[foe as keyof typeof GENERALS];
-  if (general !== undefined) return { placeholder: general.show.placeholder, gait: general.gait };
-  return { placeholder: { shape: "box", color: "#808080", sizeM: [0.6, 1, 0.6], hoverM: 0 }, gait: "biped" };
+/** A foe's drawn placeholder, gait and scale (enemies and generals; foe-look.ts). */
+export function foeLook(foe: FoeId): FoeLook {
+  return foeDrawLook(foe);
+}
+
+/** How the crowd draws a foe: its tier scale, full outline and rim; a general a bolder edge and rim. */
+function crowdLookOf(look: FoeLook): CrowdLook {
+  return look.tier === "general" ? { foe: true, scale: look.scale, outline: 1.5, rim: 0.95, ash: 0.05 } : { foe: true, scale: look.scale };
 }
 
 /** Height above the ground the sim gives a foe (sky lanes), else the placeholder's hover. */
@@ -59,7 +61,7 @@ export function worldLocator(world: World, terrain?: TerrainView): FoeLocator {
       const look = foeLook(foe.foe);
       const ground = terrain?.heightAt(x, z) ?? 0;
       const lift = liftOf(foe, look.placeholder.hoverM);
-      const h = look.placeholder.sizeM[1] * CHARACTER_SCALE;
+      const h = look.placeholder.sizeM[1] * look.scale;
       out.set(x, ground + (at === "base" ? 0 : lift + (at === "center" ? h * 0.5 : h + 0.15)), z);
       return true;
     },
@@ -70,7 +72,11 @@ interface FoeRec {
   serial: number;
   slot: number;
   handle: number;
-  look: { placeholder: PlaceholderDef; gait: Gait };
+  look: FoeLook;
+  /** Swarm cluster (−1: none) and the drawn spread from its sim point (view only, metres). */
+  cluster: number;
+  ox: number;
+  oz: number;
   /** Positions at the last two ticks seen (metres) and the tick of the latter. */
   px: number;
   pz: number;
@@ -131,11 +137,19 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
   const capacity = options.capacity ?? 320;
   const crowd = createCrowd(capacity);
   stage.layers.actors.add(crowd.group);
+  // Every primitive layer exists from the start: the effects' warm-up compile (fx.ts) covers bodies and outline
+  // hulls, so the first foe of a wave never stalls a frame on a shader link.
+  for (const shape of ["capsule", "box", "sphere", "cone"] as const) crowd.prepare(shape);
   const reactions = new Reactions(REACTION_SLOTS, DRAGON);
   const ourReactions = new Reactions(64, DRAGON);
   const foes = new Map<number, FoeRec>();
   const ours = new Map<string, OurRec>();
   const statuses = new Map<number, StatusMark[]>();
+  /** Swarm clusters: members seen so far (spread index), and this frame's ring per cluster. */
+  const clusterNext = new Map<number, number>();
+  const ringPool: CrowdRing[] = [];
+  const ringBy = new Map<number, { ring: CrowdRing; n: number; sx: number; sz: number; color: string; members: FoeRec[] }>();
+  const spread: [number, number] = [0, 0];
   const sample = new Float32Array(5);
   const instance: CrowdInstance = { x: 0, y: 0, z: 0, yaw: 0, flash: 0, squash: 1 };
   let stamp = 0;
@@ -200,10 +214,10 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
 
   const ourKey = (kind: string, index: number): string => kind + ":" + index;
 
-  const placeOur = (key: string, placeholder: PlaceholderDef, x: number, z: number, yaw: number, extra: Partial<CrowdInstance>, reactSlot: number, gait: CrowdGait = "still"): void => {
+  const placeOur = (key: string, placeholder: PlaceholderDef, x: number, z: number, yaw: number, extra: Partial<CrowdInstance>, reactSlot: number, gait: CrowdGait = "still", look: CrowdLook = { foe: false }): void => {
     let rec = ours.get(key);
     if (rec === undefined) {
-      const handle = crowd.add(placeholder, gait, undefined, { foe: false });
+      const handle = crowd.add(placeholder, gait, undefined, look);
       if (handle < 0) return;
       rec = { handle, key, seen: stamp };
       ours.set(key, rec);
@@ -222,6 +236,50 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
     crowd.set(rec.handle, instance);
   };
 
+  /** Adds a live swarm member to its cluster's ring this frame. */
+  const gatherRing = (rec: FoeRec): void => {
+    let entry = ringBy.get(rec.cluster);
+    if (entry === undefined) {
+      const ring = ringPool.pop() ?? { x: 0, y: 0, z: 0, radius: 1, color: "#ffffff", alpha: 0.9 };
+      entry = { ring, n: 0, sx: 0, sz: 0, color: rec.look.placeholder.color, members: [] };
+      ringBy.set(rec.cluster, entry);
+    }
+    entry.n += 1;
+    entry.sx += rec.x;
+    entry.sz += rec.z;
+    entry.members.push(rec);
+  };
+
+  /** This frame's cluster rings (2+ live members): round their drawn bodies, in the family colour. */
+  const finishRings = (): CrowdRing[] => {
+    const out: CrowdRing[] = [];
+    for (const [cluster, entry] of ringBy) {
+      ringBy.delete(cluster);
+      const ring = entry.ring;
+      if (entry.n < 2) {
+        ringPool.push(ring);
+        continue;
+      }
+      ring.x = entry.sx / entry.n;
+      ring.z = entry.sz / entry.n;
+      let far = 0;
+      let body = 0;
+      for (const member of entry.members) {
+        far = Math.max(far, Math.hypot(member.x - ring.x, member.z - ring.z));
+        body = Math.max(body, Math.max(member.look.placeholder.sizeM[0], member.look.placeholder.sizeM[2]) * member.look.scale * 0.5);
+      }
+      ring.y = heightAt(ring.x, ring.z);
+      ring.radius = far + body + 0.35;
+      ring.color = entry.color;
+      ring.alpha = 0.95;
+      out.push(ring);
+      ringPool.push(ring);
+    }
+    // Clusters with no member left forget their spread counter.
+    if (clusterNext.size > 64) for (const key of clusterNext.keys()) if (![...foes.values()].some((rec) => rec.cluster === key)) clusterNext.delete(key);
+    return out;
+  };
+
   const view: ActorsView = {
     crowd,
     reactions,
@@ -232,7 +290,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
     locate(slot: number, serial: number, at: FoeAnchor, out: THREE.Vector3): boolean {
       const rec = foes.get(serial);
       if (rec === undefined || rec.slot !== slot) return false;
-      const h = rec.look.placeholder.sizeM[1] * CHARACTER_SCALE;
+      const h = rec.look.placeholder.sizeM[1] * rec.look.scale;
       out.set(rec.x, rec.y + (at === "base" ? 0 : rec.lift + (at === "center" ? h * 0.5 : h + 0.15)), rec.z);
       return true;
     },
@@ -289,9 +347,19 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         const z = uToM(foe.z);
         if (rec === undefined) {
           const look = foeLook(foe.foe);
-          const handle = crowd.add(look.placeholder, look.gait);
+          const handle = crowd.add(look.placeholder, look.gait, undefined, crowdLookOf(look));
           if (handle < 0) continue;
-          rec = { serial: foe.serial, slot: foe.slot, handle, look, px: x, pz: z, cx: x, cz: z, tick, x, y: 0, z, lift: 0, yaw: Math.atan2(-x, -z), mode: foe.mode, dying: -1, seen: stamp, aura: false };
+          let ox = 0;
+          let oz = 0;
+          if (foe.cluster >= 0 && look.gait === "swarm") {
+            // Spread the cluster's bodies on a sunflower spiral, in the order they first show (stable for life).
+            const k = clusterNext.get(foe.cluster) ?? 0;
+            clusterNext.set(foe.cluster, k + 1);
+            swarmOffset(k, spread);
+            ox = spread[0];
+            oz = spread[1];
+          }
+          rec = { serial: foe.serial, slot: foe.slot, handle, look, cluster: look.gait === "swarm" ? foe.cluster : -1, ox, oz, px: x, pz: z, cx: x, cz: z, tick, x, y: 0, z, lift: 0, yaw: Math.atan2(-x, -z), mode: foe.mode, dying: -1, seen: stamp, aura: false };
           foes.set(foe.serial, rec);
         } else if (rec.tick !== tick) {
           rec.px = rec.cx;
@@ -302,8 +370,8 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         }
         rec.seen = stamp;
         rec.mode = foe.mode;
-        const drawX = rec.px + (rec.cx - rec.px) * alpha;
-        const drawZ = rec.pz + (rec.cz - rec.pz) * alpha;
+        const drawX = rec.px + (rec.cx - rec.px) * alpha + rec.ox;
+        const drawZ = rec.pz + (rec.cz - rec.pz) * alpha + rec.oz;
         const mx = rec.cx - rec.px;
         const mz = rec.cz - rec.pz;
         // Face the way it walks; standing, face the dais.
@@ -330,6 +398,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         instance.tintMix = tint === TINT.aura ? 0.35 : tint === TINT.none ? 0 : 0.85;
         instance.stride = strideOf(foe.mode);
         crowd.set(rec.handle, instance);
+        if (rec.cluster >= 0) gatherRing(rec);
       }
       // Dying foes dissolve where they fell; foes gone without a death event fade too.
       for (const rec of foes.values()) {
@@ -343,9 +412,9 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
           continue;
         }
         reset(instance);
-        instance.x = rec.cx;
-        instance.y = heightAt(rec.cx, rec.cz);
-        instance.z = rec.cz;
+        instance.x = rec.cx + rec.ox;
+        instance.y = heightAt(instance.x, rec.cz + rec.oz);
+        instance.z = rec.cz + rec.oz;
         instance.yaw = rec.yaw;
         // Flyers spiral down as they go (05 §6.2 "rơi xoáy").
         instance.lift = rec.lift * (1 - rec.dying / DEATH_SECONDS);
@@ -381,15 +450,16 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         const z = uToM(unit.z);
         const down = unit.downUntil >= 0;
         // A fallen unit is a bud until it rises (05 §6.6).
-        placeOur(ourKey("unit", unit.index), def.show.placeholder, x, z, Math.atan2(-x, -z) + Math.PI, down ? { scale: 0.4, tint: TINT.bud, tintMix: 1 } : {}, unit.index, "biped");
+        placeOur(ourKey("unit", unit.index), def.show.placeholder, x, z, Math.atan2(-x, -z) + Math.PI, down ? { scale: 0.4, tint: TINT.bud, tintMix: 1 } : {}, unit.index, "biped", UNIT_LOOK);
         // A blue disc under each of ours: told apart from a moss foe at a glance, even before its HP bar shows.
-        if (!down) placeOur(ourKey("unit-disc", unit.index), UNIT_DISC, x, z, 0, {}, unit.index);
+        if (!down) placeOur(ourKey("unit-disc", unit.index), UNIT_DISC, x, z, 0, {}, unit.index, "still", UNIT_DISC_LOOK);
       }
       for (const rec of ours.values()) {
         if (rec.seen === stamp) continue;
         crowd.remove(rec.handle);
         ours.delete(rec.key);
       }
+      crowd.setRings(finishRings());
       crowd.flush(nowS);
     },
 

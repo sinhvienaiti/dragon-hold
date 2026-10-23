@@ -19,6 +19,7 @@ import { SEMANTIC_COLORS } from "../kit/ui";
 import { uToM } from "../sim/fixed";
 import { upcomingSeals, type LiveWord } from "../sim/words";
 import type { EnemyState, World } from "../sim/world";
+import { foeHeadM } from "../view/foe-look";
 import type { Gloss } from "./learning-frame";
 import { shortMeaning, wordLevel } from "./learning-frame";
 
@@ -346,10 +347,10 @@ export interface TagsOptions {
   readonly sizePct?: number;
 }
 
-/** Head height of a foe's tag anchor, metres: top of its placeholder + 0.4 m (05 §4.3). */
+/** Head height of a foe's tag anchor, metres: top of its body as drawn (view/foe-look.ts) + 0.4 m (05 §4.3). */
 function headM(enemy: EnemyState): number {
   const show = enemy.general ? GENERALS[enemy.foe as GeneralId].show : ENEMIES[enemy.foe as EnemyId].show;
-  return Math.max(uToM(enemy.y), show.placeholder.hoverM) + show.placeholder.sizeM[1] + 0.4;
+  return foeHeadM(enemy.foe, Math.max(uToM(enemy.y), show.placeholder.hoverM)) + 0.4;
 }
 
 const RING_RADIUS_M = 6.5;

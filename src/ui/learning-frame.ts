@@ -14,6 +14,7 @@ import { DIFFICULTY, LEARNING } from "../content/rules";
 import type { Difficulty, SimCommand, SimEvent } from "../content/types";
 import { LEARNING_FRAME_CLASSES, SEMANTIC_COLORS, installKitStyles } from "../kit/ui";
 import type { World } from "../sim/world";
+import { chooseSpot, keepoutRects, zonesFor, type Rect } from "./screen-zones";
 
 /** Meaning and IPA for a word, from the loaded vocabulary. */
 export type Gloss = (text: string) => { readonly vi: string; readonly ipa: string } | null;
@@ -543,9 +544,52 @@ export interface ReviewQuestion extends PanelWord {
  * Thẻ Ôn (01 §6.5): up to 3 questions from the wave just played. A right
  * answer sends review-card (+10 gold, +2 XP in the sim); a wrong one costs
  * nothing and shows the word, meaning and IPA again.
+ * Round 2: while open it picks a spot each frame that covers no build slot,
+ * no lane and no HUD panel or wave card (screen-zones.ts); without zones (UI
+ * preview) it keeps the CSS spot at the top centre.
  */
 export function createReviewCard(root: HTMLElement, hooks: PanelHooks): LearningPanel & { show(items: readonly ReviewQuestion[]): void } {
   const box = panelBox(root, "Thẻ Ôn", true);
+  let spot = -1;
+  let placeTimer = 0;
+  /** Candidate spots: top centre, top right, top left, then the sides at mid height (CSS px). */
+  const place = (): void => {
+    const view = root.ownerDocument.defaultView;
+    const zones = zonesFor(root);
+    if (!view || zones === null || box.el.hidden) return;
+    const ui = Number.parseFloat(view.getComputedStyle(root.ownerDocument.documentElement).getPropertyValue("--ui")) || 1;
+    const vw = view.innerWidth;
+    const vh = view.innerHeight;
+    const w = box.el.offsetWidth;
+    const h = box.el.offsetHeight;
+    const margin = 16 * ui;
+    const gap = 10 * ui;
+    const system = root.querySelector<HTMLElement>(".dh-system")?.getBoundingClientRect();
+    const hud = root.querySelector<HTMLElement>(".dh-battle")?.getBoundingClientRect();
+    const underSystem = (system && system.height > 0 ? system.bottom : 12 * ui) + gap;
+    const underHud = (hud && hud.height > 0 ? hud.bottom : 12 * ui) + gap;
+    const middle = Math.max(underHud, vh * 0.42 - h / 2);
+    const spots: Rect[] = [
+      { x: (vw - w) / 2, y: 176 * ui, w, h },
+      { x: vw - margin - w, y: underSystem, w, h },
+      { x: margin, y: underHud, w, h },
+      { x: vw - margin - w, y: middle, w, h },
+      { x: margin, y: middle, w, h },
+      { x: (vw - w) / 2, y: 12 * ui, w, h },
+    ];
+    spot = chooseSpot(spots, zones, keepoutRects(root, box.el), { w: vw, h: vh }, spot);
+    const at = spots[spot]!;
+    box.el.style.left = at.x.toFixed(1) + "px";
+    box.el.style.top = at.y.toFixed(1) + "px";
+    box.el.style.translate = "none";
+    box.el.dataset.spot = String(spot);
+  };
+  const follow = (): void => {
+    const view = root.ownerDocument.defaultView;
+    if (!view || box.el.hidden) return;
+    place();
+    placeTimer = view.requestAnimationFrame(follow);
+  };
   let items: readonly ReviewQuestion[] = [];
   let index = 0;
   let typed = "";
@@ -569,6 +613,7 @@ export function createReviewCard(root: HTMLElement, hooks: PanelHooks): Learning
   const close = () => {
     open = false;
     box.el.hidden = true;
+    root.ownerDocument.defaultView?.cancelAnimationFrame(placeTimer);
     hooks.onClose?.();
   };
   const next = () => {
@@ -613,6 +658,9 @@ export function createReviewCard(root: HTMLElement, hooks: PanelHooks): Learning
       box.el.hidden = false;
       startedAt = hookNow(hooks);
       draw();
+      spot = -1;
+      root.ownerDocument.defaultView?.cancelAnimationFrame(placeTimer);
+      follow();
     },
     handleLetter(letter: string): boolean {
       if (!open) return false;
@@ -635,6 +683,7 @@ export function createReviewCard(root: HTMLElement, hooks: PanelHooks): Learning
       return true;
     },
     dispose() {
+      root.ownerDocument.defaultView?.cancelAnimationFrame(placeTimer);
       box.el.remove();
     },
   };

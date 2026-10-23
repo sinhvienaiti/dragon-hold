@@ -17,6 +17,7 @@ import type { MapDef, PlaceableId, SimEvent, SlotDef, SlotKind, UpgradeDef, Vec2
 import { MAX_LEVEL, canPlace as simCanPlace, sellRefund as simSellRefund, suggestedSlots as simSuggestedSlots, upgradePrice, type PlaceCheck } from "../sim/placement";
 import type { World } from "../sim/world";
 import { upcomingWave } from "./hud";
+import { publishZones } from "./screen-zones";
 import { el, icon, keyLabel, setClass, setShown, setText, uiButton } from "./skin";
 import { summarizeWave } from "./wave-card";
 
@@ -502,6 +503,8 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
     world = w;
     now = info.now;
     ensureMarkers(w);
+    // Lanes and slots on screen, for the floating cards that must not cover them (wave card, Thẻ Ôn).
+    publishZones(root, w.map, project);
     const building = buildPhase(w.phase);
     if (mode !== "idle" && !building) cancel();
     if (menuSlot >= 0 && !building) closeMenu();

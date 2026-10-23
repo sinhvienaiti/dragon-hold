@@ -4,6 +4,9 @@
  * the peaks; the call-early button (Shift + Enter) in a break, Enter to start
  * in prep (or to end an Easy break). Shown in prep, warning and break, when no
  * foe of a wave is alive; in a wave only a 1.2 s banner at its start.
+ * Round 2: the card picks its spot each frame (top left under the HUD, top
+ * right, top centre, then the sides) so it never covers a lane or a build
+ * slot (screen-zones.ts); without zones (UI preview) it stays at the top centre.
  * Owner: ui (LANES.md).
  */
 import type { ActionHandler, CommandSink, FrameInfo, Presenter } from "../app/contracts";
@@ -14,6 +17,7 @@ import type { FoeId, Family, Gait, GeneralId, MapDef, SimEvent, StageDef } from 
 import { callEarlyRoom } from "../sim/economy";
 import type { World } from "../sim/world";
 import { callEarlyBonus, clockSeconds, phaseTicksLeft, upcomingWave } from "./hud";
+import { chooseSpot, keepoutRects, zonesFor, type Rect } from "./screen-zones";
 import { el, foeIcon, icon, keyLabel, setClass, setShown, setText, uiButton } from "./skin";
 
 // ── Pure summary (tests/ui/wave-card.test.ts) ──────────────────────────────
@@ -161,6 +165,72 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
   let shownWave = -1;
   let shownStage: StageDef | null = null;
   let bannerTimer = 0;
+  /** The spot in use (index into spots()), −1: CSS default. */
+  let spot = -1;
+
+  /** Candidate spots for the card, in order of preference (CSS px). */
+  const spots = (w: number, h: number, ui: number, vw: number, vh: number): Rect[] => {
+    const margin = 16 * ui;
+    const gap = 10 * ui;
+    const hud = root.querySelector<HTMLElement>(".dh-battle")?.getBoundingClientRect();
+    const system = root.querySelector<HTMLElement>(".dh-system")?.getBoundingClientRect();
+    const underHud = (hud && hud.height > 0 ? hud.bottom : 12 * ui) + gap;
+    const underSystem = (system && system.height > 0 ? system.bottom : 12 * ui) + gap;
+    const middle = Math.max(underHud, vh * 0.4 - h / 2);
+    return [
+      { x: margin, y: underHud, w, h },
+      { x: vw - margin - w, y: underSystem, w, h },
+      { x: (vw - w) / 2, y: 12 * ui, w, h },
+      { x: margin, y: middle, w, h },
+      { x: vw - margin - w, y: middle, w, h },
+    ];
+  };
+
+  /** Moves the card to the first spot that covers no lane, slot or panel (screen-zones.ts). */
+  const place = (): void => {
+    const view = doc.defaultView;
+    const zones = zonesFor(root);
+    if (!view || zones === null) {
+      if (spot !== -1) {
+        spot = -1;
+        card.style.left = card.style.top = card.style.translate = "";
+      }
+      return;
+    }
+    const ui = Number.parseFloat(view.getComputedStyle(doc.documentElement).getPropertyValue("--ui")) || 1;
+    const vw = view.innerWidth;
+    const vh = view.innerHeight;
+    const list = spots(card.offsetWidth, card.offsetHeight, ui, vw, vh);
+    // Thẻ Ôn moves out of the card's way, not the other way round; the wave banner is gone in 1.2 s.
+    const panels = keepoutRects(root, card, ".dh-lpanel, .dh-banner");
+    spot = chooseSpot(list, zones, panels, { w: vw, h: vh }, spot);
+    const at = list[spot]!;
+    card.style.left = at.x.toFixed(1) + "px";
+    card.style.top = at.y.toFixed(1) + "px";
+    card.style.translate = "none";
+    card.dataset.spot = String(spot);
+  };
+
+  /** The 1.2 s wave banner: top centre unless a lane or slot is there (the north gate where the wave walks in). */
+  const placeBanner = (): void => {
+    const view = doc.defaultView;
+    const zones = zonesFor(root);
+    if (!view || zones === null) return;
+    const ui = Number.parseFloat(view.getComputedStyle(doc.documentElement).getPropertyValue("--ui")) || 1;
+    const vw = view.innerWidth;
+    const vh = view.innerHeight;
+    const w = banner.offsetWidth;
+    const h = banner.offsetHeight;
+    const list = spots(w, h, ui, vw, vh);
+    // Top centre first for the banner, then the card's own spots.
+    const top: Rect = { x: (vw - w) / 2, y: 16 * ui, w, h };
+    const all = [top, ...list];
+    const pick = chooseSpot(all, zones, keepoutRects(root, banner, ".dh-lpanel, .dh-wave-card"), { w: vw, h: vh });
+    const at = all[pick]!;
+    banner.style.left = at.x.toFixed(1) + "px";
+    banner.style.top = at.y.toFixed(1) + "px";
+    banner.style.translate = "none";
+  };
 
   const render = (summary: WaveSummary): void => {
     lanesNode.replaceChildren(
@@ -285,6 +355,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
     const hintText = phase === "warning" ? "Quái sắp vào từ các đường sáng" : phase === "prep" ? "Đặt bẫy, lính, nhà rồi bắt đầu" : "";
     setText(hint, hintText);
     setShown(hint, hintText !== "");
+    place();
   };
 
   const onEvents = (events: readonly SimEvent[], w: World): void => {
@@ -294,6 +365,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       const summary = summarizeWave(w.stage, w.map, event.wave);
       setText(bannerTitle, summary ? bannerText(summary) : "Đợt " + event.wave);
       setShown(banner, true);
+      placeBanner();
       banner.classList.remove("is-on");
       void banner.offsetWidth;
       banner.classList.add("is-on");

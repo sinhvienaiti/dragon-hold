@@ -6,9 +6,12 @@
 // while warnings are live, one per species (the debug tally of telegraph
 // events by source species). Two passes: wolves (wave 7, Đường Cầu) need a
 // blocker to pounce over, G01 needs none to plant its banner.
+// SIZE=1920 runs at 1920×1080 (default 1280×720).
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
 import { badResources, boot, MOD, outDir, press, state, waitFor } from "./lib/dh.mjs";
+
+const [W, H] = process.env.SIZE === "1920" ? [1920, 1080] : [1280, 720];
 
 const BOT = (skip) => `(async () => {
   const d = window.__dh; window.__skip = new Set(${JSON.stringify(skip)}); let n = 0;
@@ -34,7 +37,7 @@ const BOT = (skip) => `(async () => {
  * over a blocker; a held G01 never plants its banner, so the two need separate passes).
  */
 async function pass(page, out, want, warden, last) {
-  await boot(page, "prelearn=0&speed=" + (warden ? 6 : 4), { width: 1280, height: 720 });
+  await boot(page, "prelearn=0&speed=" + (warden ? 6 : 4), { width: W, height: H });
   if (warden) await page.eval("window.__dh.send({ type: 'place', item: 'moss-warden', slot: 'cau-b2' })");
   await press(page, "Enter");
   await waitFor(page, "s.phase === 'wave'", { timeoutMs: 15000 });
@@ -74,7 +77,7 @@ async function pass(page, out, want, warden, last) {
       await page.sleep(150);
       const after = await page.eval("window.__dh.events()");
       seen.push({ foe: fresh, live: after.telegraphsLive, wave: s.wave });
-      await page.shot(join(out, `telegraph-${fresh}-1280x720.png`));
+      await page.shot(join(out, `telegraph-${fresh}-${W}x${H}.png`));
       pictured.add(fresh);
       // Seen once: the bot types this species again, so the wave can end.
       await page.eval("window.__skip.delete(" + JSON.stringify(fresh) + "); window.__dh.setSpeed(2)");
@@ -96,7 +99,7 @@ export default async function (page) {
   if ((await state(page)).phase === "wave") {
     await press(page, "Digit2", MOD.alt);
     await page.sleep(250);
-    await page.shot(join(out, "telegraph-skyfire-1280x720.png"));
+    await page.shot(join(out, `telegraph-skyfire-${W}x${H}.png`));
   }
   const ev = await page.eval("window.__dh.events()");
   const end = await state(page);

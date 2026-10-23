@@ -8,6 +8,19 @@
 import { join } from "node:path";
 import { badResources, boot, MOD, outDir, press, state, waitFor } from "./lib/dh.mjs";
 
+/** Lane px and slot px² under the wave card and the gold delta box against the gold number (round 2). */
+const COVER = `(async () => {
+  const z = await import('/src/ui/screen-zones.ts');
+  const zones = z.zonesFor(document.getElementById('dh-overlay'));
+  const box = (sel) => { const n = document.querySelector(sel); if (!n || n.closest('[hidden]')) return null; const r = n.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
+  const view = { w: innerWidth, h: innerHeight };
+  const card = box('.dh-wave-card');
+  const c = card && zones ? z.spotCost(card, zones, [], view) : null;
+  const gold = box('.dh-stat--gold b');
+  const delta = box('.dh-gold-float');
+  return { zones: Boolean(zones), waveCard: c && { lanePx: Math.round(c.lanes), slotPx2: Math.round(c.slots), at: [Math.round(card.x), Math.round(card.y)] }, goldOverlapPx2: gold && delta ? Math.round(z.overlapArea(gold, delta)) : null };
+})()`;
+
 const markersShown = (page) => page.eval("[...document.querySelectorAll('.dh-marker')].filter((m) => !m.hidden).length");
 
 async function clickSel(page, selector) {
@@ -119,6 +132,7 @@ export default async function (page) {
   typed += await playWave(page);
   steps.push(await placeByMouse(page, "herb-hut"));
   await page.shot(join(out, `place-break3-${width}x${height}.png`));
+  const cover = await page.eval(COVER);
   // Edit mode by keyboard: = twice upgrades the first built item, - twice sells the next one.
   await press(page, "Backquote");
   await page.sleep(150);
@@ -191,6 +205,7 @@ export default async function (page) {
     },
     edit: { mode: editMode, slotsBefore: sold.slots.length, upgraded: upgraded.slots, sold: sold.slots, goldAfterSell: sold.gold },
     menu: { opened: menuOpened, buttons: menuButtons },
+    cover,
     end: await state(page),
     badResources: await badResources(page),
   };

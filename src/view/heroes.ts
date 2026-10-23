@@ -11,9 +11,16 @@
  * The app builds the Dragons once and keeps them across "Chơi lại ải"
  * (reset + setLocator), so a retry neither loads nor decodes the GLBs again;
  * dispose frees geometry, materials, textures and skeletons.
+ * Bạch Long's colour (round 2): the GLB is the same white humanoid dragon
+ * as Space's title page (sha256 equal, textures sRGB, tier .high), but the
+ * title lights it with a studio environment map and the battle scene has
+ * none, so its white hide went dull lavender and the red wings and dark
+ * greaves won at 60 px. Its materials now get that environment (only its
+ * own, the scene keeps none), and it turns to face the default camera.
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { Hero, loadModel, type ShotName } from "../kit/three";
 import type { EntityRef, MapDef, SimEvent } from "../content/types";
 import { RINGS } from "../content/rules";
@@ -47,9 +54,13 @@ export const FIRE_CLIPS = {
 export const GUIDE_CLIPS_DH = { idle: "Guide_Idle", wave: "Guide_Wave", talk: "Guide_Talk", flap: "Guide_Flap" } as const;
 export type GuideAct = "wave" | "talk" | "flap";
 
-/** 05 §2.3 at the default camera: Hỏa Long 80–100 px, Bạch Long 60–70 px at 1080p (≈ 21 px a metre). */
+/** 05 §2.3 at the default camera: Hỏa Long 80–100 px, Bạch Long 60–70 px at 1080p. */
 const FIRE_SIZE_M = 4.2;
-const GUIDE_SIZE_M = 3.0;
+const GUIDE_SIZE_M = 4.0;
+/** Bạch Long's studio light (Space title: RoomEnvironment, 0.04 blur) and how strongly its materials take it. */
+const GUIDE_ENV_INTENSITY = 1.15;
+/** Bạch Long faces the default camera (south, +z), turned this far toward the dais. */
+const GUIDE_TURN_RAD = 0.22;
 /** Placeholder colours: peach fire, cream feathers (05 §2.2). */
 const FIRE_COLOR = "#d9643a";
 const GUIDE_COLOR = "#efe6d2";
@@ -119,7 +130,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
   const guideAnchor = new THREE.Group();
   const [gx, gz] = map.dais.guideAt;
   guideAnchor.position.set(gx, ground(gx, gz), gz);
-  guideAnchor.rotation.y = Math.atan2(-gx * 0.3, 1);
+  guideAnchor.rotation.y = Math.sign(-gx) * GUIDE_TURN_RAD;
   group.add(guideAnchor);
 
   // Placeholders (primitives only): a capsule body and a cone snout; the guide a capsule.
@@ -138,6 +149,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
 
   let fire: Hero | null = null;
   let guide: GuideRig | null = null;
+  let guideEnv: THREE.Texture | null = null;
   let yaw = Math.atan2(0.15, -1);
   let wantYaw = yaw;
   let side = 0;
@@ -192,8 +204,23 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
         return;
       }
       const model = gltf.scene;
+      // The studio environment Space's title lights it with, on its own materials only.
+      const pmrem = new THREE.PMREMGenerator(stage.renderer);
+      const room = new RoomEnvironment();
+      guideEnv = pmrem.fromScene(room, 0.04).texture;
+      room.dispose();
+      pmrem.dispose();
       model.traverse((object) => {
-        if ((object as THREE.Mesh).isMesh) object.frustumCulled = false;
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.frustumCulled = false;
+        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+          const standard = material as THREE.MeshStandardMaterial;
+          if (!standard.isMeshStandardMaterial) continue;
+          standard.envMap = guideEnv;
+          standard.envMapIntensity = GUIDE_ENV_INTENSITY;
+          standard.needsUpdate = true;
+        }
       });
       const mixer = new THREE.AnimationMixer(model);
       const idleClip = gltf.animations.find((clip) => clip.name === GUIDE_CLIPS_DH.idle);
@@ -400,6 +427,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
         guide.mixer.uncacheRoot(guide.root);
         freeObject(guide.root);
       }
+      guideEnv?.dispose();
       body.geometry.dispose();
       snout.geometry.dispose();
       bodyMaterial.dispose();

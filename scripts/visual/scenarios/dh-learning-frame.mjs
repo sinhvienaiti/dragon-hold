@@ -2,7 +2,9 @@
 // meaning; nothing covers it (word tags, panels, damage numbers in a T4–T5
 // storm); a new word stays pinned ≥ 2.5 s after it is typed; IPA lines use a
 // font with the IPA glyphs (20 samples drawn in the frame's IPA style); Thẻ Ôn
-// after the wave answered by keyboard. 1280×720 and 1920×1080.
+// after the wave answered by keyboard, at both sizes; the card covers no
+// build slot and no lane (round 2: screen-zones.ts as the game published
+// them). 1280×720 and 1920×1080.
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
 import { badResources, boot, outDir, press, state, typeWord, waitFor } from "./lib/dh.mjs";
@@ -19,6 +21,16 @@ const FRAME = `(() => {
   const covering = tags.filter((t) => hit(t.getBoundingClientRect(), r)).map((t) => t.dataset.word);
   const ipaEl = f.querySelector('.kit-learning-frame__ipa, [class*="ipa"]');
   return { text: f.innerText.replace(/\\s+/g, ' ').trim().slice(0, 160), rect: { x: r.left, y: r.top, w: r.width, h: r.height }, covering, ipaFont: ipaEl ? getComputedStyle(ipaEl).fontFamily : null };
+})()`;
+
+/** Lane px and slot px² under the open Thẻ Ôn and the wave card (the zones the game published this frame). */
+const COVER = `(async () => {
+  const z = await import('/src/ui/screen-zones.ts');
+  const zones = z.zonesFor(document.getElementById('dh-overlay'));
+  const box = (sel) => { const n = document.querySelector(sel); if (!n || n.closest('[hidden]')) return null; const r = n.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
+  const view = { w: innerWidth, h: innerHeight };
+  const of = (rect) => { if (!rect || !zones) return null; const c = z.spotCost(rect, zones, [], view); return { lanePx: Math.round(c.lanes), slotPx2: Math.round(c.slots), at: [Math.round(rect.x), Math.round(rect.y)] }; };
+  return { zones: Boolean(zones), review: of(box('.dh-lpanel.is-card')), waveCard: of(box('.dh-wave-card')) };
 })()`;
 
 async function run(page, width, height, out) {
@@ -80,25 +92,25 @@ async function run(page, width, height, out) {
   };
 }
 
-export default async function (page) {
-  const out = outDir("integrator");
-  const runs = [];
-  for (const [w, h] of [[1280, 720], [1920, 1080]]) runs.push(await run(page, w, h, out));
-  // Thẻ Ôn by keyboard after wave 1 (word bot finishes the wave fast).
+/** Thẻ Ôn after wave 1 at one size: opens by itself, hides the answers, holds the clock, keeps off slots and lanes, takes keyboard answers. */
+async function reviewAt(page, width, height, out) {
+  await boot(page, "prelearn=0", { width, height });
+  await press(page, "Enter");
+  await waitFor(page, "s.phase === 'wave'", { timeoutMs: 15000 });
   await page.eval("window.__dh.setSpeed(6)");
   await page.eval(`(async () => { const d = window.__dh; for (let k = 0; k < 3000; k += 1) { const w = d.world(); if (w.phase !== 'wave' && w.phase !== 'warning') break; const live = d.words(); const lock = w.words.lock; const word = lock >= 0 ? live.find((x) => x.slot === lock) : live[0]; if (word) for (const ch of word.text.slice(word.typed)) d.send({ type: 'key', letter: ch.charCodeAt(0) - 97 }); await new Promise((r) => setTimeout(r, 40)); } })()`);
   await page.eval("window.__dh.setSpeed(1)");
   await waitFor(page, "s.phase === 'break'", { timeoutMs: 20000 });
   await page.sleep(300);
-  const review = { opened: (await page.eval("window.__dh.panel()")) === "review", answers: await page.eval("window.__dh.review()") };
-  const out2 = outDir("integrator");
+  const review = { size: width + "x" + height, opened: (await page.eval("window.__dh.panel()")) === "review", answers: await page.eval("window.__dh.review()") };
   if (review.opened) {
     const t1 = (await state(page)).tick;
     // While a question is up, nothing on screen may give its answer: the learning frame (and its Vừa học line) is covered.
     review.frame = await page.eval("(() => { const f = document.querySelector('.kit-learning-frame'); return f ? { visibility: getComputedStyle(f).visibility, text: f.innerText.replace(/\\s+/g, ' ').trim() } : null; })()");
     review.leaks = review.answers.filter((answer) => (review.frame?.visibility !== "hidden" && review.frame?.text.includes(answer)) || false);
     review.card = await page.eval("(() => { const p = document.querySelector('.dh-lpanel.is-card:not([hidden])'); if (!p) return null; const r = p.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, width: r.width }; })()");
-    await page.shot(join(out2, "frame-review-1920x1080.png"));
+    review.cover = await page.eval(COVER);
+    await page.shot(join(out, `frame-review-${width}x${height}.png`));
     await page.sleep(1000);
     review.clockStill = (await state(page)).tick === t1;
     const goldBefore = (await state(page)).gold;
@@ -110,5 +122,14 @@ export default async function (page) {
     review.goldGained = (await state(page)).gold - goldBefore;
     review.closed = (await page.eval("window.__dh.panel()")) !== "review";
   }
-  return { runs, review, badResources: await badResources(page) };
+  return review;
+}
+
+export default async function (page) {
+  const out = outDir("integrator");
+  const runs = [];
+  for (const [w, h] of [[1280, 720], [1920, 1080]]) runs.push(await run(page, w, h, out));
+  const reviews = [];
+  for (const [w, h] of [[1280, 720], [1920, 1080]]) reviews.push(await reviewAt(page, w, h, out));
+  return { runs, reviews, badResources: await badResources(page) };
 }

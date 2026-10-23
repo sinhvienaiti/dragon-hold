@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { ENEMIES } from "../../src/content/data/enemies";
 import { CHARACTER_SCALE, createCrowd, TINT, type CrowdInstance } from "../../src/view/crowd";
+import { FOE_DRAW_SCALE, foeDrawLook, foeDrawnSize, foeHeadM, swarmOffset } from "../../src/view/foe-look";
 import { HP_BAR, HpBarBatch } from "../../src/view/hpbars";
 
 const grunt = ENEMIES["moss-grunt"].show.placeholder;
@@ -19,17 +20,26 @@ function layers(group: THREE.Group): Map<string, THREE.InstancedMesh> {
 }
 
 describe("view crowd", () => {
-  it("draws every placeholder shape in one layer each, plus one for the shadows", () => {
+  it("draws every placeholder shape in one layer each with its outline hull, plus one for the shadows", () => {
     const crowd = createCrowd(64);
     for (let k = 0; k < 10; k += 1) crowd.set(crowd.add(grunt, "biped"), inst(k, 0));
     for (let k = 0; k < 6; k += 1) crowd.set(crowd.add(wolf, "quadruped"), inst(k, 3));
     for (let k = 0; k < 4; k += 1) crowd.set(crowd.add(wasp, "flyer"), inst(k, 6));
     crowd.flush(1);
     expect(crowd.size).toBe(20);
-    // capsule, box, sphere + shadows.
-    expect(crowd.drawCalls()).toBe(4);
+    // capsule, box, sphere, their three outline hulls + shadows.
+    expect(crowd.drawCalls()).toBe(7);
     const meshes = layers(crowd.group);
     expect(meshes.get("crowd-capsule")!.count).toBe(10);
+    // The hull shares the body's instance matrices and count.
+    expect(meshes.get("crowd-outline-capsule")!.instanceMatrix).toBe(meshes.get("crowd-capsule")!.instanceMatrix);
+    expect(meshes.get("crowd-outline-capsule")!.count).toBe(10);
+    // Without outlines: one call per layer.
+    const plain = createCrowd(8, { outlines: false });
+    plain.set(plain.add(grunt, "biped"), inst(0, 0));
+    plain.flush();
+    expect(plain.drawCalls()).toBe(2);
+    plain.dispose();
     expect(meshes.get("crowd-box")!.count).toBe(6);
     expect(meshes.get("crowd-sphere")!.count).toBe(4);
     crowd.dispose();
@@ -102,6 +112,40 @@ describe("view crowd", () => {
     crowd.dispose();
   });
 
+  it("takes a per-instance draw scale and look (round 2 foes)", () => {
+    const crowd = createCrowd(8);
+    const handle = crowd.add(grunt, "biped", undefined, { foe: true, scale: 2.25, outline: 1.5, rim: 0.9, ash: 0.05 });
+    crowd.set(handle, inst(0, 0));
+    crowd.flush();
+    const mesh = layers(crowd.group).get("crowd-capsule")!;
+    const matrix = new THREE.Matrix4();
+    mesh.getMatrixAt(0, matrix);
+    const size = new THREE.Vector3();
+    matrix.decompose(new THREE.Vector3(), new THREE.Quaternion(), size);
+    expect(size.y).toBeCloseTo(grunt.sizeM[1] * 2.25, 5);
+    const look = mesh.geometry.getAttribute("aLook") as THREE.InstancedBufferAttribute;
+    expect([look.getX(0), look.getY(0), look.getZ(0)].map((v) => Math.round(v * 100) / 100)).toEqual([1.5, 0.9, 0.05]);
+    crowd.dispose();
+  });
+
+  it("marks flyers with a ground spot and a tether, and draws swarm rings with the shadows", () => {
+    const crowd = createCrowd(8);
+    crowd.set(crowd.add(grunt, "biped"), inst(0, 0));
+    crowd.set(crowd.add(wasp, "flyer"), inst(3, 0));
+    crowd.setRings([{ x: 5, y: 0, z: 5, radius: 2, color: "#8a7ee0", alpha: 0.9 }]);
+    crowd.flush();
+    const shadows = crowd.group.getObjectByName("crowd-shadows") as THREE.Mesh<THREE.InstancedBufferGeometry>;
+    // Grunt: one contact shadow; wasp: spot + tether; one ring.
+    expect(shadows.geometry.instanceCount).toBe(4);
+    const data = shadows.geometry.getAttribute("iData") as THREE.InstancedBufferAttribute;
+    const kinds = [0, 1, 2, 3].map((k) => data.getZ(k));
+    expect(kinds).toEqual([0, 1, 2, 3]);
+    // The tether reaches up to the flyer.
+    expect(data.getW(2)).toBeCloseTo(wasp.hoverM, 5);
+    expect(data.getX(3)).toBeCloseTo(4, 5);
+    crowd.dispose();
+  });
+
   it("fills the shadow batch once a frame and refuses past capacity", () => {
     const crowd = createCrowd(3);
     const handles = [0, 1, 2, 3].map(() => crowd.add(grunt, "biped"));
@@ -141,5 +185,32 @@ describe("view hp bars", () => {
     expect(data.getZ(1)).toBe(HP_BAR.unit);
     expect(batch.mesh.geometry.instanceCount).toBe(2);
     batch.dispose();
+  });
+});
+
+describe("view foe look (round 2 readability)", () => {
+  it("draws small foes bigger than 1.4 ×, generals bigger still, swarm bodies small", () => {
+    expect(FOE_DRAW_SCALE.small).toBeGreaterThan(CHARACTER_SCALE);
+    expect(foeDrawLook("moss-grunt").scale).toBe(FOE_DRAW_SCALE.small);
+    expect(foeDrawLook("moss-banner").tier).toBe("general");
+    expect(foeDrawnSize("moss-banner")[1]).toBeGreaterThan(foeDrawnSize("moss-grunt")[1] * 1.4);
+    expect(foeDrawnSize("thorn-ant")[1]).toBeLessThan(foeDrawnSize("moss-grunt")[1] / 2);
+    // Tag anchors follow the drawn head (hover included).
+    expect(foeHeadM("thorn-wasp", 3)).toBeCloseTo(3 + foeDrawnSize("thorn-wasp")[1], 5);
+  });
+
+  it("gives each family a view colour that is not its dark content colour, and keeps sizes", () => {
+    const look = foeDrawLook("moss-grunt");
+    expect(look.placeholder.color).not.toBe(grunt.color);
+    expect(look.placeholder.sizeM).toEqual(grunt.sizeM);
+    expect(look.placeholder.hoverM).toBe(grunt.hoverM);
+  });
+
+  it("spreads a swarm cluster on a spiral without two bodies on one spot", () => {
+    const at: [number, number] = [0, 0];
+    const points = Array.from({ length: 10 }, (_, k) => [...swarmOffset(k, at)] as [number, number]);
+    for (let i = 0; i < points.length; i += 1)
+      for (let j = i + 1; j < points.length; j += 1) expect(Math.hypot(points[i]![0] - points[j]![0], points[i]![1] - points[j]![1])).toBeGreaterThan(0.5);
+    expect(Math.max(...points.map(([x, z]) => Math.hypot(x, z)))).toBeLessThan(2.5);
   });
 });

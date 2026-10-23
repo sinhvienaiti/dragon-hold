@@ -9,12 +9,14 @@ import * as THREE from "three";
 import type { SimEvent } from "../content/types";
 import { ENEMIES } from "../content/data/enemies";
 import { GENERALS } from "../content/data/generals";
+import { UNITS } from "../content/data/our-side";
 import { uToM } from "../sim/fixed";
 import type { World } from "../sim/world";
 import type { FrameInfo, Presenter } from "../app/contracts";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 import { worldLocator, type FoeLocator } from "./actors";
+import { UNIT_DRAW_SCALE } from "./foe-look";
 
 /** Bar colours by owner; never a semantic colour (05 §2.2). */
 export const HP_BAR = { foe: 0, general: 1, unit: 2, house: 3 } as const;
@@ -166,7 +168,8 @@ export function createHpBars(stage: Stage, options: HpBarsOptions = {}): HpBarsP
         const x = uToM(unit.x);
         const z = uToM(unit.z);
         const ground = options.terrain?.heightAt(x, z) ?? 0;
-        batch.push(x, ground + 1.9, z, unit.hp / unit.hpMax, HP_BAR.unit, 28);
+        // Over the unit's head as drawn (UNIT_DRAW_SCALE).
+        batch.push(x, ground + (UNITS[unit.unit]?.show.placeholder.sizeM[1] ?? 1.4) * UNIT_DRAW_SCALE + 0.3, z, unit.hp / unit.hpMax, HP_BAR.unit, 28);
       }
       for (const house of world.houses.list) {
         if (house.hp >= house.hpMax || house.hpMax <= 0) continue;

@@ -16,7 +16,8 @@ import { ENEMIES } from "../content/data/enemies";
 import { MAP_L2_CAU } from "../content/data/maps";
 import type { EnemyId, Gait, MapDef, PlaceholderDef, Vec2 } from "../content/types";
 import type { Projector, Quality, ScreenPoint } from "../app/contracts";
-import { CHARACTER_SCALE, createCrowd, TINT, type Crowd, type CrowdInstance } from "./crowd";
+import { createCrowd, TINT, type Crowd, type CrowdInstance } from "./crowd";
+import { foeDrawLook } from "./foe-look";
 import type { FoeAnchor, FoeLocator } from "./actors";
 import { createFx, FxCore, pointScaleOf } from "./fx";
 import { createHeroes } from "./heroes";
@@ -278,7 +279,9 @@ interface BenchFoe {
   id: EnemyId;
   handle: number;
   gait: Gait;
+  /** Drawn placeholder and scale (view/foe-look.ts, as in the game). */
   placeholder: PlaceholderDef;
+  scale: number;
   lane: LanePath;
   s: number;
   side: number;
@@ -349,7 +352,7 @@ export class BenchCrowd implements FoeLocator {
     const foe = this.foes[slot];
     if (foe === undefined || foe.serial !== serial) return false;
     const lift = foe.gait === "flyer" ? foe.lane.altitude : 0;
-    const h = foe.placeholder.sizeM[1] * CHARACTER_SCALE;
+    const h = foe.placeholder.sizeM[1] * foe.scale;
     out.set(foe.x, foe.y + (at === "base" ? 0 : lift + (at === "center" ? h * 0.5 : h + 0.15)), foe.z);
     return true;
   }
@@ -365,13 +368,15 @@ export class BenchCrowd implements FoeLocator {
     const sky = def.gait === "flyer";
     const lanes = sky ? this.lanes.sky : this.lanes.ground;
     const lane = lanes[Math.floor(this.random() * lanes.length)]!;
-    const handle = this.crowd.add(def.show.placeholder, def.gait, def.show.placeholder.shape);
+    const look = foeDrawLook(id);
+    const handle = this.crowd.add(look.placeholder, def.gait, look.placeholder.shape, { foe: true, scale: look.scale });
     if (handle < 0) return;
     this.foes.push({
       id,
       handle,
       gait: def.gait,
-      placeholder: def.show.placeholder,
+      placeholder: look.placeholder,
+      scale: look.scale,
       lane,
       s: scatter ? this.random() * lane.length * 0.95 : 0,
       side: (this.random() - 0.5) * Math.max(0.6, lane.width - 0.4),
@@ -459,7 +464,7 @@ export class BenchCrowd implements FoeLocator {
       const tier = 1 + Math.floor(this.random() * 3);
       foe.hp -= 0.12 + this.random() * 0.25;
       this.reactions.hit(index % 512, foe.serial, tier, foe.x, foe.z, now);
-      this.hits.push([foe.x, foe.y + foe.placeholder.sizeM[1] * CHARACTER_SCALE * 0.6 + (foe.gait === "flyer" ? foe.lane.altitude : 0), foe.z, tier]);
+      this.hits.push([foe.x, foe.y + foe.placeholder.sizeM[1] * foe.scale * 0.6 + (foe.gait === "flyer" ? foe.lane.altitude : 0), foe.z, tier]);
       if (foe.hp <= 0) {
         foe.dying = 0;
         this.deaths.push([foe.x, foe.y, foe.z, tier]);
@@ -518,7 +523,7 @@ export class BenchCrowd implements FoeLocator {
       inst.lift = foe.gait === "flyer" ? foe.lane.altitude : 0;
       this.crowd.set(foe.handle, inst);
       if (foe.dying < 0 && foe.hp < 1) {
-        const top = foe.y + inst.lift + foe.placeholder.sizeM[1] * CHARACTER_SCALE + 0.35;
+        const top = foe.y + inst.lift + foe.placeholder.sizeM[1] * foe.scale + 0.35;
         this.bars.push(foe.x, top, foe.z, foe.hp, HP_BAR.foe, foe.gait === "swarm" ? 20 : 28);
       }
     }

@@ -62,6 +62,25 @@ export interface CrowdInstance {
 /** How an instance reads: a foe (ash-grey shell, withered cracks) or ours. Default: anything with a gait is a foe. */
 export interface CrowdLook {
   readonly foe?: boolean;
+  /** Drawn scale on the placeholder size; default CHARACTER_SCALE with a gait, 1 still (foe-look.ts sets it per tier). */
+  readonly scale?: number;
+  /** Dark outline strength 0–1 (inverted hull, about 2 px at 1080p); default 1 with a gait, 0.6 still. */
+  readonly outline?: number;
+  /** Bright family rim 0–1; default 0.6 for a foe, 0.35 ours. */
+  readonly rim?: number;
+  /** How far a foe's colour greys toward ash 0–1 (05 §2.2); default 0.14 (0.38 before round 2). */
+  readonly ash?: number;
+}
+
+/** A ground ring the crowd draws with the shadows (a swarm cluster's outline, view only). */
+export interface CrowdRing {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  /** "#rrggbb" or 0xrrggbb. */
+  color: string | number;
+  alpha: number;
 }
 
 /** A clip baked into a vat or bone texture. */
@@ -99,11 +118,15 @@ export interface Crowd {
   add(shape: PlaceholderDef, gait?: CrowdGait, key?: string, look?: CrowdLook): number;
   remove(handle: number): void;
   set(handle: number, instance: CrowdInstance): void;
+  /** Ground rings drawn with this frame's shadows (swarm clusters); replaces the last list. */
+  setRings(rings: readonly CrowdRing[]): void;
+  /** Builds the layer of `shape` now (empty), so a warm-up compile covers its body and outline before the first foe. */
+  prepare(shape: PlaceholderDef["shape"], key?: string): void;
   /** Uploads instance buffers once a frame; `timeS` drives the gait. */
   flush(timeS?: number): void;
   /** Swaps a layer's geometry (the owner's GLB); "vat" and "bones" throw until M0b. */
   defineLayer(key: string, source: CrowdLayerSource): void;
-  /** Live instances, and draw calls the crowd costs now (layers in use plus shadows). */
+  /** Live instances, and draw calls the crowd costs now (layers and their outlines in use, plus shadows). */
   readonly size: number;
   drawCalls(): number;
   dispose(): void;
@@ -115,9 +138,11 @@ const CROWD_VERTEX_HEAD = /* glsl */ `
 attribute vec3 aColor;
 attribute vec4 aState;
 attribute vec4 aAnim;
+attribute vec4 aLook;
 uniform float uTime;
 varying vec3 vTint;
 varying vec4 vState;
+varying vec4 vLook;
 varying vec3 vLocal;
 varying vec3 vViewN;
 varying float vFoe;
@@ -138,6 +163,7 @@ vec3 crowdTint(float id) {
 const CROWD_BEGIN = /* glsl */ `
 #include <begin_vertex>
 vState = aState;
+vLook = aLook;
 vTint = crowdTint(aState.z);
 vLocal = position;
 vFoe = step(7.5, aAnim.x);
@@ -159,11 +185,7 @@ if (gait > 0.5 && gait < 1.5) {
 `;
 
 // World-space bob after the instance transform (metres, whatever the size).
-const CROWD_PROJECT = /* glsl */ `
-vec4 mvPosition = vec4( transformed, 1.0 );
-#ifdef USE_INSTANCING
-mvPosition = instanceMatrix * mvPosition;
-#endif
+const CROWD_BOB = /* glsl */ `
 if (gait > 0.5 && gait < 1.5) {
   mvPosition.y += abs(sin(uTime * 4.6 + gaitPhase)) * 0.08 * stride;
 } else if (gait > 1.5 && gait < 2.5) {
@@ -175,9 +197,48 @@ if (gait > 0.5 && gait < 1.5) {
   mvPosition.z += cos(uTime * 19.0 + gaitPhase * 31.0) * 0.05 * stride;
   mvPosition.y += abs(sin(uTime * 14.0 + gaitPhase)) * 0.06 * stride;
 }
+`;
+
+const CROWD_PROJECT = /* glsl */ `
+vec4 mvPosition = vec4( transformed, 1.0 );
+#ifdef USE_INSTANCING
+mvPosition = instanceMatrix * mvPosition;
+#endif
+${CROWD_BOB}
 mvPosition = modelViewMatrix * mvPosition;
 gl_Position = projectionMatrix * mvPosition;
 `;
+
+/**
+ * Outline hull (round 2 readability): the same body pushed out from its
+ * centre by a width that keeps about OUTLINE_PX on screen at any zoom, drawn
+ * back faces only in a dark colour, so every foe has a dark edge on grass,
+ * dirt and water. aLook.x scales it (0: none); a dissolving body loses it.
+ */
+const OUTLINE_PROJECT = /* glsl */ `
+vec4 mvPosition = vec4( transformed, 1.0 );
+vec3 crowdOut = transformed - uCenter;
+#ifdef USE_INSTANCING
+crowdOut = mat3(instanceMatrix) * crowdOut;
+mvPosition = instanceMatrix * mvPosition;
+#endif
+${CROWD_BOB}
+vec4 crowdWorld = modelMatrix * mvPosition;
+crowdOut = mat3(modelMatrix) * crowdOut;
+float crowdWidth = uOutlineK * length(cameraPosition - crowdWorld.xyz) * aLook.x * (1.0 - aState.y);
+crowdWorld.xyz += normalize(crowdOut + vec3(0.0, 1e-5, 0.0)) * crowdWidth;
+mvPosition = viewMatrix * crowdWorld;
+gl_Position = projectionMatrix * mvPosition;
+`;
+
+const OUTLINE_CLIP = /* glsl */ `
+#include <clipping_planes_fragment>
+if (vState.y > 0.02 || vLook.x < 0.01) discard;
+`;
+
+/** Outline colour (near-black umber) and its width in CSS px at 1080p. */
+const OUTLINE_COLOR = "#120c08";
+const OUTLINE_PX = 2.1;
 
 const CROWD_NORMAL = /* glsl */ `
 #include <defaultnormal_vertex>
@@ -191,6 +252,7 @@ varying vec4 vState;
 varying vec3 vLocal;
 varying vec3 vViewN;
 varying vec3 vColorCrowd;
+varying vec4 vLook;
 varying float vFoe;
 varying float vPhase;
 float crowdHash(vec3 p) {
@@ -218,15 +280,17 @@ if (vState.y > 0.001 && crowdN < vState.y * 1.08) discard;
 const CROWD_COLOR = /* glsl */ `
 #include <color_fragment>
 diffuseColor.rgb *= vColorCrowd;
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))) * vec3(0.98, 0.95, 0.88), 0.38 * vFoe);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))) * vec3(0.98, 0.95, 0.88), vLook.z * vFoe);
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vTint * 1.25, vState.w * 0.75);
 `;
 
 const CROWD_EMISSIVE = /* glsl */ `
 #include <emissivemap_fragment>
-float crowdRim = pow(1.0 - abs(vViewN.z), 2.0);
-// A soft rim (05 §2.1: 10–15 %) so every body reads against the ground; an aura rim is withered yellow.
-totalEmissiveRadiance += mix(vec3(0.13), vTint * 0.35, step(3.5, vState.z) * step(vState.z, 4.5) * vState.w) * crowdRim;
+float crowdRim = pow(1.0 - abs(vViewN.z), 2.2);
+// A bright rim in the body's own colour lifted toward cream (aLook.y), so every body reads against the ground
+// even on its shaded side; an aura rim is withered yellow.
+vec3 crowdRimColor = mix(vColorCrowd, vec3(1.0, 0.97, 0.88), 0.55) * vLook.y;
+totalEmissiveRadiance += mix(crowdRimColor, vTint * 0.35, step(3.5, vState.z) * step(vState.z, 4.5) * vState.w) * crowdRim;
 totalEmissiveRadiance += vTint * vState.w * 0.12;
 // Withered-yellow cracks on every foe's shell (05 §2.2 "khe nứt vàng úa"): each instance samples its own patch of
 // noise (its gait phase), stretched unevenly, so no two shells carry the same mark and none reads as a letter.
@@ -240,25 +304,72 @@ if (vState.y > 0.001) {
 }
 `;
 
+/**
+ * Ground marks, one instanced quad each (one draw call): kind 0 the dark
+ * contact shadow under a body; 1 a flyer's spot and ring on the ground, the
+ * point under it; 2 the thin dashed tether from that point up to the flyer
+ * (a vertical quad turned to the camera); 3 a swarm cluster's ring in its
+ * family colour. iData: x size (m), y alpha, z kind, w tether height (m).
+ */
 const SHADOW_VERTEX = /* glsl */ `
 attribute vec3 iPos;
-attribute vec2 iData;
+attribute vec4 iData;
+attribute vec3 iColor;
 varying vec2 vUv;
 varying float vAlpha;
+varying float vKind;
+varying vec3 vColor;
 void main() {
   vUv = uv;
   vAlpha = iData.y;
-  vec3 world = iPos + vec3(position.x * iData.x, 0.0, -position.y * iData.x);
+  vKind = iData.z;
+  vColor = iColor;
+  vec3 world;
+  if (iData.z > 1.5 && iData.z < 2.5) {
+    vec3 toCam = cameraPosition - iPos;
+    vec3 right = normalize(vec3(toCam.z, 0.0, -toCam.x) + vec3(1e-4, 0.0, 0.0));
+    world = iPos + right * position.x * iData.x + vec3(0.0, (position.y + 0.5) * iData.w, 0.0);
+  } else {
+    world = iPos + vec3(position.x * iData.x, 0.0, -position.y * iData.x);
+  }
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }`;
 const SHADOW_FRAGMENT = /* glsl */ `
 varying vec2 vUv;
 varying float vAlpha;
+varying float vKind;
+varying vec3 vColor;
 void main() {
   float d = length(vUv - 0.5) * 2.0;
-  float a = (1.0 - smoothstep(0.35, 1.0, d)) * vAlpha;
-  gl_FragColor = vec4(0.06, 0.07, 0.05, a * 0.55);
+  vec4 c;
+  if (vKind < 0.5) {
+    // Contact shadow: a dark core under the feet, a soft edge.
+    float a = (1.0 - smoothstep(0.25, 1.0, d)) * 0.8 + (1.0 - smoothstep(0.0, 0.5, d)) * 0.2;
+    c = vec4(0.035, 0.04, 0.025, min(1.0, a) * vAlpha * 0.78);
+  } else if (vKind < 1.5) {
+    // Flyer: a dark spot with a ring round it on the ground under the body.
+    float spot = 1.0 - smoothstep(0.12, 0.5, d);
+    float ring = smoothstep(0.7, 0.78, d) * (1.0 - smoothstep(0.88, 0.97, d));
+    c = vec4(0.035, 0.04, 0.025, max(spot * 0.7, ring * 0.75) * vAlpha);
+  } else if (vKind < 2.5) {
+    // Tether: a thin dashed line from the ground spot up to the flyer, fading upward.
+    float across = 1.0 - smoothstep(0.2, 0.5, abs(vUv.x - 0.5));
+    float dash = step(0.4, fract(vUv.y * 6.0));
+    c = vec4(0.05, 0.05, 0.04, across * dash * (1.0 - vUv.y * 0.55) * vAlpha);
+  } else {
+    // Swarm cluster: a bold ring in the family colour lifted toward cream, dark edges both sides, a faint fill.
+    float band = smoothstep(0.74, 0.79, d) * (1.0 - smoothstep(0.9, 0.94, d));
+    float edge = max(smoothstep(0.68, 0.72, d) * (1.0 - smoothstep(0.74, 0.78, d)), smoothstep(0.9, 0.94, d) * (1.0 - smoothstep(0.98, 1.0, d)));
+    float fill = (1.0 - smoothstep(0.5, 0.75, d)) * 0.16;
+    vec3 col = mix(mix(vColor, vec3(1.0, 0.95, 0.85), 0.35), vec3(0.04, 0.035, 0.03), edge);
+    c = vec4(col, max(max(band, edge * 0.8), fill) * vAlpha);
+  }
+  if (c.a < 0.004) discard;
+  gl_FragColor = c;
 }`;
+
+/** Ground rings a crowd can hold per frame (swarm clusters). */
+const RING_CAPACITY = 48;
 
 /** "#rrggbb" as a GLSL vec3 literal body. */
 function hexVec(hex: string): string {
@@ -292,9 +403,12 @@ function primitive(shape: PlaceholderDef["shape"]): THREE.BufferGeometry {
 interface Layer {
   readonly key: string;
   mesh: THREE.InstancedMesh;
+  /** Dark outline hull sharing the body's geometry and instance matrices. */
+  outline: THREE.InstancedMesh;
   readonly color: THREE.InstancedBufferAttribute;
   readonly state: THREE.InstancedBufferAttribute;
   readonly anim: THREE.InstancedBufferAttribute;
+  readonly look: THREE.InstancedBufferAttribute;
   readonly owner: Int32Array;
   readonly sizeM: [number, number, number];
   count: number;
@@ -304,11 +418,13 @@ interface Layer {
 interface HandleRec {
   layer: Layer;
   index: number;
-  /** Placeholder size and hover. */
+  /** Placeholder size (drawn) and hover. */
   w: number;
   h: number;
   l: number;
   hover: number;
+  /** A flyer: its ground mark is a spot and ring with a tether up to it. */
+  flyer: boolean;
   /** Last written ground point, lift and footprint for the shadow. */
   gx: number;
   gy: number;
@@ -317,7 +433,7 @@ interface HandleRec {
   dissolve: number;
 }
 
-/** 05 §2.3: characters are drawn 1.4 × the scene's scale (placeholder sizes are real sizes). */
+/** 05 §2.3: characters are drawn 1.4 × the scene's scale (placeholder sizes are real sizes); foes take foe-look.ts's tier scale. */
 export const CHARACTER_SCALE = 1.4;
 
 export interface CrowdOptions {
@@ -327,6 +443,8 @@ export interface CrowdOptions {
   characterScale?: number;
   /** Seed for gait phases (view only). */
   seed?: number;
+  /** Dark outline hulls (default true): one more draw call per layer in use. */
+  outlines?: boolean;
 }
 
 export function createCrowd(capacity: number, options: CrowdOptions = {}): Crowd {
@@ -339,6 +457,10 @@ class InstancedCrowd implements Crowd {
   private readonly handles: (HandleRec | null)[] = [];
   private readonly freeHandles: number[] = [];
   private readonly time = { value: 0 };
+  /** Outline width per metre of camera distance (set before each outline draw from the view height). */
+  private readonly outlineK = { value: 0.0011 };
+  private readonly outlines: boolean;
+  private readonly sizeScratch = new THREE.Vector2();
   private readonly matrix = new THREE.Matrix4();
   private readonly quat = new THREE.Quaternion();
   private readonly pos = new THREE.Vector3();
@@ -348,6 +470,9 @@ class InstancedCrowd implements Crowd {
   private readonly shadows: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial> | null;
   private readonly shadowPos: Float32Array;
   private readonly shadowData: Float32Array;
+  private readonly shadowColor: Float32Array;
+  private readonly shadowCapacity: number;
+  private rings: readonly CrowdRing[] = [];
   private phaseSeed: number;
   private live = 0;
   private readonly characterScale: number;
@@ -356,8 +481,12 @@ class InstancedCrowd implements Crowd {
     this.group.name = "crowd";
     this.phaseSeed = (options.seed ?? 7) >>> 0 || 7;
     this.characterScale = options.characterScale ?? CHARACTER_SCALE;
-    this.shadowPos = new Float32Array(capacity * 3);
-    this.shadowData = new Float32Array(capacity * 2);
+    this.outlines = options.outlines !== false;
+    // A flyer takes two marks (spot, tether); rings come on top.
+    this.shadowCapacity = capacity * 2 + RING_CAPACITY;
+    this.shadowPos = new Float32Array(this.shadowCapacity * 3);
+    this.shadowData = new Float32Array(this.shadowCapacity * 4);
+    this.shadowColor = new Float32Array(this.shadowCapacity * 3);
     if (options.shadows === false) {
       this.shadows = null;
     } else {
@@ -367,13 +496,15 @@ class InstancedCrowd implements Crowd {
       geometry.setAttribute("position", base.getAttribute("position"));
       geometry.setAttribute("uv", base.getAttribute("uv"));
       geometry.setAttribute("iPos", new THREE.InstancedBufferAttribute(this.shadowPos, 3).setUsage(THREE.DynamicDrawUsage));
-      geometry.setAttribute("iData", new THREE.InstancedBufferAttribute(this.shadowData, 2).setUsage(THREE.DynamicDrawUsage));
+      geometry.setAttribute("iData", new THREE.InstancedBufferAttribute(this.shadowData, 4).setUsage(THREE.DynamicDrawUsage));
+      geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.shadowColor, 3).setUsage(THREE.DynamicDrawUsage));
       geometry.instanceCount = 0;
       const material = new THREE.ShaderMaterial({
         vertexShader: SHADOW_VERTEX,
         fragmentShader: SHADOW_FRAGMENT,
         transparent: true,
         depthWrite: false,
+        side: THREE.DoubleSide,
         polygonOffset: true,
         polygonOffsetFactor: -2,
         polygonOffsetUnits: -2,
@@ -392,7 +523,7 @@ class InstancedCrowd implements Crowd {
 
   drawCalls(): number {
     let calls = this.shadows !== null && this.live > 0 ? 1 : 0;
-    for (const layer of this.layers.values()) if (layer.count > 0) calls += 1;
+    for (const layer of this.layers.values()) if (layer.count > 0) calls += this.outlines ? 2 : 1;
     return calls;
   }
 
@@ -420,9 +551,11 @@ class InstancedCrowd implements Crowd {
     const color = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage);
     const state = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
     const anim = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
+    const look = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aColor", color);
     geometry.setAttribute("aState", state);
     geometry.setAttribute("aAnim", anim);
+    geometry.setAttribute("aLook", look);
     const material = new THREE.MeshStandardMaterial({ roughness: source.roughness ?? 0.85, metalness: 0, map: source.map ?? null, emissive: "#000000" });
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = this.time;
@@ -440,14 +573,53 @@ class InstancedCrowd implements Crowd {
           .replace("#include <color_fragment>", CROWD_COLOR)
           .replace("#include <emissivemap_fragment>", CROWD_EMISSIVE);
     };
-    material.customProgramCacheKey = () => "dh-crowd-v1";
+    material.customProgramCacheKey = () => "dh-crowd-v2";
     const mesh = new THREE.InstancedMesh(geometry, material, capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.count = 0;
     mesh.frustumCulled = false;
     mesh.name = "crowd-" + key;
     this.group.add(mesh);
-    return { key, mesh, color, state, anim, owner: new Int32Array(capacity).fill(-1), sizeM: [source.sizeM[0], source.sizeM[1], source.sizeM[2]], count: 0, dirty: true };
+
+    // The hull: same geometry and instance matrices, back faces, pushed out in the vertex shader.
+    const center = { value: new THREE.Vector3(0, source.sizeM[1] / 2, 0) };
+    const outlineMaterial = new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR, side: THREE.BackSide });
+    outlineMaterial.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = this.time;
+      shader.uniforms.uOutlineK = this.outlineK;
+      shader.uniforms.uCenter = center;
+      shader.vertexShader =
+        CROWD_VERTEX_HEAD +
+        "uniform float uOutlineK;\nuniform vec3 uCenter;\n" +
+        shader.vertexShader.replace("#include <begin_vertex>", CROWD_BEGIN).replace("#include <project_vertex>", OUTLINE_PROJECT);
+      shader.fragmentShader = "varying vec4 vState;\nvarying vec4 vLook;\n" + shader.fragmentShader.replace("#include <clipping_planes_fragment>", OUTLINE_CLIP);
+    };
+    outlineMaterial.customProgramCacheKey = () => "dh-crowd-outline-v1";
+    const outline = new THREE.InstancedMesh(geometry, outlineMaterial, capacity);
+    outline.instanceMatrix = mesh.instanceMatrix;
+    outline.count = 0;
+    outline.frustumCulled = false;
+    outline.visible = this.outlines;
+    outline.name = "crowd-outline-" + key;
+    outline.onBeforeRender = (renderer, _scene, camera) => {
+      // About OUTLINE_PX at 1080p whatever the zoom: width = k × distance.
+      renderer.getSize(this.sizeScratch);
+      const height = Math.max(1, this.sizeScratch.y);
+      const fov = (camera as THREE.PerspectiveCamera).isPerspectiveCamera ? (camera as THREE.PerspectiveCamera).fov : 30;
+      const px = Math.max(1.5, (OUTLINE_PX * height) / 1080);
+      this.outlineK.value = (px * 2 * Math.tan((fov * Math.PI) / 360)) / height;
+    };
+    this.group.add(outline);
+    return { key, mesh, outline, color, state, anim, look, owner: new Int32Array(capacity).fill(-1), sizeM: [source.sizeM[0], source.sizeM[1], source.sizeM[2]], count: 0, dirty: true };
+  }
+
+  private disposeLayer(layer: Layer): void {
+    layer.mesh.removeFromParent();
+    layer.outline.removeFromParent();
+    layer.mesh.geometry.dispose();
+    (layer.mesh.material as THREE.Material).dispose();
+    (layer.outline.material as THREE.Material).dispose();
+    layer.mesh.dispose();
   }
 
   defineLayer(key: string, source: CrowdLayerSource): void {
@@ -466,12 +638,11 @@ class InstancedCrowd implements Crowd {
       (layer.color.array as Float32Array).set(old.color.array as Float32Array);
       (layer.state.array as Float32Array).set(old.state.array as Float32Array);
       (layer.anim.array as Float32Array).set(old.anim.array as Float32Array);
+      (layer.look.array as Float32Array).set(old.look.array as Float32Array);
       layer.owner.set(old.owner);
       layer.count = old.count;
       for (const rec of this.handles) if (rec !== null && rec.layer === old) rec.layer = layer;
-      old.mesh.removeFromParent();
-      old.mesh.geometry.dispose();
-      (old.mesh.material as THREE.Material).dispose();
+      this.disposeLayer(old);
     }
     this.layers.set(key, layer);
   }
@@ -483,9 +654,9 @@ class InstancedCrowd implements Crowd {
     const index = layer.count;
     layer.count += 1;
     layer.owner[index] = handle;
-    const k = gait === "still" ? 1 : this.characterScale;
+    const k = look.scale ?? (gait === "still" ? 1 : this.characterScale);
     const [w, h, l] = shape.sizeM;
-    const rec: HandleRec = { layer, index, w: w * k, h: h * k, l: l * k, hover: shape.hoverM, gx: 0, gy: 0, gz: 0, lift: shape.hoverM, dissolve: 0 };
+    const rec: HandleRec = { layer, index, w: w * k, h: h * k, l: l * k, hover: shape.hoverM, flyer: gait === "flyer", gx: 0, gy: 0, gz: 0, lift: shape.hoverM, dissolve: 0 };
     this.handles[handle] = rec;
     const color = this.colorScratch.set(shape.color);
     const c = layer.color.array as Float32Array;
@@ -494,11 +665,17 @@ class InstancedCrowd implements Crowd {
     c[index * 3 + 2] = color.b;
     const s = layer.state.array as Float32Array;
     s.fill(0, index * 4, index * 4 + 4);
+    const foe = look.foe ?? gait !== "still";
     const a = layer.anim.array as Float32Array;
-    a[index * 4] = GAIT_ID[gait] + ((look.foe ?? gait !== "still") ? 8 : 0);
+    a[index * 4] = GAIT_ID[gait] + (foe ? 8 : 0);
     a[index * 4 + 1] = this.nextPhase();
     a[index * 4 + 2] = 1;
     a[index * 4 + 3] = 0;
+    const o = layer.look.array as Float32Array;
+    o[index * 4] = look.outline ?? (gait === "still" ? 0.6 : 1);
+    o[index * 4 + 1] = look.rim ?? (foe ? 0.6 : 0.35);
+    o[index * 4 + 2] = look.ash ?? 0.14;
+    o[index * 4 + 3] = 0;
     // Hidden until the first set().
     this.matrix.makeScale(0, 0, 0);
     layer.mesh.setMatrixAt(index, this.matrix);
@@ -520,6 +697,7 @@ class InstancedCrowd implements Crowd {
       copyItem(layer.color.array as Float32Array, 3, last, index);
       copyItem(layer.state.array as Float32Array, 4, last, index);
       copyItem(layer.anim.array as Float32Array, 4, last, index);
+      copyItem(layer.look.array as Float32Array, 4, last, index);
       const moved = layer.owner[last]!;
       layer.owner[index] = moved;
       const movedRec = this.handles[moved];
@@ -565,35 +743,68 @@ class InstancedCrowd implements Crowd {
     layer.dirty = true;
   }
 
+  setRings(rings: readonly CrowdRing[]): void {
+    this.rings = rings;
+  }
+
+  prepare(shape: PlaceholderDef["shape"], key: string = shape): void {
+    this.layerFor(key, shape);
+  }
+
+  /** Writes ground mark `n`; false when the batch is full. */
+  private mark(n: number, x: number, y: number, z: number, size: number, alpha: number, kind: number, height = 0, color?: THREE.Color): boolean {
+    if (n >= this.shadowCapacity) return false;
+    this.shadowPos[n * 3] = x;
+    this.shadowPos[n * 3 + 1] = y;
+    this.shadowPos[n * 3 + 2] = z;
+    this.shadowData[n * 4] = size;
+    this.shadowData[n * 4 + 1] = alpha;
+    this.shadowData[n * 4 + 2] = kind;
+    this.shadowData[n * 4 + 3] = height;
+    this.shadowColor[n * 3] = color?.r ?? 0;
+    this.shadowColor[n * 3 + 1] = color?.g ?? 0;
+    this.shadowColor[n * 3 + 2] = color?.b ?? 0;
+    return true;
+  }
+
   flush(timeS?: number): void {
     if (timeS !== undefined) this.time.value = timeS;
     for (const layer of this.layers.values()) {
       layer.mesh.count = layer.count;
+      layer.outline.count = layer.count;
       if (!layer.dirty) continue;
       layer.dirty = false;
       layer.mesh.instanceMatrix.needsUpdate = true;
       layer.color.needsUpdate = true;
       layer.state.needsUpdate = true;
       layer.anim.needsUpdate = true;
+      layer.look.needsUpdate = true;
     }
     if (this.shadows === null) return;
     let n = 0;
     for (const rec of this.handles) {
       if (rec === null || rec === undefined) continue;
-      const footprint = Math.max(rec.w, rec.l) * 1.15;
-      // Higher up: a smaller, fainter spot (05 §6.2 flyers).
-      const k = 1 / (1 + rec.lift * 0.35);
-      this.shadowPos[n * 3] = rec.gx;
-      this.shadowPos[n * 3 + 1] = rec.gy + 0.04;
-      this.shadowPos[n * 3 + 2] = rec.gz;
-      this.shadowData[n * 2] = footprint * (0.55 + 0.45 * k);
-      this.shadowData[n * 2 + 1] = (0.45 + 0.55 * k) * (1 - rec.dissolve);
-      n += 1;
+      const footprint = Math.max(rec.w, rec.l) * 1.1;
+      const fade = 1 - rec.dissolve;
+      if (rec.flyer && rec.lift > 0.6) {
+        // A flyer: the spot and ring right under it, and a dashed tether up to its belly (05 §6.2 flyers read as up).
+        if (this.mark(n, rec.gx, rec.gy + 0.05, rec.gz, footprint * 0.95, fade, 1)) n += 1;
+        if (this.mark(n, rec.gx, rec.gy + 0.05, rec.gz, 0.12, 0.55 * fade, 2, rec.lift)) n += 1;
+      } else if (this.mark(n, rec.gx, rec.gy + 0.04, rec.gz, footprint * (1 / (1 + rec.lift * 0.35) * 0.45 + 0.55), fade, 0)) {
+        n += 1;
+      }
+    }
+    const color = this.colorScratch;
+    for (let k = 0; k < this.rings.length && k < RING_CAPACITY; k += 1) {
+      const ring = this.rings[k]!;
+      color.set(ring.color);
+      if (this.mark(n, ring.x, ring.y + 0.05, ring.z, ring.radius * 2, ring.alpha, 3, 0, color)) n += 1;
     }
     const geometry = this.shadows.geometry;
     geometry.instanceCount = n;
     geometry.getAttribute("iPos").needsUpdate = true;
     geometry.getAttribute("iData").needsUpdate = true;
+    geometry.getAttribute("iColor").needsUpdate = true;
   }
 
   /** Layer instance count (tests, bench). */
@@ -602,12 +813,7 @@ class InstancedCrowd implements Crowd {
   }
 
   dispose(): void {
-    for (const layer of this.layers.values()) {
-      layer.mesh.removeFromParent();
-      layer.mesh.geometry.dispose();
-      (layer.mesh.material as THREE.Material).dispose();
-      layer.mesh.dispose();
-    }
+    for (const layer of this.layers.values()) this.disposeLayer(layer);
     this.layers.clear();
     if (this.shadows !== null) {
       this.shadows.geometry.dispose();
