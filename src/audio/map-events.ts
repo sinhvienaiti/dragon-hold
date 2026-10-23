@@ -314,6 +314,10 @@ export class EventMapper {
         if (sounds) this.at(sounds.pulse, event.x, event.z, listener);
         return;
       }
+      case "heal":
+        // A heal beat: the herb pulse, quiet (its 300 ms gap keeps several allies to one sound).
+        if (event.source.kind === "house") this.at("house.herb.pulse", event.x, event.z, listener, { gain: 0.35 });
+        return;
       case "aura": {
         const foe = this.foes.get(event.enemy.serial);
         const set = foe ? GENERAL_SETS[foe] : undefined;
@@ -355,7 +359,9 @@ export class EventMapper {
   private hit(event: Extract<SimEvent, { type: "hit" }>, now: number, listener: Listener): void {
     const target = event.target;
     if (target.kind === "hero") {
-      this.push("dragon.hurt", { gain: Math.min(1, 0.55 + event.amount / 120) });
+      // Héo lan (source "hero", every 2 s while foes stand near) is a soft reminder, not a blow.
+      const seep = event.source.kind === "hero";
+      this.push("dragon.hurt", { gain: seep ? 0.25 : Math.min(1, 0.55 + event.amount / 120) });
       return;
     }
     if (target.kind === "unit" || target.kind === "trap" || target.kind === "house") {

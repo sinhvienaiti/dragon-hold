@@ -6,7 +6,7 @@ import { Pronouncer, candidatesFrom, createLearningClient, localRecord, parseLoo
 import { createLearningBridge, type LearningBridge, type LearningEvent } from "../src/kit/learning";
 import type { VocabularyEntry } from "../src/kit/vocab";
 import { buildWordDeck, newWordsOf, type DeckCandidate } from "../src/typing/deck";
-import { FrameQueue, shortMeaning, wordLevel, type FrameWord } from "../src/ui/learning-frame";
+import { FrameQueue, frameVisible, shortMeaning, wordLevel, type FrameWord } from "../src/ui/learning-frame";
 import { WORDS_100 } from "./typing-helpers";
 
 type Complete = Extract<SimEvent, { type: "word-complete" }>;
@@ -76,6 +76,27 @@ describe("learning events (01 §6.6, 00 D14)", () => {
     learning.flush();
     expect(sent.map((event) => [event.activityType, event.result])).toEqual([["review-card", "correct"], ["review-card", "wrong"]]);
     expect(sent[1]!.userAnswer).toBe("rivre");
+  });
+
+  it("never counts a Học trước copy as a recall (00 D14, G12): copy + one Thẻ Ôn + two kills stay under 70", () => {
+    const storage = memoryStorage();
+    const { bridge, sent } = fakeBridge();
+    const learning = createLearningClient({ bridge, storage, every: () => () => {} });
+    // Học trước shows the word: the app sends its answers with hintUsed.
+    learning.recordRecall("place", true, { responseMs: 900, hintUsed: true });
+    learning.recordRecall("place", true, { responseMs: 1200 });
+    learning.onEvents([complete("place", 0, true), complete("place", 0, false)]);
+    learning.flush();
+    expect(sent.map((event) => [event.activityType, event.result, event.hintUsed])).toEqual([
+      ["review-card", "correct", true],
+      ["review-card", "correct", false],
+      ["typing-enemy", "correct", false],
+    ]);
+    const record = (storage.readJson("dragon-hold:words:v1") as Record<string, { typedRight: number; typedWrong: number; recalls: number; lastSeen: number }>)["place"]!;
+    expect(record.recalls).toBe(1);
+    const view = localRecord(record, record.lastSeen);
+    expect(view.recalls).toBeLessThanOrEqual(1);
+    expect(view.mastery).toBeLessThan(LEARNING.knownMastery);
   });
 
   it("queues events locally when there is no portal parent", () => {
@@ -169,6 +190,18 @@ describe("learning frame (01 §6.3)", () => {
     expect(q.view(0)!.meaning).toBe("nghĩa tiger");
     q.lock(word("zebra", "known"), 0, false);
     expect(q.view(0)).toBeNull();
+  });
+
+  it("clears the pinned card at a wave's end and hides while a learning panel asks (no Thẻ Ôn answer on screen)", () => {
+    const q = new FrameQueue("recalls");
+    q.done(word("place", "new", 0), 0);
+    expect(q.view(100)).toMatchObject({ text: "place", done: true });
+    q.clearCard();
+    expect(q.view(100)).toBeNull();
+    // The Vừa học line keeps the word for later, but the frame is covered while a panel is open.
+    expect(q.recent.map((item) => item.text)).toEqual(["place"]);
+    expect(frameVisible(true)).toBe(false);
+    expect(frameVisible(false)).toBe(true);
   });
 
   it("pins new and weak words 2.5 s, others 0.8 s; keeps the last 3 new words", () => {

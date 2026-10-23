@@ -7,7 +7,11 @@
  *             keep 10 % of the gold for potions;
  *   best:     the no-typing floor bot (G6): spends everything, leans on
  *             killers and holders, buys Tim Rồng and Vảy Cứng;
+ *   poor:     a weak buyer (BALANCE.md §6 tactics "Kém"): keeps 30 % of its
+ *             gold, buys only clearly good value, never upgrades;
  *   none:     typing only, never buys.
+ * Skill timing follows the tactics too: a poor player waits for bigger
+ * groups, a good one casts on smaller ones.
  * Values are rough "W held or killed per wave" points (03 §13.1 asks for
  * points per gold, not an exact model). Every action goes out as a
  * SimCommand; the world decides, and a refused one is not tried again in the
@@ -24,7 +28,16 @@ import type { World } from "../../src/sim/world";
 import { foeDef, isClusterFoe } from "./load";
 import { liveFoes, metresFromDais } from "./reader";
 
-export type BuyStyle = "balanced" | "best" | "none";
+export type BuyStyle = "balanced" | "best" | "poor" | "none";
+/** BALANCE.md §6 tactics level: skill timing (buying is `buy`). */
+export type SkillTactics = "poor" | "fair" | "good";
+
+/** Foes a skill waits for, by tactics: Phun Lửa (in 12 m), Thiên Hỏa (in 4 m), Viêm Đế (in the word zone). */
+const SKILL_WAIT: Readonly<Record<SkillTactics, { breath: number; skyfire: number; inferno: number }>> = {
+  poor: { breath: 4, skyfire: 4, inferno: 7 },
+  fair: { breath: 3, skyfire: 3, inferno: 5 },
+  good: { breath: 2, skyfire: 3, inferno: 4 },
+};
 
 export interface PolicySpec {
   readonly buy: BuyStyle;
@@ -36,6 +49,8 @@ export interface PolicySpec {
   readonly learnAhead: number;
   /** Chance a review card is right (0: skips Thẻ Ôn). */
   readonly reviewCards: number;
+  /** Skill timing (default fair). */
+  readonly tactics?: SkillTactics;
 }
 
 /** What the plan may touch: the world to read, a sink for commands, the typist's hands, its own dice. */
@@ -151,6 +166,7 @@ function flyerEnds(world: World): Vec2[] {
 /** Style weights: the floor bot leans on killers and holders. */
 const WEIGHTS: Readonly<Record<Exclude<BuyStyle, "none">, Readonly<Record<PlaceableId | "hero" | "potion", number>>>> = {
   balanced: { spikes: 1, "pine-bomb": 1, "net-launcher": 1, "moss-warden": 1, "herb-hut": 1, hero: 1, potion: 1 },
+  poor: { spikes: 1, "pine-bomb": 0.8, "net-launcher": 0.7, "moss-warden": 0.9, "herb-hut": 0.8, hero: 0.8, potion: 1 },
   best: { spikes: 1.3, "pine-bomb": 1.5, "net-launcher": 1.1, "moss-warden": 1.2, "herb-hut": 1, hero: 1.4, potion: 1.2 },
 };
 
@@ -208,7 +224,7 @@ export function shopActions(world: World, card: WaveCard, style: Exclude<BuyStyl
         const value = baseValue(world, card, slot, item) * Math.pow(0.6, standing(world, slot, item)) * weights[item];
         if (value > 0) out.push({ key: "place:" + slot.def.id + ":" + item, command: { type: "place", item, slot: slot.def.id }, cost: ITEM_COST[item], value });
       }
-    } else if (slot.level >= 1 && slot.level < 3) {
+    } else if (slot.level >= 1 && slot.level < 3 && style !== "poor") {
       const gain = slot.level === 1 ? 0.45 : 0.35;
       const value = baseValue(world, card, slot, slot.item) * gain * weights[slot.item];
       if (value > 0) out.push({ key: "upgrade:" + slot.def.id + ":" + slot.level, command: { type: "upgrade", slot: slot.def.id }, cost: upgradeCost(slot.item, slot.level), value });
@@ -337,8 +353,9 @@ export class Plan {
     const next = world.phase === "prep" ? 0 : world.wave;
     const card = waveCard(world, next);
     const gold = world.economy.gold;
-    const reserve = style === "balanced" ? Math.ceil(gold * 0.1) : 0;
-    const action = bestShopAction(shopActions(world, card, style), gold, reserve, style === "balanced" ? 0.4 : 0, this.tried);
+    const reserve = style === "balanced" ? Math.ceil(gold * 0.1) : style === "poor" ? Math.ceil(gold * 0.3) : 0;
+    const floor = style === "balanced" ? 0.4 : style === "poor" ? 0.9 : 0;
+    const action = bestShopAction(shopActions(world, card, style), gold, reserve, floor, this.tried);
     if (!action) return false;
     this.tried.add(action.key);
     this.send(view, action.command);
@@ -366,17 +383,18 @@ export class Plan {
       this.send(view, at ? { type: "skill", skill, at } : { type: "skill", skill });
       view.hold(250);
     };
+    const wait = SKILL_WAIT[this.spec.tactics ?? "fair"];
     const breathM = HERO_SKILLS.breath.lengthMm / 1000;
     const nearBreath = foes.filter((foe) => metresFromDais(foe) <= breathM).length;
-    if (ready("breath") && (nearBreath >= 3 || (nearBreath >= 2 && hero.hp * 100 < hero.hpMax * 60))) return cast("breath");
+    if (ready("breath") && (nearBreath >= wait.breath || (nearBreath >= wait.breath - 1 && hero.hp * 100 < hero.hpMax * 60))) return cast("breath");
     if (ready("skyfire")) {
       const spot = densest(foes, HERO_SKILLS.skyfire.radiusMm / 1000, RINGS.wordZoneMm / 1000);
-      if (spot && spot.count >= 3) return cast("skyfire", spot.at);
+      if (spot && spot.count >= wait.skyfire) return cast("skyfire", spot.at);
     }
     if (world.stage.unlocks.rage && ready("inferno") && world.combat.rage >= RAGE.maxX10) {
       const zone = foes.filter((foe) => metresFromDais(foe) <= RINGS.wordZoneMm / 1000).length;
       const finale = foes.filter((foe) => metresFromDais(foe) <= HERO_SKILLS.inferno.finaleRadiusMm / 1000).length;
- if ((this.spec.typing && (zone >= 5 || foes.some((foe) => foe.general))) || finale >= 3) cast("inferno");
+      if ((this.spec.typing && (zone >= wait.inferno || foes.some((foe) => foe.general))) || finale >= 3) cast("inferno");
     }
   }
 }

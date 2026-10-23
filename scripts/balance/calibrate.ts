@@ -54,7 +54,8 @@ export function calibrate(hands: HandsSpec, options: { minutes?: number; seed?: 
     }
     const seen: SeenWord[] = session.words.live().map((slot) => {
       const text = wordText(deck, session.words.word[slot]!);
-      return { slot, text, kind: "enemy", group: groupOf.get(text) ?? "known", typed: session.words.typed[slot]!, asleep: false, priority: -session.words.born[slot]! - slot / 100 };
+      const born = session.words.born[slot]!;
+      return { slot, text, kind: "enemy", group: groupOf.get(text) ?? "known", typed: session.words.typed[slot]!, asleep: false, priority: -born - slot / 100, special: false, distance: born, born };
     });
     const command = typist.act({ words: seen, lock: session.router.lock, pair: session.router.group }, (tick * 1000) / 60);
     if (!command) continue;

@@ -32,10 +32,14 @@ export interface FoeShape {
 export const isFastFoe = (foe: FoeShape): boolean =>
   foe.gait === "flyer" || foe.gait === "swarm" || ((foe.tier === "small" || foe.tier === "swarm") && foe.speedMmS >= FAST_MM_S);
 
-/** The length slot of a word of `kind` (01 §3.4); `foe` is the foe it stands on, if any. */
-export function lengthSlotFor(kind: WordKind, foe: FoeShape | null): LengthSlot {
+/**
+ * The length slot of a word of `kind` (01 §3.4); `foe` is the foe it stands on, if any.
+ * Ấn Phá and a general's last word are D4, the urgent column (02 §1.4); `last` marks that last word.
+ */
+export function lengthSlotFor(kind: WordKind, foe: FoeShape | null, last = false): LengthSlot {
   switch (kind) {
     case "urgent":
+    case "seal":
       return "urgent";
     case "skill":
     case "assist":
@@ -48,8 +52,7 @@ export function lengthSlotFor(kind: WordKind, foe: FoeShape | null): LengthSlot 
     case "boss-seal":
       return "bossPart";
     case "general":
-    case "seal":
-      return "general";
+      return last ? "urgent" : "general";
     case "cluster":
       return "fast";
     case "elite":
@@ -61,13 +64,18 @@ export function lengthSlotFor(kind: WordKind, foe: FoeShape | null): LengthSlot 
   }
 }
 
+/** D1 words (02 §1.4: banner flags, swarm clusters) are one letter shorter at the top than their slot: 3–4 at E 25–44. */
+export const isD1Kind = (kind: WordKind): boolean => kind === "flag" || kind === "cluster";
+
 /**
  * The [lo, hi] a word of `slot` asks for at `wpm`; an elite's word is one
- * letter longer than a small foe's (01 §3.6). Held inside the deck's 3–10.
+ * letter longer than a small foe's (01 §3.6); a D1 word one letter shorter
+ * at the top. Held inside the deck's 3–10.
  */
-export function wordLengths(wpm: number, slot: LengthSlot, elite = false): [number, number] {
+export function wordLengths(wpm: number, slot: LengthSlot, elite = false, d1 = false): [number, number] {
   const [lo, hi] = lengthRange(wpm, slot);
   const extra = elite ? 1 : 0;
+  const top = d1 ? Math.max(lo, hi - 1) : hi;
   const clampLen = (n: number) => Math.min(MAX_WORD_LETTERS, Math.max(MIN_WORD_LETTERS, n));
-  return [clampLen(lo + extra), clampLen(hi + extra)];
+  return [clampLen(lo + extra), clampLen(top + extra)];
 }

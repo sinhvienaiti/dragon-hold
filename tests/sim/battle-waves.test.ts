@@ -17,10 +17,11 @@ const holdsHeavy = (wave: WaveDef, fromMs: number, toMs: number): boolean =>
 
 /** The 10 M0 waves against the typing-load budget (00 §4.4) and the wave generator rules (02 §5). */
 describe("battle waves: the plan", () => {
-  it("has 10 waves ramping 0.60 → 1.25, generals in waves 5 and 10 only", () => {
+  it("has 10 waves ramping 0.60 → the last wave's 1.05–1.25, generals in waves 5 and 10 only", () => {
     expect(M0_WAVES).toHaveLength(10);
     expect(M0_WAVES[0]!.load100).toBe(60);
-    expect(M0_WAVES[9]!.load100).toBe(125);
+    expect(M0_WAVES[9]!.load100).toBeGreaterThanOrEqual(LOAD.final[0]);
+    expect(M0_WAVES[9]!.load100).toBeLessThanOrEqual(LOAD.final[1]);
     for (const wave of M0_WAVES) {
       const generals = wave.groups.filter((group) => group.foe in GENERALS);
       expect(generals.length > 0).toBe(wave.n === 5 || wave.n === 10);
@@ -41,9 +42,9 @@ describe("battle waves: the plan", () => {
     expect(waveLoad100(M0_WAVES[9]!)).toBeLessThanOrEqual(LOAD.final[1] + 5);
   });
 
-  it("keeps the busiest 8 s under each wave's peak cap; middle waves ≤ 1.15, wave 1 ≤ 1.00, every wave ≤ 1.40 (G9)", () => {
+  it("keeps the busiest 6, 8 and 10 s under each wave's peak cap; middle waves ≤ 1.15, wave 1 ≤ 1.00, every wave ≤ 1.40 (00 §4.4, G9)", () => {
     for (const wave of M0_WAVES) {
-      const peak = peakLoad100(wave);
+      const peak = Math.max(peakLoad100(wave, 6000), peakLoad100(wave, 8000), peakLoad100(wave, 10_000));
       expect(peak, "wave " + wave.n).toBeLessThanOrEqual(wave.peakLoad100);
       expect(wave.peakLoad100).toBeLessThanOrEqual(LOAD.hardCap);
       expect(wave.peakLoad100).toBeLessThanOrEqual(STAGE_M0.peakLoadCap100!);
@@ -52,13 +53,15 @@ describe("battle waves: the plan", () => {
     expect(M0_WAVES[0]!.peakLoad100).toBeLessThanOrEqual(100);
   });
 
-  it("reads one foe alone as at most 1.0 and a three-wolf pack as 1.19 (why packs wait for waves capped ≥ 1.25)", () => {
+  it("reads one foe alone as at most 1.0; a tight wolf pack reads 1.59 over 6 s, so packs run 3 s apart (2.2 s in the last wave)", () => {
     const solo: WaveDef = { n: 1, durationMs: 60_000, load100: 0, peakLoad100: 0, peaks: [], generals: [], groups: [{ atMs: 0, lane: "suoi", shape: "single", foe: "moss-banner", count: 1 }] };
-    expect(peakLoad100(solo)).toBe(100);
-    const pack: WaveDef = { ...solo, groups: [{ atMs: 0, lane: "suoi", shape: "line", foe: "blight-wolf", count: 3, gapMs: 400 }] };
-    expect(peakLoad100(pack)).toBe(119);
+    expect(peakLoad100(solo, 6000)).toBe(100);
+    const tight: WaveDef = { ...solo, groups: [{ atMs: 0, lane: "suoi", shape: "line", foe: "blight-wolf", count: 3, gapMs: 400 }] };
+    expect(peakLoad100(tight, 6000)).toBeGreaterThan(140);
+    const line: WaveDef = { ...solo, groups: [{ atMs: 0, lane: "suoi", shape: "line", foe: "blight-wolf", count: 3, gapMs: 3000 }] };
+    expect(peakLoad100(line, 6000)).toBeLessThanOrEqual(LOAD.middlePeakMax);
     for (const wave of M0_WAVES) {
-      if (wave.groups.some((group) => group.foe === "blight-wolf")) expect(wave.peakLoad100, "wave " + wave.n).toBeGreaterThanOrEqual(125);
+      for (const group of wave.groups) if (group.foe === "blight-wolf") expect(group.gapMs ?? 0, "wave " + wave.n).toBeGreaterThanOrEqual(wave.n === M0_WAVES.length ? 2200 : 3000);
     }
   });
 
@@ -152,7 +155,9 @@ describe("battle waves: the director at run time", () => {
     for (const n of [1, 2, 3]) {
       const wave = M0_WAVES[n - 1]!;
       const log = new Log();
-      const world = waveWorld(battleStage([wave.groups]), {}, log);
+      // The plan's own timing: the pace director (which may stretch or squeeze the gaps) is off here.
+      // Nobody types, so the live cap (20) would hold the last groups at their gates: room for the whole plan.
+      const world = waveWorld(battleStage([wave.groups], { liveCap: 60 }), { paceDirector: false }, log);
       // Nobody types here: keep the Dragon up so the wave plays out.
       world.hero.hp = world.hero.hpMax = 1_000_000;
       const start = world.waves.startedAt;
@@ -167,12 +172,12 @@ describe("battle waves: the director at run time", () => {
     }
   });
 
-  it("stretches spawn times by 1 / k_E for a slow typist (00 §4.4) without changing who comes", () => {
+  it("stretches spawn times by 1 / k for a slow typist (BALANCE.md §4.1) without changing who comes", () => {
     const wave = M0_WAVES[1]!;
     const fast = new Log();
     const slow = new Log();
     const a = waveWorld(battleStage([wave.groups]), {}, fast);
-    const b = waveWorld(battleStage([wave.groups]), { kEPm: 750 }, slow);
+    const b = waveWorld(battleStage([wave.groups]), { paceKPm: 750 }, slow);
     a.hero.hp = a.hero.hpMax = 1_000_000;
     b.hero.hp = b.hero.hpMax = 1_000_000;
     run(a, 4000, fast);
@@ -218,6 +223,7 @@ describe("battle waves: the director at run time", () => {
     expect(world.phaseEndsAt - world.tick).toBe(359);
     runUntil(world, () => world.phase === "wave", 400, log);
     expect(log.of("wave-start")[0]).toMatchObject({ wave: 1, waves: 2 });
+    world.hero.hpMax = 1020;
     world.hero.hp = 500;
     runUntil(world, () => world.enemies.live > 0, 5, log);
     type(world, nearest(world)!);

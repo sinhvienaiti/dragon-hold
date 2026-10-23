@@ -119,7 +119,11 @@ export interface LearningClient {
   dispose(): void;
   /** The deck the last buildDeck made (null before). */
   readonly deck: WordDeck | null;
-  /** A recall answer (Học trước, Thẻ Ôn): always sent (01 §6.6). */
+  /**
+   * A recall answer (Học trước, Thẻ Ôn): always sent (01 §6.6). Copying a word
+   * shown on screen (Học trước) passes hintUsed: it is sent as such and never
+   * counts as a right recall (00 D14: copy typing is not remembering).
+   */
   recordRecall(text: string, correct: boolean, detail?: { activity?: ActivityType; responseMs?: number; hintUsed?: boolean; userAnswer?: string }): void;
   /** Up to 3 Thẻ Ôn questions from `wave`: Ẩu words, then words typed with a hint, then new words (01 §6.5). */
   reviewItems(wave: number): ReviewItem[];
@@ -396,7 +400,8 @@ export function createLearningClient(options: LearningClientOptions = {}): Learn
     recordRecall(text, correct, detail = {}) {
       const record = touch(text);
       record.lastSeen = now();
-      if (correct) record.recalls += 1;
+      // Only a real recall hides the meaning later (01 §6.3, D14); a copy with the answer shown does not.
+      if (correct && detail.hintUsed !== true) record.recalls += 1;
       const base = buildCombatLearningEvent({ gameId: GAME_ID, entry: { id: text, en: text, vi: "", ipa: "" }, perfect: correct, occurredAt: new Date(now()).toISOString() });
       pending.push({
         ...base,

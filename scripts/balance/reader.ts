@@ -26,6 +26,12 @@ export interface SeenWord {
   readonly asleep: boolean;
   /** Higher first. */
   readonly priority: number;
+  /** A special word (urgent, seal, banner flag…) that a typist answers before any foe word. */
+  readonly special: boolean;
+  /** Metres of its foe from the dais (Infinity for words without a foe). */
+  readonly distance: number;
+  /** Tick it was dealt. */
+  readonly born: number;
 }
 
 /** The typist's whole input: what is live, which word is locked, an open tier-2 pair (its letter, −1 none). */
@@ -90,11 +96,23 @@ function openPair(world: World, fallback: number): number {
   return typeof group === "number" ? group : fallback;
 }
 
+/** Metres from the dais of the foe under `word`, Infinity without one. */
+function distanceOf(world: World, word: LiveWord): number {
+  const target = word.target;
+  if (target === null || target.kind !== "enemy") return Number.POSITIVE_INFINITY;
+  const enemy = enemyAt(world, target);
+  return enemy ? metresFromDais(enemy) : Number.POSITIVE_INFINITY;
+}
+
 export function readTyping(world: World, aim: Aim, pair: number): TypingView {
   const words: SeenWord[] = [];
   liveWords(world).forEach((word, slot) => {
     if (!word || typeof word.text !== "string" || word.text.length === 0) return;
-    words.push({ slot, text: word.text, kind: word.kind, group: word.group, typed: word.typed, asleep: word.asleep, priority: priorityOf(world, word, aim) });
+    const special = (KIND_PRIORITY[word.kind] ?? 0) >= 40;
+    words.push({
+      slot, text: word.text, kind: word.kind, group: word.group, typed: word.typed, asleep: word.asleep, priority: priorityOf(world, word, aim),
+      special, distance: distanceOf(world, word), born: word.bornTick,
+    });
   });
   return { words, lock: typeof world.words.lock === "number" ? world.words.lock : -1, pair: openPair(world, pair) };
 }

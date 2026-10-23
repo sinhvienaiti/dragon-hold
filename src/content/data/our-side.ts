@@ -5,8 +5,9 @@
  * Seeded by the architect from 03 §6–§9, checked against 03 §6.2–§9.2 by
  * sim-ourside (owner, LANES.md). Bots tune numbers here, never in code
  * (03 §13.1: over the 40 % non-typing cap, lower these numbers).
- * Placeholders: bark brown for traps, pale blue for houses, moss green for
- * units (05 §2.2 own colours), primitives only until the owner's GLB.
+ * Placeholders: bark brown for traps, pale blue for houses and units with a
+ * blue disc at a unit's feet (05 §2.2 own colours; never a foe family's
+ * colour), primitives only until the owner's GLB.
  */
 import type { ConsumableDef, ConsumableId, HeroUpgradeDef, HeroUpgradeId, HouseDef, HouseId, PlaceableId, TrapDef, TrapId, UnitDef, UnitId } from "../types";
 
@@ -30,9 +31,6 @@ export const OUR_SIDE_TUNING = {
   houseBeatMs: 1000,
   /** C6+ quick place: one item a wave, built in 2 s (03 §0.1 rule 6, §4.1). */
   quickBuildMs: 2000,
-  /** G15 guard (00 §7): our hard control on one foe ≤ 35 % of max(its life, 10 s). */
-  hardControlCapPct: 35,
-  hardControlMinLifeMs: 10_000,
 } as const;
 
 const TRAP_UPGRADE = { costPct: [70, 100], mainPct: [45, 35], rechargePctAt3: -15 } as const;
@@ -56,7 +54,8 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
     unlockStage: 2,
     show: {
       model: "traps/spikes",
-      placeholder: { shape: "cone", color: "#7a5a3c", sizeM: [1.6, 0.35, 3.6], hoverM: 0 },
+      // Light bark and taller than the lane's dirt, so the spikes read on the bridge deck (05 §2.3: traps 30–50 px).
+      placeholder: { shape: "cone", color: "#c49a64", sizeM: [1.8, 0.55, 3.6], hoverM: 0 },
       icon: "trap-spikes",
       sounds: { place: "trap.place", fire: "trap.spikes.stab" },
       fx: { place: "place.dust", fire: "spikes.thrust" },
@@ -81,7 +80,7 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
     unlockStage: 14,
     show: {
       model: "traps/pine-bomb",
-      placeholder: { shape: "sphere", color: "#6b4a2e", sizeM: [0.9, 0.9, 0.9], hoverM: 0 },
+      placeholder: { shape: "sphere", color: "#b07a42", sizeM: [1.4, 1.2, 1.4], hoverM: 0 },
       icon: "trap-pine-bomb",
       sounds: { place: "trap.place", fire: "trap.pine-bomb.blast" },
       fx: { place: "place.dust", fire: "blast.resin", ready: "ready.breathe" },
@@ -94,7 +93,8 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
     continuous: false,
     cost: 80,
     rechargeMs: 15_000,
-    area: { shape: "circle", radiusMm: 10_000 },
+    // 10 m + 10 % (00 §7 data tuning): from cau-t4 it reaches the wasps' stop on Đường Trời (10.5 m).
+    area: { shape: "circle", radiusMm: 11_000 },
     triggerMin: 1,
     wordTrigger: false,
     hits: { ground: false, lowAir: true },
@@ -120,8 +120,9 @@ export const HOUSES: Readonly<Record<HouseId, HouseDef>> = {
     cost: 120,
     hp: 600,
     radiusMm: 7000,
-    // 1.5 % of max HP a second for allies, the Dragons too.
-    effect: { kind: "heal-aura", healPmPerS: 15, targets: "allies" },
+    // 03 gave 1.5 % of max HP a second for allies, the Dragons too: one hut healed ~90 % a wave and wiped out Héo lan
+    // (BALANCE.md §9.1: the Dragon's HP is the margin S now). 0.3 % a second, ~18 % a wave, near 00 §4.5's 20 % heal cap.
+    effect: { kind: "heal-aura", healPmPerS: 3, targets: "allies" },
     pulse: { kind: "heal-burst", healPct: 10 },
     upgrade: { costPct: [70, 100], mainPct: [45, 35], hpPct: 40 },
     footprint: { slot: "house", radiusMm: 2000 },
@@ -156,7 +157,8 @@ export const UNITS: Readonly<Record<UnitId, UnitDef>> = {
     unlockStage: 6,
     show: {
       model: "units/moss-warden",
-      placeholder: { shape: "capsule", color: "#5d8a5a", sizeM: [0.7, 1.5, 0.6], hoverM: 0 },
+      // Our side reads pale blue (05 §2.2), never the moss green of the Bầy Héo; a blue disc marks its feet.
+      placeholder: { shape: "capsule", color: "#a9c9ea", sizeM: [0.8, 1.6, 0.7], hoverM: 0 },
       icon: "unit-moss-warden",
       sounds: { place: "unit.place", hit: "unit.warden.hit", down: "unit.down" },
       fx: { place: "place.leaves", hit: "hit.leaf" },

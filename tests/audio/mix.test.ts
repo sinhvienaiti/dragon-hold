@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { BUSES, CHILD_BUSES } from "../../src/audio/catalog";
+import { BUSES, CHILD_BUSES, SOUNDS } from "../../src/audio/catalog";
 import { AudioMix, BUS_TABLE, DUCKS, NO_DUCK, dbToGain, gainToDb, volumeFor, DEFAULT_VOLUMES } from "../../src/audio/mix";
 
 const db = (gain: number) => Math.round(gainToDb(gain) * 10) / 10;
 
 describe("audio buses and ducking (05 §7.2)", () => {
-  it("has the 12 buses", () => {
-    expect(BUSES).toEqual(["master", "music", "ui", "typing", "dragon", "enemies", "traps", "units", "ambience", "voice", "stingers", "learning"]);
+  it("has the 13 buses", () => {
+    expect(BUSES).toEqual(["master", "music", "ui", "typing", "dragon", "world", "enemies", "traps", "units", "ambience", "voice", "stingers", "learning"]);
     expect(Object.keys(BUS_TABLE).sort()).toEqual([...CHILD_BUSES].sort());
   });
 
@@ -17,6 +17,11 @@ describe("audio buses and ducking (05 §7.2)", () => {
     expect(db(mix.duck("enemies", state))).toBe(-6);
     expect(db(mix.duck("traps", state))).toBe(-6);
     expect(db(mix.duck("dragon", state))).toBe(-3);
+    // Bolts, impacts and blasts are "world": −6 under a spoken word (05 §7.2).
+    expect(db(mix.duck("world", state))).toBe(-6);
+    expect(SOUNDS["fire.impact.c"].bus).toBe("world");
+    expect(SOUNDS["dragon.skyfire.impact"].bus).toBe("world");
+    expect(SOUNDS["dragon.roar"].bus).toBe("dragon");
     expect(mix.duck("learning", state)).toBe(1);
     for (const bus of CHILD_BUSES) expect(mix.duck(bus, NO_DUCK)).toBe(1);
   });

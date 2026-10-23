@@ -8,7 +8,7 @@
  * Owner: sim-battle (LANES.md).
  */
 import { GENERALS } from "../content/data/generals";
-import { BATTLE, CHAIN, CLUSTER, DAMAGE, DIFFICULTY, FIRE_DRAGON, HERO_LEVEL, HERO_SKILLS, RAGE, STATUS, STRENGTH, WHITE_DRAGON } from "../content/rules";
+import { AREA, BATTLE, CHAIN, CLUSTER, DAMAGE, DIFFICULTY, FIRE_DRAGON, HERO_LEVEL, HERO_SKILLS, PRESSURE, RAGE, STATUS, STRENGTH, WHITE_DRAGON } from "../content/rules";
 import type { DamageType, EnemyDef, EntityRef, FeedbackTier, GeneralDef, GeneralId, Grade, HeroSkillId, KillSource, Vec2, WordKind } from "../content/types";
 import { auraPct } from "./auras";
 import { emit } from "./events";
@@ -20,7 +20,7 @@ import { applyStatus, armourPm, canAttack, tenacityFor, vulnerablePm } from "./s
 import { delayTrap, resonate } from "./traps";
 import { damageUnit } from "./units";
 import { foeDefOf } from "./waves";
-import { chainTier, isLockProtected } from "./words";
+import { chainTier, inWordZone, isLockProtected } from "./words";
 import { enemyAt, type EnemyState, type WorldInit, type World } from "./world";
 
 /** A finished word's hit waiting to land. */
@@ -39,6 +39,8 @@ export interface WordStrike {
   /** Where the target stood when the word finished (u): the 4 m redirect looks around it. */
   x: number;
   z: number;
+  /** Swarm cluster of the target (−1: none): a cluster word's hit still lands on its mates when the carrier died first. */
+  cluster: number;
   /** Chữ Chiêu: the skill it casts (null: none). */
   skill: HeroSkillId | null;
 }
@@ -71,6 +73,9 @@ export interface CombatState {
   nextTelegraph: number;
   /** Ticks of the running wave towards the next +0.2 rage. */
   rageTicks: number;
+  /** Ticks towards the next Héo beat (PRESSURE), and the Héo not yet dealt, in thousandths of HP. */
+  blightTicks: number;
+  blightX1000: number;
 }
 
 const SKILL_BITS: readonly HeroSkillId[] = ["breath", "skyfire", "roar", "inferno"];
@@ -81,7 +86,7 @@ const BODY_U = mToU(0.6);
 export function createCombatState(init: WorldInit): CombatState {
   return {
     strikes: [], readyAt: { breath: 0, skyfire: 0, roar: 0, inferno: 0 }, rage: 0, lastUltAt: -1, infernoUntil: -1, urgentUsed: false,
-    skyfire: [], heroLoss: 0, readyShown: 0, nextTelegraph: 1, rageTicks: 0,
+    skyfire: [], heroLoss: 0, readyShown: 0, nextTelegraph: 1, rageTicks: 0, blightTicks: 0, blightX1000: 0,
   };
 }
 
@@ -137,8 +142,18 @@ export function damageEnemy(world: World, enemy: EnemyState, amount: number, typ
   return hitEnemy(world, enemy, amount, type, source, by, tierFor(by), null);
 }
 
-/** damageEnemy with the feedback tier and grade of a word hit. */
-export function hitEnemy(world: World, enemy: EnemyState, amount: number, type: DamageType, source: EntityRef, by: KillSource, tier: FeedbackTier, grade: Grade | null): number {
+/** damageEnemy with the feedback tier and grade of a word hit; `maxRemove` caps the HP taken (an area hit on a swarm cluster). */
+export function hitEnemy(
+  world: World,
+  enemy: EnemyState,
+  amount: number,
+  type: DamageType,
+  source: EntityRef,
+  by: KillSource,
+  tier: FeedbackTier,
+  grade: Grade | null,
+  maxRemove = Number.MAX_SAFE_INTEGER,
+): number {
   if (!enemy.alive || amount <= 0) return 0;
   const tick = world.tick;
   let dmg = amount;
@@ -152,6 +167,7 @@ export function hitEnemy(world: World, enemy: EnemyState, amount: number, type: 
   if (dmg < DAMAGE.minDamage) dmg = DAMAGE.minDamage;
   // Lock protection (01 §3.3): another source never takes the last HP of a foe being typed.
   if (by !== "word" && dmg >= enemy.hp && isLockProtected(world, enemy)) dmg = enemy.hp - 1;
+  if (dmg > maxRemove) dmg = maxRemove;
   if (dmg <= 0) return 0;
   if (dmg > enemy.hp) dmg = enemy.hp;
   enemy.hp -= dmg;
@@ -163,7 +179,7 @@ export function hitEnemy(world: World, enemy: EnemyState, amount: number, type: 
   const x = uToM(enemy.x);
   const z = uToM(enemy.z);
   const target: EntityRef = { kind: "enemy", slot: enemy.slot, serial: enemy.serial };
-  emit(world, { type: "hit", target, source, amount: dmg, damageType: type, tier, grade, x, z, hpLeft: enemy.hp });
+  emit(world, { type: "hit", target, source, amount: dmg, damageType: type, tier, grade, x, z, hpLeft: enemy.hp, by });
   if (enemy.hp <= 0) {
     enemy.alive = false;
     enemy.killedBy = by;
@@ -392,8 +408,39 @@ export function chargeImpact(world: World, enemy: EnemyState, target: EntityRef)
   emit(world, { type: "attack", source, target, stage: "strike", x: uToM(enemy.x), z: uToM(enemy.z), tx: uToM(tx), tz: uToM(tz) });
 }
 
-/** Foes' wind-ups (telegraph events) and strikes on their targets (01 §4.2). E19 strikes through its charge (movement). */
+/** Héo lan (PRESSURE): every beat (2 s) in a wave, every foe standing in the word zone or inside Vòng Nguy seeps W × its rate into the Fire Dragon (true damage, a running total so tenths add up). */
+function stepBlight(world: World): void {
+  const combat = world.combat;
+  if (world.phase !== "wave") return;
+  combat.blightTicks += 1;
+  if (combat.blightTicks < msToTicks(PRESSURE.everyMs)) return;
+  combat.blightTicks = 0;
+  const ring = mmToU(PRESSURE.ringMm);
+  let x1000 = 0;
+  const from: [number, number][] = [];
+  for (const enemy of world.enemies.list) {
+    if (!enemy.alive) continue;
+    const near = within(enemy.x, enemy.z, 0, 0, ring);
+    const standing = enemy.mode === "blocked" || enemy.mode === "attack" || enemy.mode === "hold";
+    if (!near && !(standing && inWordZone(world, enemy))) continue;
+    if (from.length < 12) from.push([uToM(enemy.x), uToM(enemy.z)]);
+    const rate = near ? PRESSURE.ringPerW10 : PRESSURE.zonePerW10;
+    // W × rate tenths a second × the beat's seconds × g(c) × difficulty × auras, in thousandths of HP.
+    x1000 += Math.round((foeDefOf(enemy.foe).w100 * rate * PRESSURE.everyMs * world.gPm * DIFFICULTY[world.difficulty].enemyDamagePm * (100 + auraPct(world, enemy, "damage"))) / 1e11);
+  }
+  // × k: a slower player's foes stand longer, a faster one's less; the seep follows the pace both ways (BALANCE.md §4.1).
+  x1000 = Math.round((x1000 * world.pace.kPm) / 1000);
+  combat.blightX1000 += x1000;
+  const dmg = Math.floor(combat.blightX1000 / 1000);
+  if (dmg <= 0) return;
+  combat.blightX1000 -= dmg * 1000;
+  emit(world, { type: "blight", amount: dmg, from });
+  damageHero(world, dmg, "true", { kind: "hero" });
+}
+
+/** Foes' wind-ups (telegraph events) and strikes on their targets (01 §4.2), and Héo lan near the dais. E19 strikes through its charge (movement). */
 export function stepEnemyAttacks(world: World): void {
+  stepBlight(world);
   const tick = world.tick;
   const telegraphPm = DIFFICULTY[world.difficulty].telegraphPm;
   for (const enemy of world.enemies.list) {
@@ -433,18 +480,23 @@ export function stepEnemyAttacks(world: World): void {
     enemy.attackAt = tick + periodTicks(world, enemy, attack.periodMs);
     const [tx, tz] = targetPoint(world, aim);
     emit(world, { type: "attack", source: { kind: "enemy", slot: enemy.slot, serial: enemy.serial }, target: aim, stage: "windup", x: uToM(enemy.x), z: uToM(enemy.z), tx: uToM(tx), tz: uToM(tz) });
-    if (telegraphed) telegraph(world, enemy, ranged ? "line" : "arc", tx, tz, ranged ? 0 : 1.5, ranged ? 0.4 : 0, ticksToMs(windup));
+    if (telegraphed) {
+      // 05 §6.2: a flyer marks where its sting lands with a red ground ring; shooters a line; melee an arc at the feet.
+      const flyer = def.stance !== "ground";
+      telegraph(world, enemy, flyer ? "circle" : ranged ? "line" : "arc", tx, tz, flyer ? 1.2 : ranged ? 0 : 1.5, ranged && !flyer ? 0.4 : 0, ticksToMs(windup));
+    }
   }
 }
 
 // ── Word strikes ───────────────────────────────────────────────────────────
 
 /** Queues a word's hit for tick + 12 (called by words when a word completes). */
-export function queueWordStrike(world: World, strike: Omit<WordStrike, "landsAt" | "x" | "z" | "skill"> & { readonly skill?: HeroSkillId }): void {
+export function queueWordStrike(world: World, strike: Omit<WordStrike, "landsAt" | "x" | "z" | "cluster" | "skill"> & { readonly skill?: HeroSkillId }): void {
   const target = strike.slot >= 0 ? enemyAt(world, strike) : null;
   world.combat.strikes.push({
     landsAt: world.tick + DAMAGE.strikeDelayTicks, slot: strike.slot, serial: strike.serial, word: strike.word, kind: strike.kind, grade: strike.grade,
-    mqPm: strike.mqPm, mcPm: strike.mcPm, bonusPm: strike.bonusPm, x: target ? target.x : 0, z: target ? target.z : 0, skill: strike.skill ?? null,
+    mqPm: strike.mqPm, mcPm: strike.mcPm, bonusPm: strike.bonusPm, x: target ? target.x : 0, z: target ? target.z : 0, cluster: target ? target.cluster : -1,
+    skill: strike.skill ?? null,
   });
 }
 
@@ -479,6 +531,15 @@ function landStrike(world: World, strike: WordStrike): void {
   if (strike.slot < 0) return;
   let target = enemyAt(world, strike);
   let scalePct = 100;
+  if (target === null && strike.kind === "cluster" && strike.cluster >= 0) {
+    // The carrier died first (a trap, a burn): the word still lands on its mates around where it stood.
+    clusterHit(world, strike, strike.cluster, strike.x, strike.z);
+    if (world.combat.infernoUntil > world.tick) {
+      const mate = world.enemies.list.find((enemy) => enemy.alive && enemy.cluster === strike.cluster);
+      if (mate) beam(world, mate.lane);
+    }
+    return;
+  }
   if (target === null) {
     target = redirectTarget(world, strike.x, strike.z);
     scalePct = DAMAGE.redirectPct;
@@ -486,15 +547,7 @@ function landStrike(world: World, strike: WordStrike): void {
   }
   const lane = target.lane;
   if (strike.kind === "cluster" && target.cluster >= 0 && scalePct === 100) {
-    // One cluster word: 1 W of word damage to every member within 3 m (02 §1.4).
-    const dmg = Math.round((wHp(world) * (CLUSTER.hitW100 / 100) * strike.mqPm * strike.mcPm) / 1e6);
-    const radius = mmToU(CLUSTER.hitRadiusMm);
-    const cx = target.x;
-    const cz = target.z;
-    const cluster = target.cluster;
-    for (const enemy of world.enemies.list) {
-      if (enemy.alive && enemy.cluster === cluster && within(enemy.x, enemy.z, cx, cz, radius)) hitEnemy(world, enemy, dmg, "word", HERO, "word", 2, strike.grade);
-    }
+    clusterHit(world, strike, target.cluster, target.x, target.z);
   } else {
     let dmg = Math.round((wordDamage(world, strike.mqPm, strike.mcPm, strike.bonusPm) * scalePct) / 100);
     // A small foe always falls to one word that is not Ẩu (00 §4.6).
@@ -512,6 +565,43 @@ function landStrike(world: World, strike: WordStrike): void {
   }
   // Viêm Đế: every word also fires a beam down the lane (01 §2.4).
   if (world.combat.infernoUntil > world.tick) beam(world, lane);
+}
+
+/** One cluster word: 1 W of word damage to every live member of `cluster` within 3 m of (x, z) (02 §1.4). */
+function clusterHit(world: World, strike: WordStrike, cluster: number, x: number, z: number): void {
+  const dmg = Math.round((wHp(world) * (CLUSTER.hitW100 / 100) * strike.mqPm * strike.mcPm) / 1e6);
+  const radius = mmToU(CLUSTER.hitRadiusMm);
+  for (const enemy of world.enemies.list) {
+    if (enemy.alive && enemy.cluster === cluster && within(enemy.x, enemy.z, x, z, radius)) hitEnemy(world, enemy, dmg, "word", HERO, "word", 2, strike.grade);
+  }
+}
+
+/**
+ * One area blow (Thiên Hỏa, Phun Lửa, Viêm Đế's finale) on `victims`, nearest
+ * to (cx, cz) first: a swarm cluster loses at most 60 % of the HP it has now
+ * to one blow (BALANCE.md §9.1), so a blast thins a swarm and never wipes it.
+ * Returns the foes it hit.
+ */
+function areaHit(world: World, victims: EnemyState[], dmg: number, type: DamageType, by: KillSource, tier: FeedbackTier, cx: number, cz: number): EnemyState[] {
+  victims.sort((a, b) => dist2(a.x, a.z, cx, cz) - dist2(b.x, b.z, cx, cz) || a.slot - b.slot);
+  const budget = new Map<number, number>();
+  for (const enemy of victims) {
+    if (enemy.cluster < 0 || budget.has(enemy.cluster)) continue;
+    let hp = 0;
+    for (const mate of world.enemies.list) if (mate.alive && mate.cluster === enemy.cluster) hp += mate.hp;
+    budget.set(enemy.cluster, Math.floor((hp * AREA.clusterCapPct) / 100));
+  }
+  for (const enemy of victims) {
+    if (!enemy.alive) continue;
+    if (enemy.cluster < 0) {
+      hitEnemy(world, enemy, dmg, type, HERO, by, tier, null);
+      continue;
+    }
+    const left = budget.get(enemy.cluster) ?? 0;
+    if (left <= 0) continue;
+    budget.set(enemy.cluster, left - hitEnemy(world, enemy, dmg, type, HERO, by, tier, null, left));
+  }
+  return victims;
 }
 
 /** Viêm Đế's beam: 2 × 22 m from the dais along `lane`, 1.2 P word damage to every foe in it. */
@@ -558,13 +648,14 @@ export function castSkill(world: World, skill: HeroSkillId, at?: Vec2, bonusPct 
   switch (skill) {
     case "breath": {
       if (tick < combat.readyAt.breath) return reject(world, "cooldown");
-      breath(world, at, bonusPct);
+      // Nothing in reach and no point given: refused, the cooldown stays ready.
+      if (!breath(world, at, bonusPct)) return reject(world, "no-target");
       combat.readyAt.breath = tick + msToTicks(HERO_SKILLS.breath.cooldownMs);
       break;
     }
     case "skyfire": {
       if (tick < combat.readyAt.skyfire) return reject(world, "cooldown");
-      skyfire(world, at, bonusPct);
+      if (!skyfire(world, at, bonusPct)) return reject(world, "no-target");
       combat.readyAt.skyfire = tick + msToTicks(HERO_SKILLS.skyfire.cooldownMs);
       break;
     }
@@ -588,8 +679,8 @@ export function castSkill(world: World, skill: HeroSkillId, at?: Vec2, bonusPct 
 
 const withBonus = (dmg: number, bonusPct: number): number => Math.round((dmg * (100 + bonusPct)) / 100);
 
-/** Phun Lửa (01 §2.4): 60° cone, 12 m from the dais, magic, burn 3 s; default: the lane with the most foe HP within 12 m. */
-function breath(world: World, at: Vec2 | undefined, bonusPct: number): void {
+/** Phun Lửa (01 §2.4): 60° cone, 12 m from the dais, magic, burn 3 s; default: the lane with the most foe HP within 12 m. False: no foe in reach. */
+function breath(world: World, at: Vec2 | undefined, bonusPct: number): boolean {
   const def = HERO_SKILLS.breath;
   const length = mmToU(def.lengthMm);
   let dx: number;
@@ -611,14 +702,9 @@ function breath(world: World, at: Vec2 | undefined, bonusPct: number): void {
       sz += enemy.z * enemy.hp;
       sum += enemy.hp;
     }
-    if (sum > 0) {
-      dx = Math.round(sx / sum);
-      dz = Math.round(sz / sum);
-    } else {
-      const runtime = world.lanes[lane]!;
-      dx = runtime.xs[runtime.xs.length - 1]!;
-      dz = runtime.zs[runtime.zs.length - 1]!;
-    }
+    if (sum <= 0) return false;
+    dx = Math.round(sx / sum);
+    dz = Math.round(sz / sum);
   }
   if (dx === 0 && dz === 0) dz = -1;
   const len = isqrt(dx * dx + dz * dz) || 1;
@@ -628,16 +714,20 @@ function breath(world: World, at: Vec2 | undefined, bonusPct: number): void {
   const powerPm = world.hero.level >= def.tier2Level ? def.powerPm[1] : def.powerPm[0];
   const dmg = withBonus(skillDamage(world, powerPm), bonusPct);
   const burn = Math.round((STATUS.burn.perSecond * world.gPm) / 1000);
-  for (const enemy of world.enemies.list) {
-    if (!enemy.alive || !inCone(0, 0, tx, tz, enemy.x, enemy.z, def.halfAngleCosPm, length)) continue;
-    hitEnemy(world, enemy, dmg, "magic", HERO, "breath", 3, null);
+  const victims = world.enemies.list.filter((enemy) => enemy.alive && inCone(0, 0, tx, tz, enemy.x, enemy.z, def.halfAngleCosPm, length));
+  for (const enemy of areaHit(world, victims, dmg, "magic", "breath", 3, 0, 0)) {
     if (enemy.alive) applyStatus(world, { kind: "enemy", slot: enemy.slot, serial: enemy.serial }, enemy.statuses, { id: "burn", durationMs: def.burnMs, value: burn, by: "breath", source: HERO });
   }
   emit(world, { type: "skill", skill: "breath", stage: "impact", x: uToM(tx), z: uToM(tz) });
+  return true;
 }
 
-/** Thiên Hỏa (01 §2.4): lands 0.8 s later, 4 m, magic, stun 1 s; default: the densest group in the word zone. */
-function skyfire(world: World, at: Vec2 | undefined, bonusPct: number): void {
+/**
+ * Thiên Hỏa (01 §2.4): lands 0.8 s later, 4 m, magic, stun 1 s; default: the
+ * densest group in the word zone. False: no point given and no foe in the zone
+ * (it never falls on the dais).
+ */
+function skyfire(world: World, at: Vec2 | undefined, bonusPct: number): boolean {
   const def = HERO_SKILLS.skyfire;
   const radius = mmToU(def.radiusMm);
   let x = 0;
@@ -649,7 +739,7 @@ function skyfire(world: World, at: Vec2 | undefined, bonusPct: number): void {
     let bestCount = -1;
     let bestHp = 0;
     for (const enemy of world.enemies.list) {
-      if (!enemy.alive) continue;
+      if (!enemy.alive || !inWordZone(world, enemy)) continue;
       let count = 0;
       let hp = 0;
       for (const other of world.enemies.list) {
@@ -664,20 +754,21 @@ function skyfire(world: World, at: Vec2 | undefined, bonusPct: number): void {
         z = enemy.z;
       }
     }
+    if (bestCount < 0) return false;
   }
   const powerPm = world.hero.level >= def.tier2Level ? def.powerPm[1] : def.powerPm[0];
   world.combat.skyfire.push({ at: world.tick + msToTicks(def.delayMs), x, z, powerPm: Math.round((powerPm * (100 + bonusPct)) / 100) });
   telegraph(world, null, "circle", x, z, def.radiusMm / 1000, 0, def.delayMs);
   emit(world, { type: "skill", skill: "skyfire", stage: "cast", x: uToM(x), z: uToM(z) });
+  return true;
 }
 
 function skyfireImpact(world: World, drop: SkyfireDrop): void {
   const def = HERO_SKILLS.skyfire;
   const radius = mmToU(def.radiusMm);
   const dmg = skillDamage(world, drop.powerPm);
-  for (const enemy of world.enemies.list) {
-    if (!enemy.alive || !within(enemy.x, enemy.z, drop.x, drop.z, radius)) continue;
-    hitEnemy(world, enemy, dmg, "magic", HERO, "skyfire", 3, null);
+  const victims = world.enemies.list.filter((enemy) => enemy.alive && within(enemy.x, enemy.z, drop.x, drop.z, radius));
+  for (const enemy of areaHit(world, victims, dmg, "magic", "skyfire", 3, drop.x, drop.z)) {
     if (enemy.alive) {
       applyStatus(world, { kind: "enemy", slot: enemy.slot, serial: enemy.serial }, enemy.statuses, { id: "stun", durationMs: def.stunMs, tenacityPct: tenacityFor(world, enemy), by: "skyfire", source: HERO });
       interruptFoe(world, enemy);
@@ -707,7 +798,7 @@ function infernoFinale(world: World): void {
   const def = HERO_SKILLS.inferno;
   const radius = mmToU(def.finaleRadiusMm);
   const dmg = skillDamage(world, def.finalePowerPm);
-  for (const enemy of world.enemies.list) if (enemy.alive && within(enemy.x, enemy.z, 0, 0, radius)) hitEnemy(world, enemy, dmg, "magic", HERO, "inferno", 5, null);
+  areaHit(world, world.enemies.list.filter((enemy) => enemy.alive && within(enemy.x, enemy.z, 0, 0, radius)), dmg, "magic", "inferno", 5, 0, 0);
   emit(world, { type: "skill", skill: "inferno", stage: "end", x: 0, z: 0 });
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GATE_WINDOW_S, LoadTrack, REF_WPM_WORDS, foeW, isClusterFoe, peakLoad, planArrivals, planLoad, planW } from "../../scripts/balance/load";
+import { LoadTrack, REF_WPM_WORDS, foeW, isClusterFoe, peakLoad, planArrivals, planLoad, planW } from "../../scripts/balance/load";
 import { planRows } from "../../scripts/balance/report";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { LOAD } from "../../src/content/rules";
@@ -37,13 +37,13 @@ describe("bot load", () => {
     // One 1 W foe every 60 / (22.7 × 1.2) s: load 1.2.
     const gap = 60 / (REF_WPM_WORDS * 1.2);
     const stream = Array.from({ length: 200 }, (_, k) => ({ s: k * gap, w: 1 }));
-    expect(peakLoad(stream, GATE_WINDOW_S)).toBeGreaterThan(1.15);
-    expect(peakLoad(stream, GATE_WINDOW_S)).toBeLessThan(1.25);
+    expect(peakLoad(stream, 8)).toBeGreaterThan(1.15);
+    expect(peakLoad(stream, 8)).toBeLessThan(1.25);
     // A slow typist's stretched waves read the same against its own capacity, bursts too.
     const bursts = Array.from({ length: 30 }, (_, k) => ({ s: Math.floor(k / 3) * 10 + (k % 3) * 0.4, w: 1.2 }));
     const slow = bursts.map((a) => ({ s: a.s / 0.75, w: a.w }));
-    expect(peakLoad(bursts, GATE_WINDOW_S)).toBeGreaterThan(1);
-    expect(peakLoad(slow, GATE_WINDOW_S, 0.75)).toBeCloseTo(peakLoad(bursts, GATE_WINDOW_S), 2);
+    expect(peakLoad(bursts, 8)).toBeGreaterThan(1);
+    expect(peakLoad(slow, 8, 0.75)).toBeCloseTo(peakLoad(bursts, 8), 2);
   });
 
   it("counts a cluster once however many of it spawn", () => {
@@ -71,15 +71,19 @@ describe("bot load", () => {
     for (const plan of STAGE_M0.waves) {
       if (plan.groups.length === 0) continue;
       expect(Math.abs(planLoad(plan) * 100 - api.waveLoad100(plan)), "wave " + plan.n + " load").toBeLessThanOrEqual(1);
-      expect(Math.abs(peakLoad(planArrivals(plan), GATE_WINDOW_S) * 100 - api.peakLoad100(plan, GATE_WINDOW_S * 1000)), "wave " + plan.n + " peak").toBeLessThanOrEqual(1.5);
+      expect(Math.abs(peakLoad(planArrivals(plan), 8) * 100 - api.peakLoad100(plan, 8000)), "wave " + plan.n + " peak").toBeLessThanOrEqual(1.5);
     }
   });
 
   const authored = STAGE_M0.waves.every((plan) => plan.groups.length > 0);
-  it.skipIf(!authored)("meets each M0 wave's load target and peak cap with its groups (G9 on the plan)", () => {
+  it.skipIf(!authored)("meets each M0 wave's load target and the canon short-peak caps over 6, 8 and 10 s (G9 on the plan)", () => {
     for (const row of planRows()) {
       expect(Math.abs(row.load - row.target), "wave " + row.wave + " load").toBeLessThanOrEqual(row.target * 0.1);
-      expect(row.peak, "wave " + row.wave + " peak").toBeLessThanOrEqual(Math.min(row.peakCap, LOAD.hardCap / 100) + 0.015);
+      const peak = Math.max(...row.peaks);
+      expect(peak, "wave " + row.wave + " peak").toBeLessThanOrEqual(LOAD.hardCap / 100 + 0.015);
+      // Middle waves ≤ 1.15; the last wave's flag is the M0 exception the owner writes into 00.
+      if (row.canonCap !== null && row.wave < planRows().length) expect(peak, "wave " + row.wave + " peak").toBeLessThanOrEqual(row.canonCap + 0.015);
+      expect(row.problems.filter((problem) => !problem.includes("ngoại lệ M0")), "wave " + row.wave).toEqual([]);
     }
   });
 });

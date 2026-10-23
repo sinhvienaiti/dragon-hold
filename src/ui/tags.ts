@@ -247,11 +247,11 @@ const CSS = `
 .dh-tag__word .t { color: ${SEMANTIC_COLORS.typing}; }
 .dh-tag__word .p { background: rgba(255, 140, 170, 0.45); border-radius: 2px; }
 .dh-tag__word .h { color: #FFE9A8; text-decoration: underline dotted; }
-.dh-tag__new { font-size: calc(var(--dh-tag-font, 20px) * 0.55); font-weight: 800; padding: 0 4px; border-radius: 3px; background: #E9F7D4; color: #1F3A12; }
+.dh-tag__new { font-size: max(11px, calc(var(--dh-tag-font, 20px) * 0.55)); font-weight: 800; padding: 0 4px; border-radius: 3px; background: #E9F7D4; color: #1F3A12; }
 .dh-tag__new:empty, .dh-tag__dots:empty, .dh-tag__mean:empty { display: none; }
 .dh-tag__dots { font-size: calc(var(--dh-tag-font, 20px) * 0.5); letter-spacing: 2px; color: #C9C2B0; }
 .dh-tag__dots .s { color: #D08A4E; }
-.dh-tag__mean { font-size: calc(var(--dh-tag-font, 20px) * 0.76); font-weight: 400; color: #EADFC4; line-height: 1.15; white-space: nowrap; }
+.dh-tag__mean { font-size: max(13px, calc(var(--dh-tag-font, 20px) * 0.76)); font-weight: 400; color: #EADFC4; line-height: 1.15; white-space: nowrap; }
 .dh-tag__hp { display: block; width: 100%; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
 .dh-tag__hp i { display: block; height: 100%; background: #E8D9A8; }
 .dh-tag__hp[hidden] { display: none; }
@@ -277,6 +277,10 @@ const CSS = `
 .dh-tag.is-chip .dh-tag__body { border-style: solid; border-color: rgba(255, 244, 214, 0.7); }
 .dh-tag__arrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border-left: 7px solid #FFF4D6; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
 .dh-tag:not(.is-chip) .dh-tag__arrow { display: none; }
+.dh-spark { position: absolute; left: 0; top: 0; font-weight: 800; font-size: calc(var(--dh-tag-font, 20px) * 0.9); color: #7FF5E0; text-shadow: 0 0 6px rgba(127, 245, 224, 0.8), 0 1px 0 #000; pointer-events: none; opacity: 0; }
+.dh-spark.is-on { animation: dh-spark 520ms ease-out forwards; }
+@keyframes dh-spark { 0% { opacity: 1; translate: 0 0; scale: 1.15; } 100% { opacity: 0; translate: var(--dx) var(--dy); scale: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .dh-spark.is-on { animation-duration: 1ms; } }
 .dh-dot { position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255, 244, 214, 0.45); }
 @keyframes dh-tag-pop { 0% { transform: scale(0.6); } 70% { transform: scale(1.06); } 100% { transform: scale(1); } }
 @keyframes dh-tag-shake { 0%, 100% { translate: 0 0; } 25% { translate: -3px 0; } 75% { translate: 3px 0; } }
@@ -292,6 +296,9 @@ export function tagFontPx(height: number, userPct = 100): number {
 
 const POOL = 24;
 const DOTS = 40;
+/** Letter sparks a finished word throws out (05 §4.3, §6.1: 6–10 letters burst from the tag). */
+const SPARKS = 30;
+const SPARKS_PER_WORD = 8;
 const MS = { shake: 120, pink: 150, leave: 200, hold: 500 } as const;
 
 interface Tag {
@@ -391,6 +398,33 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
     layer.append(dot);
     return dot;
   });
+  const sparks: HTMLElement[] = Array.from({ length: SPARKS }, () => {
+    const spark = doc.createElement("b");
+    spark.className = "dh-spark";
+    layer.append(spark);
+    return spark;
+  });
+  let nextSpark = 0;
+  /** A finished word's letters fly out from its tag and fade (pooled spans, CSS animation). */
+  const burst = (tag: Tag, text: string): void => {
+    if (text === "") return;
+    const cx = tag.x + tag.w / 2;
+    const cy = tag.y + tag.h / 2;
+    const n = Math.min(SPARKS_PER_WORD, Math.max(6, text.length));
+    for (let k = 0; k < n; k += 1) {
+      const spark = sparks[nextSpark]!;
+      nextSpark = (nextSpark + 1) % SPARKS;
+      const angle = (k / n) * Math.PI * 2 + 0.3;
+      spark.textContent = text[k % text.length]!;
+      spark.style.transform = "translate(" + cx.toFixed(1) + "px," + cy.toFixed(1) + "px)";
+      spark.style.setProperty("--dx", (Math.cos(angle) * 46).toFixed(0) + "px");
+      spark.style.setProperty("--dy", (Math.sin(angle) * 30 - 18).toFixed(0) + "px");
+      spark.classList.remove("is-on");
+      void spark.offsetWidth;
+      spark.classList.add("is-on");
+    }
+  };
+  const textOf = new Map<number, string>();
   const bySlot = new Map<number, Tag>();
   const ringOf = new Map<number, number>();
   const point: ScreenPoint = { x: 0, y: 0, visible: false };
@@ -538,8 +572,12 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
             void tag.el.offsetWidth;
             tag.el.classList.add("is-shake");
           }
+        } else if (event.type === "word-assigned") {
+          textOf.set(event.word, event.text);
         } else if (event.type === "word-released") {
           const tag = bySlot.get(event.word);
+          if (tag && event.reason === "done") burst(tag, textOf.get(event.word) ?? "");
+          textOf.delete(event.word);
           if (tag) leave(tag, event.reason === "done" ? "done" : "fold", now);
         }
       }

@@ -131,20 +131,22 @@ describe("statuses (03 §2.3)", () => {
   it("heals a potion over 2 s, halved under poison, with on and off events", () => {
     const world = makeWorld({ phase: "wave" });
     world.shop.held["small-potion"] = 2;
-    world.hero.hp = 500;
+    world.hero.hp = 100;
+    const heal = Math.round((world.hero.hpMax * 25) / 100);
     useConsumable(world, "small-potion");
     const on = eventsOf(world, "status");
     expect(on).toMatchObject([{ status: "regen", on: true, durationMs: 2000 }]);
     run(world, 120);
-    // 25 % of 1 020 max HP.
-    expect(world.hero.hp).toBe(755);
+    // 25 % of max HP.
+    expect(world.hero.hp).toBe(100 + heal);
     expect(eventsOf(world, "status")).toMatchObject([{ status: "regen", on: false }]);
-    world.hero.hp = 500;
+    world.hero.hp = 100;
     world.shop.consumableReadyAt = 0;
     applyStatus(world, { kind: "hero" }, world.hero.statuses, { id: "poison", durationMs: 4000, value: 0 });
     useConsumable(world, "small-potion");
     run(world, 120);
-    expect(world.hero.hp).toBeGreaterThanOrEqual(626);
-    expect(world.hero.hp).toBeLessThanOrEqual(628);
+    // Poison halves it.
+    expect(world.hero.hp).toBeGreaterThanOrEqual(100 + Math.floor(heal / 2) - 1);
+    expect(world.hero.hp).toBeLessThanOrEqual(100 + Math.ceil(heal / 2) + 1);
   });
 });

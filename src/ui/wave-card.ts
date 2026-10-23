@@ -11,6 +11,7 @@ import { ENEMIES } from "../content/data/enemies";
 import { GENERALS } from "../content/data/generals";
 import { RAGE } from "../content/rules";
 import type { FoeId, Family, Gait, GeneralId, MapDef, SimEvent, StageDef } from "../content/types";
+import { callEarlyRoom } from "../sim/economy";
 import type { World } from "../sim/world";
 import { callEarlyBonus, clockSeconds, phaseTicksLeft, upcomingWave } from "./hud";
 import { el, foeIcon, icon, keyLabel, setClass, setShown, setText, uiButton } from "./skin";
@@ -66,6 +67,13 @@ function foeInfo(foe: FoeId): Omit<FoeTally, "count" | "elite"> {
     general,
     flyer: def.gait === "flyer" || def.stance !== "ground",
   };
+}
+
+/** A foe's short name on the card: "Yêu Rêu Lính" → "Lính", "Sói Mục" → "Sói"; a general is "Tướng". */
+export function shortFoeName(tally: Pick<FoeTally, "nameVi" | "general">): string {
+  if (tally.general) return "Tướng";
+  const words = tally.nameVi.split(" ");
+  return tally.nameVi.startsWith("Yêu Rêu ") ? words.slice(2).join(" ") : words[0] ?? tally.nameVi;
 }
 
 /** What wave `n` (1-based) brings, lane by lane in the stage's lane order; null past the last wave. */
@@ -171,7 +179,8 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
             (tally.general ? `<span class="dh-icon dh-foe__mark">${icon("crown")}</span>` : "") +
             `<span class="dh-icon">${foeIcon(tally.gait, tally.color)}</span>` +
             (tally.flyer && !lane.sky ? `<span class="dh-icon dh-foe__mark">${icon("wing")}</span>` : "");
-          chip.append(el(doc, "span", "dh-foe__count", "×" + tally.count));
+          // The short name beside the icon: a new player reads "Kiến ×6", not only a shape (the title keeps the full name).
+          chip.append(el(doc, "span", "dh-foe__name", shortFoeName(tally)), el(doc, "span", "dh-foe__count", "×" + tally.count));
           foes.append(chip);
         }
         row.append(name, foes);
@@ -269,7 +278,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
     if (phase === "break" && left !== null) {
       const callHtml =
         `<span class="dh-key">${keyLabel("call-early")}</span>Gọi sớm ` +
-        `<span class="dh-bonus">+${callEarlyBonus(left)} vàng</span>` +
+        `<span class="dh-bonus">+${callEarlyBonus(left, callEarlyRoom(w))} vàng</span>` +
         (w.stage.unlocks.rage ? ` · +${RAGE.callEarlyX10 / 10} Long Nộ` : "");
       if (callButton.innerHTML !== callHtml) callButton.innerHTML = callHtml;
     }

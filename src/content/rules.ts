@@ -107,12 +107,33 @@ export const TEMPO = {
     { minWpm: 45, x10: 55 },
     { minWpm: 65, x10: 60 },
   ],
-  /** Reference capacity at 35 WPM: 22.7 words a minute (00 §4.3). */
+  /** Reference capacity at 35 WPM: 22.7 words a minute (00 §4.3); typing load L is measured against it (00 §4.4). */
   refWordsPerMinX10: 227,
   refWpm: 35,
-  /** k_E = clamp(C(E) / 22.7; 0.75; 1.00): spawn gaps × 1 / k_E (00 §4.4, D06). */
-  kEMinPm: 750,
-  kEMaxPm: 1000,
+} as const;
+
+/**
+ * Pace (BALANCE.md §4.1, §9.1; D23 replaces D06 and k_E of 00 §4.4):
+ *   E_eff = E × (0.6 + 0.4 a²) × (1 − 0.5 CV), held in [0.7 E, E]
+ *   k     = clamp(C(E_eff) / C_ref; 0.75; 1.30)      spawn gaps × 1 / k, both ways
+ * C_ref = C(E_eff of the standard bot: 35 WPM, 95 %, CV 0.25) ≈ 19.6 words a
+ * minute, so the reference player gets k = 1. The word zone is a time: a foe
+ * gets a word once it is within T_a of its stop (T_a / k, never under two
+ * word times of this player; + one word time per extra W it carries).
+ */
+export const PACE = {
+  kMinPm: 750,
+  kMaxPm: 1300,
+  refWordsPerMinX10: 196,
+  /** Profile defaults when the game knows only E (kit skillDefaults, adult). */
+  defaultAccuracyPm: 950,
+  defaultCvPm: 250,
+  /** E_eff held in [0.7 E, E] (BALANCE.md §4.1). */
+  eEffFloorPm: 700,
+  /** T_a of a small foe at k = 1 (BALANCE.md §9.1: the standard bot kills it at Q ≈ 55–70 %). */
+  approachMs: 5000,
+  /** T_a is never under this many word times of the player (BALANCE.md §9.1). */
+  approachMinWords: 2,
 } as const;
 
 /** Wave load L × 100 bands (00 §4.4). */
@@ -309,9 +330,9 @@ export const ECONOMY = {
 } as const;
 
 /** The stage's gold budget besides the start gold (00 §4.9). */
-export function stageGoldBudget(lanes: number, type: StageType, typePctOverride?: number): number {
+export function stageGoldBudget(lanes: number, type: StageType): number {
   const lanePct = ECONOMY.laneFactorPct[Math.min(Math.max(lanes, 1), 4) - 1]!;
-  const typePct = typePctOverride ?? ECONOMY.typeFactorPct[type];
+  const typePct = ECONOMY.typeFactorPct[type];
   return Math.round((ECONOMY.budget * lanePct * typePct) / 10_000);
 }
 
@@ -319,7 +340,8 @@ export function stageGoldBudget(lanes: number, type: StageType, typePctOverride?
 
 /** Fire Dragon at Dragon level 1, chapter 1 (01 §2.2, 00 §4.2 raw armour). */
 export const FIRE_DRAGON = {
-  hp: 1000,
+  /** 01 §2.2 starts at 1000; BALANCE.md §9.1 (D23) sets it so the standard bot keeps S 35–65 % under Héo lan (PRESSURE). */
+  hp: 460,
   armour: 20,
   resist: 20,
   power: 100,
@@ -377,6 +399,21 @@ export const HERO_SKILLS = {
   skillWordPowerPct: 10,
   skillWordChain: 1,
 } as const;
+
+/**
+ * Continuous pressure (BALANCE.md §5 "vòng gần có hiệu ứng xấu cho phe ta
+ * khi quái đứng lâu", §9.1, D23): every 2 s, each foe that stands in the
+ * word zone (held by a unit, fighting, or at its stop) seeps Héo into the
+ * Fire Dragon, `zonePerW10` tenths of HP a second per W it carries, `ringPerW10`
+ * inside Vòng Nguy (10 m, 01 §2.1) even while walking; × g(c), × difficulty,
+ * × the pace k, true damage that units and armour do not stop. A held foe
+ * still costs HP until it is typed down, so the margin follows typing
+ * (BALANCE.md §5).
+ */
+export const PRESSURE = { ringMm: 10_000, everyMs: 2000, zonePerW10: 40, ringPerW10: 100 } as const;
+
+/** Area skills never sweep (BALANCE.md §9.1, D23): one blow takes at most 60 % of a swarm cluster's HP; each area skill ≤ 15 % of a stage's damage (the bot report checks it). */
+export const AREA = { clusterCapPct: 60, skillShareMaxPct: 15 } as const;
 
 /**
  * Battle values the design leaves open (sim-battle starting values; bots tune
@@ -680,12 +717,14 @@ export const KEYS_UNUSED = ["Insert", "Delete", "PageUp", "PageDown", "Pause", "
 export const M0_GATES = {
   win35: [75, 90],
   win25Min: 70,
-  /** DESIGN.md §9's M0 row: typing only wins ≤ 40 %. It contradicts 00 §7 G5 below; the canon wins. */
+  /**
+   * G5 (00 §7): typing only, no buys: stages 1–10 win ≥ 70 %, stages 21+ lose ≥ 60 %. The M0 stage plays at
+   * chapter 2 strength (stages 21–40), so it is "21+": win ≤ 40 %, which is DESIGN.md §9's M0 row too.
+   */
   typingOnlyWinMax: 40,
-  /** 00 §7 G5 for stages 1–10: 35 WPM typing only, no buys, wins ≥ 70 % (the gate the report judges). */
-  typingOnlyWinMin: 70,
   /** 0 WPM with the best buys loses before the end of wave 3 (G6). */
   noTypingLoseByWave: 3,
+  /** G9: every short peak (6, 8 and 10 s windows, 00 §4.4) ≤ 1.40. */
   peakLoadMax100: 140,
   seeds: 20,
 } as const;

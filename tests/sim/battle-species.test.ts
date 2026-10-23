@@ -29,7 +29,8 @@ describe("battle species", () => {
     const log = new Log();
     const world = waveWorld();
     const grunt = foe(world, "moss-grunt", "cau");
-    runUntil(world, () => log.of("hit").some((hit) => hit.target.kind === "hero"), 1200, log);
+    // The grunt's own cut (Héo lan comes from the Dragon's side as source "hero").
+    runUntil(world, () => log.of("hit").some((hit) => hit.target.kind === "hero" && hit.source.kind === "enemy"), 1200, log);
     expect(grunt.along).toBe(world.lanes[grunt.lane]!.length);
     expect(fromDaisM(grunt)).toBeCloseTo(6, 0);
     expect(grunt.mode).toBe("attack");
@@ -37,7 +38,7 @@ describe("battle species", () => {
     const strike = log.of("attack").find((a) => a.stage === "strike")!;
     expect(strike.tick - windup.tick).toBe(30);
     // 8 × g(2) = 8, through the Dragon's 20 armour (16.7 %): 7 (00 §4.2).
-    const hit = log.of("hit").find((h) => h.target.kind === "hero")!;
+    const hit = log.of("hit").find((h) => h.target.kind === "hero" && h.source.kind === "enemy")!;
     expect(hit.amount).toBe(7);
     expect(hit.damageType).toBe("physical");
     log.clear();

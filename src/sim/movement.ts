@@ -257,7 +257,8 @@ function moveOne(world: World, enemy: EnemyState): void {
       enemy.action = ACTION.pounceWindup;
       enemy.actionUntil = tick + windup;
       pointAt(lane, Math.min(lane.length, enemy.along + POUNCE_U), enemy.lateral, point);
-      telegraph(world, enemy, "line", point.x, point.z, 0, 0.8, ticksToMs(windup));
+      // A wide red lane over the blocker: readable even with word tags near the dais (05 §6.2).
+      telegraph(world, enemy, "line", point.x, point.z, 0, 1.4, ticksToMs(windup));
       setMode(world, enemy, "hold");
       return;
     }

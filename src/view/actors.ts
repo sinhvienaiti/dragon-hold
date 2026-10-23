@@ -29,6 +29,9 @@ export interface FoeLocator {
   locate(slot: number, serial: number, at: FoeAnchor, out: THREE.Vector3): boolean;
 }
 
+/** The disc under our units (a flat pale-blue ellipse, one layer for all of them). */
+const UNIT_DISC: PlaceholderDef = { shape: "sphere", color: "#5f9fe0", sizeM: [1.5, 0.08, 1.5], hoverM: 0 };
+
 /** A foe's placeholder and gait (enemies and generals). */
 export function foeLook(foe: FoeId): { placeholder: PlaceholderDef; gait: Gait } {
   const enemy = ENEMIES[foe as keyof typeof ENEMIES];
@@ -379,6 +382,8 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         const down = unit.downUntil >= 0;
         // A fallen unit is a bud until it rises (05 §6.6).
         placeOur(ourKey("unit", unit.index), def.show.placeholder, x, z, Math.atan2(-x, -z) + Math.PI, down ? { scale: 0.4, tint: TINT.bud, tintMix: 1 } : {}, unit.index, "biped");
+        // A blue disc under each of ours: told apart from a moss foe at a glance, even before its HP bar shows.
+        if (!down) placeOur(ourKey("unit-disc", unit.index), UNIT_DISC, x, z, 0, {}, unit.index);
       }
       for (const rec of ours.values()) {
         if (rec.seen === stamp) continue;

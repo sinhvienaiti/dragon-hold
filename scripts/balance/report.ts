@@ -1,21 +1,23 @@
 /**
  * Sums bot runs per bot, checks the M0 gates (DESIGN.md §9 "Cổng M0 Bot",
- * rules.ts M0_GATES) and the wave plan (00 §4.4–4.5), says which systems do
- * nothing yet, and prints it all as Markdown in Vietnamese for the owner.
- * Script side: floats are fine here.
+ * rules.ts M0_GATES), BALANCE.md's flow bands (§3: S, P, I, O, N, Q) and
+ * gates B1–B9 (kit/balance), and the wave plan against 00 §4.4–4.5 caps;
+ * says which systems do nothing yet, and prints it all as Markdown in
+ * Vietnamese for the owner. Script side: floats are fine here.
  * Owner: bot-balance (LANES.md).
  */
 import { MAPS } from "../../src/content/data/maps";
-import { HOUSES, TRAPS } from "../../src/content/data/our-side";
+import { HOUSES, PLACEABLES, TRAPS, UNITS } from "../../src/content/data/our-side";
 import { STAGE_M0 } from "../../src/content/data/stages";
-import { ECONOMY, FLOW, LETTER_BUDGET, LOAD, M0_GATES, SIM_BUDGET, stageGoldBudget } from "../../src/content/rules";
+import { AREA, ECONOMY, FLOW, LETTER_BUDGET, LOAD, M0_GATES, SIM_BUDGET, chapterRow, stageGoldBudget } from "../../src/content/rules";
+import { BANDS, METRIC_LABELS, formatGates, runGates, summarizeRuns, type BandMetric, type BotModeSummary, type GateResult, type RunRecord } from "../../src/kit/balance";
 import type { StageDef, Vec2 } from "../../src/content/types";
 import { U_PER_M } from "../../src/sim/fixed";
 import type { SlotState } from "../../src/sim/placement";
 import type { World } from "../../src/sim/world";
-import { BOTS, TICK_MS, type BotName, type BotRun } from "./bot";
+import { BOTS, TICK_MS, type BotName, type BotRun, type BotSpec } from "./bot";
 import { capacity } from "./hands";
-import { GATE_WINDOW_S, PEAK_WINDOWS_S, REF_WPM_WORDS, foeW, peakLoad, planArrivals, planLoad, planW, type Arrival } from "./load";
+import { PEAK_WINDOWS_S, REF_WPM_WORDS, foeW, peakLoad, planArrivals, planLoad, planW, type Arrival } from "./load";
 
 const mean = (values: readonly number[]): number => (values.length === 0 ? 0 : values.reduce((sum, v) => sum + v, 0) / values.length);
 const max = (values: readonly number[]): number => (values.length === 0 ? 0 : Math.max(...values));
@@ -58,6 +60,16 @@ export interface BotSummary {
   readonly live: { maxFoes: number; maxWords: number };
   /** The words store's counters per minute of wave (G10: tier-2 pairs < 1 a minute). */
   readonly jamsPerMin: Record<string, number>;
+  /** BALANCE.md §3 over the runs (‰; n a mean count), kit/balance summarizeRuns in mode "balanced". */
+  readonly kit: BotModeSummary;
+  /** Median of the runs' lowest HP, ‰. */
+  readonly hpMin: number;
+  /** Damage to foes by attack, % of all (word, breath, skyfire, roar, inferno, trap, unit, house, status). */
+  readonly skillShare: Record<string, number>;
+  /** Fire Dragon damage by foe species, mean per run. */
+  readonly heroBy: Record<string, number>;
+  /** Highest short peak of any run over the 6, 8 and 10 s windows (G9). */
+  readonly peakMax: number;
   readonly ultimateGapS: number;
   readonly rejected: Record<string, number>;
   readonly sent: Record<string, number>;
@@ -77,7 +89,7 @@ const arrivalsOf = (run: BotRun, wave?: number): Arrival[] => (wave === undefine
 
 /** Folds the runs of one bot. */
 export function summarize(bot: string, runs: readonly BotRun[], stage: StageDef = STAGE_M0): BotSummary {
-  const spec = (BOTS as Record<string, (typeof BOTS)[BotName]>)[bot];
+  const spec = (BOTS as Record<string, BotSpec>)[bot];
   const results: Record<string, number> = {};
   const stars: Record<string, number> = {};
   for (const run of runs) {
@@ -86,6 +98,24 @@ export function summarize(bot: string, runs: readonly BotRun[], stage: StageDef 
   }
   const peaks: Record<string, number> = {};
   for (const window of PEAK_WINDOWS_S) peaks[window + "s"] = max(runs.map((run) => peakLoad(arrivalsOf(run), window, run.kEPm / 1000)));
+  const records: RunRecord[] = runs.filter((run) => run.metrics.flow !== null).map((run) => ({
+    flow: run.metrics.flow!,
+    pace: run.pace,
+    ...(run.metrics.killCount > 0 ? { killSeconds: run.metrics.killSeconds / run.metrics.killCount } : {}),
+    // G12 / B8 asks typists only: a bot that never types meets no word twice.
+    ...(spec?.hands ? { learnOk: run.learn.newWords > 0 && run.learn.metTwice === run.learn.newWords } : {}),
+  }));
+  const kit = summarizeRuns(spec?.standard ?? bot, "balanced", records, spec?.directorOff !== true);
+  const skillTotals: Record<string, number> = {};
+  const heroBy: Record<string, number> = {};
+  for (const run of runs) {
+    for (const [by, n] of Object.entries(run.metrics.bySkill)) skillTotals[by] = (skillTotals[by] ?? 0) + n;
+    for (const [foe, n] of Object.entries(run.metrics.heroBy)) heroBy[foe] = (heroBy[foe] ?? 0) + n / Math.max(1, runs.length);
+  }
+  const skillSum = Object.values(skillTotals).reduce((a, b) => a + b, 0);
+  const skillShare: Record<string, number> = {};
+  for (const [by, n] of Object.entries(skillTotals)) skillShare[by] = pct(n, skillSum);
+  const hpMins = runs.map((run) => run.metrics.flow?.hpMin ?? 0).sort((a, b) => a - b);
   const waves: WaveSummary[] = stage.waves.map((plan) => {
     const reached = runs.filter((run) => run.metrics.waves[plan.n - 1] !== undefined);
     const per = reached.map((run) => {
@@ -96,7 +126,7 @@ export function summarize(bot: string, runs: readonly BotRun[], stage: StageDef 
       return {
         w,
         load: w / (REF_WPM_WORDS * kE * (plan.durationMs / kE / 60_000)),
-        peak: peakLoad(arrivals, GATE_WINDOW_S, kE),
+        peak: Math.max(...PEAK_WINDOWS_S.map((window) => peakLoad(arrivals, window, kE))),
         busy: pct(wave.busyTicks, wave.ticks),
         wpm: wave.ticks > 0 ? wave.words / ((wave.ticks * TICK_MS) / 60_000) : 0,
         gold: wave.goldAtEnd,
@@ -176,11 +206,16 @@ export function summarize(bot: string, runs: readonly BotRun[], stage: StageDef 
       spent: mean(runs.map((run) => run.metrics.gold.spent)),
       end: mean(runs.map((run) => run.metrics.gold.end)),
       beforeLast: mean(runs.map((run) => run.metrics.waves[stage.waves.length - 1]?.goldAtStart ?? run.metrics.gold.end)),
-      formula: ECONOMY.startGold + stageGoldBudget(groundLanes, stage.type, stage.goldTypePct),
+      formula: ECONOMY.startGold + stageGoldBudget(groundLanes, stage.type),
       byReason,
     },
     live: { maxFoes: max(runs.map((run) => run.metrics.live.maxFoes)), maxWords: max(runs.map((run) => run.metrics.live.maxWords)) },
     jamsPerMin: jamsPerMinute(runs, waveTicks),
+    kit,
+    hpMin: hpMins.length === 0 ? 0 : hpMins[hpMins.length >> 1]!,
+    skillShare,
+    heroBy,
+    peakMax: max(PEAK_WINDOWS_S.map((window) => peaks[window + "s"] ?? 0)),
     ultimateGapS: mean(gaps),
     rejected,
     sent,
@@ -219,8 +254,8 @@ export function m0Gates(summaries: Readonly<Record<string, BotSummary>>): Gate[]
   };
   win("b35", "G1", "35 WPM, đồ trung bình", M0_GATES.win35[0] + "–" + M0_GATES.win35[1] + " %", (w) => w >= M0_GATES.win35[0] && w <= M0_GATES.win35[1]);
   win("b25", "G3", "25 WPM, đồ trung bình", "≥ " + M0_GATES.win25Min + " %", (w) => w >= M0_GATES.win25Min);
-  // DESIGN.md §9 asks ≤ 40 %, 00 §7 G5 asks ≥ 70 % for stages 1–10: the canon wins (00-canon.md is the single source).
-  win("typingOnly", "G5", "Chỉ gõ, không mua (10 đợt)", "≥ " + M0_GATES.typingOnlyWinMin + " % (00 §7; DESIGN §9 ghi ≤ " + M0_GATES.typingOnlyWinMax + " %, canon thắng)", (w) => w >= M0_GATES.typingOnlyWinMin);
+  // 00 §7 G5: stages 21+ lose ≥ 60 %; M0 plays at chapter 2 (stages 21–40), which is DESIGN.md §9's "≤ 40 %" too.
+  win("typingOnly", "G5", "Chỉ gõ, không mua (10 đợt)", "≤ " + M0_GATES.typingOnlyWinMax + " % (00 §7 ải 21+: thua ≥ 60 %; M0 ở sức C2; DESIGN §9 cùng số)", (w) => w <= M0_GATES.typingOnlyWinMax);
   const none = summaries.noTyping;
   const lostEarly = none ? none.defeatWaves.filter((wave) => wave <= M0_GATES.noTypingLoseByWave).length : 0;
   gates.push({
@@ -230,11 +265,11 @@ export function m0Gates(summaries: Readonly<Record<string, BotSummary>>): Gate[]
     got: none ? lostEarly + "/" + none.runs + " thua sớm; đợt thua " + (none.defeatWaves.join(", ") || "—") : "chưa chạy",
     status: none === undefined || blocked(none) ? "bị chặn" : lostEarly === none.runs ? "đạt" : "trượt",
   });
-  const typists = ["b25", "b35", "b60"].map((bot) => summaries[bot]).filter((s): s is BotSummary => s !== undefined);
-  const peak = max(typists.map((s) => s.peaks[GATE_WINDOW_S + "s"] ?? 0));
+  const typists = Object.values(summaries).filter((s) => (BOTS as Record<string, (typeof BOTS)[BotName]>)[s.bot]?.hands);
+  const peak = max(typists.map((s) => s.peakMax));
   gates.push({
     id: "G9",
-    name: "Tải đỉnh (cửa sổ " + GATE_WINDOW_S + " s)",
+    name: "Tải đỉnh (lớn nhất của cửa sổ " + PEAK_WINDOWS_S.join(", ") + " s, mọi bot gõ)",
     want: "≤ " + f2(M0_GATES.peakLoadMax100 / 100),
     got: typists.length === 0 ? "chưa chạy" : f2(peak),
     status: typists.length === 0 || typists.every(blocked) ? "bị chặn" : peak <= M0_GATES.peakLoadMax100 / 100 ? "đạt" : "trượt",
@@ -249,28 +284,53 @@ export function extraGates(summaries: Readonly<Record<string, BotSummary>>): Gat
   const status = (ok: boolean): GateStatus => (blocked(s) ? "bị chặn" : ok ? "đạt" : "trượt");
   const earned = s.gold.start + s.gold.earned;
   const tier2 = s.jamsPerMin.tier2;
+  const sky = s.skillShare.skyfire ?? 0;
+  const breath = s.skillShare.breath ?? 0;
+  const cover = goldCoverage(STAGE_M0, s.gold.formula);
   return [
     { id: "G8", name: "Phần phe ta (b35)", want: "20–35 %, trần 40 %", got: f1(s.damage.ourSide) + " %", status: status(s.damage.ourSide >= 20 && s.damage.ourSide <= 35) },
+    { id: "D23a", name: "Thiên Hỏa trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(sky) + " %", status: status(sky <= AREA.skillShareMaxPct) },
+    { id: "D23b", name: "Phun Lửa trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(breath) + " %", status: status(breath <= AREA.skillShareMaxPct) },
     { id: "G9b", name: "Chữ sống ≤ N_max", want: "≤ " + LETTER_BUDGET.nMaxCap, got: String(max(Object.values(summaries).map((x) => x.live.maxWords))), status: status(max(Object.values(summaries).map((x) => x.live.maxWords)) <= LETTER_BUDGET.nMaxCap) },
-    {
-      id: "G9c",
-      name: "Tải đỉnh cửa sổ 6 s và 10 s (b35)",
-      want: "≤ " + f2(M0_GATES.peakLoadMax100 / 100) + " (00 §4.4: đỉnh 6–10 s)",
-      got: f2(s.peaks["6s"] ?? 0) + " / " + f2(s.peaks["10s"] ?? 0),
-      status: status(Math.max(s.peaks["6s"] ?? 0, s.peaks["10s"] ?? 0) <= M0_GATES.peakLoadMax100 / 100),
-    },
     { id: "G10", name: "Tầng 2 chữ đầu (b35)", want: "< 1 lần mỗi phút", got: tier2 === undefined ? "không đếm" : f2(tier2) + " /phút", status: tier2 === undefined ? "bị chặn" : status(tier2 < 1) },
     { id: "G11", name: "Mất khóa vì nguồn khác (b35)", want: "≤ 5 % số khóa", got: f1(s.typing.locksLostPct) + " % của " + f1(s.typing.locks) + " khóa", status: status(s.typing.locksLostPct <= 5) },
     {
       id: "G13",
       name: "Vàng ải (b35)",
-      want: "±15 % của " + s.gold.formula + "; dư ≤ 15 %",
-      got: f1(earned) + "; dư lúc vào đợt cuối " + f1(pct(s.gold.beforeLast, earned)) + " %, cuối ải " + f1(pct(s.gold.end, earned)) + " %",
-      status: status(Math.abs(earned - s.gold.formula) <= s.gold.formula * 0.15 && s.gold.beforeLast <= earned * 0.15),
+      want: "±15 % của " + s.gold.formula + "; dư cuối ải ≤ 15 %",
+      // Measured at the stage's end (what turns into Vảy); the last chance to spend, wave 10's start, is shown beside it.
+      got: f1(earned) + " (" + f1(pct(earned - s.gold.formula, s.gold.formula)) + " %); dư cuối ải " + f1(pct(s.gold.end, earned)) + " % (lúc vào đợt cuối " + f1(pct(s.gold.beforeLast, earned)) + " %)",
+      status: status(Math.abs(earned - s.gold.formula) <= s.gold.formula * 0.15 && s.gold.end <= earned * 0.15),
+    },
+    {
+      id: "G13b",
+      name: "Vàng ải phủ được bao nhiêu phần dựng tối đa (mọi ô, món đắt nhất, cấp 3)",
+      want: "15–35 % (00 §4.9)",
+      got: f1(cover.minPct) + " % của " + cover.maxCost + " Vàng (nếu mọi ô lấy món rẻ nhất: " + f1(cover.maxPct) + " % của " + cover.minCost + ")",
+      status: status(cover.minPct >= 15 && cover.minPct <= 35),
     },
     { id: "G15", name: "Khống chế cứng mỗi quái (b35)", want: "≤ 35 % thời gian sống", got: "tệ nhất " + f1(s.hard.worstPct) + " %, " + f1(s.hard.over35Pct) + " % quái vượt", status: status(s.hard.worstPct <= 35) },
     { id: "G16", name: "Tối Thượng (b35, cổng từ ải 15)", want: "mỗi 90–110 s", got: s.ultimateGapS > 0 ? f1(s.ultimateGapS) + " s" : "chưa đủ 2 lần", status: s.ultimateGapS > 0 ? status(s.ultimateGapS >= 90 && s.ultimateGapS <= 110) : "bị chặn" },
   ];
+}
+
+/**
+ * Gold against the maximum build (00 §4.9): every slot filled at level 3
+ * (2.7 × the base price), with its cheapest and its dearest fitting item.
+ */
+export function goldCoverage(stage: StageDef, gold: number): { minCost: number; maxCost: number; minPct: number; maxPct: number } {
+  const map = MAPS[stage.mapId];
+  let minCost = 0;
+  let maxCost = 0;
+  for (const slot of map?.slots ?? []) {
+    const fits = Object.values(PLACEABLES).filter((item) => stage.carry.includes(item.id) && ("blockSlots" in item ? slot.kind === "block" : "effect" in item && "radiusMm" in item ? slot.kind === "house" : slot.kind === "trap"));
+    if (fits.length === 0) continue;
+    const costs = fits.map((item) => Math.round(item.cost * 2.7));
+    minCost += Math.min(...costs);
+    maxCost += Math.max(...costs);
+  }
+  void UNITS;
+  return { minCost, maxCost, minPct: pct(gold, maxCost), maxPct: pct(gold, minCost) };
 }
 
 // ── The wave plan, without the sim (00 §4.4–4.5) ───────────────────────────
@@ -282,19 +342,30 @@ export interface PlanRow {
   readonly target: number;
   readonly load: number;
   readonly band: string;
-  readonly peak: number;
-  readonly peakCap: number;
+  /** Short peaks over the 6, 8 and 10 s windows. */
+  readonly peaks: readonly number[];
+  /** The canon cap of this wave's short peaks (00 §4.4): middle 1.15, last L_đỉnh of the chapter, never over 1.40; null for wave 1. */
+  readonly canonCap: number | null;
   readonly generalPct: number;
   readonly problems: string[];
 }
 
+/**
+ * The plan against 00 §4.4: wave 1 has no peak cap, middle waves ≤ 1.15, the
+ * last wave ≤ L_đỉnh of the chapter (C2: 1.15) and never over the hard 1.40.
+ * The M0 last wave averages up to 1.25 (DESIGN.md §9), above C2's L_đỉnh: a
+ * stage exception (peakLoadCap100) the owner must write into 00, flagged here.
+ */
 export function planRows(stage: StageDef = STAGE_M0): PlanRow[] {
   const last = stage.waves.length;
+  const chapterPeak = chapterRow(stage.chapter).peakLoad100 / 100;
   return stage.waves.map((wave) => {
     const band: readonly number[] = wave.n === 1 ? LOAD.wave1 : wave.n === last ? LOAD.final : LOAD.middle;
     const load = planLoad(wave);
     const w = planW(wave);
-    const peak = peakLoad(planArrivals(wave), GATE_WINDOW_S);
+    const peaks = PEAK_WINDOWS_S.map((window) => peakLoad(planArrivals(wave), window));
+    const peak = Math.max(...peaks);
+    const canonCap = wave.n === 1 ? null : wave.n === last ? Math.min(chapterPeak, LOAD.hardCap / 100) : LOAD.middlePeakMax / 100;
     const generalW = wave.groups.filter((group) => wave.generals.includes(group.foe as never)).reduce((sum, group) => sum + foeW(group.foe) * group.count, 0);
     const generalPct = pct(generalW, w);
     const problems: string[] = [];
@@ -302,11 +373,15 @@ export function planRows(stage: StageDef = STAGE_M0): PlanRow[] {
     if (wave.groups.length === 0) problems.push("chưa có toán");
     else {
       if (Math.abs(load * 100 - wave.load100) > wave.load100 * 0.1) problems.push("tải lệch đích > 10 %");
-      if (peak * 100 > Math.min(wave.peakLoad100, LOAD.hardCap) + 0.5) problems.push("đỉnh quá trần");
+      if (peak > LOAD.hardCap / 100 + 0.005) problems.push("đỉnh quá trần cứng 1,40");
+      else if (canonCap !== null && peak > canonCap + 0.005) {
+        const exception = wave.n === last && stage.peakLoadCap100 !== undefined && peak <= stage.peakLoadCap100 / 100 + 0.005;
+        problems.push(exception ? "vượt L_đỉnh C" + stage.chapter + " " + f2(canonCap) + ": ngoại lệ M0 ≤ " + f2(stage.peakLoadCap100! / 100) + " (DESIGN §9), chờ chủ dự án ghi vào 00" : "đỉnh quá trần canon " + f2(canonCap));
+      }
       if (generalPct > (wave.n === last ? FLOW.generalShareFinalPct : FLOW.generalSharePct)) problems.push("tướng quá phần W");
       if (wave.generals.length > 0 && generalW === 0) problems.push("thiếu tướng trong toán");
     }
-    return { wave: wave.n, groups: wave.groups.length, w, target: wave.load100 / 100, load, band: band.map((v) => f2(v / 100)).join("–"), peak, peakCap: wave.peakLoad100 / 100, generalPct, problems };
+    return { wave: wave.n, groups: wave.groups.length, w, target: wave.load100 / 100, load, band: band.map((v) => f2(v / 100)).join("–"), peaks, canonCap, generalPct, problems };
   });
 }
 
@@ -390,6 +465,21 @@ export interface ReportInput {
   readonly wallS: number;
 }
 
+/** ‰ as "35 %". */
+const pctMilli = (milli: number): string => Math.round(milli / 10) + " %";
+
+/** A balanced-band cell (BALANCE.md §3). */
+function bandText(metric: BandMetric): string {
+  const range = BANDS.balanced[metric];
+  const show = (v: number) => (metric === "n" ? String(v) : Math.round(v / 10) + " %");
+  if (range.min !== undefined && range.max !== undefined) return show(range.min) + "–" + show(range.max);
+  if (range.min !== undefined) return "≥ " + show(range.min);
+  return range.max !== undefined ? "≤ " + show(range.max) : "—";
+}
+
+const SOURCE_VI: Record<string, string> = { word: "gõ", breath: "Phun Lửa", skyfire: "Thiên Hỏa", roar: "Long Hống", inferno: "Viêm Đế", trap: "bẫy", unit: "lính", house: "nhà", status: "hiệu ứng" };
+void METRIC_LABELS;
+
 const table = (head: readonly string[], rows: readonly (readonly (string | number)[])[]): string =>
   ["| " + head.join(" | ") + " |", "|" + head.map(() => "---").join("|") + "|", ...rows.map((row) => "| " + row.join(" | ") + " |")].join("\n");
 
@@ -406,6 +496,33 @@ export function markdown(input: ReportInput): string {
     out.push("## Cổng khác của 00 §7 (để chỉnh số, chưa là cổng M0)");
     out.push(table(["Cổng", "Đo", "Cần", "Đo được", "Kết quả"], extra.map((g) => [g.id, g.name, g.want, g.got, g.status])));
   }
+  out.push("");
+  out.push("## Vùng cuốn (BALANCE.md §3, chế độ Cân bằng, bộ điều nhịp bật trừ khi ghi)");
+  out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh.");
+  out.push(table(["Bot", "Thắng", "S", "Máu thấp nhất", "P", "I", "O", "N", "Q", "Phe ta", "Bậc nhịp/đợt", "Khoảng sinh"], [
+    ["**Dải Cân bằng**", ...(["win", "s"] as BandMetric[]).map((m) => bandText(m)), "—", ...(["p", "i", "o", "n", "q"] as BandMetric[]).map((m) => bandText(m)), "—", "≤ 3", "±15 %"],
+    ...Object.values(summaries).map((s) => {
+      const k = s.kit;
+      return [
+        s.bot + (k.director ? "" : " (tắt nhịp)"), pctMilli(k.win), pctMilli(k.s), pctMilli(s.hpMin), pctMilli(k.p), pctMilli(k.i), pctMilli(k.o), k.n.toFixed(2), k.q === null ? "—" : pctMilli(k.q),
+        k.support === null ? "—" : pctMilli(k.support), k.stepsPerWave === null ? "—" : k.stepsPerWave.toFixed(2),
+        k.spawnMin === null ? "—" : pctMilli(k.spawnMin) + "–" + pctMilli(k.spawnMax ?? 1000),
+      ];
+    }),
+  ]));
+  const kitRows = Object.values(summaries).map((s) => s.kit);
+  const bGates: GateResult[] = runGates({ summaries: kitRows, options: { tacticsPair: ["standard@good", "standard@poor"] } });
+  out.push("");
+  out.push("## Cổng B1–B9 (BALANCE.md §7)");
+  out.push("M0 chỉ có một chế độ (Thường = Cân bằng): ô cần Thư giãn hoặc Thử thách là THIẾU SỐ. B9 cần buổi chơi thử của người thật.");
+  out.push(formatGates(bGates));
+  out.push("");
+  out.push("## Sát thương theo nguồn và máu Rồng mất theo loài");
+  out.push(table(["Bot", "Theo nguồn (% tổng sát thương lên quái)", "Máu Rồng mất mỗi ải theo loài"], Object.values(summaries).map((s) => [
+    s.bot,
+    Object.entries(s.skillShare).sort((a, b) => b[1] - a[1]).map(([by, v]) => (SOURCE_VI[by] ?? by) + " " + f1(v)).join(", ") || "—",
+    Object.entries(s.heroBy).sort((a, b) => b[1] - a[1]).map(([foe, v]) => (foe === "hero" ? "Héo lan" : foe) + " " + f1(v)).join(", ") || "—",
+  ])));
   const ready = readiness(summaries);
   const missing = ready.filter((r) => !r.ok);
   out.push("");
@@ -429,7 +546,7 @@ export function markdown(input: ReportInput): string {
     ),
   );
   out.push("");
-  out.push("## Tải gõ theo đợt (W_gõ / (22,7 × k_E × phút); đỉnh cửa sổ " + GATE_WINDOW_S + " s)");
+  out.push("## Tải gõ theo đợt (W_gõ / (22,7 × k × phút); đỉnh: lớn nhất của cửa sổ 6, 8, 10 s)");
   for (const s of Object.values(summaries)) {
     if (!s.waves.some((w) => w.runs > 0)) continue;
     out.push("");
@@ -485,8 +602,8 @@ export function markdown(input: ReportInput): string {
   out.push("## Kế hoạch đợt, tính tay (không cần sim)");
   out.push(
     table(
-      ["Đợt", "Toán", "W_gõ", "Đích", "Tải", "Dải", "Đỉnh 8 s", "Trần đỉnh", "Tướng % W", "Vấn đề"],
-      input.plan.map((r) => [r.wave, r.groups, f1(r.w), f2(r.target), f2(r.load), r.band, f2(r.peak), f2(r.peakCap), f1(r.generalPct), r.problems.join("; ") || "—"]),
+      ["Đợt", "Toán", "W_gõ", "Đích", "Tải", "Dải", "Đỉnh 6/8/10 s", "Trần canon", "Tướng % W", "Vấn đề"],
+      input.plan.map((r) => [r.wave, r.groups, f1(r.w), f2(r.target), f2(r.load), r.band, r.peaks.map(f2).join(" / "), r.canonCap === null ? "—" : f2(r.canonCap), f1(r.generalPct), r.problems.join("; ") || "—"]),
     ),
   );
   if (input.notes.length > 0) {

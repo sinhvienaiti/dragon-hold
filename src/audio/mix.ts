@@ -17,6 +17,8 @@ const LEVELS: Readonly<Record<ChildBus, { gain: number; pronunciationDb: number 
   ui: { gain: 0.85, pronunciationDb: -3 },
   typing: { gain: 0.8, pronunciationDb: -2 },
   dragon: { gain: 0.75, pronunciationDb: -3 },
+  // Bolts, impacts, blasts: "world −6" under a spoken word (05 §7.2); the Dragon's voice stays on `dragon` at −3.
+  world: { gain: 0.75, pronunciationDb: -6 },
   enemies: { gain: 0.85, pronunciationDb: -6 },
   traps: { gain: 0.8, pronunciationDb: -6 },
   units: { gain: 0.8, pronunciationDb: -6 },
@@ -52,7 +54,7 @@ export const DUCKS: Readonly<Record<DuckKind, DuckRule>> = {
   },
   dialogue: { db: { music: -6, ambience: -6, enemies: -6, traps: -3 }, downS: 0.1, upS: 0.5 },
   // Boss warning and Cụm Ấn: world −4, music −3, P5 off (ambience nearly gone).
-  warning: { db: { dragon: -4, traps: -4, units: -4, enemies: -4, music: -3, ambience: -14 }, downS: 0.08, upS: 0.4 },
+  warning: { db: { dragon: -4, world: -4, traps: -4, units: -4, enemies: -4, music: -3, ambience: -14 }, downS: 0.08, upS: 0.4 },
 };
 
 export type DuckState = Readonly<Record<DuckKind, boolean>>;
@@ -129,7 +131,7 @@ export function volumeFor(bus: ChildBus, volumes: AudioVolumes): number {
 }
 
 /** Buses that go through the pause low-pass (05 §7.2: world and enemies; 06 §2: music too). */
-export const PAUSE_FILTERED: ReadonlySet<ChildBus> = new Set<ChildBus>(["music", "dragon", "enemies", "traps", "units", "ambience"]);
+export const PAUSE_FILTERED: ReadonlySet<ChildBus> = new Set<ChildBus>(["music", "dragon", "world", "enemies", "traps", "units", "ambience"]);
 export const PAUSE_CUTOFF_HZ = 800;
 /** Effects dip while paused (the sim stands still; 06 §2 "âm tạm ngưng"). */
 export const PAUSE_SFX_DB = -9;

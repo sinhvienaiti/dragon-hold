@@ -1,10 +1,11 @@
 // dh-telegraphs (05 §10, §6): foe warnings show before the blow and last
-// ≥ 0.5 s (E11 aim 0.6 s, E18 pounce 0.5 s, E19 charge 1 s, G01 banner), in
-// red; Thiên Hỏa's own ring is pale orange. A word bot plays waves 1–2 at
-// speed, then leaves archers, boars, wolves and G01 alone until each has wound
-// up once; pictures are taken while warnings are live, one per species (the
-// debug tally of telegraph events by source species). Two passes: wolves need
-// a blocker to pounce over, G01 needs none to plant its banner.
+// ≥ 0.5 s (E09 swing and E01 sting 0.5 s, E11 aim 0.6 s, E18 pounce 0.5 s,
+// E19 charge 1 s, G01 banner), in red; Thiên Hỏa's own ring is pale orange. A
+// word bot plays waves 1–2 at speed, then leaves grunts, wasps, archers,
+// boars, wolves and G01 alone until each has wound up once; pictures are taken
+// while warnings are live, one per species (the debug tally of telegraph
+// events by source species). Two passes: wolves (wave 7, Đường Cầu) need a
+// blocker to pounce over, G01 needs none to plant its banner.
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
 import { badResources, boot, MOD, outDir, press, state, waitFor } from "./lib/dh.mjs";
@@ -28,13 +29,13 @@ const BOT = (skip) => `(async () => {
 
 /**
  * One pass: a fresh run, the bot types everything up to wave 3, then leaves `want`
- * alone until each has wound up once and its picture is taken. `warden` puts a
- * moss warden on Đường Suối first (wolves only pounce, and warn, over a blocker;
- * a held G01 never plants its banner, so the two need separate passes).
+ * alone until each has wound up once and its picture is taken, by wave `last`.
+ * `warden` puts a moss warden on Đường Cầu first (wolves only pounce, and warn,
+ * over a blocker; a held G01 never plants its banner, so the two need separate passes).
  */
-async function pass(page, out, want, warden) {
+async function pass(page, out, want, warden, last) {
   await boot(page, "prelearn=0&speed=" + (warden ? 6 : 4), { width: 1280, height: 720 });
-  if (warden) await page.eval("window.__dh.send({ type: 'place', item: 'moss-warden', slot: 'suoi-b1' })");
+  if (warden) await page.eval("window.__dh.send({ type: 'place', item: 'moss-warden', slot: 'cau-b2' })");
   await press(page, "Enter");
   await waitFor(page, "s.phase === 'wave'", { timeoutMs: 15000 });
   // Waves 1–2: type everything. Close Thẻ Ôn when it opens.
@@ -47,7 +48,7 @@ async function pass(page, out, want, warden) {
   }
   await page.eval("window.__stopBot = true");
   await page.sleep(200);
-  // Wave 3 on (archers wave 3, a boar wave 4, wolves and G01 wave 5): one picture per species.
+  // Wave 3 on (grunts, wasps, archers wave 3, a boar wave 4, G01 wave 5, wolves wave 7): one picture per species.
   page.eval("window.__stopBot = false; window.__botRun = " + BOT(want)).catch(() => {});
   const seen = [];
   const pictured = new Set();
@@ -57,7 +58,7 @@ async function pass(page, out, want, warden) {
   while (Date.now() - t0 < Number(process.env.LIMIT_S ?? 240) * 1000 && pictured.size < want.length) {
     const s = await state(page);
     if (s.panel === "review") await press(page, "Escape");
-    if (s.phase === "victory" || s.phase === "defeat" || s.wave > 5) break;
+    if (s.phase === "victory" || s.phase === "defeat" || s.wave > last) break;
     const ev = await page.eval("window.__dh.events()");
     let fresh = null;
     for (const [foe, info] of Object.entries(ev.byFoe)) {
@@ -85,10 +86,10 @@ async function pass(page, out, want, warden) {
 
 export default async function (page) {
   const out = outDir("integrator");
-  const wolves = await pass(page, out, ["blight-wolf"], true);
+  const wolves = await pass(page, out, ["blight-wolf"], true, 7);
   // The bot loop ends before the page goes (a pending evaluate would fail on navigation).
   await page.eval("(async () => { window.__stopBot = true; await window.__botRun; })()").catch(() => {});
-  const rest = await pass(page, out, ["moss-archer", "tusk-boar", "moss-banner"], false);
+  const rest = await pass(page, out, ["moss-grunt", "thorn-wasp", "moss-archer", "tusk-boar", "moss-banner"], false, 5);
   // Thiên Hỏa: our own ring, pale orange, on the densest group in the word zone.
   await page.eval("window.__stopBot = true; window.__dh.setSpeed(1)");
   await waitFor(page, "s.phase === 'wave' && window.__dh.words().length >= 2", { timeoutMs: 40000 });

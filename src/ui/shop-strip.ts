@@ -13,7 +13,7 @@ import { CONSUMABLES, HERO_UPGRADES, HOUSES, TRAPS, UNITS } from "../content/dat
 import { OUR_SIDE } from "../content/rules";
 import type { ConsumableId, HeroUpgradeId, PlaceableId, SimEvent } from "../content/types";
 import type { World } from "../sim/world";
-import { buildPhase, isPlaceable, placeableInfo, SIM_PLACEMENT_RULES, type PlacementControl, type PlacementRules } from "./placement-ui";
+import { CONFIRM_MS, buildPhase, isPlaceable, placeableInfo, SIM_PLACEMENT_RULES, type PlacementControl, type PlacementRules } from "./placement-ui";
 import { el, icon, setClass, setShown, setText, uiButton, viNumber } from "./skin";
 
 // ── Pure cell model (tests/ui/shop-strip.test.ts) ──────────────────────────
@@ -184,7 +184,10 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
 
   const nodes = new Map<string, CellNodes>();
 
-  const press = (cell: StripCell): void => {
+  /** A buy picked by key waits for the same key again (like selling, 2 s): one stray digit never spends 30–80 gold. */
+  let armed: { id: string; until: number } | null = null;
+
+  const press = (cell: StripCell, viaKey = false): void => {
     const node = nodes.get(cell.id)?.button;
     const bump = (ok: boolean): void => {
       if (!node) return;
@@ -204,6 +207,14 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
       flash = { text: cell.nameVi + ": " + (cell.reason ?? "chưa mua được"), until: now + 1800 };
       return;
     }
+    if (viaKey && (armed === null || armed.id !== cell.id || now > armed.until)) {
+      armed = { id: cell.id, until: now + CONFIRM_MS };
+      flash = { text: "Bấm " + cell.key + " lần nữa để mua " + cell.nameVi + " (" + (cell.price ?? 0) + " vàng)", until: armed.until };
+      nodes.get(cell.id)?.button.classList.add("is-armed");
+      return;
+    }
+    armed = null;
+    nodes.get(cell.id)?.button.classList.remove("is-armed");
     bump(true);
     sink({ type: "buy", item: cell.id as ConsumableId | HeroUpgradeId });
   };
@@ -263,6 +274,7 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
       setClass(n.button, "is-poor", poor);
       setClass(n.button, "is-blocked", !cell.enabled && !poor);
       setClass(n.button, "is-on", options.placement?.item === cell.id && options.placement.mode === "place");
+      setClass(n.button, "is-armed", armed !== null && armed.id === cell.id && now <= armed.until);
       const keyText = cell.key === null ? "" : " (phím " + cell.key + ")";
       n.button.title = cell.nameVi + keyText + ": " + cell.effect + (cell.note ? " · " + cell.note : "") + (cell.reason ? " · " + cell.reason : "");
     }
@@ -298,7 +310,7 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
     if (!cell) return false;
     // Placeables go to placement-ui when the strip was not given it.
     if (cell.kind === "place" && !options.placement) return false;
-    press(cell);
+    press(cell, true);
     return true;
   };
 

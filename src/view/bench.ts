@@ -49,8 +49,13 @@ export interface BenchResult {
   /** Main-thread time of one frame (update and render submit), ms. */
   readonly cpuMeanMs: number;
   readonly cpuP95Ms: number;
-  /** GPU time from EXT_disjoint_timer_query_webgl2 when the browser has it, else null. */
+  /**
+   * GPU time from EXT_disjoint_timer_query_webgl2 when it can be trusted, else null. On ANGLE over Metal the
+   * query reads longer than the frame itself (6.95 ms in a 4.35 ms frame), so it is left out there (gpuNote says why);
+   * use the frame interval with vsync off instead.
+   */
   readonly gpuMeanMs: number | null;
+  readonly gpuNote: string | null;
   readonly maxMs: number;
   readonly fps: number;
   readonly count: number;
@@ -666,6 +671,15 @@ class GpuTimer {
   }
 }
 
+/** The GPU timer's mean, or null with the reason it is not trusted (no extension, ANGLE/Metal, longer than the frame). */
+function gpuReading(gpu: GpuTimer, frameMs: number, renderer: string): { gpuMeanMs: number | null; gpuNote: string | null } {
+  if (!gpu.available || gpu.samples.length === 0) return { gpuMeanMs: null, gpuNote: "không có bộ đếm GPU" };
+  const value = mean(gpu.samples);
+  if (/angle/i.test(renderer) && /metal/i.test(renderer)) return { gpuMeanMs: null, gpuNote: "không tin cậy trên ANGLE/Metal (đo được " + round2(value) + " ms)" };
+  if (value > frameMs * 1.05) return { gpuMeanMs: null, gpuNote: "không tin cậy: dài hơn cả khung (" + round2(value) + " ms)" };
+  return { gpuMeanMs: round2(value), gpuNote: null };
+}
+
 function rendererName(renderer: THREE.WebGLRenderer): string {
   const gl = renderer.getContext();
   const info = gl.getExtension("WEBGL_debug_renderer_info");
@@ -745,7 +759,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
         triangles,
         cpuMeanMs: round2(mean(cpu)),
         cpuP95Ms: round2(percentile(cpu, 0.95)),
-        gpuMeanMs: gpu.available && gpu.samples.length > 0 ? round2(mean(gpu.samples)) : null,
+        ...gpuReading(gpu, mean(intervals), rendererName(stage.renderer)),
         maxMs: round2(Math.max(...intervals)),
         fps: round2(1000 / Math.max(0.001, mean(intervals))),
         count: options.count,

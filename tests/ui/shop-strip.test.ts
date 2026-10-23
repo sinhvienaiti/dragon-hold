@@ -54,6 +54,6 @@ describe("ui carry strip (03 §4.2, §6)", () => {
     expect(effectLine("small-potion")).toBe("Hồi 25 % máu Hỏa Long trong 2 s; dùng trong đợt");
     expect(effectLine("hard-scale")).toBe("+15 Giáp Hỏa Long");
     expect(effectLine("dragon-heart")).toBe("+10 % máu tối đa Hỏa Long, hồi luôn phần tăng");
-    expect(effectLine("herb-hut")).toContain("1,5 % máu mỗi giây");
+    expect(effectLine("herb-hut")).toContain("0,3 % máu mỗi giây");
   });
 });

@@ -15,11 +15,12 @@
  */
 import { createRng, type Rng } from "../kit/platform";
 import { MAPS } from "../content/data/maps";
-import { FIRE_DRAGON, TEMPO, WHITE_DRAGON, chapterRow, gPm } from "../content/rules";
+import { FIRE_DRAGON, PACE, TEMPO, WHITE_DRAGON, chapterRow, gPm } from "../content/rules";
 import type { Difficulty, EntityRef, FoeId, KillSource, MapDef, MoveMode, Phase, SimCommand, StageDef, WordDeck } from "../content/types";
 import { createAuraState, stepAuras, type AuraState } from "./auras";
 import { createBossState, stepBoss, type BossState } from "./boss";
 import { castSkill, createCombatState, onEnemyKilled as combatOnKill, stepEnemyAttacks, stepWordHits, type CombatState } from "./combat";
+import { createDirector, directorKill, stepDirector, type DirectorState } from "./director";
 import { createEconomyState, learnAhead, onEnemyKilled as economyOnKill, reviewCard, stepEconomy, type EconomyState } from "./economy";
 import { EventQueue, emit } from "./events";
 import { hashValue, hex32 } from "./hash";
@@ -40,10 +41,25 @@ export interface WorldOptions {
   readonly difficulty?: Difficulty;
   /** The stage's word set, built by the app before the run (01 §6.1); default empty (no words dealt). */
   readonly deck?: WordDeck;
-  /** Typist speed E in WPM: word lengths (01 §3.4) and k_E (00 §4.4) follow it; default 35. */
+  /** Typist speed E in WPM: word lengths (01 §3.4) and the pace k (BALANCE.md §4.1) follow it; default 35. */
   readonly typistWpm?: number;
-  /** k_E override in permille for bots (G7 runs at 1000); default from typistWpm. */
-  readonly kEPm?: number;
+  /** The player's key accuracy a and per-word spread CV, permille, for E_eff (BALANCE.md §4.1); default 950 and 250. */
+  readonly accuracyPm?: number;
+  readonly cvPm?: number;
+  /** Pace k override in permille (G7 compares typists at 1000); default from E_eff. */
+  readonly paceKPm?: number;
+  /** The in-run pace director (BALANCE.md §4.2); default on. Off for fair-score modes and the "Nhịp tự điều" setting. */
+  readonly paceDirector?: boolean;
+}
+
+/** The run's pace (BALANCE.md §4.1, §9.1), fixed at creation from the player's profile (and so in every replay). */
+export interface PaceState {
+  /** k: spawn gaps × 1000 / kPm (0.75–1.30). */
+  readonly kPm: number;
+  /** One word's time for this player, 60 / C(E_eff) s, in ticks. */
+  readonly wordTicks: number;
+  /** T_a of a one-word foe: the word zone in time, in ticks. */
+  readonly approachTicks: number;
 }
 
 /** What the per-system create functions get; the world does not exist yet. */
@@ -195,8 +211,8 @@ export interface World {
   readonly seed: number;
   readonly difficulty: Difficulty;
   readonly typistWpm: number;
-  /** k_E (00 §4.4): spawn gaps × 1000 / kEPm. */
-  readonly kEPm: number;
+  /** Pace k, word time and the word zone's T_a (BALANCE.md §4.1, §9.1). */
+  readonly pace: PaceState;
   /** g(c) of the stage's chapter (00 §4.1). */
   readonly gPm: number;
   /** Live foes cap, a sim rule on every machine (00 §4.8, D10). */
@@ -226,20 +242,46 @@ export interface World {
   readonly units: UnitsState;
   readonly shop: ShopState;
   readonly economy: EconomyState;
+  /** The pace director and its flow meter (BALANCE.md §4.2). */
+  readonly director: DirectorState;
   readonly stats: RunStats;
   // Output.
   readonly events: EventQueue;
 }
 
-/** Typing capacity C(E) over the 35 WPM reference, clamped to k_E (00 §4.3–4.4). */
-export function kEFor(wpm: number): number {
-  if (wpm <= 0) return TEMPO.kEMinPm;
+/** E_eff × 1000 = E × (0.6 + 0.4 a²) × (1 − 0.5 CV), held in [0.7 E, E] (BALANCE.md §4.1); a and CV in permille. */
+export function effectiveWpmX1000(wpm: number, accuracyPm: number = PACE.defaultAccuracyPm, cvPm: number = PACE.defaultCvPm): number {
+  if (!(wpm > 0)) return 0;
+  const a = accuracyPm < 0 ? 0 : accuracyPm > 1000 ? 1000 : accuracyPm;
+  const cv = cvPm < 0 ? 0 : cvPm > 1000 ? 1000 : cvPm;
+  // Both factors in millionths: (0.6 + 0.4 a²) and (1 − 0.5 CV).
+  const accuracyFactor = 600_000 + Math.round((400 * a * a) / 1000);
+  const spreadFactor = 1_000_000 - 500 * cv;
+  const raw = Math.round((wpm * accuracyFactor * spreadFactor) / 1_000_000_000);
+  const floor = wpm * PACE.eEffFloorPm;
+  return raw < floor ? floor : raw > wpm * 1000 ? wpm * 1000 : raw;
+}
+
+/** C(E_eff) in words a minute × 10 (00 §4.3), ℓ̄ by the band of E (word lengths follow E, 01 §3.4). */
+export function capacityX10(wpm: number, eEffX1000: number): number {
+  if (!(eEffX1000 > 0)) return 0;
   const lengthX10 = [...TEMPO.meanLengthX10].reverse().find((row) => wpm >= row.minWpm)!.x10;
-  // C(E) = 60 / (0.45 + 12 (ℓ̄ + 1) / (E d)), in words a minute × 10.
-  const secondsX1e6 = TEMPO.baseSecondsX100 * 10_000 + Math.round((12 * (lengthX10 + 10) * 100_000_000) / (wpm * TEMPO.dMixPm));
-  const capacityX10 = Math.round(600_000_000 / secondsX1e6);
-  const kE = Math.round((capacityX10 * 1000) / TEMPO.refWordsPerMinX10);
-  return kE < TEMPO.kEMinPm ? TEMPO.kEMinPm : kE > TEMPO.kEMaxPm ? TEMPO.kEMaxPm : kE;
+  // C = 60 / (0.45 + 12 (ℓ̄ + 1) / (E_eff d)): seconds a word × 10^6.
+  const secondsX1e6 = TEMPO.baseSecondsX100 * 10_000 + Math.round((12 * (lengthX10 + 10) * 100_000_000_000) / (eEffX1000 * TEMPO.dMixPm));
+  return Math.round(600_000_000 / secondsX1e6);
+}
+
+/** The run's pace from the profile (BALANCE.md §4.1, §9.1): k both ways, one word's time, the word zone's T_a. */
+export function paceFor(wpm: number, accuracyPm?: number, cvPm?: number, kOverridePm?: number): PaceState {
+  // A player who does not type (0 WPM bots) still needs a word time for T_a's floor: read as 10 WPM.
+  const e = wpm > 0 ? wpm : 10;
+  const capacity = capacityX10(e, effectiveWpmX1000(e, accuracyPm, cvPm));
+  const raw = wpm > 0 ? Math.round((capacity * 1000) / PACE.refWordsPerMinX10) : PACE.kMinPm;
+  const kPm = kOverridePm ?? (raw < PACE.kMinPm ? PACE.kMinPm : raw > PACE.kMaxPm ? PACE.kMaxPm : raw);
+  const wordTicks = Math.round(36_000 / capacity);
+  const approach = Math.round((PACE.approachMs * 60) / kPm);
+  const minimum = PACE.approachMinWords * wordTicks;
+  return { kPm, wordTicks, approachTicks: approach > minimum ? approach : minimum };
 }
 
 export function createWorld(stage: StageDef, seed: number = stage.seed, options: WorldOptions = {}): World {
@@ -266,7 +308,7 @@ export function createWorld(stage: StageDef, seed: number = stage.seed, options:
     seed: init.seed,
     difficulty,
     typistWpm,
-    kEPm: options.kEPm ?? kEFor(typistWpm),
+    pace: paceFor(typistWpm, options.accuracyPm, options.cvPm, options.paceKPm),
     gPm: init.gPm,
     liveCap: stage.liveCap ?? chapterRow(stage.chapter).liveCap,
     rng: init.rng,
@@ -289,6 +331,7 @@ export function createWorld(stage: StageDef, seed: number = stage.seed, options:
     units: createUnitsState(init),
     shop: createShopState(init),
     economy: createEconomyState(init),
+    director: createDirector(options.paceDirector !== false, stage),
     stats: {
       keys: 0, wrongKeys: 0, strayKeys: 0, words: 0, grades: [0, 0, 0, 0, 0], locks: 0, locksLost: 0,
       damageWord: 0, damageSkill: 0, damageOurSide: 0, heroDamageTaken: 0, kills: 0, maxLive: 0, capWaitTicks: 0,
@@ -355,6 +398,7 @@ export function step(world: World, input: readonly SimCommand[] = []): void {
   stepStatus(world); // 8
   stepEconomy(world); // 9
   cleanup(world); // 10
+  stepDirector(world); // 11 pace director (BALANCE.md §4.2)
   world.tick += 1;
 }
 
@@ -366,6 +410,7 @@ function cleanup(world: World): void {
     onEnemyGone(world, enemy);
     wavesOnGone(world, enemy);
     if (enemy.killedBy !== null) {
+      directorKill(world, enemy.along, enemy.stopAt);
       combatOnKill(world, enemy);
       economyOnKill(world, enemy);
       housesOnKill(world, enemy);

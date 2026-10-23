@@ -171,7 +171,7 @@ describe("keys, locks and lock protection (01 §3.3)", () => {
     expect(progress.map((event) => event.key)).toEqual(["lock", "switch", "switch"]);
   });
 
-  it("counts a wrong key on the locked word; Backspace takes one letter back; Esc lets go", () => {
+  it("counts a wrong key on the locked word; Backspace takes one letter back; Esc lets go and the error stays with the word", () => {
     const world = makeWorld();
     crowd(world, 4);
     advance(world, 2);
@@ -189,7 +189,11 @@ describe("keys, locks and lock protection (01 §3.3)", () => {
     releaseLock(world);
     expect(world.words.lock).toBe(-1);
     expect(word.typed).toBe(0);
-    expect(word.errors).toBe(0);
+    // Esc never wipes a word clean (00 D14): typed again, it still counts its wrong key, like Backspace to empty.
+    expect(word.errors).toBe(1);
+    typeKey(world, code(word.text[0]!));
+    expect(world.words.lock).toBeGreaterThanOrEqual(0);
+    expect(world.words.live[world.words.lock]!.errors).toBe(1);
   });
 
   it("protects a locked foe with a letter in for 1.2 s from the first lethal blow, then lets it go unpunished", () => {

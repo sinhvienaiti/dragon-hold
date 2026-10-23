@@ -87,7 +87,8 @@ describe("battle damage", () => {
   it("reduces the Fire Dragon's physical and magic damage by its raw armour and resist 20, takes shields first, gives rage per 4 % lost", () => {
     const world = waveWorld();
     const hero = world.hero;
-    expect(hero.hp).toBe(1020);
+    // The damage rules at 01 §2.2's 1 000 HP (× g(2)); FIRE_DRAGON.hp itself is tuned for S (BALANCE.md §9.1).
+    hero.hp = hero.hpMax = 1020;
     expect(damageHero(world, 100, "physical", HERO)).toBe(83);
     expect(damageHero(world, 100, "magic", HERO)).toBe(83);
     expect(damageHero(world, 100, "true", HERO)).toBe(100);

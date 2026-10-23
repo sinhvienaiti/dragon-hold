@@ -22,6 +22,7 @@ const REVERB_SEND: Readonly<Record<ChildBus, number>> = {
   ui: 0,
   typing: 0,
   dragon: 0.1,
+  world: 0.12,
   enemies: 0.14,
   traps: 0.12,
   units: 0.12,

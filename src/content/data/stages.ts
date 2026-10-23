@@ -32,10 +32,7 @@ export const STAGE_M0: StageDef = {
   elitePct: 0,
   // M0 gate: peak load ≤ 1.40 (DESIGN.md §9), above C2's 1.15.
   peakLoadCap100: 140,
-  // C2's live cap is 20; ten waves up to load 1.25 with ant clusters of 6–10 need room. bot-balance confirms or lowers it.
-  liveCap: 30,
-  // Ten waves are about 1.8 normal stages of five (00 §4.9 f_type 1.0 each); bot-balance checks G13.
-  goldTypePct: 180,
+  // Live cap: C2's 20 (00 §4.8); gold: a normal stage's f_type 1.0 (00 §4.9), 1,325 for two lanes.
 };
 
 export const STAGES: Readonly<Record<string, StageDef>> = { [STAGE_M0.id]: STAGE_M0 };

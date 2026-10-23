@@ -1,6 +1,7 @@
 // dh-words (05 §10): start the M0 stage, type the live words with real key
 // presses, foes die; every live word with a foe on screen has its tag with the
-// same text, tags never overlap, the smallest tag font is ≥ 16 px.
+// same text, tags never overlap, the smallest tag font is ≥ 16 px and the
+// meaning line under it ≥ 13 px (05 §4).
 // Two sizes (1280×720, 1920×1080) × tag size 100 % and 150 %, world at ?speed=2,
 // the typist waits for ≥ 4 live words unless a foe is near (tags pile up).
 // Pictures in tmp/shots/integrator/.
@@ -19,10 +20,11 @@ const TAG_CHECK = `(() => {
     if (a.x < b.x + b.w - 1 && a.x + a.w - 1 > b.x && a.y < b.y + b.h - 1 && a.y + a.h - 1 > b.y) { overlaps += 1; pairs.push(a.word + '/' + b.word); }
   }
   const fonts = tags.map((t) => parseFloat(getComputedStyle(t.querySelector('.dh-tag__word') ?? t).fontSize));
+  const means = tags.map((t) => t.querySelector('.dh-tag__mean')).filter((m) => m && m.textContent).map((m) => parseFloat(getComputedStyle(m).fontSize));
   const onScreen = words.filter((w) => w.visible);
   const missing = onScreen.filter((w) => !shown.includes(w.text)).map((w) => w.text);
   const extra = shown.filter((text) => !words.some((w) => w.text === text));
-  return { live: words.length, onScreen: onScreen.length, tags: tags.length, missing, extra, overlaps, pairs: pairs.slice(0, 5), minFont: fonts.length ? Math.min(...fonts) : null };
+  return { live: words.length, onScreen: onScreen.length, tags: tags.length, missing, extra, overlaps, pairs: pairs.slice(0, 5), minFont: fonts.length ? Math.min(...fonts) : null, minMean: means.length ? Math.min(...means) : null };
 })()`;
 
 async function play(page, size, out, tagSize) {
@@ -69,7 +71,7 @@ async function play(page, size, out, tagSize) {
   }
   const end = await state(page);
   await page.shot(join(out, `words-end-${width}x${height}-tags${tagSize}.png`));
-  const worst = checks.reduce((acc, c) => ({ overlaps: Math.max(acc.overlaps, c.overlaps), missing: acc.missing + c.missing.length, extra: acc.extra + c.extra.length, minFont: Math.min(acc.minFont, c.minFont ?? 99), maxTags: Math.max(acc.maxTags, c.tags) }), { overlaps: 0, missing: 0, extra: 0, minFont: 99, maxTags: 0 });
+  const worst = checks.reduce((acc, c) => ({ overlaps: Math.max(acc.overlaps, c.overlaps), missing: acc.missing + c.missing.length, extra: acc.extra + c.extra.length, minFont: Math.min(acc.minFont, c.minFont ?? 99), minMean: Math.min(acc.minMean, c.minMean ?? 99), maxTags: Math.max(acc.maxTags, c.tags) }), { overlaps: 0, missing: 0, extra: 0, minFont: 99, minMean: 99, maxTags: 0 });
   const lastMissing = checks.filter((c) => c.missing.length > 0).slice(-3);
   return { size: width + "x" + height, tagSize, reachedWave: end.wave, started, typed, kills: end.kills - startKills, words: end.words, grades: end.grades, keys: end.keys, routerLetters: end.routerLetters, checks: checks.length, worst, lastMissing, perf: await page.eval("window.__dh.perf()"), replay: await page.eval("window.__dh.replayCheck()") };
 }

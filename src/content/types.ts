@@ -576,8 +576,6 @@ export interface StageDef {
   /** Optional overrides of the chapter table, each with a reason in the data file. */
   readonly peakLoadCap100?: number;
   readonly liveCap?: number;
-  /** Overrides f_type of the gold budget (00 §4.9), in %. */
-  readonly goldTypePct?: number;
 }
 
 // ── Words and learning (01 §3, §6) ──────────────────────────────────────────
@@ -725,6 +723,8 @@ export type SimEvent = { readonly tick: number } & (
       readonly x: number;
       readonly z: number;
       readonly hpLeft: number;
+      /** Which attack of the source dealt it, on foes (a Phun Lửa burn is "breath"); the balance report splits damage by it. */
+      readonly by?: KillSource;
     }
   | { readonly type: "death"; readonly enemy: EnemyRef; readonly foe: FoeId; readonly by: KillSource; readonly x: number; readonly z: number; readonly material: Material; readonly tier: FeedbackTier }
   | { readonly type: "trap-trigger"; readonly slot: number; readonly trap: TrapId; readonly x: number; readonly z: number; readonly count: number }
@@ -773,6 +773,8 @@ export type SimEvent = { readonly tick: number } & (
   | { readonly type: "unit-down"; readonly unit: number; readonly x: number; readonly z: number }
   | { readonly type: "unit-up"; readonly unit: number; readonly x: number; readonly z: number }
   | { readonly type: "house-pulse"; readonly slot: number; readonly house: HouseId; readonly x: number; readonly z: number }
+  /** A house's heal beat or pulse reached one ally (05 §6.6 light drops): from the house at (x, z) to the ally at (tx, tz). */
+  | { readonly type: "heal"; readonly source: EntityRef; readonly target: EntityRef; readonly amount: number; readonly x: number; readonly z: number; readonly tx: number; readonly tz: number }
   /** A general's aura ring turns on or off (spawn, Ấn Phá, silence, death); members are read from world.auras each frame. */
   | { readonly type: "aura"; readonly enemy: EnemyRef; readonly aura: AuraKind; readonly on: boolean; readonly radiusM: number }
   /**
@@ -790,6 +792,10 @@ export type SimEvent = { readonly tick: number } & (
       readonly radiusM: number;
       readonly durationMs: number;
     }
+  /** Héo lan (BALANCE.md §5): this beat's seep into the Fire Dragon and where it came from (foes standing near), metres. */
+  | { readonly type: "blight"; readonly amount: number; readonly from: readonly (readonly [number, number])[] }
+  /** The pace director stepped (BALANCE.md §4.2): which lever, harder (+1) or easier (−1), by how much, the spawn scale ‰ and the net level after it. */
+  | { readonly type: "pace"; readonly lever: "spawn" | "elite" | "peak" | "lull" | "support"; readonly dir: 1 | -1; readonly amount: number; readonly spawnPm: number; readonly level: number }
   | { readonly type: "defeat"; readonly wave: number }
   | { readonly type: "victory"; readonly stars: 1 | 2 | 3 }
 );

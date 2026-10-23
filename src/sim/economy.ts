@@ -77,7 +77,7 @@ function waveWeights(count: number): number[] {
 
 export function createEconomyState(init: WorldInit): EconomyState {
   const groundLanes = init.lanes.filter((lane) => !lane.sky).length;
-  const budget = stageGoldBudget(groundLanes, init.stage.type, init.stage.goldTypePct);
+  const budget = stageGoldBudget(groundLanes, init.stage.type);
   const weights = waveWeights(init.stage.waves.length);
   return {
     gold: ECONOMY.startGold,
@@ -95,6 +95,17 @@ export function createEconomyState(init: WorldInit): EconomyState {
     learnAheadPaid: 0,
     reviewAnswers: 0,
   };
+}
+
+/**
+ * Gold call-early may still pay: the 15 % "other" pool (00 §4.9) less what
+ * learn-ahead, review cards and earlier calls took. Learning rewards keep
+ * their own caps (01 §6.5) and are never cut; calling early only gets the rest.
+ */
+export function callEarlyRoom(world: World): number {
+  const economy = world.economy;
+  const pool = economy.budget - economy.killPool - economy.waveEndPool;
+  return pool > economy.otherPaid ? pool - economy.otherPaid : 0;
 }
 
 /** The whole stage's gold by the formula (G13 compares a run's earnings with it): start + budget. */

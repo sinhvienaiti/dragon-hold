@@ -94,6 +94,10 @@ export default async function (page) {
   const out2 = outDir("integrator");
   if (review.opened) {
     const t1 = (await state(page)).tick;
+    // While a question is up, nothing on screen may give its answer: the learning frame (and its Vừa học line) is covered.
+    review.frame = await page.eval("(() => { const f = document.querySelector('.kit-learning-frame'); return f ? { visibility: getComputedStyle(f).visibility, text: f.innerText.replace(/\\s+/g, ' ').trim() } : null; })()");
+    review.leaks = review.answers.filter((answer) => (review.frame?.visibility !== "hidden" && review.frame?.text.includes(answer)) || false);
+    review.card = await page.eval("(() => { const p = document.querySelector('.dh-lpanel.is-card:not([hidden])'); if (!p) return null; const r = p.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, width: r.width }; })()");
     await page.shot(join(out2, "frame-review-1920x1080.png"));
     await page.sleep(1000);
     review.clockStill = (await state(page)).tick === t1;

@@ -176,6 +176,8 @@ describe("M0 content", () => {
     expect(STAGE_M0.waves.map((w) => w.n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(STAGE_M0.waves.filter((w) => w.generals.length > 0).map((w) => w.n)).toEqual([5, 10]);
     expect(STAGE_M0.waves[0]!.load100).toBe(60);
-    expect(STAGE_M0.waves[9]!.load100).toBe(125);
+    // The last wave sits in 00 §4.4's 1.05–1.25 band.
+    expect(STAGE_M0.waves[9]!.load100).toBeGreaterThanOrEqual(105);
+    expect(STAGE_M0.waves[9]!.load100).toBeLessThanOrEqual(125);
   });
 });

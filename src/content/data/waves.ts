@@ -33,8 +33,12 @@ const archer = (atMs: number, lane: Lane): SpawnGroupDef => one(atMs, lane, "mos
 const boar = (atMs: number, lane: Lane): SpawnGroupDef => one(atMs, lane, "tusk-boar");
 /** A swarm cluster of `count` ants under one word (02 §5.2: 4–10, together, 0.5 m apart). */
 const ants = (atMs: number, lane: Lane, count: number): SpawnGroupDef => ({ atMs, lane, shape: "cluster", foe: "thorn-ant", count });
-/** A wolf pack (02 §2.2: 3–5) runs in a tight line, 0.4 s apart. */
-const wolves = (atMs: number, lane: Lane, count: number): SpawnGroupDef => ({ atMs, lane, shape: "line", foe: "blight-wolf", count, gapMs: 400 });
+/**
+ * A wolf pack (02 §2.2: 3–5) runs in a line, 3 s apart (2 s in the last wave):
+ * 3 × 1.2 W at once reads 1.59 in a 6 s window, over the 1.15 cap of middle
+ * waves and the 1.40 hard cap (00 §4.4 short peaks are 6–10 s).
+ */
+const wolves = (atMs: number, lane: Lane, count: number, gapMs = 3000): SpawnGroupDef => ({ atMs, lane, shape: "line", foe: "blight-wolf", count, gapMs });
 const wasp = (atMs: number): SpawnGroupDef => one(atMs, "troi", "thorn-wasp");
 const peak = (atMs: number, lengthMs: number) => ({ atMs, lengthMs });
 
@@ -50,136 +54,124 @@ interface Plan {
 
 const PLANS: readonly Plan[] = [
   {
-    // Grunts and two ant clusters; 00 §4.4 sets no peak for wave 1, so it stays under 1.0.
+    // Grunts and one ant cluster; 00 §4.4 sets no peak for wave 1, so it stays at or under 1.0.
     n: 1, seconds: 50, load100: 60, peak100: 100,
-    peaks: [peak(8000, 8000), peak(24000, 8000), peak(40000, 9000)],
+    peaks: [peak(2000, 9400), peak(20_200, 9400), peak(37_600, 9400)],
     groups: [
-      grunt(1000, "cau"),
-      grunt(8500, "suoi"), ants(11_500, "cau", 6), grunt(14_500, "cau"),
-      grunts(20_000, "suoi"),
-      grunt(24_500, "cau"), grunt(28_000, "cau"),
-      grunts(40_500, "cau"), ants(44_000, "suoi", 7),
+      grunt(2000, "cau"), grunt(6200, "suoi"), grunt(10_400, "cau"),
+      grunts(14_900, "suoi"),
+      grunt(20_200, "cau"), grunt(24_400, "suoi"), grunt(28_600, "cau"),
+      grunt(32_800, "cau"),
+      ants(37_600, "cau", 6), grunt(41_800, "suoi"), grunt(46_000, "cau"),
     ],
   },
   {
-    // First Ong Gai on Đường Trời. Load 0.76 (one more grunt, 49 s): inside 00 §4.4's middle band 0.75–1.00.
-    n: 2, seconds: 49, load100: 76, peak100: 115,
-    peaks: [peak(9000, 8000), peak(25_000, 8000), peak(41_000, 8000)],
+    // First Ong Gai on Đường Trời; a grunt pair holds each lull.
+    n: 2, seconds: 50, load100: 79, peak100: 115,
+    peaks: [peak(2000, 7400), peak(17_400, 7400), peak(32_800, 10_000)],
     groups: [
-      grunt(1000, "cau"), grunt(4500, "suoi"), grunt(6500, "cau"),
-      ants(9500, "cau", 7), grunts(12_500, "suoi"),
-      grunt(21_000, "cau"),
-      grunts(25_500, "cau"), wasp(28_500),
-      grunt(37_000, "cau"),
-      ants(41_500, "cau", 8), grunt(44_500, "suoi"), grunt(46_000, "suoi"),
+      grunt(2000, "cau"), grunt(5200, "suoi"), grunt(8400, "cau"),
+      grunts(12_200, "suoi"),
+      wasp(17_400), grunt(20_600, "cau"), grunt(23_800, "cau"),
+      grunts(27_600, "cau"),
+      grunt(32_800, "suoi"), ants(36_000, "cau", 6), grunt(39_200, "cau"), grunt(42_400, "suoi"), grunt(45_600, "cau"),
     ],
   },
   {
-    // First Yêu Rêu Cung. 54 s: load 0.75, inside the middle band (00 §4.4).
-    n: 3, seconds: 54, load100: 75, peak100: 115,
-    peaks: [peak(9000, 8000), peak(26_000, 9000), peak(43_000, 10_000)],
+    // First Yêu Rêu Cung: it stops 14 m out and shoots the Dragon while it lives.
+    n: 3, seconds: 54, load100: 80, peak100: 115,
+    peaks: [peak(2000, 7600), peak(17_600, 7600), peak(33_200, 10_000)],
     groups: [
-      grunt(1000, "cau"), grunt(4500, "suoi"),
-      archer(9500, "cau"), ants(12_500, "suoi", 7), grunt(15_500, "cau"),
-      grunts(21_000, "suoi"),
-      grunts(27_500, "cau"), wasp(30_500), archer(34_500, "suoi"),
-      grunt(39_000, "cau"),
-      ants(43_500, "cau", 8), grunt(46_500, "cau"), grunt(49_500, "cau"),
+      grunt(2000, "cau"), archer(5300, "suoi"), grunt(8600, "cau"),
+      grunts(12_400, "cau"),
+      grunt(17_600, "suoi"), wasp(20_900), grunt(24_200, "cau"),
+      grunts(28_000, "suoi"),
+      grunt(33_200, "cau"), archer(36_500, "cau"), ants(39_800, "cau", 6), grunt(43_100, "suoi"), grunt(46_400, "cau"), grunt(49_700, "cau"),
     ],
   },
   {
     // Đường Suối leads; first Heo Nanh Đá, alone in a lull.
-    n: 4, seconds: 55, load100: 82, peak100: 115,
-    peaks: [peak(8000, 8000), peak(24_000, 9000), peak(42_000, 10_000)],
+    n: 4, seconds: 56, load100: 82, peak100: 115,
+    peaks: [peak(2000, 7600), peak(19_100, 7600), peak(34_700, 10_000)],
     groups: [
-      grunt(1000, "suoi"), grunt(4500, "cau"),
-      ants(8500, "suoi", 7), grunts(11_500, "suoi"), archer(15_500, "cau"),
-      wasp(19_500),
-      grunts(24_500, "cau"), archer(30_500, "suoi"),
-      boar(34_000, "suoi"),
-      ants(42_500, "suoi", 8), grunts(45_500, "cau"), grunt(49_500, "suoi"),
+      grunt(2000, "suoi"), archer(5300, "cau"), grunt(8600, "suoi"),
+      boar(11_900, "suoi"),
+      grunt(19_100, "cau"), wasp(22_400), grunt(25_700, "suoi"),
+      grunts(29_500, "suoi"),
+      grunt(34_700, "suoi"), archer(38_000, "cau"), ants(41_300, "suoi", 6), grunt(44_600, "cau"), grunt(47_900, "suoi"), grunt(51_200, "suoi"),
     ],
   },
   {
-    // First general: G01 walks Đường Suối alone after the first wolf pack; its 6 W keep the typist busy 16 s.
-    n: 5, seconds: 60, load100: 95, peak100: 125,
-    peaks: [peak(7000, 8000), peak(27_500, 9000), peak(45_000, 10_000)],
+    // First general: G01 walks Đường Suối alone; its 6 W keep the typist busy 16 s.
+    n: 5, seconds: 62, load100: 95, peak100: 115,
+    peaks: [peak(2000, 6400), peak(25_300, 10_000), peak(46_300, 10_000)],
     groups: [
-      grunt(1000, "suoi"), grunt(3500, "cau"),
-      ants(7000, "suoi", 7), archer(10_000, "cau"), grunt(13_500, "suoi"),
-      wolves(20_000, "suoi", 3),
-      grunt(27_600, "cau"), one(31_000, "suoi", "moss-banner"),
-      ants(45_500, "cau", 8), wasp(48_500), archer(51_500, "cau"), grunts(54_500, "cau"),
+      grunt(2000, "suoi"), archer(4700, "cau"), ants(7400, "suoi", 6),
+      one(10_100, "suoi", "moss-banner"),
+      grunt(25_300, "cau"), wasp(28_000), grunt(30_700, "suoi"), grunts(34_500, "cau"),
+      boar(39_100, "suoi"),
+      grunt(46_300, "suoi"), archer(49_000, "cau"), ants(52_100, "suoi", 6), grunt(54_800, "cau"), grunt(57_500, "suoi"),
     ],
   },
   {
     // Breather after the general (02 §5.1).
-    // 54 s: load 0.75, the middle band's floor (00 §4.4).
-    n: 6, seconds: 54, load100: 76, peak100: 115, breather: true,
-    peaks: [peak(8000, 8000), peak(25_000, 8000), peak(41_000, 10_000)],
+    n: 6, seconds: 54, load100: 75, peak100: 115, breather: true,
+    peaks: [peak(2000, 8800), peak(20_900, 8800), peak(37_700, 10_000)],
     groups: [
-      grunt(1000, "suoi"), grunt(4000, "cau"),
-      ants(8500, "suoi", 7), archer(11_500, "suoi"), grunt(14_500, "suoi"),
-      boar(20_000, "suoi"),
-      grunts(29_000, "cau"), wasp(32_500),
-      archer(36_000, "cau"),
-      ants(41_500, "cau", 8), grunt(44_500, "suoi"), grunt(47_500, "suoi"),
+      grunt(2000, "suoi"), grunt(5900, "cau"), grunt(9800, "suoi"),
+      boar(13_700, "suoi"),
+      grunt(20_900, "cau"), archer(24_800, "suoi"), wasp(28_700),
+      grunts(32_600, "suoi"),
+      grunt(37_700, "cau"), ants(41_600, "suoi", 6), archer(45_500, "cau"), ants(49_400, "suoi", 6),
     ],
   },
   {
-    // Đường Cầu leads again.
-    n: 7, seconds: 60, load100: 90, peak100: 115,
-    peaks: [peak(7000, 9000), peak(24_500, 9000), peak(42_000, 10_000)],
+    // Đường Cầu leads again; the first wolf line holds a lull.
+    n: 7, seconds: 60, load100: 85, peak100: 115,
+    peaks: [peak(2000, 7800), peak(20_800, 7800), peak(38_200, 10_000)],
     groups: [
-      grunt(1000, "cau"), archer(3800, "suoi"),
-      ants(7200, "cau", 7), grunt(10_000, "cau"), wasp(12_800),
-      boar(16_500, "cau"),
-      grunts(25_500, "suoi"), archer(29_000, "cau"), wasp(33_000),
-      grunts(36_500, "cau"),
-      ants(42_500, "cau", 8), archer(45_500, "suoi"), grunt(48_800, "cau"), ants(51_800, "cau", 8),
-      grunts(54_800, "suoi"),
+      grunt(2000, "cau"), archer(5400, "suoi"), grunt(8800, "cau"),
+      wolves(12_200, "cau", 3),
+      grunt(20_800, "suoi"), archer(24_200, "cau"), wasp(27_600),
+      boar(31_000, "cau"),
+      grunt(38_200, "cau"), grunt(41_600, "suoi"), ants(45_000, "cau", 6), archer(48_400, "suoi"), grunt(51_800, "suoi"), grunt(55_200, "suoi"),
     ],
   },
   {
     // Two boars hold the lulls; a near-full typist from start to end.
-    n: 8, seconds: 60, load100: 97, peak100: 115,
-    peaks: [peak(8000, 8000), peak(24_500, 9000), peak(43_000, 10_000)],
+    n: 8, seconds: 60, load100: 85, peak100: 115,
+    peaks: [peak(2000, 9100), peak(20_800, 8000), peak(38_500, 10_000)],
     groups: [
-      grunts(1000, "cau"), archer(5300, "suoi"),
-      ants(8500, "cau", 7), wasp(11_200), grunt(13_900, "cau"),
-      boar(16_600, "cau"),
-      grunts(25_500, "cau"), archer(29_500, "suoi"), wasp(32_800),
-      boar(35_500, "suoi"),
-      ants(43_500, "cau", 8), archer(46_300, "suoi"), grunts(50_300, "cau"),
-      ants(54_700, "cau", 8),
+      grunts(2000, "cau"), archer(6600, "suoi"), grunt(10_100, "cau"),
+      boar(13_600, "cau"),
+      grunt(20_800, "suoi"), wasp(24_300), grunt(27_800, "cau"),
+      boar(31_300, "suoi"),
+      grunt(38_500, "cau"), archer(42_000, "cau"), ants(45_500, "cau", 6), grunt(49_000, "cau"), grunt(52_500, "suoi"), grunt(56_000, "cau"),
     ],
   },
   {
-    // Final band: Đường Suối leads, a wolf pack and two boars. 64 s: load 1.00, the middle band's top (00 §4.4).
-    n: 9, seconds: 64, load100: 100, peak100: 125,
-    peaks: [peak(8000, 8000), peak(27_000, 8000), peak(43_000, 10_000)],
+    // Đường Suối leads: a wolf line and a boar.
+    n: 9, seconds: 64, load100: 83, peak100: 115,
+    peaks: [peak(2000, 8000), peak(21_100, 8000), peak(38_800, 10_000)],
     groups: [
-      grunts(1000, "suoi"), archer(5500, "cau"),
-      ants(8500, "suoi", 7), wasp(11_000), grunt(13_500, "cau"),
-      wolves(19_800, "suoi", 3),
-      grunt(27_400, "cau"), wasp(29_900), archer(32_400, "suoi"),
-      boar(35_400, "suoi"),
-      ants(43_200, "cau", 8), grunt(45_700, "cau"), archer(48_600, "suoi"), grunts(52_000, "suoi"),
-      boar(56_000, "cau"),
+      grunt(2000, "suoi"), archer(5500, "cau"), grunt(9000, "suoi"),
+      wolves(12_500, "suoi", 3),
+      grunt(21_100, "suoi"), archer(24_600, "cau"), wasp(28_100),
+      boar(31_600, "suoi"),
+      grunt(38_800, "suoi"), archer(42_300, "cau"), ants(45_800, "suoi", 6), grunt(49_300, "cau"), grunt(52_800, "suoi"), grunt(56_300, "suoi"), grunt(59_800, "cau"),
     ],
   },
   {
-    // Last wave: G01 again with an ant cluster at its heels, a wolf pack, a boar; stage cap 1.40.
-    // Load 1.24: the last wave's band is 1.05–1.25 (00 §4.4), so the lull keeps only the archer and the boar.
-    n: 10, seconds: 65, load100: 125, peak100: 140,
-    peaks: [peak(6000, 8000), peak(23_000, 8000), peak(52_000, 10_000)],
+    // Last wave: a wolf line 2.2 s apart, G01 in the middle, a boar to close; the stage cap 1.40 (DESIGN.md §9 M0).
+    n: 10, seconds: 66, load100: 118, peak100: 140,
+    peaks: [peak(2000, 9000), peak(19_700, 6000), peak(39_500, 10_000)],
     groups: [
-      grunts(1000, "suoi"), archer(1600, "cau"),
-      ants(6400, "suoi", 8), wasp(9100), grunt(9700, "cau"), archer(11_300, "suoi"),
-      wolves(17_000, "suoi", 3),
-      grunt(23_500, "cau"), wasp(25_400), { atMs: 28_400, lane: "suoi", shape: "escort", foe: "moss-banner", count: 1, escort: { foe: "thorn-ant", count: 1 } },
-      archer(43_900, "cau"), boar(45_400, "cau"),
-      ants(52_000, "cau", 8), wasp(53_400), archer(55_600, "suoi"), grunts(59_000, "cau"), ants(61_700, "suoi", 9),
+      grunts(2000, "suoi"), archer(5000, "cau"), ants(8200, "suoi", 6), grunt(10_000, "cau"),
+      wolves(12_400, "suoi", 3, 2200),
+      grunt(19_700, "cau"), wasp(21_500), archer(23_400, "cau"),
+      one(25_900, "suoi", "moss-banner"),
+      archer(39_500, "suoi"), grunt(42_700, "cau"), ants(45_300, "suoi", 6), wasp(46_700), grunt(49_100, "cau"), archer(51_000, "cau"), grunts(54_500, "cau"),
+      boar(57_500, "suoi"),
     ],
   },
 ];

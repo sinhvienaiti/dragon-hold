@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { STAGE_M0 } from "../../src/content/data/stages";
+import { FIRE_DRAGON, PACE } from "../../src/content/rules";
 import type { SimCommand } from "../../src/content/types";
-import { createWorld, hashWorld, kEFor, runLog, step } from "../../src/sim/world";
+import { createWorld, hashWorld, paceFor, runLog, step } from "../../src/sim/world";
 
 /** The M0a sim contract: a world steps at 60 Hz and hashes the same for the same inputs. */
 describe("sim smoke", () => {
@@ -32,9 +33,9 @@ describe("sim smoke", () => {
     const world = createWorld(STAGE_M0);
     expect(world.phase).toBe("prep");
     expect(world.lanes.map((lane) => lane.id)).toEqual(["cau", "suoi", "troi"]);
-    expect(world.liveCap).toBe(30);
+    expect(world.liveCap).toBe(20);
     expect(world.gPm).toBe(1020);
-    expect(world.hero.hp).toBe(1020);
+    expect(world.hero.hp).toBe(Math.round((FIRE_DRAGON.hp * 1020) / 1000));
     expect(world.events.drain()).toEqual([]);
   });
 
@@ -51,11 +52,18 @@ describe("sim smoke", () => {
     expect(hashWorld(replayed)).toBe(hashWorld(manual));
   });
 
-  it("derives k_E from the typist's speed (00 §4.4)", () => {
-    expect(kEFor(35)).toBe(1000);
-    expect(kEFor(60)).toBe(1000);
-    expect(kEFor(25)).toBe(750);
-    expect(kEFor(30)).toBeGreaterThan(750);
-    expect(kEFor(30)).toBeLessThan(1000);
+  it("derives a two-way pace k from E_eff (BALANCE.md §4.1, §9.1)", () => {
+    expect(paceFor(35).kPm).toBe(1000);
+    expect(paceFor(60, 970, 150).kPm).toBe(1300);
+    expect(paceFor(25, 920, 350).kPm).toBe(750);
+    expect(paceFor(45).kPm).toBeGreaterThan(1000);
+    expect(paceFor(45).kPm).toBeLessThan(1300);
+    expect(paceFor(30).kPm).toBeGreaterThan(750);
+    expect(paceFor(30).kPm).toBeLessThan(1000);
+    // T_a: PACE.approachMs at k = 1, shorter for a faster player, never under two of their word times.
+    const ref = paceFor(35);
+    expect(ref.approachTicks).toBe(Math.max(Math.round((PACE.approachMs * 60) / 1000), 2 * ref.wordTicks));
+    expect(paceFor(60, 970, 150).approachTicks).toBeLessThan(ref.approachTicks);
+    for (const wpm of [15, 25, 35, 70]) expect(paceFor(wpm).approachTicks).toBeGreaterThanOrEqual(2 * paceFor(wpm).wordTicks);
   });
 });

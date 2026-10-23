@@ -121,6 +121,7 @@ varying vec4 vState;
 varying vec3 vLocal;
 varying vec3 vViewN;
 varying float vFoe;
+varying float vPhase;
 vec3 crowdTint(float id) {
   if (id < 0.5) return vec3(1.0);
   if (id < 1.5) return vec3(${hexVec("#8fc8ff")});
@@ -140,6 +141,7 @@ vState = aState;
 vTint = crowdTint(aState.z);
 vLocal = position;
 vFoe = step(7.5, aAnim.x);
+vPhase = aAnim.y;
 float gaitPhase = aAnim.y * 6.2831;
 float stride = aAnim.z;
 float gait = aAnim.x - vFoe * 8.0;
@@ -190,6 +192,7 @@ varying vec3 vLocal;
 varying vec3 vViewN;
 varying vec3 vColorCrowd;
 varying float vFoe;
+varying float vPhase;
 float crowdHash(vec3 p) {
   p = fract(p * 0.3183099 + 0.1);
   p *= 17.0;
@@ -225,8 +228,10 @@ float crowdRim = pow(1.0 - abs(vViewN.z), 2.0);
 // A soft rim (05 §2.1: 10–15 %) so every body reads against the ground; an aura rim is withered yellow.
 totalEmissiveRadiance += mix(vec3(0.13), vTint * 0.35, step(3.5, vState.z) * step(vState.z, 4.5) * vState.w) * crowdRim;
 totalEmissiveRadiance += vTint * vState.w * 0.12;
-// Withered-yellow cracks on every foe's shell (05 §2.2 "khe nứt vàng úa").
-float crowdCrack = 1.0 - smoothstep(0.0, 0.026, abs(crowdNoise(vLocal * 5.0 + 3.7) - 0.5));
+// Withered-yellow cracks on every foe's shell (05 §2.2 "khe nứt vàng úa"): each instance samples its own patch of
+// noise (its gait phase), stretched unevenly, so no two shells carry the same mark and none reads as a letter.
+vec3 crackAt = vec3(vLocal.x * 4.1, vLocal.y * 6.3, vLocal.z * 4.7) + vec3(3.7 + vPhase * 41.0, vPhase * 23.0, 1.3 + vPhase * 17.0);
+float crowdCrack = 1.0 - smoothstep(0.0, 0.045, abs(crowdNoise(crackAt) - 0.5));
 totalEmissiveRadiance += vec3(${hexVec("#c8d24a")}) * crowdCrack * 0.6 * vFoe;
 totalEmissiveRadiance += vec3(1.6, 1.55, 1.4) * vState.x;
 if (vState.y > 0.001) {

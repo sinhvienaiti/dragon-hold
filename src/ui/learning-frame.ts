@@ -85,6 +85,11 @@ export class FrameQueue {
     if (text === undefined || this.locked?.word.text === text) this.locked = null;
   }
 
+  /** A wave ended: the "word · meaning ✓" card goes, so a Thẻ Ôn question never finds its answer pinned here. */
+  clearCard(): void {
+    this.card = null;
+  }
+
   done(word: FrameWord, now: number): void {
     if (this.locked?.word.text === word.text) this.locked = null;
     if (this.hidden(word)) return;
@@ -118,6 +123,7 @@ const STYLE_ID = "dh-learning-style";
 const CSS = `
 .dh-learn { border: 1.5px solid rgba(255, 244, 214, 0.22); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5); transition: opacity 160ms linear; }
 .dh-learn.is-idle { opacity: 0.55; }
+.dh-learn.is-covered { visibility: hidden; }
 .dh-learn__top { display: flex; align-items: center; gap: calc(8px * var(--ui)); }
 .dh-learn__dot { width: calc(9px * var(--ui)); height: calc(9px * var(--ui)); border-radius: 50%; background: #F2B880; flex: none; }
 .dh-learn__dot.is-new { background: #E9F7D4; }
@@ -125,11 +131,11 @@ const CSS = `
 .dh-learn__dot.is-known { background: #7FE08A; }
 .dh-learn__speaker { width: calc(18px * var(--ui)); height: calc(18px * var(--ui)); color: var(--kit-learning-muted); flex: none; }
 .dh-learn__check { color: ${SEMANTIC_COLORS.typing}; font-weight: 800; }
-.dh-learn__badge { font-size: calc(11px * var(--ui)); font-weight: 800; padding: 0 calc(5px * var(--ui)); border-radius: 3px; background: #E9F7D4; color: #1F3A12; }
+.dh-learn__badge { font-size: max(11px, calc(11px * var(--ui))); font-weight: 800; padding: 0 calc(5px * var(--ui)); border-radius: 3px; background: #E9F7D4; color: #1F3A12; }
 .dh-learn .${LEARNING_FRAME_CLASSES.ipa}:empty, .dh-learn .${LEARNING_FRAME_CLASSES.meaning}:empty { display: none; }
 .dh-learn .${LEARNING_FRAME_CLASSES.meaning} { max-width: 100%; text-align: center; }
-.dh-learn .${LEARNING_FRAME_CLASSES.recent} { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dh-learn__idle { font-size: calc(14px * var(--ui)); color: var(--kit-learning-muted); }
+.dh-learn .${LEARNING_FRAME_CLASSES.recent} { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: max(12px, calc(13px * var(--ui))); }
+.dh-learn__idle { font-size: max(12px, calc(14px * var(--ui))); color: var(--kit-learning-muted); }
 .dh-lpanel {
   position: fixed; left: 50%; top: 50%; translate: -50% -50%; z-index: 60; box-sizing: border-box;
   width: min(92vw, calc(560px * var(--ui))); padding: calc(18px * var(--ui)) calc(24px * var(--ui));
@@ -138,8 +144,17 @@ const CSS = `
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.5); font-family: var(--kit-font-battle);
 }
 .dh-lpanel[hidden] { display: none; }
-.dh-lpanel__title { font-size: calc(15px * var(--ui)); font-weight: 700; letter-spacing: 0.04em; color: #D9CDB0; }
-.dh-lpanel__step { font-size: calc(13px * var(--ui)); color: #B9AE95; }
+/* Thẻ Ôn: a small card at the top centre under the next-wave card, never over the dais and its pads (05 §4.5). */
+.dh-lpanel.is-card {
+  top: calc(176px * var(--ui)); translate: -50% 0; width: min(92vw, calc(420px * var(--ui)));
+  padding: calc(10px * var(--ui)) calc(16px * var(--ui)); gap: calc(5px * var(--ui));
+}
+.dh-lpanel.is-card .dh-lpanel__word { font-size: calc(28px * var(--ui)); }
+.dh-lpanel.is-card .dh-lpanel__mean { font-size: max(14px, calc(17px * var(--ui))); }
+.dh-lpanel.is-card .dh-lpanel__answer { min-height: calc(34px * var(--ui)); font-size: calc(26px * var(--ui)); }
+.dh-lpanel__answer .x { color: #FFB4B4; text-decoration: underline wavy rgba(255, 140, 170, 0.8); }
+.dh-lpanel__title { font-size: max(12px, calc(15px * var(--ui))); font-weight: 700; letter-spacing: 0.04em; color: #D9CDB0; }
+.dh-lpanel__step { font-size: max(12px, calc(13px * var(--ui))); color: #B9AE95; }
 .dh-lpanel__word { font-size: calc(40px * var(--ui)); font-weight: 700; }
 .dh-lpanel__ipa { font-family: var(--kit-font-ipa); font-size: calc(20px * var(--ui)); color: #D9CDB0; }
 .dh-lpanel__ipa:empty, .dh-lpanel__mean:empty, .dh-lpanel__word:empty { display: none; }
@@ -149,7 +164,7 @@ const CSS = `
 .dh-lpanel__result { min-height: calc(22px * var(--ui)); font-size: calc(17px * var(--ui)); font-weight: 700; }
 .dh-lpanel__result.is-right { color: ${SEMANTIC_COLORS.typing}; }
 .dh-lpanel__result.is-wrong { color: #FFB4B4; }
-.dh-lpanel__keys { font-size: calc(13px * var(--ui)); color: #B9AE95; }
+.dh-lpanel__keys { font-size: max(12px, calc(13px * var(--ui))); color: #B9AE95; }
 `;
 
 const SPEAKER = '<svg class="dh-learn__speaker" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
@@ -172,7 +187,16 @@ export interface LearningFrameOptions {
   readonly speak?: (text: string) => void;
 }
 
-export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: LearningFrameOptions = {}): Presenter {
+/** The frame, and a cover for while a learning panel asks: its words and the Vừa học line would give the answers away. */
+export interface LearningFramePresenter extends Presenter {
+  setCovered(covered: boolean): void;
+  readonly covered: boolean;
+}
+
+/** What the frame may show while a Học trước or Thẻ Ôn panel is open: nothing (01 §6.5 answers stay hidden). */
+export const frameVisible = (panelOpen: boolean): boolean => !panelOpen;
+
+export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: LearningFrameOptions = {}): LearningFramePresenter {
   const doc = root.ownerDocument;
   installStyles(doc);
   const c = LEARNING_FRAME_CLASSES;
@@ -197,6 +221,7 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
   let lockedSlot = -1;
   let key = "\u0000";
   let recentKey = "";
+  let covered = false;
 
   const frameWord = (text: string): FrameWord => {
     const deck = byText.get(text) ?? { group: "learning", recalls: 0, mastery: 0 };
@@ -255,6 +280,9 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
             if (lockedSlot === event.word) lockedSlot = -1;
             break;
           }
+          case "wave-end":
+            q.clearCard();
+            break;
           default:
             break;
         }
@@ -264,12 +292,19 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
     frame(world: World, info: FrameInfo): void {
       const q = ensure(world);
       const view = q.view(info.now);
-      const next = view ? [view.text, view.typed, view.ipa, view.meaning, view.level, view.done].join("|") : "";
+      // With no word up there is nothing to lock: in a wave the frame waits quietly; prep and breaks point to the shop.
+      const resting = world.phase === "prep" || world.phase === "break";
+      const anyWord = world.words.live.some((item) => item !== null);
+      const next = view ? [view.text, view.typed, view.ipa, view.meaning, view.level, view.done].join("|") : resting ? "rest:" + world.phase : anyWord ? "idle" : "empty";
       if (next !== key) {
         key = next;
         el.classList.toggle("is-idle", view === null);
         if (view === null) {
-          word.innerHTML = '<span class="dh-learn__idle">Gõ chữ đầu của một từ để khóa</span>';
+          word.innerHTML = resting
+            ? '<span class="dh-learn__idle">' + (world.phase === "prep" ? "Bày binh" : "Nghỉ") + ": phím 1–8 chọn món ở dải dưới</span>"
+            : anyWord
+              ? '<span class="dh-learn__idle">Gõ chữ đầu của một từ để khóa</span>'
+              : "";
           ipa.textContent = meaning.textContent = "";
           dot.className = "dh-learn__dot";
         } else {
@@ -289,6 +324,17 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
         recentKey = recentNext;
         recent.textContent = recentNext === "" ? "" : "Vừa học: " + recentNext;
       }
+    },
+
+    setCovered(next: boolean): void {
+      if (next === covered) return;
+      covered = next;
+      el.classList.toggle("is-covered", !frameVisible(next));
+      el.setAttribute("aria-hidden", next ? "true" : "false");
+    },
+
+    get covered() {
+      return covered;
     },
 
     dispose(): void {
@@ -342,11 +388,11 @@ interface AnswerBox {
   readonly keys: HTMLElement;
 }
 
-function panelBox(root: HTMLElement, label: string): AnswerBox {
+function panelBox(root: HTMLElement, label: string, card = false): AnswerBox {
   const doc = root.ownerDocument;
   installStyles(doc);
   const el = doc.createElement("div");
-  el.className = "dh-lpanel";
+  el.className = "dh-lpanel" + (card ? " is-card" : "");
   el.hidden = true;
   el.dataset.dhAvoid = "";
   el.setAttribute("role", "dialog");
@@ -362,13 +408,23 @@ function panelBox(root: HTMLElement, label: string): AnswerBox {
 const blanks = (typed: string, length: number): string =>
   escapeHtml(typed) + '<span class="b">' + "_".repeat(Math.max(0, length - typed.length)) + "</span>";
 
+/** Copying a shown word (Học trước): each letter that differs from it is pink, so a slip shows at once. */
+const blanksAgainst = (typed: string, target: string): string =>
+  [...typed].map((ch, k) => (ch === target[k] ? escapeHtml(ch) : '<span class="x">' + escapeHtml(ch) + "</span>")).join("") +
+  '<span class="b">' + "_".repeat(Math.max(0, target.length - typed.length)) + "</span>";
+
+/** Two Esc presses within this many ms close Học trước; one skips the word on screen. */
+const DOUBLE_ESC_MS = 600;
+
 const hookNow = (hooks: PanelHooks) => (hooks.now ? hooks.now() : performance.now());
 const hookLater = (hooks: PanelHooks, ms: number, run: () => void) => (hooks.later ? hooks.later(ms, run) : void setTimeout(run, ms));
 
 /**
  * Học trước (01 §6.5): the stage's new words one by one (word, IPA, meaning,
- * sound); the player types each once, with no time limit. Closing sends
- * learn-ahead with the right answers (+5 gold each, at most +40, in the sim).
+ * sound); the player copies each once, with no time limit. A right copy goes
+ * on by itself; a slip shows pink and waits for Backspace or Enter. Esc skips
+ * the word on screen, Esc twice closes the panel. Closing sends learn-ahead
+ * with the right answers (+5 gold each, at most +40, in the sim).
  */
 export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPanel & { show(words: readonly PanelWord[]): void } {
   const box = panelBox(root, "Học trước");
@@ -379,6 +435,7 @@ export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPa
   let startedAt = 0;
   let waiting = false;
   let open = false;
+  let escAt = -Infinity;
 
   const draw = () => {
     const word = words[index]!;
@@ -387,8 +444,15 @@ export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPa
     box.word.textContent = word.text;
     box.ipa.textContent = word.ipa;
     box.mean.textContent = word.vi;
-    box.answer.innerHTML = blanks(typed, word.text.length);
-    box.keys.textContent = "Gõ lại từ · Tab nghe lại · Esc bỏ qua";
+    box.answer.innerHTML = blanksAgainst(typed, word.text);
+    box.keys.textContent = "Gõ lại từ · Enter nộp · Tab nghe lại · Esc bỏ từ này · Esc 2 lần bỏ hết";
+  };
+  const redraw = () => {
+    const word = words[index]!;
+    box.answer.innerHTML = blanksAgainst(typed, word.text);
+    const slip = typed.length === word.text.length && typed !== word.text;
+    box.result.textContent = slip ? "Có chữ sai: Backspace để sửa, Enter để nộp" : "";
+    box.result.className = "dh-lpanel__result" + (slip ? " is-wrong" : "");
   };
   const finish = () => {
     open = false;
@@ -440,18 +504,27 @@ export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPa
       if (!open) return false;
       if (waiting || !/^[a-z]$/.test(letter)) return true;
       const word = words[index]!;
+      if (typed.length >= word.text.length) return true;
       typed += letter;
-      box.answer.innerHTML = blanks(typed, word.text.length);
-      if (typed.length >= word.text.length) submit();
+      // A right copy goes on at once; a slip waits for Backspace or Enter (never sent half-way by itself).
+      if (typed === word.text) submit();
+      else redraw();
       return true;
     },
     handleAction(action: string): boolean {
       if (!open) return false;
-      if (action === "escape") finish();
-      else if (action === "replay") hooks.speak(words[index]!.text);
+      if (action === "escape") {
+        const now = hookNow(hooks);
+        if (now - escAt <= DOUBLE_ESC_MS) finish();
+        else {
+          escAt = now;
+          // Skips only the word on screen: no answer, no learning event for it.
+          if (!waiting) next();
+        }
+      } else if (action === "replay") hooks.speak(words[index]!.text);
       else if (action === "backspace" && !waiting) {
         typed = typed.slice(0, -1);
-        box.answer.innerHTML = blanks(typed, words[index]!.text.length);
+        redraw();
       } else if (action === "enter" && !waiting && typed.length > 0) submit();
       return true;
     },
@@ -472,7 +545,7 @@ export interface ReviewQuestion extends PanelWord {
  * nothing and shows the word, meaning and IPA again.
  */
 export function createReviewCard(root: HTMLElement, hooks: PanelHooks): LearningPanel & { show(items: readonly ReviewQuestion[]): void } {
-  const box = panelBox(root, "Thẻ Ôn");
+  const box = panelBox(root, "Thẻ Ôn", true);
   let items: readonly ReviewQuestion[] = [];
   let index = 0;
   let typed = "";

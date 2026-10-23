@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FIRE_DRAGON } from "../../src/content/rules";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import type { StageDef } from "../../src/content/types";
 import { damageHouse } from "../../src/sim/houses";
@@ -139,11 +140,13 @@ describe("placement and shop (03 §0.1, §0.2, §4)", () => {
     for (let k = 0; k < 4; k += 1) buy(world, "small-potion");
     expect(world.shop.held["small-potion"]).toBe(3);
     const hp = world.hero.hpMax;
+    // Tim Rồng: +10 % of the base HP (FIRE_DRAGON.hp × g(c)) each.
+    const step = Math.round((Math.round((FIRE_DRAGON.hp * world.gPm) / 1000) * 10) / 100);
     for (let k = 0; k < 4; k += 1) buy(world, "dragon-heart");
     for (let k = 0; k < 4; k += 1) buy(world, "hard-scale");
-    expect(world.hero.hpMax).toBe(hp + 3 * 102);
+    expect(world.hero.hpMax).toBe(hp + 3 * step);
     expect(world.hero.hp).toBe(world.hero.hpMax);
-    expect(heroMaxHpBonus(world)).toBe(306);
+    expect(heroMaxHpBonus(world)).toBe(3 * step);
     expect(world.hero.armour).toBe(20 + 45);
     expect(world.economy.gold).toBe(2000 - 90 - (80 + 120 + 160) - (70 + 105 + 140));
     expect(rejects(world)).toEqual(["buy:limit", "buy:limit", "buy:limit"]);
@@ -154,7 +157,7 @@ describe("placement and shop (03 §0.1, §0.2, §4)", () => {
     buy(world, "small-potion");
     buy(world, "small-potion");
     world.phase = "wave";
-    world.hero.hp = 400;
+    world.hero.hp = 100;
     world.events.drain();
     useConsumable(world, "small-potion");
     useConsumable(world, "small-potion");
@@ -170,7 +173,8 @@ describe("placement and shop (03 §0.1, §0.2, §4)", () => {
     useConsumable(world, "small-potion");
     expect(rejects(world)).toEqual(["consumable:none"]);
     stepOurSide(world, 120);
-    expect(world.hero.hp).toBe(400 + 2 * 255);
+    // Two potions, 25 % of max HP each.
+    expect(world.hero.hp).toBe(100 + 2 * Math.round((world.hero.hpMax * 25) / 100));
   });
 
   it("repairs a ruined house with `=` for 30 % of its price, in a wave too", () => {

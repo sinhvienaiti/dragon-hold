@@ -14,7 +14,8 @@ import { GENERALS } from "../content/data/generals";
 import { ELITE_PM, FLOW, LOAD_W100, STARS, TEMPO } from "../content/rules";
 import type { EnemyDef, FoeId, GeneralDef, SpawnGroupDef, SpawnShape, WaveDef } from "../content/types";
 import { addRage } from "./combat";
-import { earn, payWaveEnd } from "./economy";
+import { callEarlyRoom, earn, payWaveEnd } from "./economy";
+import { directorWaveStart } from "./director";
 import { emit } from "./events";
 import { msToTicks, pct, ticksToMs } from "./fixed";
 import { scheduleWave } from "./spawn";
@@ -65,7 +66,8 @@ export function callEarly(world: World): void {
   }
   if (world.phaseEndsAt >= 0) {
     const seconds = Math.floor((world.phaseEndsAt - world.tick) / 60);
-    const gold = Math.min(FLOW.callEarlyGoldMax, seconds * FLOW.callEarlyGoldPerS);
+    // 2 a second left, at most 40, and never past the stage's 15 % "other" pool (00 §4.9).
+    const gold = Math.min(FLOW.callEarlyGoldMax, seconds * FLOW.callEarlyGoldPerS, callEarlyRoom(world));
     if (gold > 0) earn(world, gold, "call-early");
   }
   addRage(world, FLOW.callEarlyRageX10);
@@ -101,6 +103,7 @@ function beginWave(world: World): void {
   waves.next += 1;
   waves.startedAt = world.tick;
   world.combat.urgentUsed = false;
+  directorWaveStart(world, def.n);
   setPhase(world, "wave", -1);
   emit(world, { type: "wave-start", wave: def.n, waves: world.stage.waves.length, lanes: wavesLanes(def), generals: def.generals });
   scheduleWave(world, def);

@@ -15,7 +15,8 @@ const ROOT = resolve(__dirname, "..");
 const SRC = join(ROOT, "src");
 const KIT = join(SRC, "kit");
 const PURE = ["src/sim", "src/typing", "src/content"];
-const PURE_KIT = ["src/kit/platform", "src/kit/typing"];
+// kit/balance is pure TS too (BALANCE.md §8): the sim runs its flow meter and pace director.
+const PURE_KIT = ["src/kit/platform", "src/kit/typing", "src/kit/balance"];
 const CODE = /\.(ts|tsx|mts|js|mjs)$/;
 
 type Source = { path: string; abs: string; text: string };

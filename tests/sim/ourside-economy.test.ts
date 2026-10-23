@@ -16,13 +16,13 @@ const STAGE: StageDef = {
 };
 
 describe("economy (00 §4.9)", () => {
-  it("gives M0 200 at start and a budget of 900 × 1.25 × 1.8", () => {
+  it("gives M0 200 at start and a budget of 900 × 1.25 (two lanes) × 1.0 (a normal stage)", () => {
     const world = makeWorld({ phase: "prep" });
     expect(world.economy.gold).toBe(200);
-    expect(world.economy.budget).toBe(2025);
-    expect(world.economy.killPool).toBe(1215);
-    expect(world.economy.waveEndPool).toBe(506);
-    expect(stageGoldTarget(world)).toBe(2225);
+    expect(world.economy.budget).toBe(1125);
+    expect(world.economy.killPool).toBe(675);
+    expect(world.economy.waveEndPool).toBe(281);
+    expect(stageGoldTarget(world)).toBe(1325);
   });
 
   it("plans the stage threat from what the groups spawn", () => {
@@ -46,22 +46,22 @@ describe("economy (00 §4.9)", () => {
       sweepDead(world);
     };
     kill([grunts[0]!]);
-    expect(world.economy.gold).toBe(200 + Math.floor((1215 * 30) / 316));
+    expect(world.economy.gold).toBe(200 + Math.floor((675 * 30) / 316));
     kill(grunts.slice(1));
-    expect(world.economy.killPaid).toBe(Math.floor((1215 * 120) / 316));
+    expect(world.economy.killPaid).toBe(Math.floor((675 * 120) / 316));
     // Seven ants pay nothing yet; the eighth pays the cluster once.
     world.events.drain();
     kill(ants.slice(0, 7));
     expect(eventsOf(world, "gold")).toEqual([]);
     kill([ants[7]!]);
     expect(eventsOf(world, "gold")).toHaveLength(1);
-    expect(world.economy.killPaid).toBe(Math.floor((1215 * 176) / 316));
+    expect(world.economy.killPaid).toBe(Math.floor((675 * 176) / 316));
     const rest = [foeAt(world, "moss-archer", "cau", 3), foeAt(world, "moss-archer", "cau", 4)];
     kill(rest);
-    expect(world.economy.killPaid).toBe(1215);
+    expect(world.economy.killPaid).toBe(675);
     // Unplanned extra kills never push past the pool.
     kill([foeAt(world, "moss-grunt", "cau", 6)]);
-    expect(world.economy.killPaid).toBe(1215);
+    expect(world.economy.killPaid).toBe(675);
   });
 
   it("pays a cluster once even when its members die in one tick", () => {
@@ -74,7 +74,7 @@ describe("economy (00 §4.9)", () => {
     world.events.drain();
     sweepDead(world);
     expect(eventsOf(world, "gold")).toHaveLength(1);
-    expect(world.economy.killPaid).toBe(Math.floor((1215 * 56) / 316));
+    expect(world.economy.killPaid).toBe(Math.floor((675 * 56) / 316));
     expect(world.economy.clusters.size).toBe(0);
   });
 
@@ -82,11 +82,12 @@ describe("economy (00 §4.9)", () => {
     const world = makeWorld({ phase: "break" });
     const first = waveEndGold(world, 1);
     const second = waveEndGold(world, 2);
-    expect(Math.abs(second * 100 - first * 110)).toBeLessThanOrEqual(110);
+    // +10 % within the 1-gold rounding of each running total.
+    expect(Math.abs(second * 100 - first * 110)).toBeLessThanOrEqual(220);
     let total = 0;
     for (let wave = 1; wave <= 10; wave += 1) total += payWaveEnd(world, wave);
-    expect(total).toBe(506);
-    expect(world.economy.waveEndPaid).toBe(506);
+    expect(total).toBe(281);
+    expect(world.economy.waveEndPaid).toBe(281);
     expect(payWaveEnd(world, 3)).toBe(0);
     expect(payWaveEnd(world, 11)).toBe(0);
   });

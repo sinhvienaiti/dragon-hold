@@ -1,15 +1,15 @@
 /**
  * Statuses on foes, units and the Dragons (03 §2.3): slow keeps the strongest
  * under its cap, hard control (stun, root, freeze) shrinks on repeats (×1,
- * ×0.6, ×0.3) then grants Vững 4 s, burn stacks 3, poison keeps the strongest,
- * Wet comes from the river. A guard keeps our hard control on one foe within
- * 35 % of max(its life, 10 s) (00 §7 G15). Damage over time ticks once a
- * second; heal over time (potions) every tick.
+ * ×0.6, ×0.3) then grants Vững 4 s, burn stacks 3 per source (a breath burn
+ * and a Chớp word burn tick apart, each credited to its own source), poison
+ * keeps the strongest, Wet comes from the river. Our hard control is only
+ * counted (G15 is a measured gate, 00 §7: tune numbers, never clip in code).
+ * Damage over time ticks once a second; heal over time (potions) every tick.
  * Owner: sim-ourside (LANES.md).
  */
 import { ENEMIES } from "../content/data/enemies";
 import { GENERALS } from "../content/data/generals";
-import { OUR_SIDE_TUNING } from "../content/data/our-side";
 import { DAMAGE, STATUS } from "../content/rules";
 import type { DamageType, EnemyDef, EntityRef, FoeId, GeneralDef, KillSource, Stance, StatusId } from "../content/types";
 import { auraPct } from "./auras";
@@ -207,8 +207,8 @@ function hardLeft(set: StatusSet, tick: number, oursOnly = false): number {
   return end - tick;
 }
 
-/** Hard control after diminishing returns, Vững and the G15 guard; 0 when resisted. */
-function hardTicks(world: World, target: EntityRef, set: StatusSet, ticks: number): number {
+/** Hard control after diminishing returns and Vững; 0 when resisted. */
+function hardTicks(world: World, set: StatusSet, ticks: number): number {
   const tick = world.tick;
   for (const entry of set.list) if (entry.id === "steadfast" && entry.until > tick) return 0;
   if (set.hardHits >= STATUS.hardFactorPm.length) {
@@ -220,14 +220,8 @@ function hardTicks(world: World, target: EntityRef, set: StatusSet, ticks: numbe
     set.hardHits = 0;
     set.hardWindowEnds = tick + msToTicks(STATUS.hardWindowMs);
   }
-  let granted = Math.round((ticks * STATUS.hardFactorPm[set.hardHits]!) / 1000);
+  const granted = Math.round((ticks * STATUS.hardFactorPm[set.hardHits]!) / 1000);
   const left = hardLeft(set, tick);
-  if (target.kind === "enemy") {
-    // G15 guard: elapsed plus remaining hard control stays within 35 % of max(life, 10 s).
-    const life = set.life + granted;
-    const budget = Math.floor((OUR_SIDE_TUNING.hardControlCapPct * (life > hardMinLife ? life : hardMinLife)) / 100) - set.hardTicks;
-    if (granted > budget) granted = budget;
-  }
   // Nothing past the control already running: no change, no diminishing step.
   if (granted <= left) return 0;
   set.hardHits += 1;
@@ -238,8 +232,6 @@ function hardTicks(world: World, target: EntityRef, set: StatusSet, ticks: numbe
   }
   return granted;
 }
-
-const hardMinLife = msToTicks(OUR_SIDE_TUNING.hardControlMinLifeMs);
 
 function entryOf(id: StatusId, start: number, until: number, value: number, ours: boolean, by: KillSource, source: EntityRef | null): StatusEntry {
   return { id, until, value, stacks: 1, start, done: 0, shown: false, ours, by, source };
@@ -265,7 +257,7 @@ export function applyStatus(world: World, target: EntityRef, set: StatusSet, sta
       if (enemy.general) ticks = Math.round((ticks * STATUS.grounded.generalPm) / 1000);
     }
   }
-  if (HARD.has(id) && status.self !== true) ticks = hardTicks(world, target, set, ticks);
+  if (HARD.has(id) && status.self !== true) ticks = hardTicks(world, set, ticks);
   if (ticks <= 0) return 0;
   const until = tick + ticks;
   const wasOn = hasStatus(set, id, tick);
@@ -274,6 +266,7 @@ export function applyStatus(world: World, target: EntityRef, set: StatusSet, sta
 
   let entry: StatusEntry | undefined;
   if (BY_VALUE.has(id)) entry = set.list.find((item) => item.id === id && item.value === value && item.start <= tick);
+  else if (id === "burn") entry = set.list.find((item) => item.id === id && item.by === by && item.start <= tick);
   else if (id !== "regen") entry = set.list.find((item) => item.id === id && item.start <= tick);
   if (entry) {
     if (until > entry.until) entry.until = until;

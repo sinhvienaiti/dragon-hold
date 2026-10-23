@@ -33,7 +33,8 @@ const pad = (id: string, ring: "inner" | "outer", pos: Vec2): SlotDef => ({ id, 
 export const MAP_L2_CAU: MapDef = {
   id: "L2-cau",
   nameVi: "Cầu và Suối",
-  dais: { center: [0, 0], radiusM: 4, heroHoverM: 2.5, guideAt: [-1.7, 1.5] },
+  // Bạch Long stands at the south-west edge of the dais, clear of Hỏa Long's wings (05 §6.1).
+  dais: { center: [0, 0], radiusM: 4, heroHoverM: 2.5, guideAt: [-2.6, 2.0] },
   lanes: [
     {
       id: "cau",

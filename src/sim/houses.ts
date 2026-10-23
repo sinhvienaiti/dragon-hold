@@ -127,38 +127,113 @@ const healOf = (hpMax: number, pm: number, mainPm: number, chainPct: number): nu
   return amount < 1 ? 1 : amount;
 };
 
-/** Heals every ally in the house's area by `pm` permille of their max HP. */
+/** What one ally gets from one house this beat: its heal, the house it comes from. */
+interface HealPick {
+  amount: number;
+  house: HouseState;
+}
+
+/**
+ * Heals every ally in reach by `pm` permille of their max HP. With `only`,
+ * the house heals just that ally (the aura beat picks the strongest house per
+ * ally); a pulse heals all of them. One `heal` event per ally healed.
+ */
 function healAllies(world: World, house: HouseState, pm: number): void {
+  for (const target of targetsOf(world, house)) applyHeal(world, house, target, healFor(world, house, target, pm));
+}
+
+type AllyTarget = { readonly kind: "hero" } | { readonly kind: "guide" } | { readonly kind: "unit"; readonly index: number };
+
+/** Allies inside `house`'s area: the Dragons up to the dais edge, standing units within its radius. */
+function targetsOf(world: World, house: HouseState): AllyTarget[] {
   const def = HOUSES[house.house];
   const slot = world.slots[house.slot]!;
   const radius = mmToU(def.radiusMm);
-  const mainPm = houseMainPm(def, house.level);
-  const chainPct = CHAIN.ourSideBonusPct[chainTier(world.words.chain)] ?? 0;
   const reach = radius + mmToU(OUR_SIDE_TUNING.heroReachMm);
   const daisX = mToU(world.map.dais.center[0]);
   const daisZ = mToU(world.map.dais.center[1]);
-  const hero = world.hero;
-  if (hero.hp < hero.hpMax && within(slot.x, slot.z, daisX, daisZ, reach)) healHero(world, healOf(hero.hpMax, pm, mainPm, chainPct));
-  const guide = world.guide;
-  if (guide.downUntil < 0 && guide.hp < guide.hpMax && within(slot.x, slot.z, daisX, daisZ, reach)) healGuide(world, healOf(guide.hpMax, pm, mainPm, chainPct));
+  const out: AllyTarget[] = [];
+  if (world.hero.hp < world.hero.hpMax && within(slot.x, slot.z, daisX, daisZ, reach)) out.push({ kind: "hero" });
+  if (world.guide.downUntil < 0 && world.guide.hp < world.guide.hpMax && within(slot.x, slot.z, daisX, daisZ, reach)) out.push({ kind: "guide" });
   for (const unit of world.units.list) {
     if (unit.downUntil >= 0 || unit.hp >= unit.hpMax) continue;
-    if (dist2(unit.x, unit.z, slot.x, slot.z) <= radius * radius) healUnit(world, unit, healOf(unit.hpMax, pm, mainPm, chainPct));
+    if (dist2(unit.x, unit.z, slot.x, slot.z) <= radius * radius) out.push({ kind: "unit", index: unit.index });
   }
+  return out;
 }
 
-/** Auras and pulses; emits `house-pulse`. */
+/** The heal `house` gives `target` at `pm` permille, with its level and the chain bonus. */
+function healFor(world: World, house: HouseState, target: AllyTarget, pm: number): number {
+  const def = HOUSES[house.house];
+  const mainPm = houseMainPm(def, house.level);
+  const chainPct = CHAIN.ourSideBonusPct[chainTier(world.words.chain)] ?? 0;
+  const hpMax = target.kind === "hero" ? world.hero.hpMax : target.kind === "guide" ? world.guide.hpMax : world.units.list[target.index]!.hpMax;
+  return healOf(hpMax, pm, mainPm, chainPct);
+}
+
+function applyHeal(world: World, house: HouseState, target: AllyTarget, amount: number): void {
+  const slot = world.slots[house.slot]!;
+  const source: EntityRef = { kind: "house", slot: house.slot };
+  const x = uToM(slot.x);
+  const z = uToM(slot.z);
+  let gained = 0;
+  let ref: EntityRef;
+  let tx: number;
+  let tz: number;
+  if (target.kind === "hero") {
+    gained = healHero(world, amount);
+    ref = { kind: "hero" };
+    [tx, tz] = world.map.dais.center;
+  } else if (target.kind === "guide") {
+    gained = healGuide(world, amount);
+    ref = { kind: "guide" };
+    [tx, tz] = world.map.dais.guideAt;
+  } else {
+    const unit = world.units.list[target.index]!;
+    const before = unit.hp;
+    healUnit(world, unit, amount);
+    gained = unit.hp - before;
+    ref = { kind: "unit", slot: unit.index };
+    tx = uToM(unit.x);
+    tz = uToM(unit.z);
+  }
+  if (gained > 0) emit(world, { type: "heal", source, target: ref, amount: gained, x, z, tx, tz });
+}
+
+const targetKey = (target: AllyTarget): string => (target.kind === "unit" ? "u" + target.index : target.kind);
+
+/**
+ * Auras and pulses; emits `heal` per ally a beat reaches. The aura beats once
+ * a second for all houses together, and an ally in reach of several houses
+ * gets only the strongest (03 §8: "Hào quang cùng loại không cộng; lấy mạnh
+ * nhất"). It beats only in a wave: breaks already heal 10 % (00 §4.5), and
+ * the break's heal cap (20 % with Tổ Ấm or Thư Viện) must not grow by a house
+ * healing all break long.
+ */
 export function stepHouses(world: World): void {
   const tick = world.tick;
+  const beat = msToTicks(OUR_SIDE_TUNING.houseBeatMs);
+  const ready: HouseState[] = [];
   for (const house of world.houses.list) {
     // 0 HP from a blow dealt outside damageHouse is Đổ Nát too.
     if (!house.ruined && house.hp <= 0) house.ruined = true;
     if (house.ruined || tick < house.beatAt) continue;
     if (tick < (world.slots[house.slot]?.activeAt ?? 0)) continue;
-    house.beatAt = tick + msToTicks(OUR_SIDE_TUNING.houseBeatMs);
-    const effect = HOUSES[house.house].effect;
-    if (effect.kind === "heal-aura") healAllies(world, house, effect.healPmPerS);
+    ready.push(house);
   }
+  if (world.phase !== "wave" || tick % beat !== 0 || ready.length === 0) return;
+  const best = new Map<string, HealPick & { target: AllyTarget }>();
+  for (const house of ready) {
+    const effect = HOUSES[house.house].effect;
+    if (effect.kind !== "heal-aura") continue;
+    for (const target of targetsOf(world, house)) {
+      const amount = healFor(world, house, target, effect.healPmPerS);
+      const key = targetKey(target);
+      const current = best.get(key);
+      if (current === undefined || amount > current.amount) best.set(key, { amount, house, target });
+    }
+  }
+  for (const pick of best.values()) applyHeal(world, pick.house, pick.target, pick.amount);
 }
 
 /** Word kills inside a house's area give it energy (03 §10.2); cleanup calls it once per dead foe. */

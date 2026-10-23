@@ -13,7 +13,7 @@
  */
 import { GENERALS } from "../content/data/generals";
 import { ENEMIES } from "../content/data/enemies";
-import { DIFFICULTY, GRADE, HERO_LEVEL, LEARNING, LETTER_BUDGET, RAGE, RINGS, URGENT, WORDS } from "../content/rules";
+import { DIFFICULTY, ELITE_PM, GRADE, HERO_LEVEL, LEARNING, LETTER_BUDGET, RAGE, RINGS, URGENT, WORDS } from "../content/rules";
 import type { DeckWord, EnemyRef, EntityRef, EnemyId, GeneralId, WordDeck, WordGroup, WordKeyResult, WordKind, WordReleaseReason } from "../content/types";
 import {
   BudgetLedger, KEY, POOL, addWord, compileDeck, createBag, createSession, dropWord, letterBudget, lockNext, pickWord, shieldLeft, shieldLock,
@@ -22,7 +22,7 @@ import {
 import { DH_RULES, letterKind, type LetterKind } from "../typing/config";
 import { isDeckText } from "../typing/deck";
 import { GRADES, activityFor, chainAfter, chainTier, gradeOf, mcPmOf, mqPmOf } from "../typing/grading";
-import { isFastFoe, lengthSlotFor, wordLengths, type FoeShape } from "../typing/lengths";
+import { isD1Kind, isFastFoe, lengthSlotFor, wordLengths, type FoeShape } from "../typing/lengths";
 import { addRage, castSkill, grantXp, queueWordStrike } from "./combat";
 import { sealGeneral } from "./auras";
 import { pullBanner } from "./boss";
@@ -255,14 +255,23 @@ function bagFor(w: WordsState, group: WordGroup, lo: number, hi: number): Bag {
   return bag;
 }
 
-/** New words this stage may still bring (01 §6.1: 8 a stage, 6 on a boss stage, 2 a wave). */
+/**
+ * New words this stage may still bring (01 §6.1: 8 a stage, 6 on a boss stage,
+ * 2 a wave). A fresh one needs a later foe to be met again (G12: ≥ 2 times),
+ * so none comes once the last wave's last group has left its gate.
+ */
 function newRoom(world: World): boolean {
   const w = world.words;
   const stageMax = world.stage.type === "boss" ? LEARNING.newPerBossStage : LEARNING.newPerStage;
-  return w.newMet.size < stageMax && w.newThisWave < LEARNING.newPerWave;
+  if (w.newMet.size >= stageMax || w.newThisWave >= LEARNING.newPerWave) return false;
+  return world.wave < world.stage.waves.length || world.spawn.queue.some((group) => group.startedAt < 0);
 }
 
-/** word × 4 + tier of a new word for kit kind `kind`: a met one not yet seen twice first, then a fresh one if the quota allows; −1 none. */
+/**
+ * word × 4 + tier of a new word for kit kind `kind`: a met one not yet seen
+ * twice first, at any length up to the band's top (shorter only eases the
+ * typist; G12: met ≥ 2 times), then a fresh one if the quota allows; −1 none.
+ */
 function pickNew(world: World, lo: number, hi: number, kind: number, last: number): number {
   const w = world.words;
   const t = w.session;
@@ -270,7 +279,7 @@ function pickNew(world: World, lo: number, hi: number, kind: number, last: numbe
   const free = t.letters.free(world.tick, vocab);
   const fits = (index: number) => w.deck.words[index]!.text.length >= lo && w.deck.words[index]!.text.length <= hi;
   for (const [index, met] of w.newMet) {
-    if (met >= 2 || !fits(index)) continue;
+    if (met >= 2 || w.deck.words[index]!.text.length > hi) continue;
     const tier = t.letters.claim(t.deck, t.words, index, kind, world.tick, vocab, last, free);
     if (tier > 0) return index * 4 + tier;
   }
@@ -397,7 +406,9 @@ function dealFoe(world: World, enemy: EnemyState, kindOverride?: WordKind): numb
   }
   const urgent = enemy.general || kind === "seal" || kind === "interrupt" || kind === "boss-part" || isCasting(world, enemy) || within(enemy.x, enemy.z, 0, 0, DANGER_U);
   const letter: LetterKind = kind === "interrupt" ? "interrupt" : kind === "boss-seal" ? "boss-seal" : urgent ? "urgent-foe" : "enemy";
-  const [lo, hi] = wordLengths(world.typistWpm, lengthSlotFor(kind, shape), enemy.elite && !enemy.general);
+  // A general's last chain word is D4 like Ấn Phá (02 §1.4).
+  const last = enemy.general && enemy.wordsLeft <= 1;
+  const [lo, hi] = wordLengths(world.typistWpm, lengthSlotFor(kind, shape, last), enemy.elite && !enemy.general, isD1Kind(kind));
   const slot = deal(world, {
     kind, target: { kind: "enemy", slot: enemy.slot, serial: enemy.serial }, source: urgent ? SOURCE.urgentFoe : SOURCE.enemy, letter, lo, hi,
     groups: groupsFor(world, enemy, kind, shape), last: entry.lastLetter, cluster: enemy.cluster, owner: enemy.slot,
@@ -409,7 +420,7 @@ function dealFoe(world: World, enemy: EnemyState, kindOverride?: WordKind): numb
 /** Non-foe words: the urgent word (on the hero), skill, assist, trigger, map and banner words. */
 function dealOther(world: World, kind: WordKind, target: EntityRef | null): number {
   const spec = (source: SourceIndex, letter: LetterKind, groups: WordGroup[]) => {
-    const [lo, hi] = wordLengths(world.typistWpm, lengthSlotFor(kind, null));
+    const [lo, hi] = wordLengths(world.typistWpm, lengthSlotFor(kind, null), false, isD1Kind(kind));
     return deal(world, { kind, target, source, letter, lo, hi, groups, last: -1, cluster: -1, owner: -1 });
   };
   switch (kind) {
@@ -629,13 +640,21 @@ export function typeBackspace(world: World): void {
   emit(world, { type: "word-progress", word: before, typed: w.live[before]?.typed ?? 0, key: "back", letter: -1 });
 }
 
-/** Esc, first step: let go of the locked word (no penalty; what was typed is dropped, its errors uncounted). */
+/**
+ * Esc, first step: let go of the locked word; what was typed is dropped. Its
+ * wrong keys stay with the word until it is done or gone, as with Backspace,
+ * so Esc never wipes a word clean (00 D14: its grade and learning event count them).
+ */
 export function releaseLock(world: World): void {
   const w = world.words;
   const before = w.session.router.lock;
+  const errors = before >= 0 ? w.session.words.errors[before]! : 0;
+  // A lock let go with letters in feeds the pace director's "bỏ khóa" count (BALANCE.md §3 O).
+  if (before >= 0 && w.session.words.typed[before]! > 0) world.director.abandons += 1;
   if (!unlock(w.session)) return;
   w.lock = -1;
   if (before < 0) return;
+  w.session.words.errors[before] = errors;
   sync(w, before);
   w.wall.firstKeyMs[before] = w.wall.lastKeyMs[before] = -1;
   emit(world, { type: "word-progress", word: before, typed: 0, key: "back", letter: -1 });
@@ -713,6 +732,11 @@ function assign(world: World, pending: number): void {
   const w = world.words;
   const clusters = new Set<number>();
   for (const word of w.live) if (word !== null && word.cluster >= 0) clusters.add(word.cluster);
+  // A cluster whose word was just typed waits for its hit: no new word that the hit would take away again.
+  for (const strike of world.combat.strikes) if (strike.cluster >= 0) clusters.add(strike.cluster);
+  for (const enemy of world.enemies.list) {
+    if (enemy.alive && !enemy.freed && enemy.cluster >= 0 && (w.foes.get(enemy.serial)?.nextAt ?? -1) >= 0) clusters.add(enemy.cluster);
+  }
   const lanesWithWord = new Set<number>();
   const lanesNear = new Set<number>();
   const candidates: Candidate[] = [];
@@ -724,7 +748,7 @@ function assign(world: World, pending: number): void {
       lanesWithWord.add(lane);
       continue;
     }
-    if (!within(enemy.x, enemy.z, 0, 0, ZONE_U)) continue;
+    if (!inWordZone(world, enemy)) continue;
     if ((w.foes.get(enemy.serial)?.nextAt ?? -1) >= 0) continue;
     // A cluster shares one word: its first member in slot order stands for it.
     if (enemy.cluster >= 0) {
@@ -804,6 +828,31 @@ export function isLockProtected(world: World, enemy: EnemyState): boolean {
 /** Ticks of lock protection `enemy` has left without opening a window: the view's "being typed" rim. */
 export function lockShieldTicks(world: World, enemy: EnemyState): number {
   return enemy.word < 0 ? 0 : shieldLeft(world.words.session, enemy.word, world.tick);
+}
+
+/** Words a foe carries in all (its chain, 01 §3.5): W rounded up, elites × 1.6; a swarm cluster shares one. */
+function chainWords(enemy: EnemyState): number {
+  if (enemy.cluster >= 0) return 1;
+  const def = enemy.general ? GENERALS[enemy.foe as GeneralId] : ENEMIES[enemy.foe as EnemyId];
+  const w100 = enemy.elite ? Math.round((def.w100 * ELITE_PM) / 1000) : def.w100;
+  return w100 > 100 ? Math.ceil(w100 / 100) : 1;
+}
+
+/**
+ * The word zone (01 §2.1, BALANCE.md §9.1, D23): a foe may carry a word once
+ * it is inside the 26 m ring and within T_a of its stop at its base speed
+ * (T_a: the run's approach time, plus one word time per extra word it
+ * carries), or once it fights (held by a unit, attacking). Thiên Hỏa's
+ * default target looks only here.
+ */
+export function inWordZone(world: World, enemy: EnemyState): boolean {
+  if (!within(enemy.x, enemy.z, 0, 0, ZONE_U)) return false;
+  if (enemy.blockedBy >= 0 || enemy.mode === "attack" || enemy.mode === "blocked") return true;
+  const left = enemy.stopAt - enemy.along;
+  if (left <= 0 || enemy.speed <= 0) return true;
+  const pace = world.pace;
+  const ticks = pace.approachTicks + (chainWords(enemy) - 1) * pace.wordTicks;
+  return left <= enemy.speed * ticks;
 }
 
 /** Movement slows a foe carrying a new word by this % (01 §6.2). */

@@ -25,9 +25,14 @@ export function placeOnLane(world: World, enemy: EnemyState): void {
   enemy.z = out.z;
 }
 
-/** A world in `phase` (default break) with `gold`; the stage is M0 unless given. */
+/**
+ * A world in `phase` (default break) with `gold`; the stage is M0 unless given.
+ * The Fire Dragon has 01 §2.2's 1 000 HP × g(2) here so heal and damage maths
+ * read as in 03; FIRE_DRAGON.hp itself is tuned for the margin S (BALANCE.md §9.1).
+ */
 export function makeWorld(options: { phase?: Phase; gold?: number; stage?: StageDef; world?: WorldOptions } = {}): World {
   const world = createWorld(options.stage ?? STAGE_M0, (options.stage ?? STAGE_M0).seed, options.world);
+  world.hero.hp = world.hero.hpMax = 1020;
   world.phase = options.phase ?? "break";
   world.shop.lastPhase = world.phase;
   if (options.gold !== undefined) world.economy.gold = options.gold;

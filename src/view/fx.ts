@@ -391,6 +391,11 @@ export class FxCore {
   private readonly random: () => number;
   private readonly heightAt: (x: number, z: number) => number;
   locator: FoeLocator | null;
+  /**
+   * World-size multiplier of the fire effects (bolts, impacts, Phun Lửa, Thiên Hỏa), set each frame from the camera
+   * distance so a strike still reads at the play camera (bolt head ≳ 28 px, blast ≳ 60 px at 1080p); 1 up close.
+   */
+  k = 1;
   private readonly v = new THREE.Vector3();
   private readonly w = new THREE.Vector3();
   private readonly u = new THREE.Vector3();
@@ -501,8 +506,8 @@ export class FxCore {
     bolt.dirZ = bolt.to.z - from.z;
     for (const point of bolt.trail.points) point.copy(from);
     // Muzzle flash at the mouth (05 §6 "phát").
-    this.glow(from, strong ? FX_COLORS.teal : FX_COLORS.fireHot, 1.4, 0.12);
-    for (let k = 0; k < 5; k += 1) this.spark(from, FX_COLORS.fire, 0.35, 0.25, 3);
+    this.glow(from, strong ? FX_COLORS.teal : FX_COLORS.fireHot, 1.4 * this.k, 0.12);
+    for (let k = 0; k < 5; k += 1) this.spark(from, FX_COLORS.fire, 0.35 * this.k, 0.25, 3);
     return index;
   }
 
@@ -536,15 +541,18 @@ export class FxCore {
     const length = Math.hypot(dirX, dirZ) || 1;
     const bx = (dirX / length) * 0.8;
     const bz = (dirZ / length) * 0.8;
-    this.glow(at, strong ? FX_COLORS.teal : FX_COLORS.fireHot, 1.2 + tierId * 0.45, 0.09);
-    this.glow(at, FX_COLORS.fire, 1.6 + tierId * 0.5, 0.35, this.u.set(0, 0.6, 0), 0.9);
-    for (let k = 0; k < row.sparks; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.28, 0.45, 5 + tierId * 1.5, 0.4, 6, bx, bz);
+    const s = this.k;
+    this.glow(at, strong ? FX_COLORS.teal : FX_COLORS.fireHot, (1.2 + tierId * 0.45) * s, 0.12);
+    this.glow(at, FX_COLORS.fire, (1.6 + tierId * 0.5) * s, 0.42, this.u.set(0, 0.6, 0), 0.9);
+    for (let k = 0; k < row.sparks; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.28 * s, 0.45, (5 + tierId * 1.5) * Math.sqrt(s), 0.4, 6, bx, bz);
     // A star of rays: fast, short sparks in a flat fan.
     for (let k = 0; k < row.rays; k += 1) {
       const angle = (k / row.rays) * TAU + this.random() * 0.2;
       this.sparks.spawn(at, this.u.set(Math.cos(angle) * 14, this.rand(-1, 3), Math.sin(angle) * 14), strong ? FX_COLORS.teal : FX_COLORS.fireHot, 0.32, 0.16, { drag: 7 });
     }
-    if (row.ring) this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.12, at.z, 1.2, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.9, { grow: 2.2 + tierId * 0.4, kind: 1, thickness: 0.18, drag: 0 });
+    // The ground ring grows by √k only: a storm of rings must not paint the whole field.
+    const rs = Math.sqrt(s);
+    if (row.ring) this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.12, at.z, 1.2 * rs, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.9, { grow: (2.2 + tierId * 0.4) * rs, kind: 1, thickness: 0.18, drag: 0 });
     if (tierId >= 4) this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.13, at.z, 1.6, 0.5, FX_COLORS.fireHot, 0.7, { grow: 4, kind: 1, thickness: 0.1, drag: 0 });
     this.puffs.spawn(at.x, at.y, at.z, 0.9, 0.7, FX_COLORS.smoke, 0.35, { vy: 1.2, grow: 1.4, spin: this.rand(-1, 1) });
   }
@@ -607,9 +615,9 @@ export class FxCore {
 
   private meteorImpact(meteor: Meteor): void {
     const at = meteor.to;
-    this.glow(at, FX_COLORS.white, 3.5, 0.12);
-    this.glow(at, FX_COLORS.fireHot, meteor.radius * 1.4, 0.45, this.u.set(0, 1, 0), 0.8);
-    for (let k = 0; k < 70; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.45, 0.9, 11, 0.8, 9);
+    this.glow(at, FX_COLORS.white, 3.5 * this.k, 0.14);
+    this.glow(at, FX_COLORS.fireHot, meteor.radius * 1.4 * Math.sqrt(this.k), 0.5, this.u.set(0, 1, 0), 0.8);
+    for (let k = 0; k < 70; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.45 * this.k, 0.9, 11, 0.8, 9);
     for (let k = 0; k < 14; k += 1) {
       const angle = (k / 14) * TAU;
       this.glow(this.v.set(at.x + Math.cos(angle) * meteor.radius * 0.5, at.y + 0.4, at.z + Math.sin(angle) * meteor.radius * 0.5), FX_COLORS.fire, 1.8, 0.7, this.u.set(Math.cos(angle) * 3, 1.5, Math.sin(angle) * 3), 1.2);
@@ -705,6 +713,25 @@ export class FxCore {
     this.emit("heal", null, x, y, z, seconds, radiusM, 0, 0, 0);
   }
 
+  /** Héo lan: a grey-violet wisp drifts from a foe standing near toward the dais (BALANCE.md §5; Hắc Vụ's colour, D02). */
+  blightWisp(fromX: number, fromZ: number): void {
+    const y = this.heightAt(fromX, fromZ) + 1.2;
+    const life = 1.1;
+    const s = this.k;
+    this.c.set("#8a7fa8");
+    this.glows.spawn(this.v.set(fromX, y, fromZ), this.u.set(-fromX / life * 0.55, 1.2, -fromZ / life * 0.55), this.c, 0.9 * s, life, { drag: 0.2, gravity: -0.6, grow: 0.8, alpha: 0.45 });
+  }
+
+  /** One heal beat (Nhà Thuốc Lá): a light drop floats from the house to the ally, a small ring where it lands (05 §6.6). */
+  healDrop(fromX: number, fromZ: number, toX: number, toZ: number, toY = 1): void {
+    const y0 = this.heightAt(fromX, fromZ) + 2.2;
+    const y1 = this.heightAt(toX, toZ) + toY;
+    const life = 0.8;
+    const s = this.k;
+    this.glows.spawn(this.v.set(fromX, y0, fromZ), this.u.set((toX - fromX) / life, (y1 - y0) / life + 1.2, (toZ - fromZ) / life), FX_COLORS.heal, 0.7 * s, life, { drag: 0, gravity: 2.4, grow: -0.2 });
+    this.rings.spawn(toX, this.heightAt(toX, toZ) + 0.12, toZ, 0.6 * s, 0.6, FX_COLORS.heal, 0.6, { grow: 1.2 * s, kind: 1, thickness: 0.18, drag: 0 });
+  }
+
   /** Gold: coins glint up from a kill and fade (gold is money, so only here, 05 §2.2). */
   gold(at: THREE.Vector3, amount: number): void {
     const n = Math.min(10, 3 + Math.round(amount / 3));
@@ -762,9 +789,9 @@ export class FxCore {
           const vel = this.u.set(vx * speed, (emitter.dy + pitch) * speed, vz * speed);
           const hot = this.random();
           const color = hot < 0.25 ? FX_COLORS.fireHot : hot < 0.75 ? FX_COLORS.fire : FX_COLORS.fireDeep;
-          // Low alpha: hundreds overlap, and additive light would burn to white.
-          if (i % 3 === 0) this.glows.spawn(at, vel, color, this.rand(0.9, 1.4), this.rand(0.55, 0.8), { drag: 0.5, gravity: -2, grow: 2.4, alpha: 0.22 });
-          else this.sparks.spawn(at, vel, color, this.rand(0.35, 0.6), this.rand(0.5, 0.75), { drag: 0.5, gravity: -1.5, grow: 1.5, alpha: 0.5 });
+          // Low alpha: hundreds overlap, and additive light would burn to white; denser and larger at the play camera.
+          if (i % 3 === 0) this.glows.spawn(at, vel, color, this.rand(0.9, 1.4) * this.k, this.rand(0.6, 0.85), { drag: 0.5, gravity: -2, grow: 2.4, alpha: 0.32 });
+          else this.sparks.spawn(at, vel, color, this.rand(0.35, 0.6) * this.k, this.rand(0.55, 0.8), { drag: 0.5, gravity: -1.5, grow: 1.5, alpha: 0.7 });
         }
         break;
       }
@@ -830,9 +857,9 @@ export class FxCore {
       // Trail points sampled back along the bolt's own curve (≈ 2.5 m).
       const span = Math.min(bolt.t, 2.5 / bolt.length);
       for (let i = 0; i < bolt.trail.count; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (bolt.trail.count - 1), bolt.trail.points[i]!);
-      bolt.trail.update(cameraPos, bolt.strong ? 0.6 : 0.5, bolt.t < 1 ? 1 : Math.max(0, 1 - bolt.waited * 6), time);
+      bolt.trail.update(cameraPos, (bolt.strong ? 0.6 : 0.5) * this.k, bolt.t < 1 ? 1 : Math.max(0, 1 - bolt.waited * 6), time);
       if (bolt.t < 1) {
-        this.glows.spawn(head, this.u.set(0, 0, 0), bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, bolt.strong ? 1.5 : 1.25, 0.05, { drag: 0 });
+        this.glows.spawn(head, this.u.set(0, 0, 0), bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, (bolt.strong ? 1.5 : 1.25) * this.k, 0.05, { drag: 0 });
         if (this.random() < 30 * dt) this.sparks.spawn(head, this.u.set(this.rand(-1, 1), this.rand(0, 1.5), this.rand(-1, 1)), FX_COLORS.ember, 0.25, 0.3, { drag: 2, gravity: 3 });
         continue;
       }
@@ -860,8 +887,8 @@ export class FxCore {
         const kk = Math.max(0, k - i * 0.035);
         meteor.trail.points[i]!.lerpVectors(meteor.from, meteor.to, kk ** 1.5);
       }
-      meteor.trail.update(cameraPos, 1.1, 1, time);
-      this.glows.spawn(head, this.u.set(0, 0, 0), FX_COLORS.fireHot, 2.6, 0.05, { drag: 0 });
+      meteor.trail.update(cameraPos, 1.1 * this.k, 1, time);
+      this.glows.spawn(head, this.u.set(0, 0, 0), FX_COLORS.fireHot, 2.6 * this.k, 0.05, { drag: 0 });
       if (this.random() < 60 * dt) this.sparks.spawn(head, this.u.set(this.rand(-2, 2), this.rand(0, 3), this.rand(-2, 2)), FX_COLORS.ember, 0.5, 0.5, { drag: 1.5, gravity: 4 });
       if (meteor.t >= meteor.duration) {
         meteor.active = false;
@@ -1093,6 +1120,14 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             blow(1, now);
             break;
           }
+          case "blight":
+            for (const [x, z] of event.from) core.blightWisp(x, z);
+            break;
+          case "heal": {
+            // The Dragon hovers 2.5 m up; a unit's chest is about 1 m.
+            core.healDrop(event.x, event.z, event.tx, event.tz, event.target.kind === "hero" ? 3 : 1);
+            break;
+          }
           case "consumable":
             core.heal(0, 0, RINGS.daisMm / 1000, 2);
             break;
@@ -1107,6 +1142,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
       const worldDt = hitStop.worldDt(info.dt, info.now);
       worldTime += worldDt;
       stage.camera.getWorldPosition(camPos);
+      // Far from the dais the fire grows (×1 within 40 m, ×2.4 at most), so a strike reads at the play camera (05 §5).
+      core.k = Math.min(2.4, Math.max(1, camPos.length() / 40));
       core.update(worldDt, worldTime, camPos, pointScaleOf(stage.renderer, stage.camera, size));
       stage.renderer.getSize(size);
       trauma.update(info.dt, size.y);

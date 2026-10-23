@@ -119,10 +119,11 @@ export default async function (page) {
           const now = await state(page);
           if (now.gold >= cost + 20) await placeByKeys(page, digit);
         }
+        // A buy by key takes the same key twice (the first press only picks it).
         let now = await state(page);
-        if (now.gold >= 60) { await press(page, "Digit6"); await page.sleep(150); }
+        if (now.gold >= 60) { await press(page, "Digit6"); await page.sleep(100); await press(page, "Digit6"); await page.sleep(150); }
         now = await state(page);
-        if (now.gold >= 90 && s.wave % 3 === 0) { await press(page, "Digit8"); await page.sleep(150); }
+        if (now.gold >= 90 && s.wave % 3 === 0) { await press(page, "Digit8"); await page.sleep(100); await press(page, "Digit8"); await page.sleep(150); }
         now = await state(page);
         if (now.gold >= 100) {
           await press(page, "Backquote");

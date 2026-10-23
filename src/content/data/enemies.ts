@@ -55,7 +55,8 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     stance: "ground",
     altitudeMm: 0,
     word: { band: "D2" },
-    attack: { kind: "melee", damageType: "physical", damage: 8, rangeMm: 1200, periodMs: 1400, windupMs: 500, telegraph: false },
+    // 05 §6.2: infantry blows show a red arc under the feet for their 0.5 s wind-up.
+    attack: { kind: "melee", damageType: "physical", damage: 8, rangeMm: 1200, periodMs: 1400, windupMs: 500, telegraph: true },
     skills: [],
     counters: ["block", "blast"],
     firstChapter: 1,
@@ -180,7 +181,8 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     stance: "low-air",
     altitudeMm: 3000,
     word: { band: "D2" },
-    attack: { kind: "ranged", damageType: "physical", damage: 5, rangeMm: 10_000, periodMs: 1600, windupMs: 400, telegraph: false, holdMm: 10_000 },
+    // 05 §6.2: a flyer's sting shows a red ring on the ground ≥ 0.5 s (02 §2.2's 0.4 s "chổng bụng" stretched to it).
+    attack: { kind: "ranged", damageType: "physical", damage: 5, rangeMm: 10_000, periodMs: 1600, windupMs: 500, telegraph: true, holdMm: 10_000 },
     skills: [{ kind: "poison-sting", cooldownMs: 10_000, poisonMs: 4000, healCutPct: 50 }],
     counters: ["net", "breath"],
     firstChapter: 1,

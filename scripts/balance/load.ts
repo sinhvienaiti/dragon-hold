@@ -5,10 +5,10 @@
  * from the wave plan and from spawn times in a run. Peaks: each foe's W
  * arrives as work spread over the time the reference typist needs for it
  * (W × 60 / 22.7 s), so one foe alone never reads above 1.0; the peak is the
- * most work in any window of 6, 8 or 10 s (02 §5.3 peaks last 6–10 s; the M0
- * gate uses 8 s). A run at k_E < 1 is measured against its own capacity
- * (22.7 × k_E) over windows stretched by 1 / k_E like its waves, so a slow
- * typist's stretched waves read the same as the plan.
+ * most work in any window of 6, 8 or 10 s (00 §4.4 short peaks are 6–10 s:
+ * G9 reads the largest of the three). A run at pace k is measured against
+ * its own capacity (22.7 × k) over windows stretched by 1 / k like its waves,
+ * so a slow or fast typist's waves read the same as the plan.
  * Script side: floats are fine here.
  * Owner: bot-balance (LANES.md).
  */
@@ -19,9 +19,8 @@ import type { EnemyDef, FoeId, GeneralDef, SpawnShape, WaveDef } from "../../src
 
 /** Words a minute of the 35 WPM reference typist (00 §4.3). */
 export const REF_WPM_WORDS = TEMPO.refWordsPerMinX10 / 10;
-/** Peak windows in seconds; the gate reads GATE_WINDOW_S. */
+/** Peak windows in seconds; G9 and the plan read the largest of them. */
 export const PEAK_WINDOWS_S = [6, 8, 10] as const;
-export const GATE_WINDOW_S = 8;
 
 export function foeDef(foe: FoeId): EnemyDef | GeneralDef {
   const def = (ENEMIES as Record<string, EnemyDef | undefined>)[foe] ?? (GENERALS as Record<string, GeneralDef | undefined>)[foe];

@@ -10,6 +10,7 @@ import { GENERALS } from "../content/data/generals";
 import { DAMAGE, DIFFICULTY, ELITE_PM, FLOW, RINGS, enemyHp } from "../content/rules";
 import type { EliteTraitId, EnemyDef, FoeId, GeneralDef, SpawnShape, WaveDef } from "../content/types";
 import { resetAuraSlot } from "./auras";
+import { directorSpawnPm } from "./director";
 import { emit } from "./events";
 import { clamp, dist2, mToU, mmToU, msToTicks, uToM } from "./fixed";
 import { pointAt, type LanePoint, type LaneRuntime } from "./lanes";
@@ -66,8 +67,9 @@ export function createSpawnState(init: WorldInit): SpawnState {
   return { queue: [], gateFreeAt: init.lanes.map(() => 0), nextCluster: 1, lastStartAt: -1_000_000, lastStartLane: -1, capWaitAt: -1 };
 }
 
-/** Spawn time scale (00 §4.4, §4.10): × 1000 / k_E, × the difficulty's spawn gap. */
-export const spawnMs = (world: World, ms: number): number => Math.round((ms * DIFFICULTY[world.difficulty].spawnGapPm) / world.kEPm);
+/** Spawn time scale (BALANCE.md §4.1, §4.2, 00 §4.10): × 1000 / k, × the difficulty's spawn gap, × the pace director's scale. */
+export const spawnMs = (world: World, ms: number): number =>
+  Math.round((((ms * DIFFICULTY[world.difficulty].spawnGapPm) / world.pace.kPm) * directorSpawnPm(world)) / 1000);
 
 /** Queues every group of `wave` (called by waves at wave start). */
 export function scheduleWave(world: World, wave: WaveDef): void {

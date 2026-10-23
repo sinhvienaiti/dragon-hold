@@ -18,7 +18,7 @@ import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { M0_GATES } from "../../src/content/rules";
-import { BOT_NAMES, BOTS, createBotWorld, runBot, type BotName, type BotRun } from "./bot";
+import { BOT_NAMES, BOTS, M0_BOTS, createBotWorld, runBot, type BotName, type BotRun } from "./bot";
 import { pacedStage } from "./variants";
 import { m0Gates, mapNotes, markdown, planRows, readiness, summarize, type BotSummary } from "./report";
 
@@ -68,7 +68,8 @@ async function main(): Promise<void> {
   const base = num("base-seed", STAGE_M0.seed);
   const maxTicks = Math.round(num("max-minutes", 60) * 3600);
   const pace = num("pace", 1);
-  const bots = (arg("bots")?.split(",") ?? BOT_NAMES).filter((name): name is BotName => {
+  // Every bot by default: the M0 gate bots and BALANCE.md §6's set with the B6, B7 variants (`--set=m0`: the gate bots only).
+  const bots = (arg("bots")?.split(",") ?? (arg("set") === "m0" ? [...M0_BOTS] : BOT_NAMES)).filter((name): name is BotName => {
     if (!(name in BOTS)) console.error("không có bot " + name + "; có: " + BOT_NAMES.join(", "));
     return name in BOTS;
   });

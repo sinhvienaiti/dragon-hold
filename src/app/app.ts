@@ -13,7 +13,7 @@
  * Owner: integrator (LANES.md).
  */
 import "./app.css";
-import { Vector3 } from "three";
+import { Vector3, type Object3D } from "three";
 import { createAudio, type GameAudio } from "../audio";
 import { ENEMIES } from "../content/data/enemies";
 import { GENERALS } from "../content/data/generals";
@@ -26,7 +26,7 @@ import { uToM } from "../sim/fixed";
 import { applyCommand, createWorld, hashWorldHex, runLog, step, type World } from "../sim/world";
 import { newWordsOf } from "../typing/deck";
 import { createHud, type Hud } from "../ui/hud";
-import { createLearningFrame, createPrelearn, createReviewCard, type LearningPanel, type PanelWord } from "../ui/learning-frame";
+import { createLearningFrame, createPrelearn, createReviewCard, type LearningFramePresenter, type LearningPanel, type PanelWord } from "../ui/learning-frame";
 import { createPlacementUi, type PlacementUi } from "../ui/placement-ui";
 import { createResults } from "../ui/results";
 import { createShopStrip } from "../ui/shop-strip";
@@ -102,12 +102,16 @@ interface Run {
   world: World;
   log: { tick: number; command: SimCommand }[];
   presenters: Presenter[];
+  /** Its 3D views (actors, telegraphs, bars, effects) and the roots they hung on the stage layers. */
+  scene: { presenters: Presenter[]; roots: Object3D[] };
   handlers: ActionHandler[];
   actors: ActorsView;
   fx: FxPresenter;
   telegraphs: TelegraphsView;
   hud: Hud;
   placement: PlacementUi;
+  /** The learning frame: covered while a learning panel asks (its lines would give answers away). */
+  frame: LearningFramePresenter;
   prelearn: LearningPanel & { show(words: readonly PanelWord[]): void };
   review: LearningPanel & { show(items: Parameters<ReturnType<typeof createReviewCard>["show"]>[0]): void };
 }
@@ -179,6 +183,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const map: MapStage = createMapStage(canvasHost, mapDef, quality);
   map.render();
 
+  // The Dragons live as long as the app: a retry resets them instead of loading and decoding the GLBs again.
+  const heroes = createHeroes(map.stage, mapDef, { terrain: map.terrain });
+
   // Persistent services: audio, the learning bridge and client.
   const bridge = createLearningBridge({ gameId: "dragon-hold" });
   const learning: LearningClient = createLearningClient({ bridge });
@@ -196,6 +203,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const hurt = el(doc, "div", "dh-hurt");
   const ffBadge = el(doc, "div", "dh-ff", "×2");
   setShown(ffBadge, false);
+  /** Pause menu and 3-2-1: a plain dim layer, words and the learning frame hidden (01 §3.9 "Tạm dừng che chữ"). */
+  const hush = el(doc, "div", "dh-hush");
+  setShown(hush, false);
   const veil = el(doc, "div", "dh-veil");
   const veilText = el(doc, "div", "dh-veil__text", "");
   veil.append(veilText);
@@ -281,7 +291,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     menuItems.push(button);
   }
   menu.append(menuTitle, ...menuItems, menuKeys);
-  overlay.append(menu, veil, countdownNode);
+  overlay.append(hush, menu, veil, countdownNode);
 
   function selectMenu(index: number): void {
     menuIndex = (index + menuItems.length) % menuItems.length;
@@ -389,8 +399,12 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   // ── A run: world and every presenter that reads it ──
   function buildRun(): Run {
     const world = createWorld(stage, seed, { deck: deck!, typistWpm, difficulty: options.difficulty });
+    const layers = map.stage.layers;
+    const onStage = (): Object3D[] => [...layers.ground.children, ...layers.actors.children, ...layers.fx.children];
+    const before = new Set(onStage());
     const actors = createActors(map.stage, map.terrain);
-    const heroes = createHeroes(map.stage, mapDef, { terrain: map.terrain, locator: actors });
+    heroes.reset();
+    heroes.setLocator(actors);
     const telegraphs = createTelegraphs(map.stage, map.terrain, { locator: actors });
     const hpbars = createHpBars(map.stage, { locator: actors, terrain: map.terrain });
     const fx = createFx(map.stage, { locator: actors, terrain: map.terrain, heroes, shake: (px) => map.rig.shake(px) });
@@ -409,7 +423,14 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       },
       send: sink,
     };
-    const prelearn = createPrelearn(overlay!, hooks);
+    // Học trước shows the word: copying it is not a recall (00 D14), so its answers go out with hintUsed.
+    const prelearn = createPrelearn(overlay!, {
+      ...hooks,
+      recall: (text: string, correct: boolean, ms: number, answer: string) => {
+        learning.recordRecall(text, correct, { responseMs: ms, userAnswer: answer, hintUsed: true });
+        if (!correct) audio.learning("wrong");
+      },
+    });
     const review = createReviewCard(overlay!, hooks);
     const replay: ActionHandler = { handleAction: (action) => action === "replay" && learning.handleAction("replay") };
     return {
@@ -417,33 +438,58 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       log: [],
       // actors first: the others read the positions it computes each frame.
       presenters: [actors, heroes, telegraphs, hpbars, fx, tags, frame, placement, hud, waveCard, strip, results, audio],
+      scene: { presenters: [actors, telegraphs, hpbars, fx], roots: onStage().filter((root) => !before.has(root)) },
       handlers: [results, placement, strip, waveCard, hud, replay, map.rig],
       actors,
       fx,
       telegraphs,
       hud,
       placement,
+      frame,
       prelearn,
       review,
     };
   }
 
-  function disposeRun(): void {
-    if (!run) return;
-    for (const presenter of run.presenters) if (presenter !== audio) presenter.dispose();
-    run.prelearn.dispose();
-    run.review.dispose();
-    run = null;
+  /**
+   * The last run's 3D views, off the stage but not yet disposed. three.js drops
+   * a compiled GPU program once no material uses it, and some of the new run's
+   * materials only appear with its first foe or telegraph; while the old ones
+   * live, those find their program cached, so a retry links no shader (a
+   * 270 ms frame before). They go at the next restart or with the app.
+   */
+  let retired: Presenter[] = [];
+
+  /** Disposes `old`; with `retire`, its 3D views leave the stage now and are disposed at the next call. */
+  function disposeRun(old: Run | null = run, retire = false): void {
+    for (const presenter of retired) presenter.dispose();
+    retired = [];
+    if (!old) return;
+    for (const presenter of old.presenters) {
+      if (presenter === audio || presenter === heroes) continue;
+      if (!retire || !old.scene.presenters.includes(presenter)) presenter.dispose();
+    }
+    if (retire) {
+      for (const root of old.scene.roots) root.removeFromParent();
+      retired = old.scene.presenters;
+    }
+    old.prelearn.dispose();
+    old.review.dispose();
+    if (old === run) {
+      heroes.setLocator(undefined);
+      run = null;
+    }
   }
 
   function restart(): void {
     if (disposed || !deck) return;
     learning.flush();
-    disposeRun();
     audio.resetRun();
     fastForward = false;
     countdownUntil = 0;
+    const old = run;
     run = buildRun();
+    disposeRun(old, true);
     router!.handlers.splice(0, router!.handlers.length, ...run.handlers);
   }
 
@@ -475,7 +521,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
           fastForward = false;
           break;
         case "hit":
-          if (event.target.kind === "hero") hurtUntil = now + 120;
+          // A foe's blow darkens the edge; Héo lan's quiet seep (source "hero") does not.
+          if (event.target.kind === "hero" && event.source.kind !== "hero") hurtUntil = now + 120;
           break;
         default:
           break;
@@ -590,6 +637,11 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const left = countdownUntil - now;
     setShown(countdownNode, left > 0);
     if (left > 0) countdownNode.textContent = String(Math.ceil(left / 1000));
+    // Words stay hidden while the game stands still for the menu or the 3-2-1; a learning panel covers the frame.
+    const hushed = menuOpen || left > 0;
+    setShown(hush, hushed);
+    overlay!.classList.toggle("is-hushed", hushed);
+    run.frame.setCovered(activePanel() !== null);
 
     if (now >= protectAt) {
       protectAt = now + PROTECT_EVERY_MS;
@@ -798,6 +850,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       loop?.stop();
       router?.dispose();
       disposeRun();
+      heroes.dispose();
       audio.dispose();
       learning.dispose();
       stopMusicWatch();

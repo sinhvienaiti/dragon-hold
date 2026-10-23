@@ -8,6 +8,9 @@
  * Viêm Đế swap at M0c), loaded with the kit three loader from
  * public/assets/dragon-hold/models/ (ignored by Git). Low quality, a missing
  * file or a failed load keeps a primitive placeholder.
+ * The app builds the Dragons once and keeps them across "Chơi lại ải"
+ * (reset + setLocator), so a retry neither loads nor decodes the GLBs again;
+ * dispose frees geometry, materials, textures and skeletons.
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
@@ -51,6 +54,21 @@ const GUIDE_SIZE_M = 3.0;
 const FIRE_COLOR = "#d9643a";
 const GUIDE_COLOR = "#efe6d2";
 
+/** Frees everything a loaded model holds on the GPU: geometry, materials, their textures, skeleton bone textures. */
+export function freeObject(root: THREE.Object3D): void {
+  root.removeFromParent();
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if ((object as THREE.SkinnedMesh).isSkinnedMesh) (object as THREE.SkinnedMesh).skeleton.dispose();
+    if (!mesh.isMesh) return;
+    mesh.geometry.dispose();
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      for (const value of Object.values(material)) if (value instanceof THREE.Texture) value.dispose();
+      material.dispose();
+    }
+  });
+}
+
 export function modelUrl(base: string, quality: Quality): string | null {
   if (quality === "low") return null;
   return base + (quality === "medium" ? ".medium.glb" : ".high.glb");
@@ -69,6 +87,10 @@ export interface HeroesView extends Presenter, MouthSource {
   face(x: number, z: number): void;
   /** Advances without a World (bench, showcase). */
   tick(dt: number, now: number): void;
+  /** A new run on the same map: pose, words and the locked foe start over. */
+  reset(): void;
+  /** The run's foe locator (actors), to face the locked foe. */
+  setLocator(locator: FoeLocator | undefined): void;
 }
 
 export interface HeroesOptions {
@@ -124,6 +146,10 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
   let time = 0;
   let boostUntil = 0;
   let dead = false;
+  /** Death or Victory left the rig in an end pose; a reset plays it out. */
+  let posed = false;
+  let disposed = false;
+  let locator = options.locator;
   /** Word slot → its foe, and the locked foe Hỏa Long faces. */
   const words = new Map<number, EntityRef>();
   let lockedFoe: { slot: number; serial: number } | null = null;
@@ -135,6 +161,10 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     if (url === null) return;
     try {
       const gltf = await loadModel(url);
+      if (disposed) {
+        freeObject(gltf.scene);
+        return;
+      }
       const hero = new Hero(gltf.scene, gltf.animations, {
         tipsPerSide: 0,
         trail: 2,
@@ -157,6 +187,10 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     if (url === null) return;
     try {
       const gltf = await loadModel(url);
+      if (disposed) {
+        freeObject(gltf.scene);
+        return;
+      }
       const model = gltf.scene;
       model.traverse((object) => {
         if ((object as THREE.Mesh).isMesh) object.frustumCulled = false;
@@ -225,7 +259,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
 
   const tick = (dt: number, now: number): void => {
     time = now;
-    if (lockedFoe !== null && options.locator?.locate(lockedFoe.slot, lockedFoe.serial, "base", at)) face(at.x, at.z);
+    if (lockedFoe !== null && locator?.locate(lockedFoe.slot, lockedFoe.serial, "base", at)) face(at.x, at.z);
     yaw = turnToward(yaw, wantYaw, dt * 5.5);
     fireAnchor.rotation.y = yaw;
     hurt = Math.max(0, hurt - dt * 6);
@@ -254,6 +288,23 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     guide: guideAct,
     face,
     tick,
+
+    reset(): void {
+      dead = false;
+      hurt = 0;
+      glow = 0;
+      boostUntil = 0;
+      words.clear();
+      lockedFoe = null;
+      yaw = wantYaw = Math.atan2(0.15, -1);
+      // A short shot fades the Death or Victory pose back to the idle hover.
+      if (posed && fire !== null) fire.play("hit");
+      posed = false;
+    },
+
+    setLocator(next: FoeLocator | undefined): void {
+      locator = next;
+    },
 
     mouth(out: THREE.Vector3): THREE.Vector3 {
       if (fire !== null) return fire.socketWorld(fire.sockets.mouth, out, mouthFallback);
@@ -304,7 +355,8 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
             }
             break;
           case "hit":
-            if (event.target.kind === "hero") {
+            // Héo lan seeps (source "hero") without a flinch; foes' blows knock the Dragon.
+            if (event.target.kind === "hero" && event.source.kind !== "hero") {
               hurt = 1;
               fire?.hurt(Math.min(1, 0.3 + event.amount / 60));
               if (event.amount >= 20) play("hit");
@@ -318,10 +370,12 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
             break;
           case "victory":
             play("victory");
+            posed = true;
             guideAct("wave");
             break;
           case "defeat":
             play("death");
+            posed = true;
             dead = true;
             break;
           default:
@@ -335,15 +389,16 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     },
 
     dispose(): void {
-      fire?.dispose();
+      disposed = true;
+      if (fire !== null) {
+        // The kit's Hero frees geometry, materials and textures; its bone textures are ours to free.
+        fire.root.traverse((object) => (object as THREE.SkinnedMesh).isSkinnedMesh && (object as THREE.SkinnedMesh).skeleton.dispose());
+        fire.dispose();
+      }
       if (guide !== null) {
         guide.mixer.stopAllAction();
-        guide.root.traverse((object) => {
-          const mesh = object as THREE.Mesh;
-          if (!mesh.isMesh) return;
-          mesh.geometry.dispose();
-          for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) material.dispose();
-        });
+        guide.mixer.uncacheRoot(guide.root);
+        freeObject(guide.root);
       }
       body.geometry.dispose();
       snout.geometry.dispose();

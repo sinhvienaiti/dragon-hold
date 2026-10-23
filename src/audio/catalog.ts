@@ -11,7 +11,8 @@ import { ENEMIES } from "../content/data/enemies";
 import { GENERALS } from "../content/data/generals";
 
 /** The 12 buses (05 §7): master plus eleven that feed it. */
-export const BUSES = ["master", "music", "ui", "typing", "dragon", "enemies", "traps", "units", "ambience", "voice", "stingers", "learning"] as const;
+// "world": bolts, impacts and blasts (05 §7.2 "world −6" under a spoken word); "dragon" keeps the Dragon's own voice.
+export const BUSES = ["master", "music", "ui", "typing", "dragon", "world", "enemies", "traps", "units", "ambience", "voice", "stingers", "learning"] as const;
 export type Bus = (typeof BUSES)[number];
 export type ChildBus = Exclude<Bus, "master">;
 export const CHILD_BUSES = BUSES.filter((bus): bus is ChildBus => bus !== "master");
@@ -67,18 +68,18 @@ export const SOUNDS = {
   "type.word": def("typing", 2, 320, "sfx/typing/word", { gapMs: 40 }),
 
   // Hỏa Long (dragon bus; the kit's dragon voice synth through its voice bus).
-  "fire.cast": def("dragon", 4, 340, "sfx/dragon/fire-cast", { gapMs: 45, gainDb: -3 }),
-  "fire.impact.a": def("dragon", 4, 340, "sfx/dragon/fire-impact-a", { gapMs: 30 }),
-  "fire.impact.b": def("dragon", 4, 380, "sfx/dragon/fire-impact-b", { gapMs: 30 }),
-  "fire.impact.c": def("dragon", 4, 520, "sfx/dragon/fire-impact-c", { gapMs: 30, group: "blast" }),
-  "impact.multi": def("dragon", 4, 480, "sfx/dragon/impact-multi", { gapMs: 90, group: "blast", gainDb: -2 }),
+  "fire.cast": def("world", 4, 340, "sfx/dragon/fire-cast", { gapMs: 45, gainDb: -3 }),
+  "fire.impact.a": def("world", 4, 340, "sfx/dragon/fire-impact-a", { gapMs: 30 }),
+  "fire.impact.b": def("world", 4, 380, "sfx/dragon/fire-impact-b", { gapMs: 30 }),
+  "fire.impact.c": def("world", 4, 520, "sfx/dragon/fire-impact-c", { gapMs: 30, group: "blast" }),
+  "impact.multi": def("world", 4, 480, "sfx/dragon/impact-multi", { gapMs: 90, group: "blast", gainDb: -2 }),
   "dragon.hurt": def("dragon", 3, 420, "sfx/dragon/hurt", { gapMs: 220, gainDb: -2 }),
   "dragon.low": def("stingers", 1, 900, "sfx/dragon/low-alarm", { gapMs: 3000 }),
   "dragon.heartbeat": def("stingers", 1, 420, "sfx/dragon/heartbeat", { gapMs: 900, gainDb: -6 }),
   "dragon.down": def("dragon", 1, 1600, "sfx/dragon/down", { gapMs: 2000 }),
-  "dragon.breath": def("dragon", 3, 1650, "sfx/dragon/breath", { gapMs: 500 }),
-  "dragon.skyfire.cast": def("dragon", 3, 900, "sfx/dragon/skyfire-cast", { gapMs: 500, gainDb: -2 }),
-  "dragon.skyfire.impact": def("dragon", 3, 1400, "sfx/dragon/skyfire-impact", { gapMs: 200, group: "blast" }),
+  "dragon.breath": def("world", 3, 1650, "sfx/dragon/breath", { gapMs: 500 }),
+  "dragon.skyfire.cast": def("world", 3, 900, "sfx/dragon/skyfire-cast", { gapMs: 500, gainDb: -2 }),
+  "dragon.skyfire.impact": def("world", 3, 1400, "sfx/dragon/skyfire-impact", { gapMs: 200, group: "blast" }),
   "dragon.roar": def("dragon", 3, 1300, "sfx/dragon/roar", { gapMs: 600 }),
   "dragon.rage": def("dragon", 3, 1000, "sfx/dragon/rage-full", { gapMs: 1500, gainDb: -2 }),
   "dragon.inferno": def("dragon", 3, 1700, "sfx/dragon/inferno", { gapMs: 800 }),

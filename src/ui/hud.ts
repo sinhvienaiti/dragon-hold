@@ -13,6 +13,7 @@ import { CONSUMABLES } from "../content/data/our-side";
 import { CHAIN, FLOW, HERO_LEVEL, HERO_SKILLS, OUR_SIDE, RAGE, URGENT } from "../content/rules";
 import type { ConsumableId, HeroSkillId, SimCommand, SimEvent } from "../content/types";
 import { TICK_HZ, msToTicks } from "../sim/fixed";
+import { callEarlyRoom } from "../sim/economy";
 import type { World } from "../sim/world";
 import { el, icon, keyLabel, setClass, setShown, setText, setVar, uiButton } from "./skin";
 
@@ -29,8 +30,9 @@ export function phaseTicksLeft(world: Clock): number | null {
 export const clockSeconds = (ticks: number): number => Math.ceil(ticks / TICK_HZ);
 
 /** Shift + Enter gold for the time left (00 §4.5): 2 per whole second, at most 40. */
-export function callEarlyBonus(ticksLeft: number): number {
-  return Math.min(FLOW.callEarlyGoldMax, FLOW.callEarlyGoldPerS * Math.floor(ticksLeft / TICK_HZ));
+export function callEarlyBonus(ticksLeft: number, room = Number.POSITIVE_INFINITY): number {
+  // `room`: what the stage's 15 % "other" gold pool still holds (sim economy callEarlyRoom).
+  return Math.min(FLOW.callEarlyGoldMax, FLOW.callEarlyGoldPerS * Math.floor(ticksLeft / TICK_HZ), Number.isFinite(room) ? Math.max(0, room) : Number.POSITIVE_INFINITY);
 }
 
 /** The upcoming wave in prep, warning and break: world.wave is the current or last one (0 before the first). */
@@ -153,6 +155,7 @@ const REJECT_PAIR: Readonly<Record<string, string>> = {
   "continue|phase": "Chỉ vào đợt sớm được lúc nghỉ",
   "upgrade|not-ruined": "Nhà chưa đổ nát, chưa cần sửa",
   "buy|limit": "Đã mua đủ số lần trong ải",
+  "skill|no-target": "Không có mục tiêu: kỹ năng chưa tốn hồi chiêu",
 };
 
 const REJECT_TEXT: Readonly<Record<string, string>> = {
@@ -380,7 +383,8 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     const phase = w.phase;
     const total = w.stage.waves.length;
     setText(goldValue, String(w.economy.gold));
-    const shownWave = phase === "prep" || phase === "warning" ? upcomingWave(w) : Math.max(1, w.wave);
+    // Prep, warning and breaks look ahead to the coming wave, like the wave card.
+    const shownWave = phase === "prep" || phase === "warning" || phase === "break" ? upcomingWave(w) : Math.max(1, w.wave);
     setText(waveValue, shownWave + "/" + total);
     setText(chainValue, String(w.words.chain));
     setText(chainMult, chainMultiplier(w.words.chain));
@@ -393,7 +397,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     else if (phase === "break") {
       line = left === null
         ? `Nghỉ · <b>${keyLabel("enter")}</b> để vào đợt ${upcomingWave(w)}`
-        : `Nghỉ <b>${clockSeconds(left)} s</b> · ${keyLabel("call-early")} gọi sớm <span class="dh-bonus">+${callEarlyBonus(left)} vàng</span>`;
+        : `Nghỉ <b>${clockSeconds(left)} s</b> · ${keyLabel("call-early")} gọi sớm <span class="dh-bonus">+${callEarlyBonus(left, callEarlyRoom(w))} vàng</span>`;
     } else if (phase === "wave") line = `Đang giữ ải · đợt <b>${w.wave}</b>`;
     else if (phase === "victory") line = "Giữ ải thành công";
     else line = "Bệ Rồng thất thủ";

@@ -139,13 +139,21 @@ export default async function (page) {
   await press(page, "Escape");
   await page.sleep(150);
 
+  // A buy by key waits for the same key again (a stray digit never spends gold): one press arms, the second buys.
   const shopBefore = await state(page);
   await press(page, "Digit6");
   await page.sleep(150);
-  await press(page, "Digit7");
+  const armed = await state(page);
+  const armedCell = await page.eval("document.querySelector('.dh-cell.is-armed')?.dataset.item ?? null");
+  await page.shot(join(out, `place-armed-${width}x${height}.png`));
+  await press(page, "Digit6");
   await page.sleep(150);
-  await press(page, "Digit8");
-  await page.sleep(150);
+  for (const digit of ["Digit7", "Digit8"]) {
+    await press(page, digit);
+    await page.sleep(120);
+    await press(page, digit);
+    await page.sleep(150);
+  }
   const shopAfter = await state(page);
   const stripReasons = await page.eval("[...document.querySelectorAll('.dh-cell')].map((c) => c.dataset.item + ':' + c.innerText.replace(/\\s+/g, ' ').trim())");
 
@@ -159,6 +167,7 @@ export default async function (page) {
   await press(page, "Escape");
 
   return {
+    armedBuy: { cell: armedCell, goldBefore: shopBefore.gold, goldAfterOnePress: armed.gold, heldAfterOnePress: armed.held },
     markers: { prep: prepMarkers, wave: waveMarkers, break: breakMarkers },
     waveNumberKeyMode: waveMode,
     prepGold: prep.gold,
