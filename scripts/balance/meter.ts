@@ -71,7 +71,7 @@ export interface RunMetrics {
   bySkill: Record<string, number>;
   /** Damage the Fire Dragon took, by foe species. */
   heroBy: Record<string, number>;
-  /** Seconds from spawn to death of foes killed, summed with their count (B4). */
+  /** Seconds from a foe's first word to its death (once it could be typed), summed with their count (B4). */
   killSeconds: number;
   killCount: number;
 }
@@ -97,6 +97,8 @@ export class Meter {
   private telegraphs: number[] = [];
   private releases = 0;
   private readonly lives = new Map<number, { life: number; hard: number }>();
+  /** Tick each foe (by serial) got its first word. */
+  private readonly firstWord = new Map<number, number>();
   /** Typed letters per word slot, to tell a lost lock from an untouched word. */
   private readonly typed = new Map<number, number>();
 
@@ -167,13 +169,21 @@ export class Meter {
           const dead = world.enemies.list[event.enemy.slot];
           if (dead && dead.serial === event.enemy.serial) {
             this.kills.push(dead.stopAt > 0 ? Math.min(1, Math.max(0, dead.along / dead.stopAt)) : 1);
-            m.killSeconds += (event.tick - dead.bornAt) / 60;
-            m.killCount += 1;
+            // B4 "hạ quái nhanh hơn": time from its first word, so the word zone's own length (T_a, the slip margin) does not count.
+            const shown = this.firstWord.get(dead.serial);
+            if (shown !== undefined) {
+              m.killSeconds += (event.tick - shown) / 60;
+              m.killCount += 1;
+            }
           }
+          this.firstWord.delete(event.enemy.serial);
           break;
         }
         case "telegraph":
           if (event.owner === "enemy") this.telegraphs.push(event.tick + Math.round((event.durationMs * 60) / 1000));
+          break;
+        case "word-assigned":
+          if (event.target?.kind === "enemy" && !this.firstWord.has(event.target.serial)) this.firstWord.set(event.target.serial, event.tick);
           break;
         case "word-progress":
           if (event.key === "back") break;

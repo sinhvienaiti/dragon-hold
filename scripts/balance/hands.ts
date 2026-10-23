@@ -36,6 +36,12 @@ export interface HandsSpec {
   readonly crowdDrop?: number;
   /** Chance of letting go of the lock (Esc) after a slip on a word with letters in. */
   readonly abandon?: number;
+  /**
+   * E is raw keystroke speed (BALANCE.md §6, kit HumanTypist): every press,
+   * slips and Backspaces too, takes 12 / (E d) s, so a sloppy hand is slower
+   * than its E. Unset: E is net speed (00 §4.3's M0 bots), slips hidden in it.
+   */
+  readonly raw?: boolean;
 }
 
 /** Mean seconds of the reaction in C(E) (00 §4.3). */
@@ -79,9 +85,10 @@ export class Hands {
     private readonly rng: RngStream,
   ) {}
 
-  /** Mean ms between two presses on a word of `letters` letters and group `group`, so the whole word keeps C(E)'s time. */
+  /** Mean ms between two presses on a word of `letters` letters and group `group`: a raw hand's key time, else so the whole word keeps C(E)'s time. */
   meanGapMs(letters: number, group: WordGroup): number {
     const { wpm, accuracy, backspace } = this.spec;
+    if (this.spec.raw === true) return 12_000 / (wpm * dOf(group));
     const presses = expectedPresses(letters, accuracy, backspace);
     // 0.45 + 12 (ℓ + 1) / (E d) = latency + gap × (1 + presses).
     return ((12_000 * (letters + 1)) / (wpm * dOf(group))) / (1 + presses);

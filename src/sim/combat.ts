@@ -408,28 +408,58 @@ export function chargeImpact(world: World, enemy: EnemyState, target: EntityRef)
   emit(world, { type: "attack", source, target, stage: "strike", x: uToM(enemy.x), z: uToM(enemy.z), tx: uToM(tx), tz: uToM(tz) });
 }
 
-/** Héo lan (PRESSURE): every beat (2 s) in a wave, every foe standing in the word zone or inside Vòng Nguy seeps W × its rate into the Fire Dragon (true damage, a running total so tenths add up). */
+/**
+ * Héo lan (PRESSURE, BALANCE.md §5): every beat in a wave, each target left
+ * waiting in the word zone seeps Héo into the Fire Dragon. A target waits
+ * when its word has been up longer than `graceX10` tenths of this player's
+ * word time, or when it stands in the zone (held, fighting, at its stop) with
+ * no word; a swarm cluster counts once (one word). `zoneX10` tenths of HP a
+ * second, `ringX10` inside Vòng Nguy (10 m), `heldPct` of the zone rate while
+ * one of our units holds it; at most `maxTargets` targets count in a beat (the
+ * strongest); true damage, × g(c), × the difficulty's Héo, × its damage auras, × the
+ * √ of the pace k, × the wave's ramp, a running total so fractions add up.
+ */
 function stepBlight(world: World): void {
   const combat = world.combat;
   if (world.phase !== "wave") return;
   combat.blightTicks += 1;
   if (combat.blightTicks < msToTicks(PRESSURE.everyMs)) return;
   combat.blightTicks = 0;
+  const tick = world.tick;
   const ring = mmToU(PRESSURE.ringMm);
-  let x1000 = 0;
+  const grace = Math.round((world.pace.graceTicks * PRESSURE.graceX10) / 10);
+  const damagePm = PRESSURE.difficultyPm[world.difficulty];
+  const live = world.words.live;
   const from: [number, number][] = [];
+  const clusters: number[] = [];
+  /** This beat's seeps, thousandths of HP, strongest first once sorted (at most PRESSURE.maxTargets count). */
+  const seeps: number[] = [];
   for (const enemy of world.enemies.list) {
-    if (!enemy.alive) continue;
-    const near = within(enemy.x, enemy.z, 0, 0, ring);
+    if (!enemy.alive || !inWordZone(world, enemy)) continue;
+    // A cluster's first live member in slot order carries its word (clusterLeader).
+    if (enemy.cluster >= 0) {
+      if (clusters.includes(enemy.cluster)) continue;
+      clusters.push(enemy.cluster);
+    }
+    const word = enemy.word >= 0 ? live[enemy.word] : null;
     const standing = enemy.mode === "blocked" || enemy.mode === "attack" || enemy.mode === "hold";
-    if (!near && !(standing && inWordZone(world, enemy))) continue;
+    if (word ? tick - word.bornTick <= grace : !standing) continue;
+    const near = within(enemy.x, enemy.z, 0, 0, ring);
+    const rate = near ? PRESSURE.ringX10 : enemy.blockedBy >= 0 ? Math.round((PRESSURE.zoneX10 * PRESSURE.heldPct) / 100) : PRESSURE.zoneX10;
+    if (rate <= 0) continue;
     if (from.length < 12) from.push([uToM(enemy.x), uToM(enemy.z)]);
-    const rate = near ? PRESSURE.ringPerW10 : PRESSURE.zonePerW10;
-    // W × rate tenths a second × the beat's seconds × g(c) × difficulty × auras, in thousandths of HP.
-    x1000 += Math.round((foeDefOf(enemy.foe).w100 * rate * PRESSURE.everyMs * world.gPm * DIFFICULTY[world.difficulty].enemyDamagePm * (100 + auraPct(world, enemy, "damage"))) / 1e11);
+    // Tenths of HP a second × the beat's ms × g(c) × difficulty × auras, in thousandths of HP.
+    seeps.push(Math.round((rate * PRESSURE.everyMs * world.gPm * damagePm * (100 + auraPct(world, enemy, "damage"))) / 1e9));
   }
-  // × k: a slower player's foes stand longer, a faster one's less; the seep follows the pace both ways (BALANCE.md §4.1).
-  x1000 = Math.round((x1000 * world.pace.kPm) / 1000);
+  // The Héo thickens with the waiting words, up to `maxTargets` of them (the strongest): falling behind costs, it never snowballs.
+  seeps.sort((a, b) => b - a);
+  let x1000 = 0;
+  for (let k = 0; k < seeps.length && k < PRESSURE.maxTargets; k += 1) x1000 += seeps[k]!;
+  // × √k: a slower player's foes come further apart (less to seep) but our side, which works by the clock, has
+  // longer at each of them; a faster one's the other way. Half of the pace each way (BALANCE.md §4.1).
+  // × the wave's ramp: the Héo thickens over the stage, light while our side is still small, heaviest in the last waves.
+  const ramp = PRESSURE.rampFromPct + (world.wave > 1 ? world.wave - 1 : 0) * PRESSURE.rampPerWavePct;
+  x1000 = Math.round((x1000 * world.pace.rootKPm * ramp) / 100_000);
   combat.blightX1000 += x1000;
   const dmg = Math.floor(combat.blightX1000 / 1000);
   if (dmg <= 0) return;

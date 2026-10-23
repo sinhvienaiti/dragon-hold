@@ -39,10 +39,10 @@ export interface BotSpec {
   readonly standard?: string;
 }
 
-/** A human-like typist (BALANCE.md §6): E, a, CV, recognition by familiarity, crowd drop, drops a lock now and then. */
+/** A human-like typist (BALANCE.md §6): raw E (slips cost key time), a, CV, recognition by familiarity, crowd drop, drops a lock now and then. */
 function humanHands(spec: Pick<KitBotSpec, "wpm" | "accuracy" | "cv" | "crowdDrop" | "abandon">): HandsSpec {
   // backspace 0.1: here a wrong key never enters the word, so a Backspace undoes a right letter; only a habit.
-  return { wpm: spec.wpm, accuracy: spec.accuracy, backspace: 0.1, latencyMs: BASE_LATENCY_MS, cv: spec.cv, recognize: RECOGNIZE, crowdAt: 6, crowdDrop: spec.crowdDrop, abandon: spec.abandon };
+  return { wpm: spec.wpm, accuracy: spec.accuracy, backspace: 0.1, latencyMs: BASE_LATENCY_MS, cv: spec.cv, recognize: RECOGNIZE, crowdAt: 6, crowdDrop: spec.crowdDrop, abandon: spec.abandon, raw: true };
 }
 
 const KIT_BOT = (id: KitBotSpec["id"]): KitBotSpec => STANDARD_BOTS.find((bot) => bot.id === id)!;
@@ -50,7 +50,7 @@ const KIT_BOT = (id: KitBotSpec["id"]): KitBotSpec => STANDARD_BOTS.find((bot) =
 /** A bot of the standard set (BALANCE.md §6): tactics pick the buying style, skill timing and target mix. */
 function standardBot(name: string, label: string, kit: KitBotSpec, standard?: string): BotSpec {
   const typing = kit.wpm > 0;
-  const buy = kit.tactics === "none" ? "none" : !typing ? "best" : kit.tactics === "poor" ? "poor" : "balanced";
+  const buy = kit.tactics === "none" ? "none" : !typing ? "best" : kit.tactics === "poor" ? "poor" : kit.tactics === "good" ? "good" : "balanced";
   const recall = kit.accuracy >= 0.95 ? 0.85 : kit.accuracy >= 0.9 ? 0.75 : 0.6;
   return {
     name,
@@ -119,6 +119,8 @@ export interface RunOptions {
   readonly stallStop?: boolean;
   /** The in-run pace director (default on; B7 also runs the standard bot without it). */
   readonly paceDirector?: boolean;
+  /** Called after every step with that step's events and whether the typist had a word in mind (anatomy.ts). */
+  readonly onTick?: (world: World, events: readonly SimEvent[], busy: boolean) => void;
 }
 
 export type RunResult = "victory" | "defeat" | "timeout" | "stalled";
@@ -238,6 +240,7 @@ export function runBot(spec: BotSpec, options: RunOptions): BotRun {
     }
     meter.read(world, events);
     meter.scan(world, typist?.busy ?? false, typist?.stats.releases ?? 0);
+    options.onTick?.(world, events, typist?.busy ?? false);
     if (options.hashEvery !== undefined && world.tick % options.hashEvery === 0) hashes.push(hashWorldHex(world));
     if (world.phase === "victory" || world.phase === "defeat") break;
     if (world.phase !== phase) [phase, phaseAt] = [world.phase, world.tick];

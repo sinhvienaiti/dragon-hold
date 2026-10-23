@@ -17,9 +17,10 @@ const holdsHeavy = (wave: WaveDef, fromMs: number, toMs: number): boolean =>
 
 /** The 10 M0 waves against the typing-load budget (00 §4.4) and the wave generator rules (02 §5). */
 describe("battle waves: the plan", () => {
-  it("has 10 waves ramping 0.60 → the last wave's 1.05–1.25, generals in waves 5 and 10 only", () => {
+  it("has 10 waves ramping from wave 1's 0.55–0.65 to the last wave's 1.05–1.25, generals in waves 5 and 10 only", () => {
     expect(M0_WAVES).toHaveLength(10);
-    expect(M0_WAVES[0]!.load100).toBe(60);
+    expect(M0_WAVES[0]!.load100).toBeGreaterThanOrEqual(LOAD.wave1[0]);
+    expect(M0_WAVES[0]!.load100).toBeLessThanOrEqual(LOAD.wave1[1]);
     expect(M0_WAVES[9]!.load100).toBeGreaterThanOrEqual(LOAD.final[0]);
     expect(M0_WAVES[9]!.load100).toBeLessThanOrEqual(LOAD.final[1]);
     for (const wave of M0_WAVES) {

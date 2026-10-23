@@ -58,8 +58,20 @@ export interface PaceState {
   readonly kPm: number;
   /** One word's time for this player, 60 / C(E_eff) s, in ticks. */
   readonly wordTicks: number;
-  /** T_a of a one-word foe: the word zone in time, in ticks. */
+  /** T_a of a one-word foe: the word zone in time, in ticks (× the margin). */
   readonly approachTicks: number;
+  /**
+   * Time margin (BALANCE.md §2 factors 3 "Thói sửa lỗi" and 4 "Độ đều: người
+   * không đều được biên an toàn lớn hơn" → biên thời gian), permille: 1000 +
+   * PACE.sloppyMarginX10 / 10 × the chance a word of ℓ̄ letters takes ≥ 2
+   * errors (a Ẩu word, 00 §4.2) at accuracy a + PACE.unevenMarginPct % of CV.
+   * T_a and Héo lan's grace stretch by it.
+   */
+  readonly marginPm: number;
+  /** One word's time at the player's raw E (C(E), 00 §4.3) × the margin, in ticks: Héo lan's grace per waiting word (PRESSURE). */
+  readonly graceTicks: number;
+  /** √k × 1000 (Héo lan follows half the pace, combat.ts stepBlight). */
+  readonly rootKPm: number;
 }
 
 /** What the per-system create functions get; the world does not exist yet. */
@@ -271,7 +283,28 @@ export function capacityX10(wpm: number, eEffX1000: number): number {
   return Math.round(600_000_000 / secondsX1e6);
 }
 
-/** The run's pace from the profile (BALANCE.md §4.1, §9.1): k both ways, one word's time, the word zone's T_a. */
+/**
+ * Chance × 1000 that a word of ℓ̄ letters (rounded, by E's band, 00 §4.3)
+ * takes ≥ 2 wrong keys when each key is right with `accuracyPm` ‰: a Ẩu word
+ * (00 §4.2). Binomial, integer maths: 1 − P(0) − P(1).
+ */
+export function sloppyChancePm(wpm: number, accuracyPm: number): number {
+  const lengthX10 = [...TEMPO.meanLengthX10].reverse().find((row) => wpm >= row.minWpm)!.x10;
+  const letters = Math.round(lengthX10 / 10);
+  const a = accuracyPm < 0 ? 0 : accuracyPm > 1000 ? 1000 : accuracyPm;
+  // In millionths: right^n and n × wrong × right^(n−1).
+  let none = 1_000_000;
+  let previous = 1_000_000;
+  for (let k = 0; k < letters; k += 1) {
+    previous = none;
+    none = Math.round((none * a) / 1000);
+  }
+  const one = Math.round((letters * (1000 - a) * previous) / 1000);
+  const chance = 1_000_000 - none - one;
+  return chance <= 0 ? 0 : Math.round(chance / 1000);
+}
+
+/** The run's pace from the profile (BALANCE.md §4.1, §9.1, §2 factor 3): k both ways, one word's time, the word zone's T_a, the slip margin. */
 export function paceFor(wpm: number, accuracyPm?: number, cvPm?: number, kOverridePm?: number): PaceState {
   // A player who does not type (0 WPM bots) still needs a word time for T_a's floor: read as 10 WPM.
   const e = wpm > 0 ? wpm : 10;
@@ -279,9 +312,12 @@ export function paceFor(wpm: number, accuracyPm?: number, cvPm?: number, kOverri
   const raw = wpm > 0 ? Math.round((capacity * 1000) / PACE.refWordsPerMinX10) : PACE.kMinPm;
   const kPm = kOverridePm ?? (raw < PACE.kMinPm ? PACE.kMinPm : raw > PACE.kMaxPm ? PACE.kMaxPm : raw);
   const wordTicks = Math.round(36_000 / capacity);
-  const approach = Math.round((PACE.approachMs * 60) / kPm);
+  const cv = cvPm ?? PACE.defaultCvPm;
+  const marginPm = 1000 + Math.round((sloppyChancePm(e, accuracyPm ?? PACE.defaultAccuracyPm) * PACE.sloppyMarginX10) / 10) + Math.round((cv * PACE.unevenMarginPct) / 100);
+  const approach = Math.round((PACE.approachMs * 60 * marginPm) / (kPm * 1000));
   const minimum = PACE.approachMinWords * wordTicks;
-  return { kPm, wordTicks, approachTicks: approach > minimum ? approach : minimum };
+  const graceTicks = Math.round((36_000 * marginPm) / (capacityX10(e, e * 1000) * 1000));
+  return { kPm, wordTicks, approachTicks: approach > minimum ? approach : minimum, marginPm, graceTicks, rootKPm: Math.round(Math.sqrt(kPm * 1000)) };
 }
 
 export function createWorld(stage: StageDef, seed: number = stage.seed, options: WorldOptions = {}): World {
@@ -331,7 +367,7 @@ export function createWorld(stage: StageDef, seed: number = stage.seed, options:
     units: createUnitsState(init),
     shop: createShopState(init),
     economy: createEconomyState(init),
-    director: createDirector(options.paceDirector !== false, stage),
+    director: createDirector(options.paceDirector !== false, stage, difficulty),
     stats: {
       keys: 0, wrongKeys: 0, strayKeys: 0, words: 0, grades: [0, 0, 0, 0, 0], locks: 0, locksLost: 0,
       damageWord: 0, damageSkill: 0, damageOurSide: 0, heroDamageTaken: 0, kills: 0, maxLive: 0, capWaitTicks: 0,

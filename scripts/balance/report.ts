@@ -10,7 +10,7 @@ import { MAPS } from "../../src/content/data/maps";
 import { HOUSES, PLACEABLES, TRAPS, UNITS } from "../../src/content/data/our-side";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { AREA, ECONOMY, FLOW, LETTER_BUDGET, LOAD, M0_GATES, SIM_BUDGET, chapterRow, stageGoldBudget } from "../../src/content/rules";
-import { BANDS, METRIC_LABELS, formatGates, runGates, summarizeRuns, type BandMetric, type BotModeSummary, type GateResult, type RunRecord } from "../../src/kit/balance";
+import { BANDS, BAND_MODES, METRIC_LABELS, MODE_LABELS, formatGates, runGates, scoreBand, summarizeRuns, type BandMetric, type BandMode, type BotModeSummary, type GateResult, type RunRecord } from "../../src/kit/balance";
 import type { StageDef, Vec2 } from "../../src/content/types";
 import { U_PER_M } from "../../src/sim/fixed";
 import type { SlotState } from "../../src/sim/placement";
@@ -87,8 +87,8 @@ function jamsPerMinute(runs: readonly BotRun[], waveTicks: number): Record<strin
 
 const arrivalsOf = (run: BotRun, wave?: number): Arrival[] => (wave === undefined ? run.arrivals : run.arrivals.filter((a) => a.wave === wave));
 
-/** Folds the runs of one bot. */
-export function summarize(bot: string, runs: readonly BotRun[], stage: StageDef = STAGE_M0): BotSummary {
+/** Folds the runs of one bot in one mode (BALANCE.md §3: Thư giãn = Dễ, Cân bằng = Thường, Thử thách = Khó). */
+export function summarize(bot: string, runs: readonly BotRun[], stage: StageDef = STAGE_M0, mode: BandMode = "balanced"): BotSummary {
   const spec = (BOTS as Record<string, BotSpec>)[bot];
   const results: Record<string, number> = {};
   const stars: Record<string, number> = {};
@@ -102,10 +102,11 @@ export function summarize(bot: string, runs: readonly BotRun[], stage: StageDef 
     flow: run.metrics.flow!,
     pace: run.pace,
     ...(run.metrics.killCount > 0 ? { killSeconds: run.metrics.killSeconds / run.metrics.killCount } : {}),
-    // G12 / B8 asks typists only: a bot that never types meets no word twice.
-    ...(spec?.hands ? { learnOk: run.learn.newWords > 0 && run.learn.metTwice === run.learn.newWords } : {}),
+    // G12 / B8 asks typists only (a bot that never types meets no word twice), on stages played to the end:
+    // a stage lost in wave 3 never brings back the words it dealt in wave 3.
+    ...(spec?.hands && run.result === "victory" ? { learnOk: run.learn.newWords > 0 && run.learn.metTwice === run.learn.newWords } : {}),
   }));
-  const kit = summarizeRuns(spec?.standard ?? bot, "balanced", records, spec?.directorOff !== true);
+  const kit = summarizeRuns(spec?.standard ?? bot, mode, records, spec?.directorOff !== true);
   const skillTotals: Record<string, number> = {};
   const heroBy: Record<string, number> = {};
   for (const run of runs) {
@@ -360,7 +361,8 @@ export function planRows(stage: StageDef = STAGE_M0): PlanRow[] {
   const last = stage.waves.length;
   const chapterPeak = chapterRow(stage.chapter).peakLoad100 / 100;
   return stage.waves.map((wave) => {
-    const band: readonly number[] = wave.n === 1 ? LOAD.wave1 : wave.n === last ? LOAD.final : LOAD.middle;
+    // A breather wave (02 §5.1) runs 20 % under the middle band.
+    const band: readonly number[] = wave.n === 1 ? LOAD.wave1 : wave.n === last ? LOAD.final : wave.breather ? LOAD.middle.map((v) => Math.round(v * 0.8)) : LOAD.middle;
     const load = planLoad(wave);
     const w = planW(wave);
     const peaks = PEAK_WINDOWS_S.map((window) => peakLoad(planArrivals(wave), window));
@@ -459,7 +461,12 @@ export function readiness(summaries: Readonly<Record<string, BotSummary>>): Read
 
 export interface ReportInput {
   readonly seeds: number;
+  /** Cân bằng (the M0 gates and the detail tables). */
   readonly summaries: Readonly<Record<string, BotSummary>>;
+  /** Every mode that ran, bot by bot (the flow tables and B1–B9). */
+  readonly byMode: Readonly<Partial<Record<BandMode, Readonly<Record<string, BotSummary>>>>>;
+  /** B1–B9 on each seed set alone (independent sets), with its first seed. */
+  readonly sets: readonly { readonly base: number; readonly gates: readonly GateResult[] }[];
   readonly plan: readonly PlanRow[];
   readonly notes: readonly string[];
   readonly wallS: number;
@@ -468,14 +475,19 @@ export interface ReportInput {
 /** ‰ as "35 %". */
 const pctMilli = (milli: number): string => Math.round(milli / 10) + " %";
 
-/** A balanced-band cell (BALANCE.md §3). */
-function bandText(metric: BandMetric): string {
-  const range = BANDS.balanced[metric];
+/** A band cell (BALANCE.md §3). */
+function bandText(metric: BandMetric, mode: BandMode = "balanced"): string {
+  const range = BANDS[mode][metric];
   const show = (v: number) => (metric === "n" ? String(v) : Math.round(v / 10) + " %");
   if (range.min !== undefined && range.max !== undefined) return show(range.min) + "–" + show(range.max);
   if (range.min !== undefined) return "≥ " + show(range.min);
   return range.max !== undefined ? "≤ " + show(range.max) : "—";
 }
+
+/** The game's difficulty that plays each mode (00 §4.10). */
+const DIFFICULTY_OF: Readonly<Record<BandMode, string>> = { relax: "mức Dễ", balanced: "mức Thường", challenge: "mức Khó" };
+/** B1's bots (BALANCE.md §7). */
+const FLOW_BOTS = ["novice", "steady", "standard", "skilled", "sloppy", "fast"];
 
 const SOURCE_VI: Record<string, string> = { word: "gõ", breath: "Phun Lửa", skyfire: "Thiên Hỏa", roar: "Long Hống", inferno: "Viêm Đế", trap: "bẫy", unit: "lính", house: "nhà", status: "hiệu ứng" };
 void METRIC_LABELS;
@@ -496,26 +508,53 @@ export function markdown(input: ReportInput): string {
     out.push("## Cổng khác của 00 §7 (để chỉnh số, chưa là cổng M0)");
     out.push(table(["Cổng", "Đo", "Cần", "Đo được", "Kết quả"], extra.map((g) => [g.id, g.name, g.want, g.got, g.status])));
   }
-  out.push("");
-  out.push("## Vùng cuốn (BALANCE.md §3, chế độ Cân bằng, bộ điều nhịp bật trừ khi ghi)");
-  out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh.");
-  out.push(table(["Bot", "Thắng", "S", "Máu thấp nhất", "P", "I", "O", "N", "Q", "Phe ta", "Bậc nhịp/đợt", "Khoảng sinh"], [
-    ["**Dải Cân bằng**", ...(["win", "s"] as BandMetric[]).map((m) => bandText(m)), "—", ...(["p", "i", "o", "n", "q"] as BandMetric[]).map((m) => bandText(m)), "—", "≤ 3", "±15 %"],
-    ...Object.values(summaries).map((s) => {
-      const k = s.kit;
-      return [
-        s.bot + (k.director ? "" : " (tắt nhịp)"), pctMilli(k.win), pctMilli(k.s), pctMilli(s.hpMin), pctMilli(k.p), pctMilli(k.i), pctMilli(k.o), k.n.toFixed(2), k.q === null ? "—" : pctMilli(k.q),
-        k.support === null ? "—" : pctMilli(k.support), k.stepsPerWave === null ? "—" : k.stepsPerWave.toFixed(2),
-        k.spawnMin === null ? "—" : pctMilli(k.spawnMin) + "–" + pctMilli(k.spawnMax ?? 1000),
-      ];
-    }),
-  ]));
-  const kitRows = Object.values(summaries).map((s) => s.kit);
+  const flowRow = (s: BotSummary, mode: BandMode): (string | number)[] => {
+    const k = s.kit;
+    const score = scoreBand(k, BANDS[mode], ["win", "s", "p", "i", "o"]);
+    const mark = (metric: BandMetric, text: string) => (score.rows.find((row) => row.metric === metric)?.verdict === "in" || !["win", "s", "p", "i", "o"].includes(metric) ? text : "**" + text + "**");
+    return [
+      s.bot + (k.director ? "" : " (tắt nhịp)"), mark("win", pctMilli(k.win)), mark("s", pctMilli(k.s)), pctMilli(s.hpMin), mark("p", pctMilli(k.p)), mark("i", pctMilli(k.i)), mark("o", pctMilli(k.o)), k.n.toFixed(2), k.q === null ? "—" : pctMilli(k.q),
+      k.support === null ? "—" : pctMilli(k.support), k.killSeconds === null ? "—" : k.killSeconds.toFixed(2), k.stepsPerWave === null ? "—" : k.stepsPerWave.toFixed(2),
+      k.spawnMin === null ? "—" : pctMilli(k.spawnMin) + "–" + pctMilli(k.spawnMax ?? 1000),
+    ];
+  };
+  for (const mode of BAND_MODES) {
+    const rows = input.byMode[mode];
+    if (!rows) continue;
+    out.push("");
+    out.push("## Vùng cuốn: " + MODE_LABELS[mode] + " (BALANCE.md §3; " + DIFFICULTY_OF[mode] + "; bộ điều nhịp bật trừ khi ghi)");
+    if (mode === "balanced") out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh. Ô **đậm**: ngoài dải.");
+    out.push(table(["Bot", "Thắng", "S", "Máu thấp nhất", "P", "I", "O", "N", "Q", "Phe ta", "Hạ quái (s)", "Bậc nhịp/đợt", "Khoảng sinh"], [
+      ["**Dải " + MODE_LABELS[mode] + "**", ...(["win", "s"] as BandMetric[]).map((m) => bandText(m, mode)), "—", ...(["p", "i", "o", "n", "q"] as BandMetric[]).map((m) => bandText(m, mode)), "—", "—", "≤ 3", "±15 %"],
+      ...Object.values(rows).map((s) => flowRow(s, mode)),
+    ]));
+  }
+  const kitRows = Object.values(input.byMode).flatMap((rows) => Object.values(rows ?? {}).map((s) => s.kit));
   const bGates: GateResult[] = runGates({ summaries: kitRows, options: { tacticsPair: ["standard@good", "standard@poor"] } });
   out.push("");
-  out.push("## Cổng B1–B9 (BALANCE.md §7)");
-  out.push("M0 chỉ có một chế độ (Thường = Cân bằng): ô cần Thư giãn hoặc Thử thách là THIẾU SỐ. B9 cần buổi chơi thử của người thật.");
+  out.push("## Cổng B1–B9 (BALANCE.md §7), mọi seed");
+  out.push("Chế độ: Thư giãn = mức Dễ, Cân bằng = Thường, Thử thách = Khó (00 §4.10); bộ điều nhịp lấy dải của chế độ. B9 cần buổi chơi thử của người thật.");
   out.push(formatGates(bGates));
+  if (input.sets.length > 1) {
+    out.push("");
+    out.push("## B1–B9 theo từng bộ seed độc lập");
+    out.push(table(["Bộ seed", ...bGates.map((g) => g.id)], input.sets.map((set) => [set.base + "…", ...set.gates.map((g) => (g.status === "pass" ? "ĐẠT" : g.status === "fail" ? "TRƯỢT" : "THIẾU SỐ"))])));
+  }
+  const extraModes = BAND_MODES.filter((mode) => mode !== "balanced" && input.byMode[mode]);
+  if (extraModes.length > 0) {
+    out.push("");
+    out.push("## Bot chuẩn trong dải của Thư giãn, Thử thách (ngoài B1, cùng năm chỉ số)");
+    const rows: (string | number)[][] = [];
+    for (const mode of extraModes) {
+      for (const s of Object.values(input.byMode[mode] ?? {})) {
+        if (!FLOW_BOTS.includes(s.kit.bot) || !s.kit.director) continue;
+        const score = scoreBand(s.kit, BANDS[mode], ["win", "s", "p", "i", "o"]);
+        const off = score.rows.filter((row) => row.verdict !== "in").map((row) => METRIC_LABELS[row.metric] + (row.verdict === "below" ? " thấp" : " cao"));
+        rows.push([MODE_LABELS[mode], s.bot, score.inBand ? "trong dải" : "lệch: " + off.join(", ")]);
+      }
+    }
+    out.push(table(["Chế độ", "Bot", "Kết quả"], rows));
+  }
   out.push("");
   out.push("## Sát thương theo nguồn và máu Rồng mất theo loài");
   out.push(table(["Bot", "Theo nguồn (% tổng sát thương lên quái)", "Máu Rồng mất mỗi ải theo loài"], Object.values(summaries).map((s) => [

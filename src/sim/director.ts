@@ -1,11 +1,14 @@
 /**
  * The pace director inside the sim (BALANCE.md §4.2, §9.1; D23). Every wave
- * tick the kit's FlowMeter reads the world (a foe in Vòng Nguy or standing in
- * the word zone, a telegraphed wind-up, HP, live words, foes waiting for a
- * word, the lock, kills by the share of path walked, dropped locks, damage by
- * typing and by the rest); every 5 s the kit's PaceDirector may step one
+ * tick the kit's FlowMeter reads the world (a foe in Vòng Nguy, a pounce,
+ * charge or blow winding up, HP, live words, foes waiting for a word, the
+ * lock, kills by the share of path walked, dropped locks, damage by typing
+ * and by the rest); every 5 s from wave 2 the kit's PaceDirector may step one
  * notch, at most 2 a wave: spawn gaps ± 7 % (stage cap ± 15 %), or near
- * defeat one Bình Máu dropped on the dais (heal over 2 s), once a wave.
+ * defeat one Bình Máu dropped on the dais (heal over 2 s), once a wave. It
+ * steers to the difficulty's mode (Dễ: Thư giãn, Thường: Cân bằng, Khó: Thử
+ * thách) with the idle target raised by the plan's own idle
+ * (DIRECTOR_IDLE_SLACK) and reads a hardly-hurt Dragon as calm (withMargin).
  * Shorter gaps never lift a wave's short peak over the 1.40 hard cap (00
  * §4.4, G9): each wave's floor is the smallest scale whose squeezed plan
  * still reads ≤ 1.35 over 6, 8 and 10 s (0.05 kept for gate jitter). M0 has
@@ -14,18 +17,25 @@
  * typing rules or grading.
  * Integer state in the world: replays and hashes hold. Off with
  * WorldOptions.paceDirector false (oaths, crowns, ranked and duel later).
- * Owner: sim-battle (LANES.md).
+ * Owner: sim-battle (LANES.md); tuned by the balance lane.
  */
 import { CONSUMABLES } from "../content/data/our-side";
 import { LOAD, RINGS } from "../content/rules";
-import type { StageDef, WaveDef } from "../content/types";
-import { BANDS, FlowMeter, PaceDirector, type PaceDecision, type PaceTable } from "../kit/balance";
+import type { Difficulty, StageDef, WaveDef } from "../content/types";
+import { BANDS, FlowMeter, PaceDirector, type Band, type BandMode, type FlowWindow, type PaceDecision, type PaceTable } from "../kit/balance";
 import { emit } from "./events";
 import { mmToU, pct, within } from "./fixed";
 import { applyStatus } from "./status";
 import { peakLoad100 } from "./waves";
 import { inWordZone } from "./words";
 import type { World } from "./world";
+
+/**
+ * The director's patience in M0 (BALANCE.md §4.2 "nhẹ tay", B7): a window
+ * must sit 5 % outside the band to count, and it takes 4 hot windows in a
+ * row (20 s) to ease: a peak's own heat passes without a step.
+ */
+export const DH_PACE_RULES = { slack: 50, downAfter: 4 } as const;
 
 /** Levers of a step in M0 (BALANCE.md §9.1): spawn ± 7 %, a dropped potion near defeat. */
 export const DH_PACE_TABLE: PaceTable = { up: ["spawn"], down: ["support", "spawn"], spawnStep: 70, eliteCost: 30, peakTicks: 180, lullTicks: 180 };
@@ -45,6 +55,8 @@ export interface DirectorState {
   typedAt: number;
   /** Per wave: the smallest spawn scale (‰) its plan stands without a short peak over 1.35. */
   readonly floors: readonly number[];
+  /** The last 5 s boundary the director judged (its own cadence, PaceDirector.step's). */
+  judgedAt: number;
 }
 
 /** Short peaks the director keeps under (00 §4.4 hard cap 1.40 less 0.05 for gate jitter), × 100. */
@@ -67,10 +79,29 @@ function floorOf(wave: WaveDef): number {
   return floor;
 }
 
-export function createDirector(on: boolean, stage: StageDef): DirectorState {
+/**
+ * Idle the M0 plan leaves even at the 00 §4.4 load caps (‰): words come up
+ * only once a foe nears (the word zone), at most 1.00 of the reference
+ * typist's pace in middle waves with short peaks ≤ 1.15, while our side takes
+ * a fifth of the work. The director aims its idle target this much above the
+ * band, so it does not press every run to its −15 % cap chasing idle the
+ * plan cannot remove (B7 "nhẹ tay"); P, O and HP keep the band's own numbers.
+ */
+export const DIRECTOR_IDLE_SLACK = 200;
+
+/** The band the director steers to: the mode's (BALANCE.md §3) with the idle target raised by DIRECTOR_IDLE_SLACK. */
+export function directorBand(mode: BandMode): Band {
+  const band = BANDS[mode];
+  return { ...band, i: { max: (band.i.max ?? 0) + DIRECTOR_IDLE_SLACK } };
+}
+
+/** The BALANCE.md §3 mode of each difficulty (00 §4.10): Dễ plays as Thư giãn, Thường as Cân bằng, Khó as Thử thách. */
+export const BAND_MODE: Readonly<Record<Difficulty, BandMode>> = { easy: "relax", normal: "balanced", hard: "challenge" };
+
+export function createDirector(on: boolean, stage: StageDef, difficulty: Difficulty = "normal"): DirectorState {
   return {
     meter: new FlowMeter(),
-    director: new PaceDirector({ band: BANDS.balanced, table: DH_PACE_TABLE, off: on ? null : "setting" }),
+    director: new PaceDirector({ band: directorBand(BAND_MODE[difficulty]), table: DH_PACE_TABLE, off: on ? null : "setting", rules: DH_PACE_RULES }),
     kills: [],
     abandons: 0,
     lastTyped: 0,
@@ -78,6 +109,7 @@ export function createDirector(on: boolean, stage: StageDef): DirectorState {
     lastWords: 0,
     typedAt: -1,
     floors: on ? stage.waves.map(floorOf) : stage.waves.map(() => 1000),
+    judgedAt: 0,
   };
 }
 
@@ -102,6 +134,11 @@ export function directorKill(world: World, along: number, stopAt: number): void 
 }
 
 const DANGER_U = mmToU(RINGS.dangerMm);
+/** At or above this HP (‰), having lost at most COMFORT_LOSS_PM in the window, the director reads it as too calm (withMargin). */
+const COMFORT_HP_PM = 750;
+const COMFORT_LOSS_PM = 40;
+/** Waves the director watches but never steps in (wave 1 is light by design). */
+const WARM_UP_WAVES = 1;
 /** The dropped potion needs a word typed within this many ticks (20 s, the director's window). */
 const SUPPORT_TYPED_TICKS = 1200;
 
@@ -128,9 +165,9 @@ export function stepDirector(world: World): void {
   const tick = world.tick;
   for (const enemy of world.enemies.list) {
     if (!enemy.alive) continue;
-    const standing = enemy.mode === "blocked" || enemy.mode === "attack" || enemy.mode === "hold";
     const zone = inWordZone(world, enemy);
-    if (!danger && (within(enemy.x, enemy.z, 0, 0, DANGER_U) || (standing && zone) || enemy.action === 1 || enemy.action === 3 || enemy.windupUntil > tick)) danger = true;
+    // A real threat (BALANCE.md §3 P): a foe in Vòng Nguy, a pounce or charge winding up, a blow winding up at our side.
+    if (!danger && (within(enemy.x, enemy.z, 0, 0, DANGER_U) || enemy.action === 1 || enemy.action === 3 || enemy.windupUntil > tick)) danger = true;
     if (enemy.word >= 0 || !zone) continue;
     if (enemy.cluster >= 0) {
       if (clusters.includes(enemy.cluster)) continue;
@@ -156,8 +193,28 @@ export function stepDirector(world: World): void {
   state.abandons = 0;
   state.lastTyped = typed;
   state.lastOther = other;
-  const decision = state.director.step(state.meter);
+  // Wave 1 opens light by design (00 §4.4: 0.55–0.65): its calm is no reason to press the next waves.
+  if (world.wave <= WARM_UP_WAVES) return;
+  // The kit director's own cadence (PaceDirector.step), on a window that also reads the HP margin's calm side.
+  const boundary = Math.floor(state.meter.ticks / state.director.rules.everyTicks);
+  if (boundary <= state.judgedAt) return;
+  state.judgedAt = boundary;
+  const decision = state.director.evaluate(withMargin(state.meter.window(), state.director.band), state.meter.ticks);
   if (decision !== null) apply(world, decision);
+}
+
+/**
+ * BALANCE.md §4.2 judges the window by P, I, O and the HP margin ("biên
+ * máu"); the kit reads the margin only when it is too low. A window whose
+ * Fire Dragon sits at or above COMFORT_HP_PM having lost at most
+ * COMFORT_LOSS_PM is also too calm: it reads as idle past the target, so a
+ * steady player who is hardly hurt gets the next step up like one who waits
+ * for words.
+ */
+function withMargin(last: FlowWindow, band: Band): FlowWindow {
+  if (last.hpLoss > COMFORT_LOSS_PM || last.hp < COMFORT_HP_PM) return last;
+  const calm = (band.i.max ?? 0) + DH_PACE_RULES.slack + 1;
+  return last.i >= calm ? last : { ...last, i: calm };
 }
 
 /** A raw director scale with the running wave's floor applied (directorSpawnPm for a past scale). */

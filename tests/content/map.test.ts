@@ -175,7 +175,9 @@ describe("M0 content", () => {
     for (const item of STAGE_M0.carry) expect(items[item], item).toBeDefined();
     expect(STAGE_M0.waves.map((w) => w.n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(STAGE_M0.waves.filter((w) => w.generals.length > 0).map((w) => w.n)).toEqual([5, 10]);
-    expect(STAGE_M0.waves[0]!.load100).toBe(60);
+    // Wave 1 sits in 00 §4.4's 0.55–0.65 band.
+    expect(STAGE_M0.waves[0]!.load100).toBeGreaterThanOrEqual(55);
+    expect(STAGE_M0.waves[0]!.load100).toBeLessThanOrEqual(65);
     // The last wave sits in 00 §4.4's 1.05–1.25 band.
     expect(STAGE_M0.waves[9]!.load100).toBeGreaterThanOrEqual(105);
     expect(STAGE_M0.waves[9]!.load100).toBeLessThanOrEqual(125);

@@ -1,188 +1,382 @@
 /**
- * M0 waves: 10 waves on L2-cau, load 0.60 → 1.25 (DESIGN.md §9 M0), G01 in
- * waves 5 and 10, 2–3 peaks and lulls each (02 §5.3), groups by 02 §5.2,
- * lane mix by 02 §5.5 (main lane 60–70 % of ground threat; Đường Cầu leads
- * waves 1–3 and 7–8, Đường Suối waves 4–6 and 9–10).
- * Owner: sim-battle (LANES.md).
+ * M0 waves: 10 waves on L2-cau, load 0.6 → 1.15 over each wave's real length
+ * (00 §4.4), G01 in waves 5 and 10, 3 peaks and their lulls (02 §5.3), groups
+ * by 02 §5.2, lane mix by 02 §5.5 (main lane 60–70 % of ground threat; Đường
+ * Cầu leads waves 1–3 and 7–8, Đường Suối waves 4–6 and 9–10).
+ * Owner: sim-battle (LANES.md); the balance lane retuned it (BALANCE.md §4–§5).
  *
  * How the numbers meet (src/sim/waves.ts measures them; tests/sim/battle-waves):
- * - Load (00 §4.4): W_gõ / (22.7 × minutes) within 5 % of `load100`.
- * - Peaks: each foe's W is typed at 22.7 words a minute from its spawn, so
- *   load above 1.0 only comes from overlapping work; the busiest 8 s window
- *   (bot-balance gate) stays under `peakLoad100`. Middle waves cap at 1.15
- *   (00 §4.4). A wolf pack alone reads 1.19 (3 × 1.2 W within 4 s), so packs
- *   come only in waves capped at 1.25 or more: wave 5 (the first general,
- *   capped like a general stage's last wave, 00 §4.5), wave 9 and wave 10
- *   (the final band, under the stage cap 1.40).
- * - Peaks and lulls are group pace (02 §5.3 "nhịp toán"): a peak holds 2–4
- *   light groups (singles, pairs, swarm clusters, wasps) at ≥ 1.5 × the mean
- *   pace; a lull holds at most one group, often one heavy foe (boar, wolf
- *   pack, the general's chain) that keeps the typist busy with one target.
- * - Flyers stay under 15 % of a wave's threat (00 §4.5, C1–3 row), gates send
- *   one group per 1.5 s, lanes start ≥ 0.6 s apart (02 §5.3, 01 §1.4).
+ * - Typing work comes at a steady rate (BALANCE.md §3, I): a wave is cycles of
+ *   a peak of light singles (02 §5.3: ≥ 1.5 × the mean group pace, slowest to
+ *   reach the word zone first, so their words come up together) and a lull held
+ *   by one heavy (a boar, a wolf line, the general) that keeps the typist on one
+ *   target while the next peak walks in. Each group leaves when the reference
+ *   typist (22.7 words a minute, 00 §4.3) would be done with the one before it
+ *   at the wave's `rate`, and later while a short peak (6, 8, 10 s, the same
+ *   measure as src/sim/waves.ts peakLoad100) would pass `fit100`.
+ * - A wave runs until the reference typist has typed its last word: its
+ *   `durationMs` (and so its load) counts the walk to the word zone and that
+ *   typing, not only the gate times.
+ * - Heads swing, typing work does not: the peaks are where traps, units and
+ *   skills decide (02 §5.3 "chết bằng từ cụm, PHUN và bẫy").
+ * - Swarm clusters are ~40 % of heads (00 §4.8, C2); flyers stay under 15 % of
+ *   a wave's threat (00 §4.5, C1–3); a gate sends one group per 1.5 s and
+ *   lanes start ≥ 0.6 s apart (02 §5.3, 01 §1.4); the live cap is C2's 20.
  */
-import type { FoeId, SpawnGroupDef, WaveDef } from "../types";
+import { LOAD_W100, PACE, RINGS, TEMPO } from "../rules";
+import type { FoeId, SpawnGroupDef, Vec2, WaveDef } from "../types";
+import { ENEMIES } from "./enemies";
+import { GENERALS } from "./generals";
+import { MAP_L2_CAU } from "./maps";
 
 type Lane = "cau" | "suoi" | "troi";
 
-const one = (atMs: number, lane: Lane, foe: FoeId): SpawnGroupDef => ({ atMs, lane, shape: "single", foe, count: 1 });
-const pair = (atMs: number, lane: Lane, foe: FoeId): SpawnGroupDef => ({ atMs, lane, shape: "pair", foe, count: 2 });
-const grunt = (atMs: number, lane: Lane): SpawnGroupDef => one(atMs, lane, "moss-grunt");
-const grunts = (atMs: number, lane: Lane): SpawnGroupDef => pair(atMs, lane, "moss-grunt");
-const archer = (atMs: number, lane: Lane): SpawnGroupDef => one(atMs, lane, "moss-archer");
-const boar = (atMs: number, lane: Lane): SpawnGroupDef => one(atMs, lane, "tusk-boar");
+const one = (lane: Lane, foe: FoeId): SpawnGroupDef => ({ atMs: 0, lane, shape: "single", foe, count: 1 });
+const grunt = (lane: Lane): SpawnGroupDef => one(lane, "moss-grunt");
+const grunts = (lane: Lane): SpawnGroupDef => ({ atMs: 0, lane, shape: "pair", foe: "moss-grunt", count: 2 });
+/** A line of `count` grunts, 0.6 s apart (02 §5.2 "Hàng"). */
+const line = (lane: Lane, count: number): SpawnGroupDef => ({ atMs: 0, lane, shape: "line", foe: "moss-grunt", count });
+const archer = (lane: Lane): SpawnGroupDef => one(lane, "moss-archer");
+const boar = (lane: Lane): SpawnGroupDef => one(lane, "tusk-boar");
+const banner = (lane: Lane): SpawnGroupDef => one(lane, "moss-banner");
 /** A swarm cluster of `count` ants under one word (02 §5.2: 4–10, together, 0.5 m apart). */
-const ants = (atMs: number, lane: Lane, count: number): SpawnGroupDef => ({ atMs, lane, shape: "cluster", foe: "thorn-ant", count });
+const ants = (lane: Lane, count: number): SpawnGroupDef => ({ atMs: 0, lane, shape: "cluster", foe: "thorn-ant", count });
 /**
- * A wolf pack (02 §2.2: 3–5) runs in a line, 3 s apart (2 s in the last wave):
+ * A wolf pack (02 §2.2: 3–5) runs in a line, 3 s apart (2.2 s in the last wave):
  * 3 × 1.2 W at once reads 1.59 in a 6 s window, over the 1.15 cap of middle
  * waves and the 1.40 hard cap (00 §4.4 short peaks are 6–10 s).
  */
-const wolves = (atMs: number, lane: Lane, count: number, gapMs = 3000): SpawnGroupDef => ({ atMs, lane, shape: "line", foe: "blight-wolf", count, gapMs });
-const wasp = (atMs: number): SpawnGroupDef => one(atMs, "troi", "thorn-wasp");
-const peak = (atMs: number, lengthMs: number) => ({ atMs, lengthMs });
+const wolves = (lane: Lane, count: number, gapMs = 3000): SpawnGroupDef => ({ atMs: 0, lane, shape: "line", foe: "blight-wolf", count, gapMs });
+const wasp = (): SpawnGroupDef => one("troi", "thorn-wasp");
+
+/** W × 100 of a group's typing work (00 §4.4): a cluster is 1 W, the rest W × heads. */
+function groupW100(group: SpawnGroupDef): number {
+  const def = (ENEMIES as Record<string, { w100: number; word: { cluster?: boolean } } | undefined>)[group.foe] ?? GENERALS[group.foe as keyof typeof GENERALS];
+  if (def.word.cluster === true) return LOAD_W100.cluster;
+  return def.w100 * group.count;
+}
+
+/** Members of a group as (ms after its start, W × 100), as the spawner sends them (02 §5.2 gaps; a cluster is one arrival). */
+function members(group: SpawnGroupDef): { readonly offsetMs: number; readonly w100: number }[] {
+  if (group.shape === "cluster") return [{ offsetMs: 0, w100: groupW100(group) }];
+  const gap = group.gapMs ?? (group.shape === "pair" ? 800 : group.shape === "single" ? 0 : 600);
+  const w100 = groupW100(group) / group.count;
+  return Array.from({ length: group.count }, (_, k) => ({ offsetMs: k * gap, w100 }));
+}
+
+/** How long a group holds its gate (its last member's offset). */
+const spanMs = (group: SpawnGroupDef): number => members(group).reduce((max, member) => (member.offsetMs > max ? member.offsetMs : max), 0);
+
+/** Short-peak windows of 00 §4.4 (6, 8, 10 s). */
+const WINDOWS_MS: readonly number[] = [6000, 8000, 10_000];
+
+/**
+ * The busiest 6, 8 or 10 s window × 100 of `arrivals` that touches [from, to]:
+ * each arrival's W is typed at the reference rate from its time on (the same
+ * measure as src/sim/waves.ts peakLoad100).
+ */
+function peakNear(all: readonly { ms: number; w100: number }[], from: number, to: number): number {
+  let best = 0;
+  // Only arrivals whose typing can overlap a window touching [from, to] (a general's 6 W types for 16 s).
+  const arrivals = all.filter((arrival) => arrival.ms + (arrival.w100 * MS_PER_W) / 100 > from - WINDOWS_MS[WINDOWS_MS.length - 1]! && arrival.ms < to + 1);
+  for (const span of WINDOWS_MS) {
+    for (let start = from - span; start <= to; start += 100) {
+      const end = start + span;
+      let work = 0;
+      for (const arrival of arrivals) {
+        const typing = (arrival.w100 * MS_PER_W) / 100;
+        const lo = arrival.ms > start ? arrival.ms : start;
+        const hi = arrival.ms + typing < end ? arrival.ms + typing : end;
+        if (hi > lo) work += (arrival.w100 * (hi - lo)) / typing;
+      }
+      const load = (work * MS_PER_W) / span;
+      if (load > best) best = load;
+    }
+  }
+  return best;
+}
+
+/** Gate rules (02 §5.3, 01 §1.4): one group per gate every 1.5 s after the last one has left; lanes ≥ 0.6 s apart. */
+const GATE_GAP_MS = 1500;
+const LANE_STAGGER_MS = 600;
+const LANE_LEAVE_MS = 600;
+/** A lull is ≥ 8 s (02 §5.3); peaks last 6–10 s. */
+const LULL_MIN_MS = 8000;
+const PEAK_MS: readonly [number, number] = [6000, 10_000];
+/** The reference typist's ms per W (00 §4.3: 22.7 words a minute). */
+const MS_PER_W = 600_000 / TEMPO.refWordsPerMinX10;
+
+type Segment = { readonly peak: boolean; readonly groups: readonly SpawnGroupDef[] };
+const P = (...groups: SpawnGroupDef[]): Segment => ({ peak: true, groups });
+const L = (...groups: SpawnGroupDef[]): Segment => ({ peak: false, groups });
 
 interface Plan {
   readonly n: number;
-  readonly seconds: number;
-  readonly load100: number;
+  /** Work pace × 100 of the reference typist (≈ the wave's load × 100). */
+  readonly rate: number;
   readonly peak100: number;
+  /** The layout keeps every short peak at or under this × 100 (the cap less a margin for the director's squeeze). */
+  readonly fit100: number;
   readonly breather?: boolean;
-  readonly peaks: readonly { readonly atMs: number; readonly lengthMs: number }[];
-  readonly groups: readonly SpawnGroupDef[];
+  readonly segments: readonly Segment[];
 }
 
+// ── When a group's typing work shows: the word zone (01 §2.1, BALANCE.md §9.1) ──
+
+interface PathStep {
+  readonly lengthM: number;
+  readonly radiusM: number;
+  readonly slowPct: number;
+}
+
+/** A lane cut into 0.1 m steps: distance to the dais at each step and the ford's slow (planning only). */
+function pathSteps(points: readonly Vec2[], fords: readonly { fromM: number; toM: number; slowPct: number }[]): PathStep[] {
+  const out: PathStep[] = [];
+  let along = 0;
+  for (let k = 1; k < points.length; k += 1) {
+    const [ax, az] = points[k - 1]!;
+    const [bx, bz] = points[k]!;
+    const length = Math.sqrt((bx - ax) * (bx - ax) + (bz - az) * (bz - az));
+    const steps = Math.ceil(length / 0.1);
+    for (let i = 0; i < steps; i += 1) {
+      const f = (i + 0.5) / steps;
+      const x = ax + (bx - ax) * f;
+      const z = az + (bz - az) * f;
+      const ford = fords.find((span) => along >= span.fromM && along < span.toM);
+      out.push({ lengthM: length / steps, radiusM: Math.sqrt(x * x + z * z), slowPct: ford ? ford.slowPct : 0 });
+      along += length / steps;
+    }
+  }
+  return out;
+}
+
+const PATHS: Readonly<Record<Lane, PathStep[]>> = {
+  cau: pathSteps(MAP_L2_CAU.lanes[0]!.points, []),
+  suoi: pathSteps(MAP_L2_CAU.lanes[1]!.points, MAP_L2_CAU.lanes[1]!.features.flatMap((f) => (f.kind === "ford" ? [f] : []))),
+  troi: pathSteps(MAP_L2_CAU.sky[0]!.points, []),
+};
+
+/** A word time of the reference player (00 §4.3, C_ref 19.6 words a minute). */
+const REF_WORD_MS = 600_000 / PACE.refWordsPerMinX10;
+
+/**
+ * Ms from a foe leaving its gate to its first word (planning only, k = 1,
+ * base speed): it walks to its stop (shooters at their hold distance, a
+ * general at 8 m, the rest at the lane's end) and is in the word zone once
+ * within T_a (+ a word time per extra word, src/sim/words.ts inWordZone).
+ */
+export function zoneDelayMs(lane: Lane, foe: FoeId): number {
+  const general = foe in GENERALS;
+  const def = general ? GENERALS[foe as keyof typeof GENERALS] : ENEMIES[foe as keyof typeof ENEMIES];
+  const enemy = general ? null : ENEMIES[foe as keyof typeof ENEMIES];
+  const stopM = general ? RINGS.generalStopMm / 1000 : enemy && enemy.role === "ranged" ? (enemy.attack.holdMm ?? enemy.attack.rangeMm) / 1000 : 0;
+  let walkMs = 0;
+  let ringMs = -1;
+  for (const step of PATHS[lane]) {
+    if (step.radiusM <= stopM) break;
+    if (ringMs < 0 && step.radiusM <= RINGS.wordZoneMm / 1000) ringMs = walkMs;
+    walkMs += (step.lengthM * 1000 * 100) / ((def.speedMmS / 1000) * (100 - step.slowPct));
+  }
+  // A small foe falls to one word (00 §4.6); bigger ones carry W rounded up.
+  const words = def.word.cluster === true || (enemy !== null && enemy.tier === "small") ? 1 : def.w100 > 100 ? Math.ceil(def.w100 / 100) : 1;
+  const zoneMs = PACE.approachMs + (words - 1) * REF_WORD_MS;
+  return Math.round(Math.max(ringMs < 0 ? 0 : ringMs, walkMs - zoneMs));
+}
+
+/** Spawn-time gate rules between two groups (02 §5.3, 01 §1.4), `a` leaving first. */
+function gatesOk(a: SpawnGroupDef, b: SpawnGroupDef): boolean {
+  const gap = b.atMs - a.atMs;
+  return a.lane === b.lane ? gap >= Math.max(GATE_GAP_MS, spanMs(a) + LANE_LEAVE_MS) : gap >= LANE_STAGGER_MS;
+}
+
+/**
+ * Lays a wave out: each group leaves when the reference typist would be done
+ * with the one before it at `rate`, never sooner than the gates allow, and
+ * later while a short peak would pass `fit100`. A peak's window covers its
+ * groups (6–10 s) and opens ≥ 8 s after the last one closed (02 §5.3).
+ */
+function layOut(plan: Plan): WaveDef {
+  const groups: SpawnGroupDef[] = [];
+  const peaks: { atMs: number; lengthMs: number }[] = [];
+  const arrivals: { ms: number; w100: number }[] = [];
+  let at = 0;
+  let peakEnd = -1;
+  /** A lull holding a second group lasts 2 s longer (02 §5.3: ≤ 0.4 × the mean pace; ~0.25 groups a second here). */
+  let lullMs = LULL_MIN_MS;
+  for (const segment of plan.segments) {
+    let first = -1;
+    let lastAt = 0;
+    if (!segment.peak) lullMs = LULL_MIN_MS + Math.max(0, segment.groups.length - 1) * 2000;
+    for (const group of segment.groups) {
+      let t = Math.ceil(at / 100) * 100;
+      if (segment.peak && peakEnd >= 0 && t < peakEnd + lullMs) t = peakEnd + lullMs;
+      const parts = members(group);
+      const reach = spanMs(group) + 10_000;
+      const latest = t + 120_000;
+      for (;;) {
+        if (t > latest) throw new Error("waves: wave " + plan.n + " cannot fit " + group.foe + " under " + plan.fit100);
+        const candidate = { ...group, atMs: t };
+        const gates = groups.every((other) => (other.atMs <= t ? gatesOk(other, candidate) : gatesOk(candidate, other)));
+        if (gates && peakNear([...arrivals, ...parts.map((part) => ({ ms: t + part.offsetMs, w100: part.w100 }))], t, t + reach) <= plan.fit100) break;
+        t += 100;
+      }
+      for (const part of parts) arrivals.push({ ms: t + part.offsetMs, w100: part.w100 });
+      groups.push({ ...group, atMs: t });
+      if (first < 0) first = t;
+      lastAt = t;
+      at = t + Math.round((groupW100(group) * MS_PER_W) / plan.rate);
+    }
+    if (segment.peak) {
+      const length = Math.min(PEAK_MS[1], Math.max(PEAK_MS[0], lastAt - first + 1000));
+      peaks.push({ atMs: first, lengthMs: length });
+      peakEnd = first + length;
+    }
+  }
+  // The wave lasts until its last words are up and typed: each group's words come up once it reaches the
+  // word zone and take the reference typist W × 2.64 s from there (a backlog past 1.0 is the support's, 00 §4.4).
+  let typed = 0;
+  for (const group of groups) {
+    const done = group.atMs + spanMs(group) + zoneDelayMs(group.lane as Lane, group.foe) + Math.round((groupW100(group) * MS_PER_W) / 100 / group.count);
+    if (done > typed) typed = done;
+  }
+  const endMs = Math.max(...groups.map((group) => group.atMs + spanMs(group)));
+  const durationMs = Math.ceil(Math.max(typed, endMs + 3000) / 1000) * 1000;
+  const w100 = groups.reduce((sum, group) => sum + groupW100(group), 0);
+  return {
+    n: plan.n,
+    durationMs,
+    load100: Math.round((w100 * MS_PER_W) / durationMs),
+    peakLoad100: plan.peak100,
+    peaks,
+    generals: groups.some((group) => group.foe in GENERALS) ? ["moss-banner"] : [],
+    ...(plan.breather ? { breather: true } : {}),
+    groups,
+  };
+}
+
+// From wave 2 a heavy opens the wave and holds each lull; a peak lists its singles slowest to the
+// word zone first (Đường Suối's ford, then Đường Cầu, then shooters, wasps, ants), so their words
+// come up together at the peak's end while the next heavy walks in.
 const PLANS: readonly Plan[] = [
   {
-    // Grunts and one ant cluster; 00 §4.4 sets no peak for wave 1, so it stays at or under 1.0.
-    n: 1, seconds: 50, load100: 60, peak100: 100,
-    peaks: [peak(2000, 9400), peak(20_200, 9400), peak(37_600, 9400)],
-    groups: [
-      grunt(2000, "cau"), grunt(6200, "suoi"), grunt(10_400, "cau"),
-      grunts(14_900, "suoi"),
-      grunt(20_200, "cau"), grunt(24_400, "suoi"), grunt(28_600, "cau"),
-      grunt(32_800, "cau"),
-      ants(37_600, "cau", 6), grunt(41_800, "suoi"), grunt(46_000, "cau"),
+    // Grunts and ant clusters; 00 §4.4 sets no peak for wave 1, so it stays at or under 1.0.
+    n: 1, rate: 72, peak100: 100, fit100: 98,
+    segments: [
+      P(grunt("suoi"), grunt("cau"), ants("cau", 6)),
+      L(grunt("cau")),
+      P(grunt("suoi"), grunt("cau"), ants("cau", 6)),
+      L(grunt("suoi")),
+      P(grunt("suoi"), ants("cau", 8), grunt("cau"), grunt("cau")),
     ],
   },
   {
-    // First Ong Gai on Đường Trời; a grunt pair holds each lull.
-    n: 2, seconds: 50, load100: 79, peak100: 115,
-    peaks: [peak(2000, 7400), peak(17_400, 7400), peak(32_800, 10_000)],
-    groups: [
-      grunt(2000, "cau"), grunt(5200, "suoi"), grunt(8400, "cau"),
-      grunts(12_200, "suoi"),
-      wasp(17_400), grunt(20_600, "cau"), grunt(23_800, "cau"),
-      grunts(27_600, "cau"),
-      grunt(32_800, "suoi"), ants(36_000, "cau", 6), grunt(39_200, "cau"), grunt(42_400, "suoi"), grunt(45_600, "cau"),
+    // First Ong Gai; grunt pairs hold the lulls (no heavy foe yet: our side is two items strong).
+    n: 2, rate: 90, peak100: 115, fit100: 100,
+    segments: [
+      L(grunts("cau")),
+      P(grunt("suoi"), grunt("cau"), grunt("cau")),
+      L(grunts("suoi")),
+      P(grunt("suoi"), grunt("cau"), wasp()),
+      L(archer("cau")),
+      P(grunt("suoi"), ants("cau", 8), grunt("cau"), grunt("suoi"), grunt("cau")),
     ],
   },
   {
-    // First Yêu Rêu Cung: it stops 14 m out and shoots the Dragon while it lives.
-    n: 3, seconds: 54, load100: 80, peak100: 115,
-    peaks: [peak(2000, 7600), peak(17_600, 7600), peak(33_200, 10_000)],
-    groups: [
-      grunt(2000, "cau"), archer(5300, "suoi"), grunt(8600, "cau"),
-      grunts(12_400, "cau"),
-      grunt(17_600, "suoi"), wasp(20_900), grunt(24_200, "cau"),
-      grunts(28_000, "suoi"),
-      grunt(33_200, "cau"), archer(36_500, "cau"), ants(39_800, "cau", 6), grunt(43_100, "suoi"), grunt(46_400, "cau"), grunt(49_700, "cau"),
+    // First Heo Nanh Đá, alone in a lull; first Yêu Rêu Cung (stops 12 m out and shoots the Dragon while it lives).
+    n: 3, rate: 90, peak100: 115, fit100: 100,
+    segments: [
+      L(grunts("cau")),
+      P(grunt("suoi"), grunt("cau"), archer("cau")),
+      L(boar("suoi")),
+      P(grunt("suoi"), grunt("cau"), wasp()),
+      L(archer("cau")),
+      P(grunt("suoi"), ants("cau", 8), grunt("cau"), grunt("cau"), grunt("cau")),
     ],
   },
   {
-    // Đường Suối leads; first Heo Nanh Đá, alone in a lull.
-    n: 4, seconds: 56, load100: 82, peak100: 115,
-    peaks: [peak(2000, 7600), peak(19_100, 7600), peak(34_700, 10_000)],
-    groups: [
-      grunt(2000, "suoi"), archer(5300, "cau"), grunt(8600, "suoi"),
-      boar(11_900, "suoi"),
-      grunt(19_100, "cau"), wasp(22_400), grunt(25_700, "suoi"),
-      grunts(29_500, "suoi"),
-      grunt(34_700, "suoi"), archer(38_000, "cau"), ants(41_300, "suoi", 6), grunt(44_600, "cau"), grunt(47_900, "suoi"), grunt(51_200, "suoi"),
+    // Đường Suối leads; boars open the wave and hold a lull.
+    n: 4, rate: 94, peak100: 115, fit100: 102,
+    segments: [
+      L(boar("suoi")),
+      P(grunt("suoi"), grunt("cau"), archer("suoi")),
+      L(boar("cau")),
+      P(grunt("suoi"), grunt("suoi"), archer("cau"), wasp()),
+      L(archer("suoi")),
+      P(grunt("suoi"), ants("suoi", 8), grunt("cau"), grunt("suoi")),
     ],
   },
   {
-    // First general: G01 walks Đường Suối alone; its 6 W keep the typist busy 16 s.
-    n: 5, seconds: 62, load100: 95, peak100: 115,
-    peaks: [peak(2000, 6400), peak(25_300, 10_000), peak(46_300, 10_000)],
-    groups: [
-      grunt(2000, "suoi"), archer(4700, "cau"), ants(7400, "suoi", 6),
-      one(10_100, "suoi", "moss-banner"),
-      grunt(25_300, "cau"), wasp(28_000), grunt(30_700, "suoi"), grunts(34_500, "cau"),
-      boar(39_100, "suoi"),
-      grunt(46_300, "suoi"), archer(49_000, "cau"), ants(52_100, "suoi", 6), grunt(54_800, "cau"), grunt(57_500, "suoi"),
+    // First general: G01 walks Đường Suối alone in the long lull; its 6 W keep the typist on it ~16 s.
+    n: 5, rate: 100, peak100: 115, fit100: 106,
+    segments: [
+      L(boar("cau")),
+      P(grunt("suoi"), grunt("cau"), archer("suoi"), ants("suoi", 6)),
+      L(banner("suoi")),
+      P(grunt("suoi"), grunt("cau"), wasp()),
+      L(boar("suoi")),
+      P(grunt("suoi"), ants("suoi", 8), grunt("cau"), archer("cau"), grunt("suoi")),
     ],
   },
   {
-    // Breather after the general (02 §5.1).
-    n: 6, seconds: 54, load100: 75, peak100: 115, breather: true,
-    peaks: [peak(2000, 8800), peak(20_900, 8800), peak(37_700, 10_000)],
-    groups: [
-      grunt(2000, "suoi"), grunt(5900, "cau"), grunt(9800, "suoi"),
-      boar(13_700, "suoi"),
-      grunt(20_900, "cau"), archer(24_800, "suoi"), wasp(28_700),
-      grunts(32_600, "suoi"),
-      grunt(37_700, "cau"), ants(41_600, "suoi", 6), archer(45_500, "cau"), ants(49_400, "suoi", 6),
+    // Breather after the general (02 §5.1): the same mix, slower.
+    n: 6, rate: 96, peak100: 115, fit100: 104, breather: true,
+    segments: [
+      L(boar("suoi")),
+      P(grunt("suoi"), archer("cau"), ants("suoi", 6)),
+      L(grunt("cau")),
+      P(grunt("suoi"), archer("cau"), wasp()),
+      L(grunt("cau")),
+      P(grunt("suoi"), ants("suoi", 8), grunt("cau"), grunt("suoi"), grunt("suoi")),
     ],
   },
   {
-    // Đường Cầu leads again; the first wolf line holds a lull.
-    n: 7, seconds: 60, load100: 85, peak100: 115,
-    peaks: [peak(2000, 7800), peak(20_800, 7800), peak(38_200, 10_000)],
-    groups: [
-      grunt(2000, "cau"), archer(5400, "suoi"), grunt(8800, "cau"),
-      wolves(12_200, "cau", 3),
-      grunt(20_800, "suoi"), archer(24_200, "cau"), wasp(27_600),
-      boar(31_000, "cau"),
-      grunt(38_200, "cau"), grunt(41_600, "suoi"), ants(45_000, "cau", 6), archer(48_400, "suoi"), grunt(51_800, "suoi"), grunt(55_200, "suoi"),
+    // Đường Cầu leads again; the first wolf line opens it.
+    n: 7, rate: 108, peak100: 115, fit100: 110,
+    segments: [
+      L(wolves("cau", 3)),
+      P(grunt("suoi"), grunt("cau"), archer("suoi"), ants("cau", 6)),
+      L(boar("suoi")),
+      P(grunt("suoi"), grunt("cau"), wasp()),
+      L(grunt("cau"), archer("suoi")),
+      P(grunt("suoi"), ants("cau", 8), grunt("cau"), grunt("cau")),
     ],
   },
   {
-    // Two boars hold the lulls; a near-full typist from start to end.
-    n: 8, seconds: 60, load100: 85, peak100: 115,
-    peaks: [peak(2000, 9100), peak(20_800, 8000), peak(38_500, 10_000)],
-    groups: [
-      grunts(2000, "cau"), archer(6600, "suoi"), grunt(10_100, "cau"),
-      boar(13_600, "cau"),
-      grunt(20_800, "suoi"), wasp(24_300), grunt(27_800, "cau"),
-      boar(31_300, "suoi"),
-      grunt(38_500, "cau"), archer(42_000, "cau"), ants(45_500, "cau", 6), grunt(49_000, "cau"), grunt(52_500, "suoi"), grunt(56_000, "cau"),
+    // Two boars; a near-full typist from start to end.
+    n: 8, rate: 110, peak100: 115, fit100: 106,
+    segments: [
+      L(boar("cau")),
+      P(grunt("suoi"), grunt("cau"), archer("suoi"), ants("cau", 6)),
+      L(boar("suoi")),
+      P(grunt("suoi"), grunt("cau"), wasp()),
+      L(grunt("cau"), archer("cau")),
+      P(grunt("suoi"), ants("cau", 8), grunt("cau"), grunt("cau")),
     ],
   },
   {
-    // Đường Suối leads: a wolf line and a boar.
-    n: 9, seconds: 64, load100: 83, peak100: 115,
-    peaks: [peak(2000, 8000), peak(21_100, 8000), peak(38_800, 10_000)],
-    groups: [
-      grunt(2000, "suoi"), archer(5500, "cau"), grunt(9000, "suoi"),
-      wolves(12_500, "suoi", 3),
-      grunt(21_100, "suoi"), archer(24_600, "cau"), wasp(28_100),
-      boar(31_600, "suoi"),
-      grunt(38_800, "suoi"), archer(42_300, "cau"), ants(45_800, "suoi", 6), grunt(49_300, "cau"), grunt(52_800, "suoi"), grunt(56_300, "suoi"), grunt(59_800, "cau"),
+    // Đường Suối leads: a wolf line opens, a boar holds a lull.
+    n: 9, rate: 112, peak100: 115, fit100: 110,
+    segments: [
+      L(wolves("suoi", 3)),
+      P(grunt("suoi"), grunt("cau"), archer("cau"), ants("suoi", 6)),
+      L(boar("cau")),
+      P(grunt("suoi"), grunt("suoi"), grunt("cau"), wasp()),
+      L(archer("cau")),
+      P(grunt("suoi"), ants("suoi", 8), grunt("cau"), grunt("suoi")),
     ],
   },
   {
-    // Last wave: a wolf line 2.2 s apart, G01 in the middle, a boar to close; the stage cap 1.40 (DESIGN.md §9 M0).
-    n: 10, seconds: 66, load100: 118, peak100: 140,
-    peaks: [peak(2000, 9000), peak(19_700, 6000), peak(39_500, 10_000)],
-    groups: [
-      grunts(2000, "suoi"), archer(5000, "cau"), ants(8200, "suoi", 6), grunt(10_000, "cau"),
-      wolves(12_400, "suoi", 3, 2200),
-      grunt(19_700, "cau"), wasp(21_500), archer(23_400, "cau"),
-      one(25_900, "suoi", "moss-banner"),
-      archer(39_500, "suoi"), grunt(42_700, "cau"), ants(45_300, "suoi", 6), wasp(46_700), grunt(49_100, "cau"), archer(51_000, "cau"), grunts(54_500, "cau"),
-      boar(57_500, "suoi"),
+    // Last wave: a wolf line 2.2 s apart opens, G01 in the long lull, a boar after the second peak; the M0 exception cap 1.40 (00 §7).
+    n: 10, rate: 140, peak100: 140, fit100: 139,
+    segments: [
+      L(wolves("suoi", 3, 2200)),
+      P(grunt("suoi"), grunt("cau"), archer("suoi"), ants("suoi", 6)),
+      L(banner("suoi")),
+      P(grunt("suoi"), grunt("cau"), archer("cau"), wasp(), grunt("cau")),
+      L(boar("cau")),
+      P(grunt("suoi"), ants("suoi", 8), grunt("cau"), archer("cau"), wasp(), grunt("suoi"), grunt("cau")),
     ],
   },
 ];
 
-export const M0_WAVES: readonly WaveDef[] = PLANS.map((plan) => ({
-  n: plan.n,
-  durationMs: plan.seconds * 1000,
-  load100: plan.load100,
-  peakLoad100: plan.peak100,
-  peaks: plan.peaks,
-  generals: plan.groups.some((group) => group.foe === "moss-banner") ? ["moss-banner"] : [],
-  ...(plan.breather ? { breather: true } : {}),
-  groups: plan.groups,
-}));
+export const M0_WAVES: readonly WaveDef[] = PLANS.map(layOut);

@@ -68,8 +68,10 @@ describe("bot runs", () => {
     expect(gates.find((gate) => gate.id === "G3")!.status).toBe("bị chặn");
     if ((summary.events.spawn ?? 0) === 0) expect(gates.find((gate) => gate.id === "G1")!.status).toBe("bị chặn");
     expect(readiness({ b35: summary }).length).toBeGreaterThan(5);
-    const text = markdown({ seeds: 2, summaries: { b35: summary }, plan: planRows(), notes: [], wallS: 0 });
+    const text = markdown({ seeds: 2, summaries: { b35: summary }, byMode: { balanced: { b35: summary } }, sets: [], plan: planRows(), notes: [], wallS: 0 });
     expect(text).toContain("Cổng M0");
     expect(text).toContain("b35");
+    expect(text).toContain("Vùng cuốn: Cân bằng");
+    expect(text).toContain("B1–B9");
   });
 });

@@ -60,9 +60,13 @@ describe("sim smoke", () => {
     expect(paceFor(45).kPm).toBeLessThan(1300);
     expect(paceFor(30).kPm).toBeGreaterThan(750);
     expect(paceFor(30).kPm).toBeLessThan(1000);
-    // T_a: PACE.approachMs at k = 1, shorter for a faster player, never under two of their word times.
+    // T_a: PACE.approachMs at k = 1 × the slip and unevenness margin, shorter for a faster player, never under two of their word times.
     const ref = paceFor(35);
-    expect(ref.approachTicks).toBe(Math.max(Math.round((PACE.approachMs * 60) / 1000), 2 * ref.wordTicks));
+    expect(ref.approachTicks).toBe(Math.max(Math.round((PACE.approachMs * 60 * ref.marginPm) / 1_000_000), 2 * ref.wordTicks));
+    // The margin (BALANCE.md §2 factors 3, 4): a sloppy, uneven hand gets more time than a clean, even one.
+    expect(paceFor(50, 850, 350).marginPm).toBeGreaterThan(1400);
+    expect(paceFor(25, 990, 200).marginPm).toBeLessThan(1150);
+    expect(paceFor(35, 950, 250).marginPm).toBeGreaterThan(paceFor(70, 970, 150).marginPm);
     expect(paceFor(60, 970, 150).approachTicks).toBeLessThan(ref.approachTicks);
     for (const wpm of [15, 25, 35, 70]) expect(paceFor(wpm).approachTicks).toBeGreaterThanOrEqual(2 * paceFor(wpm).wordTicks);
   });

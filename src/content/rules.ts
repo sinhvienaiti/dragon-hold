@@ -130,10 +130,24 @@ export const PACE = {
   defaultCvPm: 250,
   /** E_eff held in [0.7 E, E] (BALANCE.md §4.1). */
   eEffFloorPm: 700,
-  /** T_a of a small foe at k = 1 (BALANCE.md §9.1: the standard bot kills it at Q ≈ 55–70 %). */
-  approachMs: 5000,
+  /**
+   * T_a of a small foe at k = 1 (BALANCE.md §9.1): 8 s puts most foes' first
+   * word at the 26 m ring edge (≤ 4.7 s after their gate), so a wave's first
+   * words come up within ~2–3 s and the zone holds the next words while one
+   * is typed. Q lands at ~40 % (§9.1 aims 55–70 %); 6 s barely moves Q and
+   * raises idle (balance changelog 2026-10-23).
+   */
+  approachMs: 8000,
   /** T_a is never under this many word times of the player (BALANCE.md §9.1). */
   approachMinWords: 2,
+  /**
+   * Slip margin (BALANCE.md §2 factor 3 "Thói sửa lỗi → biên thời gian"): T_a
+   * and Héo lan's grace × (1 + this / 10 × the chance a word goes Ẩu at the
+   * player's accuracy): 85 % → × 1.45, 95 % → × 1.04, 99 % → × 1.00.
+   */
+  sloppyMarginX10: 30,
+  /** Uneven margin (BALANCE.md §2 factor 4): T_a and the grace × (1 + this % × CV): CV 0.35 → × 1.21, 0.15 → × 1.09. */
+  unevenMarginPct: 60,
 } as const;
 
 /** Wave load L × 100 bands (00 §4.4). */
@@ -401,16 +415,35 @@ export const HERO_SKILLS = {
 } as const;
 
 /**
- * Continuous pressure (BALANCE.md §5 "vòng gần có hiệu ứng xấu cho phe ta
- * khi quái đứng lâu", §9.1, D23): every 2 s, each foe that stands in the
- * word zone (held by a unit, fighting, or at its stop) seeps Héo into the
- * Fire Dragon, `zonePerW10` tenths of HP a second per W it carries, `ringPerW10`
- * inside Vòng Nguy (10 m, 01 §2.1) even while walking; × g(c), × difficulty,
- * × the pace k, true damage that units and armour do not stop. A held foe
- * still costs HP until it is typed down, so the margin follows typing
- * (BALANCE.md §5).
+ * Continuous pressure, Héo lan (BALANCE.md §5, §9.1, D23): every beat of a
+ * wave, each target left waiting in the word zone seeps Héo into the Fire
+ * Dragon. A target waits when its word has been up longer than the grace
+ * (`graceX10` tenths of one word at the player's raw E, × the slip and
+ * unevenness margin, PACE), or when it stands in the zone with no word; a
+ * swarm cluster counts once (one word). Per waiting target, `zoneX10` tenths
+ * of HP a second, `ringX10` inside Vòng Nguy (10 m, 01 §2.1), `heldPct` of the
+ * zone rate while one of our units holds it; at most `maxTargets` count in a
+ * beat (falling behind costs, it never snowballs). × g(c), × the difficulty's
+ * Héo (`difficultyPm`, 00 §4.10's modes Thư giãn / Cân bằng / Thử thách), ×
+ * √k (half of the pace each way: our side works by the clock), × the wave's
+ * ramp (`rampFromPct` in wave 1, + `rampPerWavePct` a wave: light while our
+ * side is small, heaviest in the last waves); true damage.
+ * Every word left waiting costs HP for as long as it waits, so faster,
+ * steadier, cleaner typing loses less HP, smoothly; peaks are where the waits
+ * pile up and where traps, units and skills decide.
  */
-export const PRESSURE = { ringMm: 10_000, everyMs: 2000, zonePerW10: 40, ringPerW10: 100 } as const;
+export const PRESSURE = {
+  ringMm: 10_000,
+  everyMs: 2000,
+  graceX10: 10,
+  zoneX10: 135,
+  ringX10: 270,
+  heldPct: 50,
+  maxTargets: 2,
+  rampFromPct: 25,
+  rampPerWavePct: 12,
+  difficultyPm: { easy: 500, normal: 1000, hard: 900 },
+} as const satisfies { readonly difficultyPm: Readonly<Record<Difficulty, number>> } & Record<string, unknown>;
 
 /** Area skills never sweep (BALANCE.md §9.1, D23): one blow takes at most 60 % of a swarm cluster's HP; each area skill ≤ 15 % of a stage's damage (the bot report checks it). */
 export const AREA = { clusterCapPct: 60, skillShareMaxPct: 15 } as const;

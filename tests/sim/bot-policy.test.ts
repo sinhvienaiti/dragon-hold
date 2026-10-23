@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOTS, createBotWorld } from "../../scripts/balance/bot";
+import { BOTS, createBotWorld, runBot } from "../../scripts/balance/bot";
 import { bestShopAction, densest, shopActions, upgradeCost, waveCard } from "../../scripts/balance/policy";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { TRAPS, UNITS } from "../../src/content/data/our-side";
@@ -86,5 +86,41 @@ describe("bot policy", () => {
     expect(spot.count).toBe(3);
     expect(spot.at[0]).toBeGreaterThanOrEqual(10);
     expect(spot.at[0]).toBeLessThanOrEqual(11);
+  });
+});
+
+/** BALANCE.md §6 tactics levels and the modes' flow (B6, B3). */
+describe("bot tactics", () => {
+  it("gives each standard bot a buying style by its tactics: poor, balanced (fair), good", () => {
+    expect(BOTS.b35poor.policy.buy).toBe("poor");
+    expect(BOTS.b35.policy.buy).toBe("balanced");
+    expect(BOTS.b35good.policy.buy).toBe("good");
+    expect(BOTS.child.policy.buy).toBe("poor");
+    expect(BOTS.noTyping.policy.buy).toBe("best");
+    expect(BOTS.typingOnly.policy.buy).toBe("none");
+  });
+
+  it("the weak buyer places by the dais, never upgrades, never buys Tim Rồng; the others fill and upgrade", () => {
+    const poor = runBot(BOTS.b35poor, { seed: 3, keepLog: true, maxTicks: 6 * 60 * 60 });
+    const fair = runBot(BOTS.b35, { seed: 3, keepLog: true, maxTicks: 6 * 60 * 60 });
+    const commands = (run: typeof poor) => run.log.map((entry) => entry.command);
+    expect(commands(poor).some((c) => c.type === "upgrade")).toBe(false);
+    expect(commands(poor).some((c) => c.type === "buy" && c.item !== "small-potion")).toBe(false);
+    const world = createBotWorld(BOTS.b35poor, { seed: 3 });
+    const dist = (id: string) => {
+      const slot = world.slots.find((s) => s.def.id === id)!;
+      return Math.hypot(slot.x, slot.z);
+    };
+    const firstTrap = commands(poor).find((c) => c.type === "place" && KIND[c.item] === "trap");
+    const traps = world.slots.filter((s) => s.def.kind === "trap").map((s) => dist(s.def.id));
+    expect(firstTrap && firstTrap.type === "place" ? dist(firstTrap.slot) : 0).toBe(Math.min(...traps));
+    expect(commands(fair).filter((c) => c.type === "place").length).toBeGreaterThan(3);
+  });
+
+  it("presses Enter in an Easy break (00 §4.5) once the shop is done", () => {
+    const run = runBot(BOTS.b35, { seed: 5, difficulty: "easy", keepLog: true, maxTicks: 6 * 60 * 60 });
+    expect(run.log.some((entry) => entry.command.type === "continue")).toBe(true);
+    expect(run.result === "stalled").toBe(false);
+    expect(run.wavesEnded).toBeGreaterThanOrEqual(2);
   });
 });

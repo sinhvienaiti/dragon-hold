@@ -829,9 +829,10 @@ export function lockShieldTicks(world: World, enemy: EnemyState): number {
   return enemy.word < 0 ? 0 : shieldLeft(world.words.session, enemy.word, world.tick);
 }
 
-/** Words a foe carries in all (its chain, 01 §3.5): W rounded up, elites × 1.6; a swarm cluster shares one. */
+/** Words a foe carries in all (its chain, 01 §3.5): W rounded up, elites × 1.6; a swarm cluster shares one; a small foe falls to one word (00 §4.6). */
 function chainWords(enemy: EnemyState): number {
   if (enemy.cluster >= 0) return 1;
+  if (!enemy.general && !enemy.elite && ENEMIES[enemy.foe as EnemyId].tier === "small") return 1;
   const def = enemy.general ? GENERALS[enemy.foe as GeneralId] : ENEMIES[enemy.foe as EnemyId];
   const w100 = enemy.elite ? Math.round((def.w100 * ELITE_PM) / 1000) : def.w100;
   return w100 > 100 ? Math.ceil(w100 / 100) : 1;

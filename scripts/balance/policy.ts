@@ -2,16 +2,25 @@
  * The bots' plan outside the keys (03 §13.1): what to buy and place in prep
  * and breaks, Dragon skills (Alt + 1, 2, 5), potions, learn-ahead, review
  * cards, the start. Buying styles:
- *   balanced: the "average kit" (Cân Bằng): each break, score every action by
- *             value per gold against the next wave's card, take the best,
- *             keep 10 % of the gold for potions;
+ *   balanced: the "average kit" (Cân Bằng, tactics "Vừa"): each break, score
+ *             every action by value per gold against the next wave's card,
+ *             take the best, fill useful slots before upgrading, value the
+ *             first Nhà Thuốc Lá that reaches the dais, keep 10 % of the gold;
+ *   good:     the same reading (tactics "Tốt"), and Tim Rồng, Vảy Cứng only
+ *             for the last two waves;
  *   best:     the no-typing floor bot (G6): spends everything, leans on
  *             killers and holders, buys Tim Rồng and Vảy Cứng;
- *   poor:     a weak buyer (BALANCE.md §6 tactics "Kém"): keeps 30 % of its
- *             gold, buys only clearly good value, never upgrades;
+ *   poor:     a weak buyer (BALANCE.md §6 tactics "Kém"): never reads the
+ *             wave card; takes the carry strip in turn and drops each item
+ *             in the free slot of its kind nearest the dais ("safe at home"),
+ *             never upgrades, never buys Tim Rồng or Vảy Cứng, one potion at
+ *             the start, keeps 20 % of its gold;
  *   none:     typing only, never buys.
- * Skill timing follows the tactics too: a poor player waits for bigger
- * groups, a good one casts on smaller ones.
+ * Skill timing follows the tactics too (BALANCE.md §6 "dùng kỹ năng sớm hay
+ * muộn"): a poor player forgets its skills until the Dragon is hurt, then
+ * casts on whatever is there, and drinks late; a fair one waits for a group;
+ * a good one keeps every cooldown busy and keeps Viêm Đế for the general or
+ * the last waves.
  * Values are rough "W held or killed per wave" points (03 §13.1 asks for
  * points per gold, not an exact model). Every action goes out as a
  * SimCommand; the world decides, and a refused one is not tried again in the
@@ -28,15 +37,21 @@ import type { World } from "../../src/sim/world";
 import { foeDef, isClusterFoe } from "./load";
 import { liveFoes, metresFromDais } from "./reader";
 
-export type BuyStyle = "balanced" | "best" | "poor" | "none";
+export type BuyStyle = "balanced" | "good" | "best" | "poor" | "none";
 /** BALANCE.md §6 tactics level: skill timing (buying is `buy`). */
 export type SkillTactics = "poor" | "fair" | "good";
 
-/** Foes a skill waits for, by tactics: Phun Lửa (in 12 m), Thiên Hỏa (in 4 m), Viêm Đế (in the word zone). */
-const SKILL_WAIT: Readonly<Record<SkillTactics, { breath: number; skyfire: number; inferno: number }>> = {
-  poor: { breath: 4, skyfire: 4, inferno: 7 },
-  fair: { breath: 3, skyfire: 3, inferno: 5 },
-  good: { breath: 2, skyfire: 3, inferno: 4 },
+/**
+ * Skill timing by tactics (BALANCE.md §6 "dùng kỹ năng sớm hay muộn"): foes
+ * Phun Lửa waits for (in 12 m), Thiên Hỏa (heads within 4 m of one foe in the
+ * word zone), Viêm Đế (in the zone); `panicPct`: the poor player forgets its
+ * skills until the Dragon is below this HP %; a potion below `potionPct`.
+ * A good player keeps every cooldown busy on whatever is worth it.
+ */
+const SKILL_WAIT: Readonly<Record<SkillTactics, { breath: number; skyfire: number; inferno: number; potionPct: number; panicPct: number }>> = {
+  poor: { breath: 1, skyfire: 1, inferno: 1, potionPct: 25, panicPct: 50 },
+  fair: { breath: 3, skyfire: 3, inferno: 5, potionPct: 45, panicPct: 100 },
+  good: { breath: 1, skyfire: 2, inferno: 4, potionPct: 50, panicPct: 100 },
 };
 
 export interface PolicySpec {
@@ -163,10 +178,14 @@ function flyerEnds(world: World): Vec2[] {
   return world.lanes.filter((lane) => lane.sky).map((lane) => [lane.xs[lane.xs.length - 1]! / U_PER_M, lane.zs[lane.zs.length - 1]! / U_PER_M] as Vec2);
 }
 
+/** Each item of the same kind already on the lane (houses: anywhere) is worth this much less: a second spike strip still pays. */
+const DIMINISH = 0.8;
+
 /** Style weights: the floor bot leans on killers and holders. */
 const WEIGHTS: Readonly<Record<Exclude<BuyStyle, "none">, Readonly<Record<PlaceableId | "hero" | "potion", number>>>> = {
   balanced: { spikes: 1, "pine-bomb": 1, "net-launcher": 1, "moss-warden": 1, "herb-hut": 1, hero: 1, potion: 1 },
   poor: { spikes: 1, "pine-bomb": 0.8, "net-launcher": 0.7, "moss-warden": 0.9, "herb-hut": 0.8, hero: 0.8, potion: 1 },
+  good: { spikes: 1, "pine-bomb": 1, "net-launcher": 1, "moss-warden": 1, "herb-hut": 1, hero: 1, potion: 1 },
   best: { spikes: 1.3, "pine-bomb": 1.5, "net-launcher": 1.1, "moss-warden": 1.2, "herb-hut": 1, hero: 1.4, potion: 1.2 },
 };
 
@@ -200,7 +219,10 @@ function baseValue(world: World, card: WaveCard, slot: SlotState, item: Placeabl
       const radius = HOUSES["herb-hut"].radiusMm / 1000;
       const reachesHero = distM(slotM(slot), [0, 0]) <= radius + world.map.dais.radiusM;
       const units = world.slots.filter((other) => other.item === "moss-warden" && distM(slotM(slot), slotM(other)) <= radius).length;
-      return (reachesHero ? 2 : 0) + 0.5 * units;
+      // Heals the Fire Dragon 0.3 %/s in a wave (the strongest house only) and pulses 10 % (03 §8): the first one that
+      // reaches the dais is worth several spike strips; more add pulses only.
+      const huts = world.slots.filter((other) => other.item === "herb-hut").length;
+      return (reachesHero ? (huts === 0 ? 8 : 2) : 0) + 0.5 * units;
     }
   }
 }
@@ -216,21 +238,28 @@ export function shopActions(world: World, card: WaveCard, style: Exclude<BuyStyl
   const out: ShopAction[] = [];
   const units = world.slots.filter((slot) => slot.item === "moss-warden").length;
   const carried = (item: PlaceableId | ConsumableId) => world.stage.carry.includes(item);
+  let open = false;
   for (const slot of world.slots) {
     if (slot.item === null) {
       const items: PlaceableId[] = slot.def.kind === "trap" ? [...TRAP_IDS] : slot.def.kind === "block" ? (units < BLOCK.maxUnits ? ["moss-warden"] : []) : ["herb-hut"];
       for (const item of items) {
         if (!carried(item)) continue;
-        const value = baseValue(world, card, slot, item) * Math.pow(0.6, standing(world, slot, item)) * weights[item];
+        const value = baseValue(world, card, slot, item) * Math.pow(DIMINISH, standing(world, slot, item)) * weights[item];
         if (value > 0) out.push({ key: "place:" + slot.def.id + ":" + item, command: { type: "place", item, slot: slot.def.id }, cost: ITEM_COST[item], value });
+        if (value > 0.5) open = true;
       }
-    } else if (slot.level >= 1 && slot.level < 3 && style !== "poor") {
-      const gain = slot.level === 1 ? 0.45 : 0.35;
-      const value = baseValue(world, card, slot, slot.item) * gain * weights[slot.item];
-      if (value > 0) out.push({ key: "upgrade:" + slot.def.id + ":" + slot.level, command: { type: "upgrade", slot: slot.def.id }, cost: upgradeCost(slot.item, slot.level), value });
     }
   }
-  const late = 0.5 + Math.min(world.wave, 10) / 10;
+  for (const slot of world.slots) {
+    if (slot.item === null || slot.level < 1 || slot.level >= 3 || style === "poor") continue;
+    const gain = slot.level === 1 ? 0.45 : 0.35;
+    // Upgrades wait while useful slots are still empty (fill, then upgrade).
+    const waiting = !open ? 1 : style === "good" || style === "balanced" ? 0.6 : 1;
+    const value = baseValue(world, card, slot, slot.item) * gain * weights[slot.item] * waiting;
+    if (value > 0) out.push({ key: "upgrade:" + slot.def.id + ":" + slot.level, command: { type: "upgrade", slot: slot.def.id }, cost: upgradeCost(slot.item, slot.level), value });
+  }
+  // A good player buys Tim Rồng and Vảy Cứng for the last waves, when the slots are full.
+  const late = style === "good" ? (world.wave >= world.stage.waves.length - 2 ? 2 : 0.3) : 0.5 + Math.min(world.wave, 10) / 10;
   const heroBuys: readonly [HeroUpgradeId, number][] = [["dragon-heart", 1.2], ["hard-scale", 1]];
   for (const [id, base] of heroBuys) {
     if (!world.stage.unlocks.heroUpgrades.includes(id)) continue;
@@ -272,6 +301,8 @@ const SKILL_COOLDOWN_MS: Readonly<Record<HeroSkillId, number>> = {
 // ── The plan ───────────────────────────────────────────────────────────────
 
 const SHOP_EVERY_MS = 500;
+/** In an Easy break (waits for Enter), the bot presses Enter this long after the break began, once nothing is left to buy. */
+const CONTINUE_AFTER_MS = 8000;
 const TACTICS_EVERY_MS = 250;
 
 export class Plan {
@@ -283,6 +314,8 @@ export class Plan {
   private learned = false;
   private started = false;
   private cardsLeft = 0;
+  /** The weak buyer's place in the carry strip. */
+  private naiveNext = 0;
   private readonly castAtMs: Partial<Record<HeroSkillId, number>> = {};
   /** Commands sent, by type (the report's "decisions"). */
   readonly sent: Record<string, number> = {};
@@ -342,7 +375,9 @@ export class Plan {
       this.send(view, { type: "review-card", correct: view.rng.chance(this.spec.reviewCards) });
       return;
     }
-    this.shopStep(view);
+    if (this.shopStep(view)) return;
+    // An Easy break waits for Enter (00 §4.5): the player presses it once the shop and the cards are done, after a short look.
+    if (view.world.phaseEndsAt < 0 && this.cardsLeft === 0 && view.nowMs - this.phaseAtMs >= CONTINUE_AFTER_MS) this.send(view, { type: "continue" });
   }
 
   /** One purchase if one is worth it; true when a command went out. */
@@ -350,16 +385,54 @@ export class Plan {
     const style = this.spec.buy;
     if (style === "none") return false;
     const world = view.world;
+    if (style === "poor") return this.naiveStep(view);
     const next = world.phase === "prep" ? 0 : world.wave;
     const card = waveCard(world, next);
     const gold = world.economy.gold;
-    const reserve = style === "balanced" ? Math.ceil(gold * 0.1) : style === "poor" ? Math.ceil(gold * 0.3) : 0;
-    const floor = style === "balanced" ? 0.4 : style === "poor" ? 0.9 : 0;
+    const reserve = style === "balanced" || style === "good" ? Math.ceil(gold * 0.1) : 0;
+    const floor = style === "balanced" || style === "good" ? 0.4 : 0;
     const action = bestShopAction(shopActions(world, card, style), gold, reserve, floor, this.tried);
     if (!action) return false;
     this.tried.add(action.key);
     this.send(view, action.command);
     return true;
+  }
+
+  /**
+   * The weak buyer (BALANCE.md §6 "Kém": order and place): one potion at the
+   * start, then the carry strip in turn, each item "safe at home" — the free
+   * slot of its kind nearest the dais (traps on the last stretch, units at
+   * the near block points), so foes meet them only at the end of their walk —
+   * without reading the wave card; never an upgrade, never Tim Rồng or Vảy Cứng.
+   */
+  private naiveStep(view: PlanView): boolean {
+    const world = view.world;
+    const gold = world.economy.gold;
+    const reserve = Math.ceil(gold * 0.2);
+    const potion: ConsumableId = "small-potion";
+    if (world.phase === "prep" && world.stage.carry.includes(potion) && (world.shop.held[potion] ?? 0) === 0 && !this.tried.has("naive:potion") && CONSUMABLES[potion].cost <= gold) {
+      this.tried.add("naive:potion");
+      this.send(view, { type: "buy", item: potion });
+      return true;
+    }
+    const units = world.slots.filter((slot) => slot.item === "moss-warden").length;
+    const items = world.stage.carry.filter((item): item is PlaceableId => item in ITEM_COST);
+    for (let turn = 0; turn < items.length; turn += 1) {
+      const item = items[(this.naiveNext + turn) % items.length]!;
+      if (ITEM_COST[item] > gold - reserve || (item === "moss-warden" && units >= BLOCK.maxUnits)) continue;
+      const kind = item === "moss-warden" ? "block" : item === "herb-hut" ? "house" : "trap";
+      let home: SlotState | null = null;
+      for (const slot of world.slots) {
+        if (slot.item !== null || slot.def.kind !== kind || this.tried.has("naive:" + slot.def.id)) continue;
+        if (home === null || distM(slotM(slot), [0, 0]) < distM(slotM(home), [0, 0])) home = slot;
+      }
+      if (home === null) continue;
+      this.naiveNext = (this.naiveNext + turn + 1) % items.length;
+      this.tried.add("naive:" + home.def.id);
+      this.send(view, { type: "place", item, slot: home.def.id });
+      return true;
+    }
+    return false;
   }
 
   private tactics(view: PlanView): void {
@@ -368,12 +441,15 @@ export class Plan {
     this.nextTacticsMs = nowMs + TACTICS_EVERY_MS;
     const hero = world.hero;
     const potion: ConsumableId = "small-potion";
-    if (this.spec.buy !== "none" && (world.shop.held[potion] ?? 0) > 0 && world.shop.consumableReadyAt <= world.tick && hero.hp * 100 < hero.hpMax * 45) {
+    const wait = SKILL_WAIT[this.spec.tactics ?? "fair"];
+    if (this.spec.buy !== "none" && (world.shop.held[potion] ?? 0) > 0 && world.shop.consumableReadyAt <= world.tick && hero.hp * 100 < hero.hpMax * wait.potionPct) {
       this.send(view, { type: "consumable", item: potion });
       view.hold(300);
       return;
     }
     if (!this.spec.skills || world.phase !== "wave") return;
+    // A poor player forgets its skills until the Dragon is hurt.
+    if (hero.hp * 100 >= hero.hpMax * wait.panicPct) return;
     const unlocked = world.stage.unlocks.heroSkills;
     const foes = liveFoes(world);
     const ready = (skill: HeroSkillId) =>
@@ -383,7 +459,6 @@ export class Plan {
       this.send(view, at ? { type: "skill", skill, at } : { type: "skill", skill });
       view.hold(250);
     };
-    const wait = SKILL_WAIT[this.spec.tactics ?? "fair"];
     const breathM = HERO_SKILLS.breath.lengthMm / 1000;
     const nearBreath = foes.filter((foe) => metresFromDais(foe) <= breathM).length;
     if (ready("breath") && (nearBreath >= wait.breath || (nearBreath >= wait.breath - 1 && hero.hp * 100 < hero.hpMax * 60))) return cast("breath");
@@ -394,7 +469,12 @@ export class Plan {
     if (world.stage.unlocks.rage && ready("inferno") && world.combat.rage >= RAGE.maxX10) {
       const zone = foes.filter((foe) => metresFromDais(foe) <= RINGS.wordZoneMm / 1000).length;
       const finale = foes.filter((foe) => metresFromDais(foe) <= HERO_SKILLS.inferno.finaleRadiusMm / 1000).length;
-      if ((this.spec.typing && (zone >= wait.inferno || foes.some((foe) => foe.general))) || finale >= 3) cast("inferno");
+      const general = foes.some((foe) => foe.general);
+      if (this.spec.tactics === "good") {
+        // Kept for the general, the last two waves' crowds, or a Dragon in trouble.
+        const late = world.wave >= world.stage.waves.length - 1;
+        if (general || (late && zone >= wait.inferno) || finale >= 4 || hero.hp * 100 < hero.hpMax * 35) cast("inferno");
+      } else if ((this.spec.typing && (zone >= wait.inferno || general)) || finale >= 3) cast("inferno");
     }
   }
 }
