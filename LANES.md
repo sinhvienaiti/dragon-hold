@@ -240,14 +240,62 @@ Contracts other lanes use:
   (typing only wins ≥ 70 % on stages 1–10); DESIGN.md §9's "≤ 40 %" contradicts
   it and the canon wins.
 
-## Open items after M0a integration
+## Round 2 integration (M0a, 24/10/2026)
 
-- Balance: with canon numbers the 35 WPM bot with the average kit wins 100 %
-  at 100 % HP (G1 wants 75–90 %); even load × 1.5 with foe damage × 3 leaves
-  it at 99 % HP (blockers, traps, Thiên Hỏa on clusters). Foes die a median
-  20 m out in a 26 m word zone. The owner decides where the pressure comes
-  from (`docs/changelog/2026-10-23-m0a-integration.md`).
-- Wave 9 is a middle wave by load (1.00) but its wolf pack peaks at 1.24
-  (middle cap 1.15); wave 5 the same with the first general.
+Lanes: balance (`89b4aca`), kit-learning (parent `339e6dac`, `0c8e0c7`,
+`e9f7242`, `a234c74`), readability and visuals (`0273afa`, `f720737`,
+`59e268b`). Notes: `docs/changelog/2026-10-24-m0a-round2-integration.md`.
+
+- Kit `typing`: `RouterRules.unlockErrors` ("drop" default, "keep"); dragon-hold
+  sets "keep" (Esc keeps a word's wrong keys, 01 §3.3). Synced at parent
+  `339e6dac`; `scripts/balance/calibrate.ts` uses the same rule. Only
+  dragon-hold uses the kit's `typing/` module.
+- `src/app/learning.ts` `isRightRecall(activity, result, hintUsed)`: one rule
+  for the device record and the portal samples (Học trước sends `review-card`
+  with `hintUsed: true` and never counts as a recall).
+- Balance: wave plan `layOut`, `PACE` time margins (slip, unevenness), Héo lan
+  per waiting target (`PRESSURE`, event `blight` unchanged), director per
+  difficulty (`BAND_MODE`: Dễ / Thường / Khó steer to Thư giãn / Cân bằng /
+  Thử thách; `?difficulty=` reaches it through `createWorld`), small foes
+  carry one word (`chainWords`); bots with Kém / Vừa / Tốt tactics;
+  `pnpm dh:balance` runs 3 modes × 2 seed sets.
+- View: drawn foe sizes live in `src/view/foe-look.ts` (`foeDrawnSize`,
+  `__dh.foeSizes()` reads them). Cards pick a clear spot through
+  `src/ui/screen-zones.ts`. Word tags keep clear of other foes' drawn boxes
+  and of enemy warning rings (`foe-look.ts` `drawnWarnings`, filled by
+  `telegraphs.ts`), ≤ 20 % cover.
+- Fast-forward's word-zone check in `src/app/app.ts` reads `RINGS.wordZoneMm`
+  (was a literal 26).
+
+New files and who owns them: `src/view/foe-look.ts` view-crowd-fx;
+`src/ui/screen-zones.ts` ui; `scripts/balance/anatomy.ts`,
+`tests/sim/balance-pressure.test.ts` bot-balance; `tests/ui/**` ui (tag tests
+with typing-learning); `tests/view/**` view-crowd-fx;
+`scripts/visual/scenarios/dh-crowd.mjs` integrator.
+
+Other lanes' files changed in round 2 (owners keep them): `src/sim/{combat,
+director,world,words}.ts` (balance; `words.ts` only `chainWords`),
+`src/ui/{tags,learning-frame,wave-card}.ts` (visuals: tag layout, card
+placement), `src/app/app.ts` (visuals: `__dh.foeSizes`).
+
+## Open items after round 2
+
+- B1 and B7 fail on idle I (standard 21 %, director off 22 %, band ≤ 10 %):
+  the 00 §4.4 load caps plus ~46 % untyped damage leave ~15–19 % at best.
+  The owner picks one of: I counts only gaps ≥ 1 s or the strike flight as
+  busy (kit FlowMeter); an I band ≤ 20 % for this game; middle-wave load
+  1.05–1.10 (peaks ≤ 1.25, wave 1 ≤ 0.75); untyped share 20–25 %.
+- The Fast bot wins 100 % (k cap 1.30); Q ~40 % (§9.1 aims 55–70 %); B9
+  needs the owner's playtest.
+- New numbers to write into 00 §4.10 / §9.1: slip and unevenness margins,
+  Héo lan per mode, wave 10 peak 1.39 (M0 exception ≤ 1.40). Proposed doc
+  lines for 01 §3.3 (Esc) and 01 §6.3 / §6.6 (Học trước is no recall) are in
+  `docs/changelog/2026-10-23-m0a-kit-learning.md`.
+- A word let go with Esc that still carries wrong keys cannot be taken by a
+  soft switch when locked again (kit behaviour; a change needs sim state and
+  new golden replays).
+- Ring tags (foes within 10 m) keep their fixed place (05 §4.3) and can cover
+  part of a warning ring by the dais; a foe behind a blocker shows only as a
+  striped ghost (the placeholder Vệ Binh Rêu is drawn × 2; M0b models decide).
 - Map slots `suoi-t2`/`suoi-b1` and `suoi-t3`/`suoi-b2` sit 0.5 m apart on the
   ground (trap under a blocker by design); the DOM markers offset blockers 2.2 m.
