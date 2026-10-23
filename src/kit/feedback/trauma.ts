@@ -1,4 +1,4 @@
-// Source: games/space-typing@feat/survival-s0 src/feedback/trauma.ts (kit copy: numbers from the profile, random passed in; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing@survival-s0 src/feedback/trauma.ts (kit copy: numbers from the profile, random passed in; log fixes in shared/game-kit/DRIFT.md)
 /**
  * One camera shake for every blow (SURVIVAL_MODE_PLAN.md 5.2; dragon-hold
  * 05 §5): shake = trauma², trauma falls `decay` a second, at most `maxPx` at
@@ -63,9 +63,15 @@ export class Trauma {
     const shake = this.trauma * this.trauma * maxPx * (height / 1080) * this.scale;
     const t = this.time;
     const [a, b, c] = this.phase;
-    // Smooth noise: three detuned sines per axis.
-    const nx = (Math.sin(t * 37 + a) + Math.sin(t * 61 + b) * 0.6 + Math.sin(t * 97 + c) * 0.3) / 1.9;
-    const ny = (Math.sin(t * 41 + c) + Math.sin(t * 67 + a) * 0.6 + Math.sin(t * 89 + b) * 0.3) / 1.9;
+    // Smooth noise: three detuned sines per axis, the pair kept inside the unit
+    // circle (each axis reaches 1, and both at once would be √2 × maxPx).
+    let nx = (Math.sin(t * 37 + a) + Math.sin(t * 61 + b) * 0.6 + Math.sin(t * 97 + c) * 0.3) / 1.9;
+    let ny = (Math.sin(t * 41 + c) + Math.sin(t * 67 + a) * 0.6 + Math.sin(t * 89 + b) * 0.3) / 1.9;
+    const length = Math.hypot(nx, ny);
+    if (length > 1) {
+      nx /= length;
+      ny /= length;
+    }
     this.offsetX = nx * shake + this.kickX * this.scale;
     this.offsetY = ny * shake + this.kickY * this.scale;
     this.roll = Math.sin(t * 29 + b) * this.trauma * this.trauma * 0.012 * this.scale;

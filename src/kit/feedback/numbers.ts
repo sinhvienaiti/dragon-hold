@@ -1,4 +1,4 @@
-// Source: games/space-typing@feat/survival-s0 src/feedback/numbers.ts (kit copy: windows, colours and label from the profile; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing@survival-s0 src/feedback/numbers.ts (kit copy: windows, colours and label from the profile; log fixes in shared/game-kit/DRIFT.md)
 /**
  * Damage numbers (SURVIVAL_MODE_PLAN.md 5.4; dragon-hold 05 §5), drawn by
  * WebGL from a digit atlas painted on a canvas at load (no DOM per number).
@@ -10,13 +10,17 @@
  * over the cap the smallest goes first, never one of T3 or above; and no
  * number may cover a protected rectangle (the learning frame, the gun slots,
  * the health bar, the word tags, published by the HUD in screen pixels): it
- * is moved above it or dropped, and one that drifts into one is dropped.
+ * is moved above it or dropped, and one that drifts into one is dropped (its
+ * box counts its pop). A number landing on a young one of the same style
+ * below T3 is taken into it (a crowd's hits read as one growing number, not a
+ * tower); else it moves beside it, and only then above. Live numbers never
+ * overlap for more than a frame (settle()).
  * NumberSprites draws the field in one instanced draw call.
  */
 import * as THREE from "three";
 import { SHIP, type FeedbackProfile } from "./profiles";
 import { instancedQuads, uploadQuads } from "./quads";
-import { tier } from "./tiers";
+import { TIERS, tier, type TierProfile } from "./tiers";
 
 export type Rect = { x: number; y: number; w: number; h: number };
 /** A number's look: normal, crit (a strong blow; dragon-hold has no random crits), perfect (Flash, Perfect: with the label), tick. */
@@ -63,9 +67,9 @@ export class NumberField {
     this.labels[i] = this.style[i] === STYLE.tick && this.count[i]! > 1 ? digits + "×" + this.count[i] : digits;
   }
 
-  /** The number's box in screen px, centred on (x, y). */
+  /** The number's box in screen px, centred on (x, y), as drawn now (its pop included). */
   box(i: number, out: Rect, x = this.x[i]!, y = this.y[i]!): Rect {
-    const px = this.fontPx * this.size[i]!;
+    const px = this.fontPx * this.size[i]! * popScale(this.tier[i]!, this.pop[i]!, this.profile.tiers);
     const glyphs = this.text(i).length;
     out.w = glyphs * ADVANCE * px;
     out.h = px * (this.style[i] === STYLE.perfect ? 1 + LABEL : 1);
@@ -136,13 +140,25 @@ export class NumberField {
     this.x[slot] = x + (dx / length) * 10;
     this.y[slot] = y - 16;
     this.live += 1;
-    // Never over a protected rectangle (above it, or not at all), and not on top of another number.
-    for (let tries = 0; tries < 4; tries += 1) {
+    // Never over a protected rectangle (above it, or not at all); on a young
+    // number of its kind it merges, else it goes beside it, then above.
+    let side = dx < 0 ? -1 : 1;
+    for (let tries = 0; tries < 6; tries += 1) {
       const box = this.box(slot, SCRATCH);
       if (box.y < 0) break;
-      const rect = this.covers(box) ?? this.crowding(slot, box);
-      if (rect === null) return slot;
-      this.y[slot] = this.y[slot]! - (box.y + box.h - rect.y) - 3;
+      const rect = this.covers(box);
+      if (rect !== null) {
+        this.y[slot] = this.y[slot]! - (box.y + box.h - rect.y) - 3;
+        continue;
+      }
+      const other = this.crowding(slot, box);
+      if (other < 0) return slot;
+      if (this.mergeable(other, slot, now)) return this.absorb(other, slot);
+      const near = this.box(other, OTHER);
+      if (tries < 2) {
+        this.x[slot] = near.x + near.w / 2 + side * (near.w / 2 + box.w / 2 + 4);
+        side = -side;
+      } else this.y[slot] = this.y[slot]! - (box.y + box.h - near.y) - 3;
     }
     if (this.covers(this.box(slot, SCRATCH)) === null && SCRATCH.y >= 0) return slot;
     this.kill(slot);
@@ -150,14 +166,36 @@ export class NumberField {
     return -1;
   }
 
-  /** Another live number this one's box sits on, as its box (or null). */
-  private crowding(slot: number, box: Rect): Rect | null {
+  /** Another live number this one's box sits on (its index), or −1. */
+  private crowding(slot: number, box: Rect): number {
     for (let i = 0; i < MAX; i += 1) {
       if (i === slot || this.alive[i] === 0) continue;
       const other = this.box(i, OTHER);
-      if (box.x < other.x + other.w && box.x + box.w > other.x && box.y < other.y + other.h && box.y + box.h > other.y) return other;
+      if (box.x < other.x + other.w && box.x + box.w > other.x && box.y < other.y + other.h && box.y + box.h > other.y) return i;
     }
-    return null;
+    return -1;
+  }
+
+  /** `slot` (just born) may be taken into `other`: same style, both below T3, `other` younger than the profile's crowdMergeS. */
+  private mergeable(other: number, slot: number, now: number): boolean {
+    return this.style[other] === this.style[slot] && this.tier[other]! < 3 && this.tier[slot]! < 3 && now - this.born[other]! <= this.profile.numbers.crowdMergeS;
+  }
+
+  /** Adds number `slot` into `other` and frees `slot`; returns `other` (or −1 if it now covers a protected rectangle). */
+  private absorb(other: number, slot: number): number {
+    this.value[other] = this.value[other]! + this.value[slot]!;
+    this.count[other] = this.count[other]! + this.count[slot]!;
+    this.size[other] = Math.max(this.size[other]!, this.size[slot]!);
+    this.life[other] = Math.max(this.life[other]!, this.age[other]! + this.life[slot]! * 0.8);
+    this.pop[other] = 1;
+    this.relabel(other);
+    this.kill(slot);
+    if (this.covers(this.box(other, SCRATCH)) !== null) {
+      this.kill(other);
+      this.dropped += 1;
+      return -1;
+    }
+    return other;
   }
 
   kill(i: number): void {
@@ -183,6 +221,32 @@ export class NumberField {
       if (this.covers(this.box(i, SCRATCH)) !== null) {
         this.kill(i);
         this.dropped += 1;
+      }
+    }
+    this.settle();
+  }
+
+  /**
+   * Numbers that grew (a longer label) or drifted onto each other: the
+   * younger merges into the older (same style, both below T3), else it moves
+   * above it. update() runs it every frame; call it after moving numbers by hand.
+   */
+  settle(): void {
+    for (let i = 0; i < MAX; i += 1) {
+      if (this.alive[i] === 0) continue;
+      for (let j = i + 1; j < MAX && this.alive[i] === 1; j += 1) {
+        if (this.alive[j] === 0) continue;
+        const a = this.box(i, SCRATCH);
+        const b = this.box(j, OTHER);
+        if (!(a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y)) continue;
+        const older = this.born[i]! <= this.born[j]! ? i : j;
+        const younger = older === i ? j : i;
+        if (this.style[i] === this.style[j] && this.tier[i]! < 3 && this.tier[j]! < 3) this.absorb(older, younger);
+        else {
+          const top = older === i ? a.y : b.y;
+          const bottom = younger === i ? a.y + a.h : b.y + b.h;
+          this.y[younger] = this.y[younger]! - (bottom - top) - 2;
+        }
       }
     }
   }
@@ -313,8 +377,8 @@ export class NumberSprites {
       const style = field.style[i]!;
       const k = field.age[i]! / field.life[i]!;
       const alpha = Math.min(1, (1 - k) * 3.5);
-      const pop = 1 + ((tier(field.tier[i]!, this.profile.tiers).number?.pop ?? 1) - 1) * field.pop[i]!;
-      const px = field.fontPx * field.size[i]! * pop;
+      // The field's tiers, so the drawn size is the size its box() counts.
+      const px = field.fontPx * field.size[i]! * popScale(field.tier[i]!, field.pop[i]!, field.profile.tiers);
       const color = this.colors[style] ?? this.colors[0]!;
       const advance = px * ADVANCE;
       let x = field.x[i]! - (text.length * advance) / 2;
@@ -348,4 +412,9 @@ export class NumberSprites {
     (this.mesh.material.uniforms.uAtlas!.value as THREE.Texture).dispose();
     this.mesh.material.dispose();
   }
+}
+
+/** The scale a number of tier `tierId` is drawn at while popping (`pop` 1 → 0), from `table`'s pop. */
+export function popScale(tierId: number, pop: number, table: readonly TierProfile[] = TIERS): number {
+  return 1 + ((tier(tierId, table).number?.pop ?? 1) - 1) * pop;
 }

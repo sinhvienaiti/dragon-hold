@@ -25,8 +25,12 @@ export type FeedbackProfile = {
   readonly trauma: { readonly maxPx: number; readonly decay: number; readonly kickRate: number; readonly kickPx: number };
   /** Debris: seconds lying on the floor, then fading. */
   readonly debris: { readonly restS: number; readonly fadeS: number };
-  /** Damage numbers: roll-up windows (s), colours by STYLE (normal, crit, perfect, tick), the Perfect label. */
-  readonly numbers: { readonly mergeS: number; readonly tickMergeS: number; readonly colors: readonly [string, string, string, string]; readonly label: string; readonly labelColor: string };
+  /**
+   * Damage numbers: roll-up windows (s) on one target, the window in which a
+   * number landing on another's young number of its style (below T3) is taken
+   * into it, colours by STYLE (normal, crit, perfect, tick), the Perfect label.
+   */
+  readonly numbers: { readonly mergeS: number; readonly tickMergeS: number; readonly crowdMergeS: number; readonly colors: readonly [string, string, string, string]; readonly label: string; readonly labelColor: string };
   /**
    * Sound: the key style ("click": 5 clicks; "wood": a knock and a bell up a
    * semitone a letter, at most `keySteps`), the window event that ducks shots
@@ -44,7 +48,7 @@ export const SHIP: FeedbackProfile = {
   holdMaxMs: 70,
   trauma: { maxPx: 14, decay: 1.8, kickRate: 38, kickPx: 6 },
   debris: { restS: 8, fadeS: 0.7 },
-  numbers: { mergeS: 0.15, tickMergeS: 0.3, colors: ["#fff4e2", "#ffc93a", "#d9fffb", "#ffd9a8"], label: "HOÀN HẢO", labelColor: "#5ff5e6" },
+  numbers: { mergeS: 0.15, tickMergeS: 0.3, crowdMergeS: 0.3, colors: ["#fff4e2", "#ffc93a", "#d9fffb", "#ffd9a8"], label: "HOÀN HẢO", labelColor: "#5ff5e6" },
   audio: { keys: "click", keySteps: 0, pronunciationEvent: PRONUNCIATION_EVENT, duckDb: 6 },
 };
 

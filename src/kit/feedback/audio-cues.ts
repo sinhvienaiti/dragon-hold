@@ -1,4 +1,4 @@
-// Source: games/space-typing@feat/survival-s0 src/feedback/audio-cues.ts (kit copy: per-game profile, shared context, generic bus and method names, wood keys; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing@survival-s0 src/feedback/audio-cues.ts (kit copy: per-game profile, shared context, generic bus and method names, wood keys; log fixes in shared/game-kit/DRIFT.md)
 /**
  * Combat sounds made in code (SURVIVAL_MODE_PLAN.md 7; dragon-hold 05 §7; no
  * files), on buses keys / shots / hits / kills / alerts into a limiter:

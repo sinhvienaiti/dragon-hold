@@ -1,4 +1,4 @@
-// Source: games/space-typing@feat/survival-s0 src/feedback/hitstop.ts (kit copy: per-game profile, world scale, held blows; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing@survival-s0 src/feedback/hitstop.ts (kit copy: per-game profile, world scale, held blows; log fixes in shared/game-kit/DRIFT.md)
 /**
  * Hit stop (SURVIVAL_MODE_PLAN.md 5.3; dragon-hold 05 §5): which blows earn a
  * short slow-down of the world and for how long. Only the world slows: the

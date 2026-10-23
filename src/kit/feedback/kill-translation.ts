@@ -1,4 +1,4 @@
-// Source: games/space-typing@feat/survival-s0 src/feedback/kill-translation.ts (kit copy: any word with en / vi / ipa; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing@survival-s0 src/feedback/kill-translation.ts (kit copy: any word with en / vi / ipa; log fixes in shared/game-kit/DRIFT.md)
 /**
  * The meaning shown when a word's foe goes down: its IPA and Vietnamese, at
  * the top of the view, where it fell, or both; settings a game keeps and

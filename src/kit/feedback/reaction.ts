@@ -1,4 +1,4 @@
-// Source: games/space-typing@feat/survival-s0 src/feedback/reaction.ts (kit copy: tiers from the profile; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing@survival-s0 src/feedback/reaction.ts (kit copy: tiers from the profile; log fixes in shared/game-kit/DRIFT.md)
 /**
  * How a struck foe reacts (SURVIVAL_MODE_PLAN.md 5.5; dragon-hold 05 §5), as
  * numbers a crowd writes into its instances (no extra draw call): a white-hot

@@ -1,4 +1,4 @@
-// Source: games/space-typing@feat/survival-s0 src/feedback/debris.ts (kit copy: rest and fade from the profile, random passed in; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing@survival-s0 src/feedback/debris.ts (kit copy: rest and fade from the profile, random passed in; log fixes in shared/game-kit/DRIFT.md)
 /**
  * Debris (SURVIVAL_MODE_PLAN.md 5.5, 5.9; dragon-hold 05 §5, §6.3): a killed
  * foe breaks into shards of its family's colours, thrown along the blow; they
