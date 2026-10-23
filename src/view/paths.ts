@@ -2,20 +2,300 @@
  * Dirt paths along MapDef.lanes (decals or painted ground), the bridge deck
  * as a placeholder primitive, faint sky-lane markers, slot ghosts shown only
  * while placing or in a break (05 §2.1).
- * Owner: view-terrain (LANES.md). Stub: signatures fixed, body TODO.
+ * The dirt itself is painted by the ground shader (terrain.ts, lane mask);
+ * here: the bridge (boxes, one draw call), the sky lane (a faint drifting
+ * ribbon at flight height) and the slot ghosts (one instanced quad each,
+ * hidden unless asked).
+ * Owner: view-terrain (LANES.md).
  */
-import type { Group } from "three";
-import type { MapDef } from "../content/types";
-import type { TerrainView } from "./terrain";
+import * as THREE from "three";
+import type { MapDef, SlotKind } from "../content/types";
+import { catmullRom, DH_GLSL, hash2, mergeSimple, paintMaterial, Polyline, type PaintedTerrain } from "./terrain";
 
 export interface PathsView {
-  readonly group: Group;
+  readonly group: THREE.Group;
   /** Shows or hides the slot markers (placement mode, breaks). */
   showSlots(visible: boolean, highlight?: readonly number[]): void;
   dispose(): void;
+  /** Animates the sky marker and the slot pulse. */
+  update(dt: number): void;
 }
 
-export function buildPaths(map: MapDef, terrain: TerrainView): PathsView {
-  // TODO(view-terrain)
-  throw new Error("view/paths: not built yet (view-terrain lane)");
+/** Placeholder bridge: deck, side beams, rails and two piers, one merged mesh in wood tones. */
+function bridgeMesh(terrain: PaintedTerrain): THREE.Mesh | null {
+  const { bridges, waterLevel } = terrain.field;
+  if (bridges.length === 0) return null;
+  const parts: THREE.BufferGeometry[] = [];
+  const colors: THREE.Color[] = [];
+  const plank = new THREE.Color("#a8794c");
+  const beam = new THREE.Color("#7a5537");
+  const rail = new THREE.Color("#8d6440");
+  const pier = new THREE.Color("#8e8796");
+  const add = (geometry: THREE.BufferGeometry, color: THREE.Color): void => {
+    parts.push(geometry);
+    colors.push(color);
+  };
+  for (const bridge of bridges) {
+    const dx = bridge.bx - bridge.ax;
+    const dz = bridge.bz - bridge.az;
+    const length = Math.hypot(dx, dz);
+    const yaw = Math.atan2(dx, dz);
+    const place = (geometry: THREE.BufferGeometry, along: number, lateral: number, y: number): THREE.BufferGeometry => {
+      const t = along / length;
+      const x = bridge.ax + dx * t + Math.cos(yaw) * lateral;
+      const z = bridge.az + dz * t - Math.sin(yaw) * lateral;
+      geometry.rotateY(yaw);
+      geometry.translate(x, y, z);
+      return geometry;
+    };
+    const width = bridge.halfWidth * 2;
+    // Planks across the deck, small gaps between them.
+    const plankStep = 0.55;
+    for (let along = 0.3, index = 0; along < length; along += plankStep, index += 1) {
+      const shade = plank.clone().multiplyScalar(0.88 + hash2(index, 3, 11) * 0.22);
+      add(place(new THREE.BoxGeometry(width, 0.12, plankStep - 0.06), along, 0, bridge.topY - 0.06), shade);
+    }
+    // Side beams under the planks and rails on posts.
+    for (const side of [-1, 1]) {
+      add(place(new THREE.BoxGeometry(0.22, 0.3, length + 0.6), length / 2, side * (bridge.halfWidth - 0.15), bridge.topY - 0.25), beam);
+      add(place(new THREE.BoxGeometry(0.12, 0.12, length + 0.2), length / 2, side * (bridge.halfWidth + 0.02), bridge.topY + 0.72), rail);
+      for (let along = 0.2; along <= length - 0.1; along += length / Math.max(2, Math.round(length / 1.8))) {
+        add(place(new THREE.BoxGeometry(0.16, 0.8, 0.16), along, side * (bridge.halfWidth + 0.02), bridge.topY + 0.34), beam);
+      }
+    }
+    // Two piers standing in the water.
+    for (const share of [0.36, 0.64]) {
+      const height = bridge.topY - 0.3 - (waterLevel - 1.4);
+      add(place(new THREE.BoxGeometry(width * 0.92, height, 0.5), length * share, 0, waterLevel - 1.4 + height / 2), pier);
+    }
+  }
+  const geometry = mergeSimple(parts, colors);
+  const material = paintMaterial(new THREE.MeshLambertMaterial({ vertexColors: true }), terrain.look, {
+    key: "wood",
+    paint: "diffuseColor.rgb *= 0.9 + 0.2 * dhNoise(vec2(vDhWorld.x + vDhWorld.z, vDhWorld.y) * vec2(1.5, 9.0));",
+    rim: 0.08,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = "dh-bridge";
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+const SKY_VERTEX = /* glsl */ `
+varying vec2 vUv;
+varying vec3 vDhWorld;
+void main() {
+  vUv = uv;
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  vDhWorld = world.xyz;
+  gl_Position = projectionMatrix * viewMatrix * world;
+}
+`;
+
+/** Soft-edged ribbon with chevrons drifting toward the dais; faint, never a semantic colour. */
+const SKY_FRAGMENT = /* glsl */ `
+${DH_GLSL}
+uniform vec3 uTint;
+uniform float uLength;
+uniform float uOpacity;
+varying vec2 vUv;
+varying vec3 vDhWorld;
+void main() {
+  float across = abs(vUv.x - 0.5) * 2.0;
+  float body = 1.0 - smoothstep(0.35, 1.0, across);
+  float chevron = fract(vUv.y * 0.28 + across * 0.35 - uTime * 0.45);
+  float mark = smoothstep(0.0, 0.08, chevron) * (1.0 - smoothstep(0.18, 0.3, chevron));
+  float ends = smoothstep(0.0, 4.0, vUv.y) * (1.0 - smoothstep(uLength - 3.0, uLength, vUv.y));
+  float alpha = (body * 0.32 + mark * (1.0 - across) * 0.75) * ends * uOpacity;
+  vec3 col = dhMist(uTint, vDhWorld);
+  gl_FragColor = vec4(col, alpha);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+
+function skyMesh(map: MapDef, terrain: PaintedTerrain, look: PaintedTerrain["look"]): THREE.Mesh[] {
+  return map.sky.map((lane) => {
+    const smooth = catmullRom(lane.points, 0.5);
+    const line = new Polyline(smooth.points);
+    const columns = 2;
+    const positions = new Float32Array(line.count * columns * 3);
+    const uvs = new Float32Array(line.count * columns * 2);
+    const half = 0.75;
+    for (let row = 0; row < line.count; row += 1) {
+      const prev = Math.max(0, row - 1);
+      const next = Math.min(line.count - 1, row + 1);
+      let dx = line.xs[next]! - line.xs[prev]!;
+      let dz = line.zs[next]! - line.zs[prev]!;
+      const length = Math.hypot(dx, dz) || 1;
+      dx /= length;
+      dz /= length;
+      const x = line.xs[row]!;
+      const z = line.zs[row]!;
+      // Just under the flight height, so flyers pass over their own lane.
+      const y = terrain.heightAt(x, z) + lane.altitudeM * 0.85;
+      for (let col = 0; col < columns; col += 1) {
+        const offset = (col === 0 ? -1 : 1) * half;
+        const index = row * columns + col;
+        positions[index * 3] = x - dz * offset;
+        positions[index * 3 + 1] = y;
+        positions[index * 3 + 2] = z + dx * offset;
+        uvs[index * 2] = col;
+        uvs[index * 2 + 1] = line.cum[row]!;
+      }
+    }
+    const indices: number[] = [];
+    for (let row = 0; row < line.count - 1; row += 1) {
+      const a = row * 2;
+      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    const material = new THREE.ShaderMaterial({
+      vertexShader: SKY_VERTEX,
+      fragmentShader: SKY_FRAGMENT,
+      uniforms: { ...look.uniforms, uTint: { value: new THREE.Color("#f4efff") }, uLength: { value: line.length }, uOpacity: { value: 0.55 } },
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = "dh-sky-" + lane.id;
+    mesh.renderOrder = 6;
+    return mesh;
+  });
+}
+
+const SLOT_SHAPE: Readonly<Record<SlotKind, number>> = { trap: 0, block: 1, house: 2 };
+const SLOT_SIZE: Readonly<Record<SlotKind, number>> = { trap: 2.0, block: 1.8, house: 4.6 };
+
+const SLOT_VERTEX = /* glsl */ `
+attribute float aShape;
+attribute float aLit;
+varying vec2 vUv;
+varying float vShape;
+varying float vLit;
+void main() {
+  vUv = uv;
+  vShape = aShape;
+  vLit = aLit;
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
+}
+`;
+
+/** Outline per slot kind (trap rounded square, block circle, house hexagon) with a dark halo for contrast on dirt. */
+const SLOT_FRAGMENT = /* glsl */ `
+uniform float uTime;
+uniform vec3 uTint;
+uniform vec3 uLitTint;
+uniform vec3 uHalo;
+varying vec2 vUv;
+varying float vShape;
+varying float vLit;
+float hexDist(vec2 p) {
+  p = abs(p);
+  return max(dot(p, vec2(0.8660254, 0.5)), p.y);
+}
+void main() {
+  vec2 p = vUv * 2.0 - 1.0;
+  // d = 0.9 on the outline in every shape.
+  float d;
+  if (vShape < 0.5) {
+    vec2 q = abs(p) - vec2(0.82 - 0.22);
+    d = 0.9 + length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.22;
+  } else if (vShape < 1.5) {
+    d = length(p) + 0.06;
+  } else {
+    d = hexDist(p) + 0.06;
+  }
+  float inner = 0.85 - vLit * 0.04;
+  float line = smoothstep(inner - 0.03, inner, d) * (1.0 - smoothstep(0.91, 0.935, d));
+  float halo = smoothstep(0.9, 0.935, d) * (1.0 - smoothstep(0.955, 0.99, d));
+  float fill = (1.0 - smoothstep(inner - 0.04, inner, d)) * mix(0.1, 0.3, vLit);
+  float pulse = 0.78 + 0.22 * sin(uTime * 4.0);
+  vec3 tint = mix(uTint, uLitTint, vLit);
+  vec3 col = mix(uHalo, tint, clamp(line + fill * 3.0, 0.0, 1.0));
+  float alpha = clamp(line * 0.92 + halo * 0.42 + fill, 0.0, 1.0) * mix(0.8, pulse, vLit);
+  if (alpha < 0.01) discard;
+  gl_FragColor = vec4(col, alpha);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+
+export function buildPaths(map: MapDef, terrain: PaintedTerrain): PathsView {
+  const group = new THREE.Group();
+  group.name = "dh-paths";
+  const disposables: { dispose(): void }[] = [];
+  const look = terrain.look;
+
+  const bridge = bridgeMesh(terrain);
+  if (bridge) {
+    group.add(bridge);
+    disposables.push(bridge.geometry, bridge.material as THREE.Material);
+  }
+
+  for (const mesh of skyMesh(map, terrain, look)) {
+    group.add(mesh);
+    disposables.push(mesh.geometry, mesh.material as THREE.Material);
+  }
+
+  // Slot ghosts: one instanced flat quad per slot, lying on the ground.
+  const slots = map.slots;
+  const quad = new THREE.PlaneGeometry(1, 1);
+  quad.rotateX(-Math.PI / 2);
+  const shapes = new Float32Array(slots.length);
+  const lit = new Float32Array(slots.length);
+  const slotUniforms = { uTime: look.uniforms.uTime, uTint: { value: new THREE.Color("#efe4c4") }, uLitTint: { value: new THREE.Color("#ffffff") }, uHalo: { value: new THREE.Color("#2e261d") } };
+  const slotMaterial = new THREE.ShaderMaterial({
+    vertexShader: SLOT_VERTEX,
+    fragmentShader: SLOT_FRAGMENT,
+    uniforms: slotUniforms,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  const ghosts = new THREE.InstancedMesh(quad, slotMaterial, Math.max(1, slots.length));
+  const matrix = new THREE.Matrix4();
+  slots.forEach((slot, index) => {
+    const size = SLOT_SIZE[slot.kind];
+    const [x, z] = slot.pos;
+    matrix.makeScale(size, 1, size);
+    matrix.setPosition(x, terrain.heightAt(x, z) + 0.06, z);
+    ghosts.setMatrixAt(index, matrix);
+    shapes[index] = SLOT_SHAPE[slot.kind];
+  });
+  ghosts.count = slots.length;
+  quad.setAttribute("aShape", new THREE.InstancedBufferAttribute(shapes, 1));
+  const litAttribute = new THREE.InstancedBufferAttribute(lit, 1);
+  quad.setAttribute("aLit", litAttribute);
+  ghosts.instanceMatrix.needsUpdate = true;
+  ghosts.visible = false;
+  ghosts.renderOrder = 5;
+  ghosts.frustumCulled = false;
+  ghosts.name = "dh-slot-ghosts";
+  group.add(ghosts);
+  disposables.push(quad, slotMaterial, ghosts);
+
+  return {
+    group,
+    showSlots(visible: boolean, highlight: readonly number[] = []): void {
+      ghosts.visible = visible && slots.length > 0;
+      lit.fill(0);
+      for (const index of highlight) if (index >= 0 && index < lit.length) lit[index] = 1;
+      litAttribute.needsUpdate = true;
+    },
+    update(): void {
+      // Time lives in the shared look (terrain.update advances it).
+    },
+    dispose(): void {
+      group.removeFromParent();
+      for (const item of disposables) item.dispose();
+    },
+  };
 }
