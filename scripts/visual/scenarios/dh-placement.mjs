@@ -139,6 +139,13 @@ export default async function (page) {
   await press(page, "Escape");
   await page.sleep(150);
 
+  // Keys 6, 7, 8 need 30 + 80 + 70 Vàng: play more waves until a break holds that much.
+  const SHOP_GOLD = 180;
+  for (let k = 0; k < 3 && (await state(page)).gold < SHOP_GOLD; k += 1) {
+    await nextWave();
+    typed += await playWave(page);
+  }
+
   // A buy by key waits for the same key again (a stray digit never spends gold): one press arms, the second buys.
   const shopBefore = await state(page);
   await press(page, "Digit6");
@@ -174,7 +181,14 @@ export default async function (page) {
     typed,
     breakPhase: breakState.phase,
     steps,
-    shop: { goldBefore: shopBefore.gold, goldAfter: shopAfter.gold, held: shopAfter.held, heroBuys: shopAfter.heroBuys, stripReasons },
+    shop: {
+      goldBefore: shopBefore.gold,
+      goldAfter: shopAfter.gold,
+      held: shopAfter.held,
+      heroBuys: shopAfter.heroBuys,
+      allBought: (shopAfter.held?.["small-potion"] ?? 0) >= 1 && (shopAfter.heroBuys?.["dragon-heart"] ?? 0) >= 1 && (shopAfter.heroBuys?.["hard-scale"] ?? 0) >= 1,
+      stripReasons,
+    },
     edit: { mode: editMode, slotsBefore: sold.slots.length, upgraded: upgraded.slots, sold: sold.slots, goldAfterSell: sold.gold },
     menu: { opened: menuOpened, buttons: menuButtons },
     end: await state(page),
