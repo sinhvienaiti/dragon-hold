@@ -123,3 +123,31 @@ export function swarmOffset(k: number, out: [number, number]): [number, number] 
   out[1] = Math.sin(angle) * r;
   return out;
 }
+
+/** A swarm cluster as drawn this frame: ring centre and radius on the ground, metres. */
+export interface DrawnCluster {
+  x: number;
+  z: number;
+  radius: number;
+}
+
+/**
+ * Swarm clusters as drawn this frame, by cluster id (view/actors.ts writes it
+ * each frame; the word tags read it to stand above the whole cluster and keep
+ * off it). View only, never read by the sim.
+ */
+export const drawnClusters = new Map<number, DrawnCluster>();
+
+/** A live enemy warning as drawn this frame: a ground circle round it (centre, ground height, radius), metres. */
+export interface DrawnWarning {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+}
+
+/**
+ * Enemy warnings drawn this frame (view/telegraphs.ts rewrites it each frame;
+ * the word tags keep off them, so a tag never hides a wind-up). View only.
+ */
+export const drawnWarnings: DrawnWarning[] = [];

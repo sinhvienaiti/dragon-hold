@@ -18,7 +18,7 @@ import type { World } from "../sim/world";
 import { uToM } from "../sim/fixed";
 import type { FrameInfo, Presenter } from "../app/contracts";
 import type { FoeLocator } from "./actors";
-import { foeDrawnSize } from "./foe-look";
+import { drawnWarnings, foeDrawnSize, type DrawnWarning } from "./foe-look";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 
@@ -131,8 +131,14 @@ void main() {
   float throb = 1.0 + due * 0.35 * (0.5 + 0.5 * sin(uTime * 26.0));
   vec3 color = mix(uColor * throb, uRim, rim);
   color = mix(color, vec3(0.16, 0.02, 0.02), edge * uEdgeDark);
-  float a = inside * (0.24 + filled * (0.46 + due * 0.12)) + rim * 0.95;
+  // Ours (no dark edge) fill at half strength: the foes under Thiên Hỏa's target stay visible.
+  float a = inside * (0.24 + filled * (0.46 + due * 0.12)) * mix(0.5, 1.0, uEdgeDark) + rim * 0.95;
   a = max(a, edge * 0.85 * uEdgeDark);
+#ifdef XRAY
+  // Seen through a body (our blocker, the foe itself): the red outline and arrow only, a faint fill.
+  color = mix(uRim, vec3(0.16, 0.02, 0.02), edge);
+  a = max(rim * 0.9, edge * 0.7) + inside * filled * 0.1;
+#endif
   gl_FragColor = vec4(color, min(1.0, a) * uAlpha);
 }`;
 
@@ -151,6 +157,8 @@ export interface TelegraphSpec {
 
 interface Slot {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  /** The same warning seen through bodies (enemy warnings only): depth test GREATER, outline only. */
+  xray: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
   active: boolean;
   id: number;
   spec: TelegraphSpec;
@@ -165,6 +173,8 @@ interface Slot {
   mark: THREE.Sprite;
   /** Half the source foe's drawn width (metres), to set the "!" beside its body. */
   markSide: number;
+  /** The drawn shape's ground circle (word tags keep off it). */
+  bound: DrawnWarning;
 }
 
 /** The "!" badge: a red disc with a dark ring and a white mark (one shared texture). */
@@ -250,6 +260,27 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
     mesh.visible = false;
     mesh.renderOrder = 3;
     group.add(mesh);
+    // Round 2: a warning under our blocker or a crowd still shows its outline through them (shared grid and uniforms).
+    const xray = new THREE.Mesh(
+      geometry,
+      new THREE.ShaderMaterial({
+        uniforms: material.uniforms,
+        defines: { XRAY: 1 },
+        vertexShader: VERTEX,
+        fragmentShader: FRAGMENT,
+        transparent: true,
+        depthWrite: false,
+        depthFunc: THREE.GreaterDepth,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -4,
+        polygonOffsetUnits: -4,
+      }),
+    );
+    xray.frustumCulled = false;
+    xray.visible = false;
+    xray.renderOrder = 3;
+    group.add(xray);
     const mark = new THREE.Sprite(markMaterial);
     mark.center.set(0, 0.5);
     mark.scale.setScalar(MARK_SIZE_M);
@@ -257,13 +288,14 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
     mark.renderOrder = 12;
     mark.frustumCulled = false;
     group.add(mark);
-    slots.push({ mesh, active: false, id: -1, spec: { owner: "enemy", shape: "circle", x: 0, z: 0, toX: 0, toZ: 0, radiusM: 1, widthM: 1 }, age: 0, duration: 1, fade: -1, follow: null, source: null, mark, markSide: 0.6 });
+    slots.push({ mesh, xray, bound: { x: 0, y: 0, z: 0, radius: 0 }, active: false, id: -1, spec: { owner: "enemy", shape: "circle", x: 0, z: 0, toX: 0, toZ: 0, radiusM: 1, widthM: 1 }, age: 0, duration: 1, fade: -1, follow: null, source: null, mark, markSide: 0.6 });
   }
 
   // Compile the warning and badge shaders now (both start hidden), not at the first wind-up of a wave.
   if (slots.length > 0) {
     const first = slots[0]!;
     first.mesh.visible = true;
+    first.xray.visible = true;
     first.mark.visible = true;
     try {
       stage.renderer.compile(group, stage.camera, stage.scene);
@@ -271,6 +303,7 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
       // A stage without a live GL context (tests): compiled on first use instead.
     }
     first.mesh.visible = false;
+    first.xray.visible = false;
     first.mark.visible = false;
   }
 
@@ -325,6 +358,14 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
     uniforms.uEdgePx!.value = Math.min(0.2, EDGE_M / Math.max(0.3, size));
     uniforms.uEdgeDark!.value = enemy ? 1 : 0;
     uniforms.uLen!.value = line ? lineLength / half : 1;
+    // A ground circle round what is drawn: the line's middle, a sweep's near half, a circle itself.
+    const bound = slot.bound;
+    const wide = spec.shape === "cone" || spec.shape === "arc" ? (uniforms.uHalf!.value as number) > 1.05 : true;
+    const reach = line ? lineLength / 2 : spec.shape === "circle" || wide ? 0 : radius * 0.5;
+    bound.x = cx + fx * reach;
+    bound.z = cz + fz * reach;
+    bound.y = terrain.heightAt(bound.x, bound.z);
+    bound.radius = line ? Math.max(lineLength / 2, half) : spec.shape === "circle" || wide ? radius : radius * 0.7;
   };
 
   const show = (spec: TelegraphSpec, durationS: number, follow: EnemyRef | null = null, source: EnemyRef | null = null, id = nextId++): number => {
@@ -350,6 +391,7 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
     uniforms.uAlpha!.value = 1;
     layout(slot, spec.x, spec.z);
     slot.mesh.visible = true;
+    slot.xray.visible = spec.owner === "enemy" && spec.shape !== "aura";
     return id;
   };
 
@@ -385,6 +427,7 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
         if (slot.fade <= 0) {
           slot.active = false;
           slot.mesh.visible = false;
+          slot.xray.visible = false;
         }
       }
       // The "!" beside the foe's chest while it winds up (gone as the blow lands).
@@ -398,6 +441,9 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
         slot.mark.scale.setScalar(MARK_SIZE_M * pop);
       }
     }
+    // Live enemy warnings this frame, for the word tags to keep off.
+    drawnWarnings.length = 0;
+    for (const slot of slots) if (slot.active && slot.fade < 0 && slot.spec.owner === "enemy" && slot.spec.shape !== "aura") drawnWarnings.push(slot.bound);
   };
 
   return {
@@ -410,8 +456,10 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
       for (const slot of slots) {
         slot.active = false;
         slot.mesh.visible = false;
+        slot.xray.visible = false;
         slot.mark.visible = false;
       }
+      drawnWarnings.length = 0;
     },
     onEvents(events: readonly SimEvent[], world: World): void {
       for (const event of events) {
@@ -449,9 +497,11 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
       for (const slot of slots) {
         slot.mesh.geometry.dispose();
         slot.mesh.material.dispose();
+        slot.xray.material.dispose();
       }
       markMaterial.dispose();
       badge.dispose();
+      drawnWarnings.length = 0;
       group.removeFromParent();
     },
   };

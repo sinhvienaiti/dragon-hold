@@ -20,28 +20,57 @@ function layers(group: THREE.Group): Map<string, THREE.InstancedMesh> {
 }
 
 describe("view crowd", () => {
-  it("draws every placeholder shape in one layer each with its outline hull, plus one for the shadows", () => {
+  it("draws every placeholder shape in one layer each with its outline hull and foe ghost, plus one for the shadows", () => {
     const crowd = createCrowd(64);
     for (let k = 0; k < 10; k += 1) crowd.set(crowd.add(grunt, "biped"), inst(k, 0));
     for (let k = 0; k < 6; k += 1) crowd.set(crowd.add(wolf, "quadruped"), inst(k, 3));
     for (let k = 0; k < 4; k += 1) crowd.set(crowd.add(wasp, "flyer"), inst(k, 6));
     crowd.flush(1);
     expect(crowd.size).toBe(20);
-    // capsule, box, sphere, their three outline hulls + shadows.
-    expect(crowd.drawCalls()).toBe(7);
+    // capsule, box, sphere, their three outline hulls, their three ghosts + shadows.
+    expect(crowd.drawCalls()).toBe(10);
     const meshes = layers(crowd.group);
     expect(meshes.get("crowd-capsule")!.count).toBe(10);
     // The hull shares the body's instance matrices and count.
     expect(meshes.get("crowd-outline-capsule")!.instanceMatrix).toBe(meshes.get("crowd-capsule")!.instanceMatrix);
     expect(meshes.get("crowd-outline-capsule")!.count).toBe(10);
-    // Without outlines: one call per layer.
-    const plain = createCrowd(8, { outlines: false });
+    // Without outlines and ghosts: one call per layer.
+    const plain = createCrowd(8, { outlines: false, ghosts: false });
     plain.set(plain.add(grunt, "biped"), inst(0, 0));
     plain.flush();
     expect(plain.drawCalls()).toBe(2);
     plain.dispose();
     expect(meshes.get("crowd-box")!.count).toBe(6);
     expect(meshes.get("crowd-sphere")!.count).toBe(4);
+    crowd.dispose();
+  });
+
+  it("shows a foe hidden behind our side or the world as a ghost, never over another foe (round 2)", () => {
+    const crowd = createCrowd(16);
+    crowd.set(crowd.add(grunt, "biped"), inst(0, 0));
+    crowd.set(crowd.add(grunt, "biped", undefined, { foe: false, scale: 2 }), inst(0, 2));
+    crowd.set(crowd.add(grunt, "still"), inst(3, 0));
+    crowd.flush();
+    const meshes = layers(crowd.group);
+    const body = meshes.get("crowd-capsule")!;
+    const ghost = meshes.get("crowd-ghost-capsule")!;
+    const ours = meshes.get("crowd-our-capsule")!;
+    expect(body.count).toBe(1);
+    expect(ours.count).toBe(2);
+    // The ghost shares the foe layer's matrices and count; our layers have none.
+    expect(ghost.instanceMatrix).toBe(body.instanceMatrix);
+    expect(ghost.count).toBe(1);
+    expect(meshes.has("crowd-ghost-our-capsule")).toBe(false);
+    // Order inside the opaque pass: our side and the world, then ghosts, then foe bodies and hulls.
+    expect(ours.renderOrder).toBe(0);
+    expect(ghost.renderOrder).toBeGreaterThan(ours.renderOrder);
+    expect(body.renderOrder).toBeGreaterThan(ghost.renderOrder);
+    expect(meshes.get("crowd-outline-capsule")!.renderOrder).toBe(body.renderOrder);
+    const material = ghost.material as THREE.ShaderMaterial;
+    expect(material.depthFunc).toBe(THREE.GreaterDepth);
+    expect(material.depthWrite).toBe(false);
+    expect(material.transparent).toBe(false);
+    expect(material.blending).toBe(THREE.CustomBlending);
     crowd.dispose();
   });
 
@@ -81,6 +110,8 @@ describe("view crowd", () => {
     crowd.flush();
     const meshes = layers(crowd.group);
     const capsules = meshes.get("crowd-capsule")!;
+    // Our side (the trap) draws in its own layer, before the foe ghosts.
+    const ourCapsules = meshes.get("crowd-our-capsule")!;
     const scale = (mesh: THREE.InstancedMesh, index: number) => {
       const matrix = new THREE.Matrix4();
       mesh.getMatrixAt(index, matrix);
@@ -90,7 +121,7 @@ describe("view crowd", () => {
       return { position, size };
     };
     expect(scale(capsules, 0).size.y).toBeCloseTo(grunt.sizeM[1] * CHARACTER_SCALE, 5);
-    expect(scale(capsules, 1).size.y).toBeCloseTo(grunt.sizeM[1], 5);
+    expect(scale(ourCapsules, 0).size.y).toBeCloseTo(grunt.sizeM[1], 5);
     expect(scale(meshes.get("crowd-sphere")!, 0).position.y).toBeCloseTo(wasp.hoverM, 5);
     crowd.dispose();
   });

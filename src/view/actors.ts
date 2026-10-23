@@ -16,7 +16,7 @@ import { uToM } from "../sim/fixed";
 import type { EnemyState, World } from "../sim/world";
 import type { FrameInfo, Presenter } from "../app/contracts";
 import { createCrowd, TINT, type Crowd, type CrowdGait, type CrowdInstance, type CrowdLook, type CrowdRing, type TintId } from "./crowd";
-import { foeDrawLook, swarmOffset, UNIT_DRAW_SCALE, type FoeLook } from "./foe-look";
+import { drawnClusters, foeDrawLook, swarmOffset, UNIT_DRAW_SCALE, type FoeLook } from "./foe-look";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 
@@ -253,6 +253,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
   /** This frame's cluster rings (2+ live members): round their drawn bodies, in the family colour. */
   const finishRings = (): CrowdRing[] => {
     const out: CrowdRing[] = [];
+    drawnClusters.clear();
     for (const [cluster, entry] of ringBy) {
       ringBy.delete(cluster);
       const ring = entry.ring;
@@ -272,6 +273,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
       ring.radius = far + body + 0.35;
       ring.color = entry.color;
       ring.alpha = 0.95;
+      drawnClusters.set(cluster, { x: ring.x, z: ring.z, radius: ring.radius });
       out.push(ring);
       ringPool.push(ring);
     }
@@ -467,6 +469,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
       crowd.dispose();
       foes.clear();
       ours.clear();
+      drawnClusters.clear();
     },
   };
   return view;

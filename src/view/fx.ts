@@ -47,6 +47,8 @@ export const FX_COLORS = {
   white: new THREE.Color("#ffffff"),
   stun: new THREE.Color("#fff3b0"),
   mote: new THREE.Color("#e8f4d8"),
+  /** HDR orange (above the 1.6 bloom threshold once stacked): the hot heart of Thiên Hỏa's mass and blast. */
+  blastHot: new THREE.Color("#ffa040").multiplyScalar(1.8),
 } as const;
 
 /** Death shards by material (05 §6.3): two colours each. */
@@ -613,19 +615,49 @@ export class FxCore {
     }
   }
 
+  /**
+   * Thiên Hỏa lands (05 §6.1: a 4 m ring, stun stars). Round 2 readability: the
+   * light additive glows washed out on the sunlit path and the pale target disc,
+   * so the blast now has body in normal-blended colour (a deep-orange fireball,
+   * dark smoke, a dust wave), a ring that really reaches the radius, a darker
+   * scorch and flying stones. View only.
+   */
   private meteorImpact(meteor: Meteor): void {
     const at = meteor.to;
-    this.glow(at, FX_COLORS.white, 3.5 * this.k, 0.14);
-    this.glow(at, FX_COLORS.fireHot, meteor.radius * 1.4 * Math.sqrt(this.k), 0.5, this.u.set(0, 1, 0), 0.8);
-    for (let k = 0; k < 70; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.45 * this.k, 0.9, 11, 0.8, 9);
+    const r = meteor.radius;
+    const s = Math.sqrt(this.k);
+    const ground = this.heightAt(at.x, at.z);
+    this.glow(at, FX_COLORS.white, 5 * this.k, 0.16);
+    this.glow(at, FX_COLORS.fireHot, r * 1.6 * s, 0.5, this.u.set(0, 1, 0), 0.8);
+    // The fireball: saturated puffs that rise and swell, then dark smoke rolls up from them.
+    for (let k = 0; k < 10; k += 1) {
+      const angle = (k / 10) * TAU + this.random() * 0.5;
+      const d = r * this.rand(0.05, 0.4);
+      const color = k < 4 ? FX_COLORS.blastHot : k % 2 === 0 ? FX_COLORS.fireDeep : FX_COLORS.ember;
+      this.puffs.spawn(at.x + Math.cos(angle) * d, ground + this.rand(0.4, 1.4), at.z + Math.sin(angle) * d, r * this.rand(0.45, 0.65) * s, this.rand(0.45, 0.7), color, 0.95, { vx: Math.cos(angle) * 1.5, vz: Math.sin(angle) * 1.5, vy: this.rand(2, 4), grow: 1.1, spin: this.rand(-1, 1), fadeIn: 0.02 });
+    }
+    for (let k = 0; k < 7; k += 1) {
+      this.puffs.spawn(at.x + this.rand(-r, r) * 0.45, ground + this.rand(1, 2), at.z + this.rand(-r, r) * 0.45, r * 0.55 * s, this.rand(1.4, 1.9), FX_COLORS.smoke, 0.6, { vy: this.rand(1.2, 2), grow: 1.7, spin: this.rand(-0.6, 0.6), fadeIn: 0.35 });
+    }
+    // Flames licking up round the edge.
     for (let k = 0; k < 14; k += 1) {
       const angle = (k / 14) * TAU;
-      this.glow(this.v.set(at.x + Math.cos(angle) * meteor.radius * 0.5, at.y + 0.4, at.z + Math.sin(angle) * meteor.radius * 0.5), FX_COLORS.fire, 1.8, 0.7, this.u.set(Math.cos(angle) * 3, 1.5, Math.sin(angle) * 3), 1.2);
+      this.glow(this.v.set(at.x + Math.cos(angle) * r * 0.5, at.y + 0.4, at.z + Math.sin(angle) * r * 0.5), FX_COLORS.fire, 1.8 * s, 0.7, this.u.set(Math.cos(angle) * 3, 1.5, Math.sin(angle) * 3), 1.2);
+      if (k % 2 === 0) this.puffs.spawn(at.x + Math.cos(angle) * r * 0.7, ground + 0.5, at.z + Math.sin(angle) * r * 0.7, 1.1 * s, this.rand(0.5, 0.8), FX_COLORS.fireDeep, 0.85, { vy: this.rand(2, 3.2), grow: 0.6, fadeIn: 0.05 });
     }
-    this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.14, at.z, meteor.radius * 0.6, 0.55, FX_COLORS.fireHot, 1, { grow: 1.0, kind: 1, thickness: 0.16, drag: 0 });
-    this.marks.spawn(at.x, this.heightAt(at.x, at.z) + 0.07, at.z, meteor.radius * 2, 7, FX_COLORS.scorch, 0.6, { kind: 2, fadeIn: 0.3, drag: 0, rot: this.random() * TAU });
-    for (let k = 0; k < 6; k += 1) this.puffs.spawn(at.x + this.rand(-2, 2), at.y + 0.5, at.z + this.rand(-2, 2), 2.2, 1.6, FX_COLORS.smoke, 0.45, { vy: 1.6, grow: 1.6, spin: this.rand(-0.6, 0.6) });
-    this.emit("stun", null, at.x, at.y + 1.6, at.z, HERO_SKILLS.skyfire.stunMs / 1000, meteor.radius * 0.6, 0, 0, 0);
+    for (let k = 0; k < 70; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.45 * this.k, 0.9, 11, 0.8, 9);
+    // The ring runs out to the blast radius (size is a diameter); a dust wave rolls with it.
+    this.rings.spawn(at.x, ground + 0.14, at.z, r * 0.5, 0.45, FX_COLORS.fireHot, 1, { grow: 3.4, kind: 1, thickness: 0.2, drag: 0 });
+    this.rings.spawn(at.x, ground + 0.15, at.z, r * 0.4, 0.6, FX_COLORS.fire, 0.8, { grow: 4.2, kind: 1, thickness: 0.32, drag: 0 });
+    for (let k = 0; k < 16; k += 1) {
+      const angle = (k / 16) * TAU + this.random() * 0.2;
+      this.puffs.spawn(at.x + Math.cos(angle) * r * 0.35, ground + 0.35, at.z + Math.sin(angle) * r * 0.35, 1.3 * s, 0.9, FX_COLORS.dust, 0.55, { vx: Math.cos(angle) * 7.5, vz: Math.sin(angle) * 7.5, vy: 0.5, grow: 1.3, drag: 2.6 });
+    }
+    this.marks.spawn(at.x, ground + 0.07, at.z, r * 2, 7, FX_COLORS.scorch, 0.72, { kind: 2, fadeIn: 0.12, drag: 0, rot: this.random() * TAU });
+    this.c.set(MATERIAL_COLORS.stone[0]);
+    this.c2.set(MATERIAL_COLORS.mud[1]);
+    this.debris.burst(at.x, ground + 0.4, at.z, 0, 1, 10, 7, this.c, this.c2);
+    this.emit("stun", null, at.x, at.y + 1.6, at.z, HERO_SKILLS.skyfire.stunMs / 1000, r * 0.6, 0, 0, 0);
   }
 
   /** Long Hống: a shock ring out to `radiusM` from the dais, dust at its edge (T4). */
@@ -887,9 +919,15 @@ export class FxCore {
         const kk = Math.max(0, k - i * 0.035);
         meteor.trail.points[i]!.lerpVectors(meteor.from, meteor.to, kk ** 1.5);
       }
-      meteor.trail.update(cameraPos, 1.1 * this.k, 1, time);
-      this.glows.spawn(head, this.u.set(0, 0, 0), FX_COLORS.fireHot, 2.6 * this.k, 0.05, { drag: 0 });
+      meteor.trail.update(cameraPos, 1.5 * this.k, 1, time);
+      // The burning mass: a deep-orange body under the glow (reads on light ground), a smoke wake behind it.
+      this.puffs.spawn(head.x, head.y, head.z, 1.8 * this.k, 0.07, FX_COLORS.fireDeep, 0.95, { fadeIn: 0.001, spin: 4, rot: this.random() * TAU });
+      this.puffs.spawn(head.x, head.y, head.z, 1.0 * this.k, 0.06, FX_COLORS.blastHot, 0.95, { fadeIn: 0.001, spin: -3, rot: this.random() * TAU });
+      this.glows.spawn(head, this.u.set(0, 0, 0), FX_COLORS.fireHot, 3 * this.k, 0.05, { drag: 0 });
+      if (this.random() < 45 * dt) this.puffs.spawn(head.x, head.y + 0.3, head.z, 1.1 * this.k, 0.6, FX_COLORS.smoke, 0.5, { vy: 0.6, grow: 1.4, spin: this.rand(-1, 1) });
       if (this.random() < 60 * dt) this.sparks.spawn(head, this.u.set(this.rand(-2, 2), this.rand(0, 3), this.rand(-2, 2)), FX_COLORS.ember, 0.5, 0.5, { drag: 1.5, gravity: 4 });
+      // Its shadow on the target darkens and widens as it comes down (05 §6.1 "bóng báo").
+      this.marks.spawn(meteor.to.x, meteor.to.y - 0.22, meteor.to.z, meteor.radius * (0.35 + 0.65 * k), 0.05, FX_COLORS.scorch, 0.3 + 0.45 * k, { kind: 2, fadeIn: 0.001, drag: 0 });
       if (meteor.t >= meteor.duration) {
         meteor.active = false;
         meteor.trail.hide();

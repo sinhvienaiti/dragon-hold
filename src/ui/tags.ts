@@ -19,7 +19,7 @@ import { SEMANTIC_COLORS } from "../kit/ui";
 import { uToM } from "../sim/fixed";
 import { upcomingSeals, type LiveWord } from "../sim/words";
 import type { EnemyState, World } from "../sim/world";
-import { foeHeadM } from "../view/foe-look";
+import { drawnClusters, drawnWarnings, foeDrawLook, foeDrawnSize, foeHeadM } from "../view/foe-look";
 import type { Gloss } from "./learning-frame";
 import { shortMeaning, wordLevel } from "./learning-frame";
 
@@ -45,6 +45,15 @@ export interface TagBox {
   readonly sh?: number;
   /** Where it sat last frame, relative to its anchor (stability, 05 §4.3: hold ≥ 0.5 s). */
   readonly prev?: { readonly dx: number; readonly row: number; readonly shrunk: boolean } | undefined;
+  /** Still inside its 0.5 s hold: the last spot stays while free, even over a foe body. */
+  readonly firm?: boolean;
+  /** Keeps clear of other foes' bodies when it can (default true; ring tags and edge chips false). */
+  readonly clearBodies?: boolean;
+}
+
+/** A drawn foe or a live enemy warning on screen (its box) and the tag id of its own word (−1: none): tags keep off it when they can. */
+export interface BodyRect extends Rect {
+  readonly owner: number;
 }
 
 export interface TagPlace {
@@ -79,6 +88,10 @@ export interface LayoutOptions {
   readonly maxRows?: number;
   /** Shrunk frame: width and height scale (the frame's padding and border only). */
   readonly shrink?: number;
+  /** Drawn foe bodies on screen: a tag prefers a spot that covers none of them (but its own foe) by more than `bodyCover`. */
+  readonly bodies?: readonly BodyRect[];
+  /** Share of a body's box a tag may cover and still count as clear of it (default 0.2). */
+  readonly bodyCover?: number;
 }
 
 const overlaps = (a: Rect, b: Rect, gap: number): boolean =>
@@ -88,6 +101,11 @@ const overlaps = (a: Rect, b: Rect, gap: number): boolean =>
  * Places every tag without overlap: at its anchor, else pushed sideways up
  * to maxPush, else lifted 1–3 rows, then the same with the frame shrunk,
  * then the nearest free spot anywhere on screen. Tags stay inside the screen.
+ * With `bodies` (round 2), a tag first looks for a spot in the same pushes
+ * and rows that leaves the other foes' bodies and the live enemy warnings
+ * visible (a crowd held at a bridge head stays readable, a wind-up is never
+ * hidden); only when none is free does it sit over them.
+ * A tag inside its hold keeps its spot either way (no jumping).
  */
 export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): TagPlace[] {
   const margin = options.margin ?? 8;
@@ -97,6 +115,9 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
   const maxRows = options.maxRows ?? 3;
   const shrink = options.shrink ?? 0.85;
   const avoid = options.avoid ?? [];
+  const bodies = options.bodies ?? [];
+  const bodyCover = options.bodyCover ?? 0.2;
+  const near: BodyRect[] = [];
   const placed: Rect[] = [];
   const out: TagPlace[] = [];
   const order = [...boxes].sort((a, b) => b.priority - a.priority || a.id - b.id);
@@ -122,15 +143,38 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
       w: size.w,
       h: size.h,
     });
+    // Other foes' bodies within reach of this tag's pushes and rows.
+    near.length = 0;
+    if (bodies.length > 0 && box.clearBodies !== false) {
+      const reach: Rect = { x: box.ax - box.w / 2 - maxPush, y: box.ay - box.h - maxRows * rowStep, w: box.w + 2 * maxPush, h: box.h + maxRows * rowStep };
+      for (const body of bodies) if (body.owner !== box.id && overlaps(reach, body, 0)) near.push(body);
+    }
+    const clear = (rect: Rect): boolean => {
+      for (const body of near) {
+        const ix = Math.min(rect.x + rect.w, body.x + body.w) - Math.max(rect.x, body.x);
+        if (ix <= 0) continue;
+        const iy = Math.min(rect.y + rect.h, body.y + body.h) - Math.max(rect.y, body.y);
+        if (iy > 0 && ix * iy > bodyCover * body.w * body.h) return false;
+      }
+      return true;
+    };
     let found: TagPlace | null = null;
-    const accept = (size: { w: number; h: number; shrunk: boolean }, dx: number, row: number): boolean => {
+    const accept = (size: { w: number; h: number; shrunk: boolean }, dx: number, row: number, needClear = false): boolean => {
       const rect = at(size, dx, row);
-      if (!free(rect)) return false;
+      if (!free(rect) || (needClear && !clear(rect))) return false;
       const leader = row > 0 || Math.abs(rect.x + rect.w / 2 - box.ax) > rect.w / 2 || Math.abs(rect.y + rect.h - box.ay) > rowStep;
       found = { id: box.id, ...rect, dx, row, shrunk: size.shrunk, leader };
       return true;
     };
-    if (box.prev) accept(box.prev.shrunk ? sizes[1]! : sizes[0]!, box.prev.dx, box.prev.row);
+    const prevSize = box.prev?.shrunk ? sizes[1]! : sizes[0]!;
+    if (box.prev) accept(prevSize, box.prev.dx, box.prev.row, near.length > 0 && box.firm !== true);
+    if (found === null && near.length > 0) {
+      // A spot that leaves the crowd visible, nearest first.
+      for (let row = 0; row <= maxRows && found === null; row += 1) {
+        for (const dx of pushes) if (found === null) accept(sizes[0]!, dx, row, true);
+      }
+      if (found === null && box.prev) accept(prevSize, box.prev.dx, box.prev.row);
+    }
     for (const size of sizes) {
       for (let row = 0; row <= maxRows && found === null; row += 1) {
         for (const dx of pushes) if (found === null) accept(size, dx, row);
@@ -434,6 +478,69 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
   let avoid: readonly Rect[] = [];
   let avoidReadAt = -1e9;
   let frameNo = 0;
+  // Drawn foe boxes and live enemy warnings on screen this frame (round 2): tags keep off them and stand above their own foe.
+  const bodyPool: { x: number; y: number; w: number; h: number; owner: number }[] = [];
+  const bodies: BodyRect[] = [];
+  const bodyOfFoe = new Map<number, (typeof bodyPool)[number]>();
+  const bodyOfCluster = new Map<number, (typeof bodyPool)[number]>();
+  const corner: ScreenPoint = { x: 0, y: 0, visible: false };
+  /** Screen box of a body r metres round (x, z), from `low` to `high` metres up; false when behind the camera or off screen. */
+  const screenBox = (x: number, z: number, low: number, high: number, r: number, out: { x: number; y: number; w: number; h: number }): boolean => {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let k = 0; k < 8; k += 1) {
+      project(x + (k & 1 ? r : -r), k & 4 ? high : low, z + (k & 2 ? r : -r), corner);
+      if (!corner.visible && corner.x <= -1e4 && corner.y <= -1e4) return false;
+      if (corner.x < x0) x0 = corner.x;
+      if (corner.x > x1) x1 = corner.x;
+      if (corner.y < y0) y0 = corner.y;
+      if (corner.y > y1) y1 = corner.y;
+    }
+    if (x1 < 0 || y1 < 0 || x0 > width || y0 > height) return false;
+    out.x = x0;
+    out.y = y0;
+    out.w = x1 - x0;
+    out.h = y1 - y0;
+    return true;
+  };
+  /** Every live foe's drawn box (a swarm cluster as one box round its ring), owned by its word's tag. */
+  const readBodies = (world: World): void => {
+    bodies.length = 0;
+    bodyOfFoe.clear();
+    bodyOfCluster.clear();
+    for (const enemy of world.enemies.list) {
+      if (!enemy.alive || enemy.freed) continue;
+      const look = foeDrawLook(enemy.foe);
+      const ring = enemy.cluster >= 0 && look.gait === "swarm" ? drawnClusters.get(enemy.cluster) : undefined;
+      let body = ring !== undefined ? bodyOfCluster.get(enemy.cluster) : undefined;
+      if (body === undefined) {
+        const [w, h, l] = foeDrawnSize(enemy.foe);
+        const low = Math.max(uToM(enemy.y), look.placeholder.hoverM);
+        const next = bodyPool[bodies.length] ?? { x: 0, y: 0, w: 0, h: 0, owner: -1 };
+        bodyPool[bodies.length] = next;
+        const seen = ring !== undefined
+          ? screenBox(ring.x, ring.z, low, low + h, ring.radius, next)
+          : screenBox(uToM(enemy.x), uToM(enemy.z), low, low + h, Math.max(w, l) / 2, next);
+        if (!seen) continue;
+        next.owner = -1;
+        bodies.push(next);
+        body = next;
+        if (ring !== undefined) bodyOfCluster.set(enemy.cluster, next);
+      }
+      if (enemy.word >= 0) body.owner = enemy.word;
+      bodyOfFoe.set(enemy.slot, body);
+    }
+    // Live enemy warnings (view/telegraphs.ts): no tag hides a wind-up when another spot is free.
+    for (const warning of drawnWarnings) {
+      const next = bodyPool[bodies.length] ?? { x: 0, y: 0, w: 0, h: 0, owner: -1 };
+      bodyPool[bodies.length] = next;
+      if (!screenBox(warning.x, warning.z, warning.y, warning.y + 0.2, warning.radius, next)) continue;
+      next.owner = -1;
+      bodies.push(next);
+    }
+  };
 
   // A web font that lands after the first measure changes every width: measure again.
   const remeasure = () => {
@@ -596,6 +703,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
         for (const tag of tags) tag.key = "";
       }
       readAvoid(now);
+      readBodies(world);
       const meanings = meaningSlots(world);
       const boxes: TagBox[] = [];
       const anchors = new Map<number, { x: number; y: number; ring: boolean; chip: boolean; angle: number; fx: number; fy: number }>();
@@ -648,6 +756,10 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
             project(uToM(foe.x), headM(foe), uToM(foe.z), point);
             fx = point.x;
             fy = point.y;
+          } else if (inside && foe) {
+            // Above the foe's whole drawn box: a long, low body (boar, wolf) or a spread swarm reaches higher on screen than its head.
+            const own = bodyOfFoe.get(foe.slot);
+            if (own !== undefined && own.y - 3 < y) y = own.y - 3;
           }
           if (!inside) {
             const edge = edgeChip(x, y, width, height, 40);
@@ -667,10 +779,10 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
         const prev = tag.prev && (ideal || now - tag.movedAt < MS.hold) ? tag.prev : undefined;
         // The locked tag shows at 110 % and a new one pops to 106 %: reserve that room (scaled about its bottom centre).
         const grow = lock === slot ? 1.1 : now - tag.bornAt < 150 ? 1.06 : 1;
-        boxes.push({ id: slot, ax: a.x, ay: a.y, w: Math.ceil(tag.w * grow), h: Math.ceil(tag.h * grow), sw: Math.ceil(tag.sw * grow), sh: Math.ceil(tag.sh * grow), priority, prev });
+        boxes.push({ id: slot, ax: a.x, ay: a.y, w: Math.ceil(tag.w * grow), h: Math.ceil(tag.h * grow), sw: Math.ceil(tag.sw * grow), sh: Math.ceil(tag.sh * grow), priority, prev, firm: now - tag.movedAt < MS.hold, clearBodies: !a.ring && !a.chip });
       });
       // 2. Lay out (pure) and move.
-      const places = layoutTags(boxes, { width, height, avoid, rowStep: Math.round(34 * (height / 1080 > 0.8 ? height / 1080 : 0.8)) });
+      const places = layoutTags(boxes, { width, height, avoid, bodies, rowStep: Math.round(34 * (height / 1080 > 0.8 ? height / 1080 : 0.8)) });
       for (const place of places) {
         const tag = bySlot.get(place.id)!;
         const a = anchors.get(place.id)!;

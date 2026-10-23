@@ -11,6 +11,7 @@ import { createFx, FX_BUDGET, FxCore, strongGrade, tierForGrade } from "../../sr
 import { createHeroes, modelUrl } from "../../src/view/heroes";
 import type { Stage } from "../../src/view/stage";
 import { createTelegraphs, MIN_WINDUP_S, TELEGRAPH_COLORS, telegraphColors } from "../../src/view/telegraphs";
+import { drawnWarnings } from "../../src/view/foe-look";
 import type { TerrainView } from "../../src/view/terrain";
 
 // kit textures() paints on a canvas: a canvas that paints nothing is enough here.
@@ -212,6 +213,37 @@ describe("view telegraphs", () => {
     telegraphs.onEvents([ev({ type: "aura", enemy: { slot: 0, serial: 9 }, aura: "speed", on: false, radiusM: 5 })], world);
     telegraphs.tick(0.3, 3.3);
     expect(telegraphs.live).toBe(0);
+    telegraphs.dispose();
+  });
+
+  it("shows an enemy warning's outline through bodies, never ours or an aura (round 2)", () => {
+    const stage = fakeStage();
+    const telegraphs = createTelegraphs(stage, FLAT, { locator: fixed(5, 0, -5) });
+    const world = fakeWorld([{ slot: 0, serial: 9, x: 0, z: 0 }]);
+    const meshes = () => stage.layers.fx.getObjectByName("telegraphs")!.children.filter((child): child is THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> => (child as THREE.Mesh).isMesh && child.visible);
+    telegraphs.onEvents([ev({ type: "telegraph", id: 1, owner: "enemy", shape: "line", x: 0, z: -12, toX: 0, toZ: -9, radiusM: 0, widthM: 1.6, durationMs: 500, source: { kind: "enemy", slot: 3, serial: 4 } })], world);
+    const [plain, xray] = meshes();
+    expect(meshes()).toHaveLength(2);
+    // Published for the word tags: one ground circle round the line (its middle, half its drawn length).
+    telegraphs.tick(0.1, 0.1);
+    expect(drawnWarnings).toHaveLength(1);
+    expect(drawnWarnings[0]!.z).toBeCloseTo(-10.5, 5);
+    expect(drawnWarnings[0]!.radius).toBeCloseTo(1.5, 5);
+    expect(xray!.material.defines?.XRAY).toBe(1);
+    expect(xray!.material.depthFunc).toBe(THREE.GreaterDepth);
+    // One grid and one set of uniforms: the x-ray fills and fades with the warning.
+    expect(xray!.geometry).toBe(plain!.geometry);
+    expect(xray!.material.uniforms).toBe(plain!.material.uniforms);
+    telegraphs.tick(0.5, 0.6);
+    telegraphs.tick(0.3, 0.9);
+    expect(meshes()).toHaveLength(0);
+    expect(drawnWarnings).toHaveLength(0);
+    telegraphs.onEvents([ev({ type: "telegraph", id: 2, owner: "ally", shape: "circle", x: 2, z: -10, toX: 2, toZ: -10, radiusM: 4, widthM: 0, durationMs: 800, source: { kind: "hero" } })], world);
+    telegraphs.onEvents([ev({ type: "aura", enemy: { slot: 0, serial: 9 }, aura: "speed", on: true, radiusM: 5 })], world);
+    expect(meshes()).toHaveLength(2);
+    expect(meshes().every((mesh) => mesh.material.defines?.XRAY === undefined)).toBe(true);
+    telegraphs.tick(0.1, 1);
+    expect(drawnWarnings).toHaveLength(0);
     telegraphs.dispose();
   });
 });

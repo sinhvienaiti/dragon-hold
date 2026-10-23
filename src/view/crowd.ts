@@ -111,9 +111,9 @@ export interface CrowdLayerSource {
 export interface Crowd {
   readonly group: Group;
   /**
-   * Reserves an instance of `shape` drawn in layer `key` (default: the shape);
-   * returns its handle, −1 when the layer is full. Anything with a gait is
-   * drawn at the character scale.
+   * Reserves an instance of `shape` drawn in layer `key` (default: the shape
+   * for a foe, OUR_LAYER + the shape for our side); returns its handle, −1
+   * when the layer is full. Anything with a gait is drawn at the character scale.
    */
   add(shape: PlaceholderDef, gait?: CrowdGait, key?: string, look?: CrowdLook): number;
   remove(handle: number): void;
@@ -126,7 +126,7 @@ export interface Crowd {
   flush(timeS?: number): void;
   /** Swaps a layer's geometry (the owner's GLB); "vat" and "bones" throw until M0b. */
   defineLayer(key: string, source: CrowdLayerSource): void;
-  /** Live instances, and draw calls the crowd costs now (layers and their outlines in use, plus shadows). */
+  /** Live instances, and draw calls the crowd costs now (layers in use with their outlines and foe ghosts, plus shadows). */
   readonly size: number;
   drawCalls(): number;
   dispose(): void;
@@ -239,6 +239,51 @@ if (vState.y > 0.02 || vLook.x < 0.01) discard;
 /** Outline colour (near-black umber) and its width in CSS px at 1080p. */
 const OUTLINE_COLOR = "#120c08";
 const OUTLINE_PX = 2.1;
+
+/**
+ * Ghost (round 2 readability): a foe hidden behind our blocker, a house, a
+ * tree or a dragon shows through as its family colour with a bright rim.
+ * Drawn after the world and our side but before any foe body (renderOrder),
+ * depth test GREATER and no depth write, so it shows only where something
+ * that is not a foe covers it; a foe in front still draws over it.
+ */
+const GHOST_VERTEX = /* glsl */ `
+varying vec3 vGhost;
+void main() {
+${CROWD_BEGIN}
+${CROWD_PROJECT}
+  vec3 ghostN = normal;
+#ifdef USE_INSTANCING
+  ghostN = mat3(instanceMatrix) * ghostN;
+#endif
+  vViewN = normalize(normalMatrix * ghostN);
+  vGhost = aColor;
+}`;
+const GHOST_FRAGMENT = /* glsl */ `
+uniform float uGhost;
+uniform float uCut;
+varying vec4 vState;
+varying vec3 vLocal;
+varying vec3 vViewN;
+varying float vFoe;
+varying vec3 vGhost;
+void main() {
+  // Foes only, whole ones, and never the part sunk in the ground.
+  if (vFoe < 0.5 || vState.y > 0.02 || vLocal.y < uCut) discard;
+  float rim = pow(1.0 - abs(normalize(vViewN).z), 1.4);
+  // Diagonal hatching (about 3 px stripes): reads as "behind", and the cover stays visible between stripes.
+  float hatch = step(0.5, fract((gl_FragCoord.x + gl_FragCoord.y) / 7.0));
+  vec3 color = mix(vGhost, vec3(1.0, 0.97, 0.88), 0.12 + 0.5 * rim);
+  gl_FragColor = vec4(color, min(0.92, 0.28 + 0.4 * hatch + 0.5 * rim) * uGhost);
+  #include <colorspace_fragment>
+}`;
+/** Ghost strength 0–1. */
+const GHOST_ALPHA = 1;
+/** Draw order inside the opaque pass: the world and our side (0), foe ghosts, then foe bodies and hulls. */
+const ORDER_GHOST = 1;
+const ORDER_FOE = 2;
+/** Layer key prefix of our side (units, traps, houses): drawn before the ghosts, so a foe behind them shows. */
+export const OUR_LAYER = "our-";
 
 const CROWD_NORMAL = /* glsl */ `
 #include <defaultnormal_vertex>
@@ -405,6 +450,8 @@ interface Layer {
   mesh: THREE.InstancedMesh;
   /** Dark outline hull sharing the body's geometry and instance matrices. */
   outline: THREE.InstancedMesh;
+  /** Foe layers: the ghost seen through our side and the world (null for our layers). */
+  ghost: THREE.InstancedMesh | null;
   readonly color: THREE.InstancedBufferAttribute;
   readonly state: THREE.InstancedBufferAttribute;
   readonly anim: THREE.InstancedBufferAttribute;
@@ -445,6 +492,8 @@ export interface CrowdOptions {
   seed?: number;
   /** Dark outline hulls (default true): one more draw call per layer in use. */
   outlines?: boolean;
+  /** Foe ghosts through our side and the world (default true): one more draw call per foe layer in use. */
+  ghosts?: boolean;
 }
 
 export function createCrowd(capacity: number, options: CrowdOptions = {}): Crowd {
@@ -460,6 +509,7 @@ class InstancedCrowd implements Crowd {
   /** Outline width per metre of camera distance (set before each outline draw from the view height). */
   private readonly outlineK = { value: 0.0011 };
   private readonly outlines: boolean;
+  private readonly ghosts: boolean;
   private readonly sizeScratch = new THREE.Vector2();
   private readonly matrix = new THREE.Matrix4();
   private readonly quat = new THREE.Quaternion();
@@ -482,6 +532,7 @@ class InstancedCrowd implements Crowd {
     this.phaseSeed = (options.seed ?? 7) >>> 0 || 7;
     this.characterScale = options.characterScale ?? CHARACTER_SCALE;
     this.outlines = options.outlines !== false;
+    this.ghosts = options.ghosts !== false;
     // A flyer takes two marks (spot, tether); rings come on top.
     this.shadowCapacity = capacity * 2 + RING_CAPACITY;
     this.shadowPos = new Float32Array(this.shadowCapacity * 3);
@@ -523,7 +574,7 @@ class InstancedCrowd implements Crowd {
 
   drawCalls(): number {
     let calls = this.shadows !== null && this.live > 0 ? 1 : 0;
-    for (const layer of this.layers.values()) if (layer.count > 0) calls += this.outlines ? 2 : 1;
+    for (const layer of this.layers.values()) if (layer.count > 0) calls += (this.outlines ? 2 : 1) + (layer.ghost !== null ? 1 : 0);
     return calls;
   }
 
@@ -556,6 +607,8 @@ class InstancedCrowd implements Crowd {
     geometry.setAttribute("aState", state);
     geometry.setAttribute("aAnim", anim);
     geometry.setAttribute("aLook", look);
+    // Our side (units, traps, houses) draws with the world; foes after their ghosts.
+    const foe = !key.startsWith(OUR_LAYER);
     const material = new THREE.MeshStandardMaterial({ roughness: source.roughness ?? 0.85, metalness: 0, map: source.map ?? null, emissive: "#000000" });
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = this.time;
@@ -579,6 +632,7 @@ class InstancedCrowd implements Crowd {
     mesh.count = 0;
     mesh.frustumCulled = false;
     mesh.name = "crowd-" + key;
+    mesh.renderOrder = foe ? ORDER_FOE : 0;
     this.group.add(mesh);
 
     // The hull: same geometry and instance matrices, back faces, pushed out in the vertex shader.
@@ -601,6 +655,7 @@ class InstancedCrowd implements Crowd {
     outline.frustumCulled = false;
     outline.visible = this.outlines;
     outline.name = "crowd-outline-" + key;
+    outline.renderOrder = foe ? ORDER_FOE : 0;
     outline.onBeforeRender = (renderer, _scene, camera) => {
       // About OUTLINE_PX at 1080p whatever the zoom: width = k × distance.
       renderer.getSize(this.sizeScratch);
@@ -610,15 +665,42 @@ class InstancedCrowd implements Crowd {
       this.outlineK.value = (px * 2 * Math.tan((fov * Math.PI) / 360)) / height;
     };
     this.group.add(outline);
-    return { key, mesh, outline, color, state, anim, look, owner: new Int32Array(capacity).fill(-1), sizeM: [source.sizeM[0], source.sizeM[1], source.sizeM[2]], count: 0, dirty: true };
+
+    // The ghost: same geometry and instance matrices, opaque pass (blended), after the world and before foe bodies.
+    let ghost: THREE.InstancedMesh | null = null;
+    if (foe && this.ghosts) {
+      const ghostMaterial = new THREE.ShaderMaterial({
+        uniforms: { uTime: this.time, uGhost: { value: GHOST_ALPHA }, uCut: { value: source.sizeM[1] * 0.1 } },
+        vertexShader: CROWD_VERTEX_HEAD + GHOST_VERTEX,
+        fragmentShader: GHOST_FRAGMENT,
+        depthTest: true,
+        depthWrite: false,
+        depthFunc: THREE.GreaterDepth,
+        blending: THREE.CustomBlending,
+        blendEquation: THREE.AddEquation,
+        blendSrc: THREE.SrcAlphaFactor,
+        blendDst: THREE.OneMinusSrcAlphaFactor,
+        transparent: false,
+      });
+      ghost = new THREE.InstancedMesh(geometry, ghostMaterial, capacity);
+      ghost.instanceMatrix = mesh.instanceMatrix;
+      ghost.count = 0;
+      ghost.frustumCulled = false;
+      ghost.renderOrder = ORDER_GHOST;
+      ghost.name = "crowd-ghost-" + key;
+      this.group.add(ghost);
+    }
+    return { key, mesh, outline, ghost, color, state, anim, look, owner: new Int32Array(capacity).fill(-1), sizeM: [source.sizeM[0], source.sizeM[1], source.sizeM[2]], count: 0, dirty: true };
   }
 
   private disposeLayer(layer: Layer): void {
     layer.mesh.removeFromParent();
     layer.outline.removeFromParent();
+    layer.ghost?.removeFromParent();
     layer.mesh.geometry.dispose();
     (layer.mesh.material as THREE.Material).dispose();
     (layer.outline.material as THREE.Material).dispose();
+    (layer.ghost?.material as THREE.Material | undefined)?.dispose();
     layer.mesh.dispose();
   }
 
@@ -647,8 +729,10 @@ class InstancedCrowd implements Crowd {
     this.layers.set(key, layer);
   }
 
-  add(shape: PlaceholderDef, gait: CrowdGait = "still", key: string = shape.shape, look: CrowdLook = {}): number {
-    const layer = this.layerFor(key, shape.shape);
+  add(shape: PlaceholderDef, gait: CrowdGait = "still", key?: string, look: CrowdLook = {}): number {
+    const foe = look.foe ?? gait !== "still";
+    // Default layer: the shape, ours apart from the foes (they draw before the foe ghosts).
+    const layer = this.layerFor(key ?? (foe ? shape.shape : OUR_LAYER + shape.shape), shape.shape);
     if (layer.count >= this.capacity) return -1;
     const handle = this.freeHandles.length > 0 ? this.freeHandles.pop()! : this.handles.length;
     const index = layer.count;
@@ -665,7 +749,6 @@ class InstancedCrowd implements Crowd {
     c[index * 3 + 2] = color.b;
     const s = layer.state.array as Float32Array;
     s.fill(0, index * 4, index * 4 + 4);
-    const foe = look.foe ?? gait !== "still";
     const a = layer.anim.array as Float32Array;
     a[index * 4] = GAIT_ID[gait] + (foe ? 8 : 0);
     a[index * 4 + 1] = this.nextPhase();
@@ -772,6 +855,7 @@ class InstancedCrowd implements Crowd {
     for (const layer of this.layers.values()) {
       layer.mesh.count = layer.count;
       layer.outline.count = layer.count;
+      if (layer.ghost !== null) layer.ghost.count = layer.count;
       if (!layer.dirty) continue;
       layer.dirty = false;
       layer.mesh.instanceMatrix.needsUpdate = true;
