@@ -283,7 +283,8 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
           dot.className = "dh-learn__dot is-" + view.level;
         }
       }
-      const recentNext = q.recent.map((item) => item.text + " · " + shortMeaning(item.vi)).join("   ");
+      // "small (nhỏ) · big (to, lớn)": HTML collapses runs of spaces, so entries need a visible separator.
+      const recentNext = q.recent.map((item) => item.text + " (" + shortMeaning(item.vi) + ")").join(" · ");
       if (recentNext !== recentKey) {
         recentKey = recentNext;
         recent.textContent = recentNext === "" ? "" : "Vừa học: " + recentNext;

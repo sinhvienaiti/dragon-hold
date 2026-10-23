@@ -1451,7 +1451,7 @@ body {
   white-space: nowrap;
 }
 
-.dh-tag {
+.dh-wstatus {
   padding: calc(1px * var(--ui)) calc(7px * var(--ui));
   border-radius: calc(8px * var(--ui));
   font: 700 calc(10.5px * var(--ui)) / 1.4 var(--dh-font);
@@ -1461,17 +1461,17 @@ body {
   color: var(--dh-cream);
 }
 
-.dh-tag.is-new {
+.dh-wstatus.is-new {
   box-shadow: inset 0 0 0 1px rgba(127, 245, 224, 0.75);
   color: var(--kit-typing);
 }
 
-.dh-tag.is-miss {
+.dh-wstatus.is-miss {
   box-shadow: inset 0 0 0 1px rgba(255, 176, 32, 0.75);
   color: #ffd38a;
 }
 
-.dh-tag.is-review {
+.dh-wstatus.is-review {
   box-shadow: inset 0 0 0 1px rgba(239, 230, 210, 0.6);
   color: var(--dh-parchment);
 }

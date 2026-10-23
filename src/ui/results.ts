@@ -230,7 +230,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
           el(doc, "span", "dh-word__text", record.text),
           el(doc, "span", "dh-word__ipa", g?.ipa ?? ""),
           el(doc, "span", "dh-word__vi", g?.vi ?? ""),
-          el(doc, "span", "dh-tag is-" + status, STATUS_VI[status] + (record.errors > 0 ? " · " + record.errors + " lỗi" : "")),
+          el(doc, "span", "dh-wstatus is-" + status, STATUS_VI[status] + (record.errors > 0 ? " · " + record.errors + " lỗi" : "")),
         );
         if (actions.listen) {
           const listen = uiButton(doc, "dh-listen", () => {
