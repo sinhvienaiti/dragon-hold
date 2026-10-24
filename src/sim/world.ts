@@ -55,7 +55,7 @@ export interface WorldOptions {
 
 /** The run's pace (BALANCE.md §4.1, §9.1), fixed at creation from the player's profile (and so in every replay). */
 export interface PaceState {
-  /** k: spawn gaps × 1000 / kPm (0.75–1.30). */
+  /** k: spawn gaps × 1000 / kPm (PACE.kMinPm–kMaxPm: 0.75–1.50). */
   readonly kPm: number;
   /** One word's time for this player, 60 / C(E_eff) s, in ticks. */
   readonly wordTicks: number;

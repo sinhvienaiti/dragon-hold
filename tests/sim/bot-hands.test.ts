@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BASE_LATENCY_MS, capacity, expectedPresses, meanLength, type HandsSpec } from "../../scripts/balance/hands";
 import { calibrate } from "../../scripts/balance/calibrate";
 import { BOT_WORDS } from "../../scripts/balance/deck";
+import { PACE } from "../../src/content/rules";
 import { capacityX10, effectiveWpmX1000, paceFor } from "../../src/sim/world";
 import { DRAGON_C_REF, effectiveE, paceK } from "../../src/kit/balance";
 
@@ -27,7 +28,8 @@ describe("bot hands", () => {
       // Integer maths: within 0.002 WPM of the kit's float E_eff.
       expect(Math.abs(effectiveWpmX1000(wpm, a * 1000, cv * 1000) - eEff * 1000)).toBeLessThanOrEqual(2);
       expect(Math.abs(capacityX10(wpm, effectiveWpmX1000(wpm, a * 1000, cv * 1000)) - capacity(eEff, 0.86, meanLength(wpm)) * 10)).toBeLessThanOrEqual(1);
-      const k = paceK(eEff, { len: meanLength(wpm), d: 0.86, ref });
+      // The game's own k range (00 D29: cap 1.50, BALANCE.md §4.1's shared one is 1.30).
+      const k = paceK(eEff, { len: meanLength(wpm), d: 0.86, ref }, { min: PACE.kMinPm / 1000, max: PACE.kMaxPm / 1000 });
       expect(Math.abs(paceFor(wpm, a * 1000, cv * 1000).kPm - k * 1000)).toBeLessThanOrEqual(6);
     }
   });

@@ -97,8 +97,10 @@ export function stepSpawn(world: World): void {
   const spawn = world.spawn;
   const queue = spawn.queue;
   const tick = world.tick;
-  const gateGap = msToTicks(FLOW.gateGapMs);
-  const stagger = msToTicks(FLOW.laneStaggerMs);
+  // The gate rules are spawn gaps too (00 §4.4: k stretches the spawn timing): at the run's spawn time scale the
+  // plan keeps its shape at every pace. Unscaled, a k of 1.44–1.50 bunched delayed groups into 1.44–1.45 short peaks (G9 ≤ 1.40).
+  const gateGap = msToTicks(spawnMs(world, FLOW.gateGapMs));
+  const stagger = msToTicks(spawnMs(world, FLOW.laneStaggerMs));
   let index = 0;
   while (index < queue.length) {
     const group = queue[index]!;

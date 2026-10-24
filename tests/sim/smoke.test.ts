@@ -54,7 +54,11 @@ describe("sim smoke", () => {
 
   it("derives a two-way pace k from E_eff (BALANCE.md §4.1, §9.1)", () => {
     expect(paceFor(35).kPm).toBe(1000);
-    expect(paceFor(60, 970, 150).kPm).toBe(1300);
+    // The cap is 1.50 (00 §4.4, round 3): 60 WPM 97 % sits under it, 70 WPM 97 % (raw 1.53) on it.
+    expect(paceFor(60, 970, 150).kPm).toBeGreaterThan(1400);
+    expect(paceFor(60, 970, 150).kPm).toBeLessThan(PACE.kMaxPm);
+    expect(PACE.kMaxPm).toBe(1500);
+    expect(paceFor(70, 970, 150).kPm).toBe(1500);
     expect(paceFor(25, 920, 350).kPm).toBe(750);
     expect(paceFor(45).kPm).toBeGreaterThan(1000);
     expect(paceFor(45).kPm).toBeLessThan(1300);

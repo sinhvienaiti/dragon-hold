@@ -115,15 +115,18 @@ export const TEMPO = {
 /**
  * Pace (BALANCE.md §4.1, §9.1; D23 replaces D06 and k_E of 00 §4.4):
  *   E_eff = E × (0.6 + 0.4 a²) × (1 − 0.5 CV), held in [0.7 E, E]
- *   k     = clamp(C(E_eff) / C_ref; 0.75; 1.30)      spawn gaps × 1 / k, both ways
+ *   k     = clamp(C(E_eff) / C_ref; 0.75; 1.50)      spawn gaps × 1 / k, both ways
  * C_ref = C(E_eff of the standard bot: 35 WPM, 95 %, CV 0.25) ≈ 19.6 words a
  * minute, so the reference player gets k = 1. The word zone is a time: a foe
  * gets a word once it is within T_a of its stop (T_a / k, never under two
  * word times of this player; + one word time per extra W it carries).
+ * The cap is 1.50 here, not BALANCE.md §4.1's shared 1.30 (00 §4.4, round 3
+ * decision 3): at 1.30 the 70 WPM bot (raw k 1.53) won 100 % and the 60 WPM
+ * one (raw 1.44) 98 %.
  */
 export const PACE = {
   kMinPm: 750,
-  kMaxPm: 1300,
+  kMaxPm: 1500,
   refWordsPerMinX10: 196,
   /** Profile defaults when the game knows only E (kit skillDefaults, adult). */
   defaultAccuracyPm: 950,
@@ -210,9 +213,9 @@ export const FLOW = {
   /** General W ≤ 35 % of the wave's W_gõ (40 % in a general stage's last wave) (00 §4.5). */
   generalSharePct: 35,
   generalShareFinalPct: 40,
-  /** Spawn groups on different lanes start ≥ 0.6 s apart (01 §1.4). */
+  /** Spawn groups on different lanes start ≥ 0.6 s apart (01 §1.4); like every spawn gap, × the run's spawn time scale (sim/spawn.ts spawnMs). */
   laneStaggerMs: 600,
-  /** One group per gate every 1.5 s at most (02 §5.3). */
+  /** One group per gate every 1.5 s at most (02 §5.3), at the reference pace; × the spawn time scale like the stagger. */
   gateGapMs: 1500,
   /** Lulls between peaks ≥ 8 s at rate × 0.4; peaks run at rate × 1.6 (02 §5.3). */
   lullMinMs: 8000,

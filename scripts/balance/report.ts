@@ -10,8 +10,10 @@ import { MAPS } from "../../src/content/data/maps";
 import { HOUSES, PLACEABLES, TRAPS, UNITS } from "../../src/content/data/our-side";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { AREA, ECONOMY, FLOW, LETTER_BUDGET, LOAD, M0_GATES, SIM_BUDGET, chapterRow, stageGoldBudget } from "../../src/content/rules";
-import { BANDS, BAND_MODES, METRIC_LABELS, MODE_LABELS, formatGates, runGates, scoreBand, summarizeRuns, type BandMetric, type BandMode, type BotModeSummary, type GateResult, type RunRecord } from "../../src/kit/balance";
+import { BAND_MODES, METRIC_LABELS, MODE_LABELS, formatGates, runGates, scoreBand, summarizeRuns, type BandMetric, type BandMode, type BotModeSummary, type GateResult, type RunRecord } from "../../src/kit/balance";
 import type { StageDef, Vec2 } from "../../src/content/types";
+// The game's own bands (BALANCE.md §3 with Cân bằng's I ≤ 20 %, round 3 decision 1).
+import { DH_BANDS as BANDS } from "../../src/sim/director";
 import { U_PER_M } from "../../src/sim/fixed";
 import type { SlotState } from "../../src/sim/placement";
 import type { World } from "../../src/sim/world";
@@ -289,7 +291,10 @@ export function extraGates(summaries: Readonly<Record<string, BotSummary>>): Gat
   const breath = s.skillShare.breath ?? 0;
   const cover = goldCoverage(STAGE_M0, s.gold.formula);
   return [
-    { id: "G8", name: "Phần phe ta (b35)", want: "20–35 %, trần 40 %", got: f1(s.damage.ourSide) + " %", status: status(s.damage.ourSide >= 20 && s.damage.ourSide <= 35) },
+    // G8 (00 §7) by 03 §0's split (round 3 decision 2): "phe ta" is traps, houses and units; the Fire Dragon's
+    // words and skills together are the 65–80 % share, each area skill capped on its own (D23a, D23b).
+    { id: "G8", name: "Phần phe ta: bẫy, nhà, lính (b35)", want: "20–35 %, trần 40 %", got: f1(s.damage.ourSide) + " %", status: status(s.damage.ourSide >= 20 && s.damage.ourSide <= 35) },
+    { id: "G8b", name: "Phần Hỏa Long: đòn từ và chiêu (b35)", want: "65–80 % (03 §0)", got: f1(s.damage.word + s.damage.skill) + " % (đòn từ " + f1(s.damage.word) + " %, chiêu " + f1(s.damage.skill) + " %)", status: status(s.damage.word + s.damage.skill >= 65 && s.damage.word + s.damage.skill <= 80) },
     { id: "D23a", name: "Thiên Hỏa trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(sky) + " %", status: status(sky <= AREA.skillShareMaxPct) },
     { id: "D23b", name: "Phun Lửa trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(breath) + " %", status: status(breath <= AREA.skillShareMaxPct) },
     { id: "G9b", name: "Chữ sống ≤ N_max", want: "≤ " + LETTER_BUDGET.nMaxCap, got: String(max(Object.values(summaries).map((x) => x.live.maxWords))), status: status(max(Object.values(summaries).map((x) => x.live.maxWords)) <= LETTER_BUDGET.nMaxCap) },
@@ -518,7 +523,8 @@ export function markdown(input: ReportInput): string {
     };
     return [
       s.bot + (k.director ? "" : " (tắt nhịp)"), mark("win", pctMilli(k.win)), mark("s", pctMilli(k.s)), pctMilli(s.hpMin), mark("p", pctMilli(k.p)), mark("i", pctMilli(k.i)), mark("o", pctMilli(k.o)), mark("n", k.n.toFixed(2)), k.q === null ? "—" : mark("q", pctMilli(k.q)),
-      k.support === null ? "—" : pctMilli(k.support), k.killSeconds === null ? "—" : k.killSeconds.toFixed(2), k.stepsPerWave === null ? "—" : k.stepsPerWave.toFixed(2),
+      // G8's split (03 §0, round 3 decision 2): traps, houses, units; the Fire Dragon's skills count with its words.
+      Math.round(s.damage.ourSide) + " %", k.killSeconds === null ? "—" : k.killSeconds.toFixed(2), k.stepsPerWave === null ? "—" : k.stepsPerWave.toFixed(2),
       k.spawnMin === null ? "—" : pctMilli(k.spawnMin) + "–" + pctMilli(k.spawnMax ?? 1000),
     ];
   };
@@ -527,14 +533,14 @@ export function markdown(input: ReportInput): string {
     if (!rows) continue;
     out.push("");
     out.push("## Vùng cuốn: " + MODE_LABELS[mode] + " (BALANCE.md §3; " + DIFFICULTY_OF[mode] + "; bộ điều nhịp bật trừ khi ghi)");
-    if (mode === "balanced") out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh. Ô **đậm**: ngoài dải (cả N và Q; B1 chỉ xét Thắng, S, P, I, O).");
+    if (mode === "balanced") out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh; dải I của Rồng Giữ Ải ở Cân bằng là ≤ 20 % (vòng 3, mục 1). Phe ta: sát thương của bẫy, nhà, lính (G8, 03 §0); chiêu của Hỏa Long tính vào phần Rồng. Ô **đậm**: ngoài dải (cả N và Q; B1 chỉ xét Thắng, S, P, I, O).");
     out.push(table(["Bot", "Thắng", "S", "Máu thấp nhất", "P", "I", "O", "N", "Q", "Phe ta", "Hạ quái (s)", "Bậc nhịp/đợt", "Khoảng sinh"], [
       ["**Dải " + MODE_LABELS[mode] + "**", ...(["win", "s"] as BandMetric[]).map((m) => bandText(m, mode)), "—", ...(["p", "i", "o", "n", "q"] as BandMetric[]).map((m) => bandText(m, mode)), "—", "—", "≤ 3", "±15 %"],
       ...Object.values(rows).map((s) => flowRow(s, mode)),
     ]));
   }
   const kitRows = Object.values(input.byMode).flatMap((rows) => Object.values(rows ?? {}).map((s) => s.kit));
-  const bGates: GateResult[] = runGates({ summaries: kitRows, options: { tacticsPair: ["standard@good", "standard@poor"] } });
+  const bGates: GateResult[] = runGates({ summaries: kitRows, options: { bands: BANDS, tacticsPair: ["standard@good", "standard@poor"] } });
   out.push("");
   out.push("## Cổng B1–B9 (BALANCE.md §7), mọi seed");
   out.push("Chế độ: Thư giãn = mức Dễ, Cân bằng = Thường, Thử thách = Khó (00 §4.10); bộ điều nhịp lấy dải của chế độ. B9 cần buổi chơi thử của người thật.");

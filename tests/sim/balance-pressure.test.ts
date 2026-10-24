@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { botDeck } from "../../scripts/balance/deck";
 import { PACE, PRESSURE } from "../../src/content/rules";
 import { BANDS } from "../../src/kit/balance";
-import { BAND_MODE, DIRECTOR_IDLE_SLACK, directorBand } from "../../src/sim/director";
+import { BAND_MODE, DH_BANDS, DIRECTOR_IDLE_SLACK, directorBand } from "../../src/sim/director";
 import { mToU } from "../../src/sim/fixed";
 import { spawnFoe } from "../../src/sim/spawn";
 import { paceFor, sloppyChancePm, type EnemyState, type World } from "../../src/sim/world";
-import { EMPTY_STAGE, Log, foe, run, waveWorld } from "./battle-helpers";
+import { EMPTY_STAGE, Log, battleStage, foe, run, waveWorld } from "./battle-helpers";
 
 /** Thousandths of HP one waiting target seeps in a beat at `rateX10`, as stepBlight counts it (no auras). */
 const beatX1000 = (world: World, rateX10: number): number => {
@@ -106,7 +106,31 @@ describe("the player's time margin (BALANCE.md §2 factors 3 and 4)", () => {
     // The grace is a word at raw E (C(E), 00 §4.3) × the margin.
     expect(paceFor(35, 950, 250).graceTicks).toBeGreaterThan(Math.round(36_000 / 227));
     expect(paceFor(35, 950, 250).rootKPm).toBe(1000);
-    expect(paceFor(60, 970, 150).rootKPm).toBe(Math.round(Math.sqrt(1300 * 1000)));
+    const fast = paceFor(60, 970, 150);
+    expect(fast.rootKPm).toBe(Math.round(Math.sqrt(fast.kPm * 1000)));
+    expect(paceFor(70, 970, 150).rootKPm).toBe(Math.round(Math.sqrt(1500 * 1000)));
+  });
+
+  it("scales the gate rules with the spawn gaps, so a fast player's groups leave as the plan says (G9 at k 1.5)", () => {
+    // Three groups on one gate 1.5 s apart: the plan's gate rule at the reference pace.
+    const stage = battleStage([[0, 1500, 3000].map((atMs) => ({ atMs, lane: "cau", shape: "single" as const, foe: "moss-grunt" as const, count: 1 }))]);
+    const starts = (wpm: number, accuracyPm: number, cvPm: number): number[] => {
+      const log = new Log();
+      const world = waveWorld(stage, { typistWpm: wpm, accuracyPm, cvPm, paceDirector: false }, log);
+      run(world, 400, log);
+      const ticks = log.of("spawn").map((event) => event.tick);
+      expect(ticks).toHaveLength(3);
+      return ticks;
+    };
+    // k = 1: 1.5 s apart (90 ticks), as planned.
+    const ref = starts(35, 950, 250);
+    expect(ref[1]! - ref[0]!).toBe(90);
+    expect(ref[2]! - ref[1]!).toBe(90);
+    // k = 1.5: every gap / 1.5, the gate rule too (1 s, not held back to 1.5 s).
+    expect(paceFor(70, 970, 150).kPm).toBe(1500);
+    const quick = starts(70, 970, 150);
+    expect(quick[1]! - quick[0]!).toBe(60);
+    expect(quick[2]! - quick[1]!).toBe(60);
   });
 });
 
@@ -120,6 +144,15 @@ describe("the pace director (BALANCE.md §4.2) in M0", () => {
       expect(band.p).toEqual(BANDS[mode].p);
     }
     expect(waveWorld(EMPTY_STAGE, { difficulty: "hard" }).director.director.band.p).toEqual(BANDS.challenge.p);
+  });
+
+  it("judges the game by its own bands: Cân bằng's I ≤ 20 % (round 3 decision 1), the rest as BALANCE.md §3", () => {
+    expect(DH_BANDS.balanced.i).toEqual({ max: 200 });
+    expect({ ...DH_BANDS.balanced, i: BANDS.balanced.i }).toEqual(BANDS.balanced);
+    expect(DH_BANDS.relax).toEqual(BANDS.relax);
+    expect(DH_BANDS.challenge).toEqual(BANDS.challenge);
+    // The director's own idle target in Cân bằng stays above the game's band.
+    expect(directorBand("balanced").i.max).toBeGreaterThan(DH_BANDS.balanced.i.max!);
   });
 
   it("never steps in wave 1 (light by design)", () => {

@@ -24,7 +24,7 @@ import { STAGE_M0 } from "../../src/content/data/stages";
 import { M0_GATES } from "../../src/content/rules";
 import type { Difficulty } from "../../src/content/types";
 import { BAND_MODES, runGates, type BandMode } from "../../src/kit/balance";
-import { BAND_MODE } from "../../src/sim/director";
+import { BAND_MODE, DH_BANDS } from "../../src/sim/director";
 import { BOT_NAMES, BOTS, M0_BOTS, createBotWorld, runBot, type BotName, type BotRun } from "./bot";
 import { pacedStage } from "./variants";
 import { m0Gates, mapNotes, markdown, planRows, readiness, summarize, type BotSummary } from "./report";
@@ -59,8 +59,12 @@ function runTask(task: Task, maxTicks: number, pace: number): BotRun & { difficu
 const trace = arg("trace");
 
 if (args.includes("--worker")) {
-  process.once("message", (job: Job) => {
-    for (const task of job.tasks) process.send!(runTask(task, job.maxTicks, job.pace));
+  process.once("message", async (job: Job) => {
+    // Each result waits for its send to flush: a disconnect with sends still queued crashes the IPC channel (Node 24, the Dell).
+    for (const task of job.tasks) {
+      const run = runTask(task, job.maxTicks, job.pace);
+      await new Promise<void>((done, fail) => process.send!(run, (error: Error | null) => (error ? fail(error) : done())));
+    }
     process.disconnect();
   });
 } else if (trace) {
@@ -131,7 +135,7 @@ async function main(): Promise<void> {
   const byMode = fold(() => true);
   const setGates = bases.map((first) => {
     const rows = fold((run) => run.seed >= first && run.seed < first + seeds);
-    return { base: first, gates: runGates({ summaries: Object.values(rows).flatMap((r) => Object.values(r ?? {}).map((s) => s.kit)), options: { tacticsPair: ["standard@good", "standard@poor"] } }) };
+    return { base: first, gates: runGates({ summaries: Object.values(rows).flatMap((r) => Object.values(r ?? {}).map((s) => s.kit)), options: { bands: DH_BANDS, tacticsPair: ["standard@good", "standard@poor"] } }) };
   });
   const summaries = byMode.balanced ?? {};
   const world = createBotWorld(BOTS.b35, { seed: base });
