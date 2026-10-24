@@ -120,10 +120,16 @@ void main() {
   } else {
     float r = length(vLocal);
     if (r > 1.0) discard;
-    // Aura: a ring that breathes, ticks round it.
-    float band = smoothstep(0.86, 0.93, r) * (1.0 - smoothstep(0.97, 1.0, r));
-    float ticks = step(0.7, fract(atan(vLocal.y, vLocal.x) * 3.8197 + uTime * 0.25)) * smoothstep(0.78, 0.84, r) * (1.0 - smoothstep(0.86, 0.88, r));
-    gl_FragColor = vec4(uColor, (band * (0.75 + 0.25 * sin(uTime * 3.0)) + ticks * 0.6 + 0.07 * smoothstep(0.3, 1.0, r)) * uAlpha);
+    // Aura: a withered-yellow ring that breathes, ticks round it. Round 3: a dark violet-grey edge (Hắc Vụ)
+    // on both sides and a paler core, so the yellow reads on sunlit grass as on dirt and water.
+    float band = smoothstep(0.855, 0.885, r) * (1.0 - smoothstep(0.945, 0.97, r));
+    float edge = max(smoothstep(0.80, 0.835, r) * (1.0 - smoothstep(0.855, 0.875, r)), smoothstep(0.95, 0.97, r) * (1.0 - smoothstep(0.99, 1.0, r)));
+    float ticks = step(0.7, fract(atan(vLocal.y, vLocal.x) * 3.8197 + uTime * 0.25)) * smoothstep(0.70, 0.74, r) * (1.0 - smoothstep(0.78, 0.80, r));
+    float breathe = 0.85 + 0.15 * sin(uTime * 3.0);
+    vec3 core = mix(uColor, vec3(0.96, 0.98, 0.70), 0.4 * band);
+    vec3 color = mix(core, vec3(0.16, 0.12, 0.21), edge * (1.0 - band));
+    float a = max(band * breathe, edge * 0.72) + ticks * 0.7 + 0.06 * smoothstep(0.3, 1.0, r);
+    gl_FragColor = vec4(color, min(1.0, a) * uAlpha);
     return;
   }
   // Nearly due: the fill throbs brighter (the last third of the wind-up).
@@ -207,6 +213,8 @@ function markTexture(): THREE.Texture {
 export interface TelegraphsView extends Presenter {
   /** Shows a telegraph (showcase, tools); returns its id. `follow`: a foe it rides on (auras). */
   show(spec: TelegraphSpec, durationS: number, follow?: EnemyRef | null, source?: EnemyRef | null): number;
+  /** Fades telegraph `id` out (a planted banner's ring when the banner goes). */
+  end(id: number): void;
   /** Advances without a World (bench, showcase). */
   tick(worldDt: number, time: number): void;
   readonly live: number;
@@ -449,6 +457,10 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
   return {
     show,
     tick,
+    end(id: number): void {
+      const slot = slots.find((item) => item.active && item.id === id);
+      if (slot && slot.fade < 0) slot.fade = FADE_S;
+    },
     get live(): number {
       return slots.filter((slot) => slot.active).length;
     },
