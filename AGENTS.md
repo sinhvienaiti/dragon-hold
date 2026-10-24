@@ -13,6 +13,10 @@ Dev port 3005, host `dragon.typing-game.local`.
   and wins when documents disagree; `DESIGN.md` §9 has the milestones.
 - Current milestone: **M0a** grey box (full M0 rules, primitive placeholders,
   procedural terrain and river), map `L2-cau`.
+- State (24/10, round 3): the round 2 gate's owner decisions are taken as
+  recommended (00 D27–D29: Cân bằng I ≤ 20 %, G8 = traps, houses, units, k cap
+  1.50 with scaled gate rules). B1 and B7 still fail; B9 waits for the owner's
+  playtest. See `docs/changelog/2026-10-24-m0a-round3.md`.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
 
 ## Lanes
@@ -45,6 +49,9 @@ contracts, the event list and how to ask for a shared type change.
   Vietnamese with full diacritics; each update adds
   `docs/changelog/<date>-<topic>.md`.
 - Kill every background process you start (Vite, Chrome).
+- On the Dell, Vite in WSL does not see files edited from Windows: restart it
+  after a code change, before a browser run. `pnpm dh:balance --jobs=4` keeps
+  the bots within the shared machine's thread budget.
 - Browser checks: run Vite on your assigned port with `--strictPort`; run
   scenarios with `node scripts/visual/cdp-run.mjs <scenario.mjs>` (keep that
   file identical to Space's copy); screenshots go to `tmp/shots/<lane>/`

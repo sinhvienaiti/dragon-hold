@@ -289,8 +289,9 @@ placement), `src/app/app.ts` (visuals: `__dh.foeSizes`).
   The owner picks one of: I counts only gaps ≥ 1 s or the strike flight as
   busy (kit FlowMeter); an I band ≤ 20 % for this game; middle-wave load
   1.05–1.10 (peaks ≤ 1.25, wave 1 ≤ 0.75); untyped share 20–25 %.
+  Round 3: the I band ≤ 20 % (D27, recommended); B1 and B7 still fail (below).
 - The Fast bot wins 100 % (k cap 1.30); Q ~40 % (§9.1 aims 55–70 %); B9
-  needs the owner's playtest.
+  needs the owner's playtest. Round 3: k cap 1.50 (D29), Fast wins 77.5 %.
 - Written into the canon on 24/10 (round 3, parent repo, uncommitted there):
   slip and unevenness margins and the pace (00 §4.4), Héo lan per mode and
   its rates (00 §4.10), wave 10 peak 1.39 (00 §7 M0 exceptions), Esc keeps
@@ -378,3 +379,34 @@ Notes: `docs/changelog/2026-10-24-m0a-review2-minor.md`; GPU results in
 
 Other lanes' files changed here (owners keep them): `src/ui/hud.ts`,
 `src/view/{number-field,fx}.ts`, `src/content/rules.ts` (`PACE` comment only).
+
+### Round 3 decisions (Dell, 24/10/2026)
+
+Notes: `docs/changelog/2026-10-24-m0a-round3.md`. The 9 owner decisions of the
+round 2 gate are taken as recommended (canon 00 D27–D29, parent repo, uncommitted).
+
+- `src/sim/director.ts` `DH_BANDS`: the game's bands, BALANCE.md §3 with
+  Cân bằng's I ≤ 20 % (D27). The bot report and B1–B9 read them; the pace
+  director still steers by the kit band + `DIRECTOR_IDLE_SLACK` (sim unchanged).
+- `PACE.kMaxPm` 1500 (D29). `stepSpawn` scales the gate rules (`FLOW.gateGapMs`,
+  `laneStaggerMs`) by `spawnMs` like every spawn gap: unscaled, k 1.44–1.50
+  bunched groups into 1.44–1.45 short peaks (G9). Golden `noTyping-seed2` and
+  `sloppy-hard-off-seed3` regenerated (k ≠ 1), logs unchanged.
+- G8 is traps, houses and units (03 §0, D28); `report.ts` adds G8b (the Fire
+  Dragon's words and skills, 65–80 %), and the "Phe ta" column follows G8.
+- `scripts/balance/run.ts` workers wait for each send (Node 24 crashed the IPC).
+- Kit `feedback/numbers.ts` (parent `shared/game-kit`, uncommitted; synced here
+  only): digit cells as wide as the widest glyph's ink (≥ 64 px), the label in
+  its own row (atlas 1024 × 256), same drawn scale; exports `NUMBER_ATLAS`.
+  typing-survival is out of date with the kit until it is synced.
+- `src/view/number-field.ts`: the box reads `NUMBER_ATLAS` and the measured ink;
+  `settle()` runs until no two boxes touch (the kit's one pass left storm numbers
+  touching for a frame, 3 frames on screen at 1080p).
+- Scenarios: `dh-hitstop-keys` checks every frame and what lies on screen;
+  `lib/dh.mjs` ink check counts on-screen overlaps; `dh-numbers-drawn` reads the
+  new atlas layout; `dh-crowd` takes `GUARD` (off by default); `dh-words16.mjs`
+  (new) stages a crowd at the letter budget (10 words with the M0 deck).
+
+Still open: B1 and B7 (idle of the standard, skilled and fast bots; Mới's S;
+Khá's wins), B9 (the owner's playtest). The kit's `box()` and one-pass
+`settle()` stay as drift for `shared/game-kit`.
