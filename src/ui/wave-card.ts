@@ -352,7 +352,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
         (w.stage.unlocks.rage ? ` · +${RAGE.callEarlyX10 / 10} Long Nộ` : "");
       if (callButton.innerHTML !== callHtml) callButton.innerHTML = callHtml;
     }
-    const hintText = phase === "warning" ? "Quái sắp vào từ các đường sáng" : phase === "prep" ? "Đặt bẫy, lính, nhà rồi bắt đầu" : "";
+    const hintText = phase === "warning" ? "Quái sắp vào từ các đường sáng" : phase === "prep" ? "Đặt bẫy, lính, nhà trước" : "";
     setText(hint, hintText);
     setShown(hint, hintText !== "");
     place();

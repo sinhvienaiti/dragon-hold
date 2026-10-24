@@ -214,6 +214,8 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
       return;
     }
     armed = null;
+    // The "press again" notice goes with the buy: it named the old price (gate round 2).
+    flash = null;
     nodes.get(cell.id)?.button.classList.remove("is-armed");
     bump(true);
     sink({ type: "buy", item: cell.id as ConsumableId | HeroUpgradeId });

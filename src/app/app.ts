@@ -407,7 +407,12 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const telegraphs = createTelegraphs(map.stage, map.terrain, { locator: actors });
     const hpbars = createHpBars(map.stage, { locator: actors, terrain: map.terrain });
     const fx = createFx(map.stage, { locator: actors, terrain: map.terrain, heroes, shake: (px) => map.rig.shake(px) });
-    const tags = createTags(overlay!, map.stage.project, { gloss: learning.gloss, sizePct: options.tagSizePct === undefined ? undefined : Math.min(150, Math.max(80, options.tagSizePct)) });
+    const tags = createTags(overlay!, map.stage.project, {
+      gloss: learning.gloss,
+      sizePct: options.tagSizePct === undefined ? undefined : Math.min(150, Math.max(80, options.tagSizePct)),
+      // Thẻ Ôn opens on the last kill of a wave: that word's leaving tag and letter sparks would show the answer.
+      quiet: () => run !== null && (run.review.isOpen || run.prelearn.isOpen),
+    });
     const frame = createLearningFrame(overlay!, learning.gloss, { speak: learning.speak });
     const placement = createPlacementUi(overlay!, map.stage.project, sink, { onSlots: (visible, highlight) => map.paths.showSlots(visible, highlight) });
     const hud = createHud(overlay!, sink, { onPause: openMenu, onCameraReset: () => map.rig.reset() });

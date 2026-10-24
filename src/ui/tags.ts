@@ -389,6 +389,11 @@ export interface TagsOptions {
   readonly avoid?: () => readonly Rect[];
   /** Player's tag size, 80–150 % (01 §3.1). */
   readonly sizePct?: number;
+  /**
+   * True while a learning card asks for a word (Thẻ Ôn, Học trước): the layer hides, and leaving
+   * tags and letter sparks end at once, so a word just typed never shows its answer under the card.
+   */
+  readonly quiet?: () => boolean;
 }
 
 /** Head height of a foe's tag anchor, metres: top of its body as drawn (view/foe-look.ts) + 0.4 m (05 §4.3). */
@@ -478,6 +483,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
   let avoid: readonly Rect[] = [];
   let avoidReadAt = -1e9;
   let frameNo = 0;
+  let hushed = false;
   // Drawn foe boxes and live enemy warnings on screen this frame (round 2): tags keep off them and stand above their own foe.
   const bodyPool: { x: number; y: number; w: number; h: number; owner: number }[] = [];
   const bodies: BodyRect[] = [];
@@ -695,6 +701,15 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
     frame(world: World, info: FrameInfo): void {
       const now = info.now;
       frameNo += 1;
+      const quiet = options.quiet?.() === true;
+      if (quiet !== hushed) {
+        hushed = quiet;
+        layer.style.visibility = quiet ? "hidden" : "";
+        if (quiet) {
+          for (const tag of tags) if (tag.leaving !== "") tag.leaveAt = -Infinity;
+          for (const spark of sparks) spark.classList.remove("is-on");
+        }
+      }
       const rect = layer.getBoundingClientRect();
       if (rect.width !== width || rect.height !== height) {
         width = rect.width;

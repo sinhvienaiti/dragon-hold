@@ -493,10 +493,12 @@ export function enemyAt(world: World, ref: { readonly slot: number; readonly ser
 
 /**
  * Everything a step reads back is state; these keys are static input or output and stay out of the hash.
- * `rules` (the typing session's compiled config, seconds as floats) and `def` (slot definitions, metres)
- * are static config: the hashed state is integers only (LANES.md).
+ * `rules` (the typing session's compiled config, seconds as floats), `def` (slot definitions, metres),
+ * and the pace director's `band` and `table` (the mode's target band, `n` as a fraction, and its step
+ * table) are static config: the hashed state is integers only (LANES.md). The difficulty that picks
+ * the band stays hashed as `world.difficulty`.
  */
-const HASH_SKIP: ReadonlySet<string> = new Set(["stage", "map", "lanes", "events", "deck", "wall", "rules", "def"]);
+export const HASH_SKIP: ReadonlySet<string> = new Set(["stage", "map", "lanes", "events", "deck", "wall", "rules", "def", "band", "table"]);
 
 /** The world folded into 32 bits (golden tests, 05 §10). */
 export function hashWorld(world: World): number {

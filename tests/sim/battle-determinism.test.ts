@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { STAGE_M0 } from "../../src/content/data/stages";
-import { hashWorld, type World } from "../../src/sim/world";
+import type { Difficulty } from "../../src/content/types";
+import { HASH_SKIP, createWorld, hashWorld, type World } from "../../src/sim/world";
 import { playStage, warden } from "./battle-helpers";
 
 /** Keys hashWorld skips (static input or output); everything else must be integers (05 §9.4). */
-const SKIP = new Set(["stage", "map", "lanes", "events", "deck", "wall"]);
+const SKIP = HASH_SKIP;
 
 function floats(value: unknown, path: string, out: string[]): void {
   if (out.length > 5 || value === null || value === undefined) return;
@@ -13,9 +14,19 @@ function floats(value: unknown, path: string, out: string[]): void {
     return;
   }
   if (typeof value !== "object") return;
-  if (ArrayBuffer.isView(value)) return;
+  if (ArrayBuffer.isView(value)) {
+    if (value instanceof Float32Array || value instanceof Float64Array) {
+      for (const item of value) if (!Number.isSafeInteger(item)) return void out.push(path + " (float array) = " + item);
+    }
+    return;
+  }
   if (value instanceof Map) {
     for (const [key, item] of value) floats(item, path + "[" + String(key) + "]", out);
+    return;
+  }
+  if (value instanceof Set) {
+    let index = 0;
+    for (const item of value) floats(item, path + "{" + index++ + "}", out);
     return;
   }
   if (Array.isArray(value)) {
@@ -63,6 +74,24 @@ describe("battle determinism", () => {
     floats(battle, "world", out);
     expect(out).toEqual([]);
     expect(Number.isSafeInteger(world.tick) && Number.isSafeInteger(world.phaseEndsAt)).toBe(true);
+  });
+
+  it("keeps every hashed number of the whole world an integer, at each difficulty and after a whole run", () => {
+    // Round 2 gate: the pace director's band (n as a fraction) was hashed; it is static config now.
+    for (const difficulty of ["easy", "normal", "hard"] as Difficulty[]) {
+      const out: string[] = [];
+      floats(createWorld(STAGE_M0, STAGE_M0.seed, { difficulty }), "world@" + difficulty, out);
+      expect(out).toEqual([]);
+    }
+    const out: string[] = [];
+    floats(hashes(7).world, "world", out);
+    expect(out).toEqual([]);
+  });
+
+  it("hashes the difficulty and the director switch even though the band stays out", () => {
+    const at = (options: { difficulty?: Difficulty; paceDirector?: boolean }) => hashWorld(createWorld(STAGE_M0, STAGE_M0.seed, options));
+    expect(new Set([at({ difficulty: "easy" }), at({ difficulty: "normal" }), at({ difficulty: "hard" })]).size).toBe(3);
+    expect(at({ paceDirector: false })).not.toBe(at({}));
   });
 
   it("runs a whole stage at well over 200 × real time headless (00 §8)", () => {

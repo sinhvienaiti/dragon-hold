@@ -7,7 +7,11 @@
 // along the walk (the view's own drawn size, view/foe-look.ts, projected).
 // A bot types every word up to wave FROM (default 4), then only foes within
 // NEAR m of the dais (calling breaks early), so the others walk the whole
-// field and the later waves bring every species (wolves, the general).
+// field and the later waves bring every species (wolves from wave 7, the
+// general). Below GUARD % Dragon HP (default 60) it types every word again,
+// so the run lives to wave 7 (round 2 gate: three runs ended before any wolf);
+// the report keeps the last wave and phase, and `ok` is false while a species
+// was never seen.
 // Owner: integrator (LANES.md); sizes and bands: view lane (round 2).
 import { join } from "node:path";
 import { boot, outDir, press, waitFor } from "./lib/dh.mjs";
@@ -58,7 +62,7 @@ const SIZES = `(async () => {
   return { out, rings };
 })()`;
 
-const BOT = (near, from) => `(async () => {
+const BOT = (near, from, guard) => `(async () => {
   const d = window.__dh; window.__stopBot = false;
   for (let k = 0; k < 100000 && !window.__stopBot; k += 1) {
     const w = d.world();
@@ -69,7 +73,8 @@ const BOT = (near, from) => `(async () => {
     const dist = (x) => { if (!x.target) return 0; const e = w.enemies.list[x.target.slot]; return e && e.alive ? Math.hypot(e.x, e.z) / 60000 : 1e9; };
     const lock = w.words.lock;
     let word = lock >= 0 ? ws.find((x) => x.slot === lock) : null;
-    const reach = w.wave < ${from} ? 1e8 : ${near};
+    const low = w.hero.hp * 100 < w.hero.hpMax * ${guard};
+    const reach = w.wave < ${from} || low ? 1e8 : ${near};
     if (!word) word = ws.filter((x) => dist(x) < reach).sort((a, b) => dist(a) - dist(b))[0] ?? null;
     if (lock >= 0 && !word) d.send({ type: 'release' });
     else if (word) for (const ch of word.text.slice(word.typed)) d.send({ type: 'key', letter: ch.charCodeAt(0) - 97 });
@@ -85,7 +90,7 @@ export default async function (page) {
   await boot(page, "prelearn=0&speed=" + (process.env.SPEED ?? "3"), { width: W, height: H });
   await press(page, "Enter");
   await waitFor(page, "s.phase === 'wave'", { timeoutMs: 20000 });
-  page.eval(BOT(Number(process.env.NEAR ?? "13"), Number(process.env.FROM ?? "4"))).catch(() => {});
+  page.eval(BOT(Number(process.env.NEAR ?? "13"), Number(process.env.FROM ?? "4"), Number(process.env.GUARD ?? "60"))).catch(() => {});
   const samples = [];
   const rings = [];
   const shot = new Set();
@@ -107,6 +112,7 @@ export default async function (page) {
     if (Object.keys(BANDS).every((foe) => shot.has(foe))) break;
   }
   await page.eval("window.__stopBot = true");
+  const last = await page.eval("window.__dh.state()");
   const by = {};
   for (const s of samples) (by[s.foe] ??= []).push(s);
   const median = (arr) => (arr.length ? arr[Math.floor(arr.length / 2)] : null);
@@ -128,10 +134,13 @@ export default async function (page) {
     };
   }
   const ringPx = rings.map((r) => r.ringPx).sort((a, b) => a - b);
+  const unseen = Object.keys(BANDS).filter((foe) => !by[foe]);
   return {
+    ok: unseen.length === 0 && Object.values(report).every((row) => row.ok !== false),
+    end: { wave: last.wave, phase: last.phase, heroHpPct: Math.round((100 * last.heroHp) / Math.max(1, last.heroHpMax)), seconds: Math.round((Date.now() - t0) / 1000) },
     report,
     size: W + "x" + H,
     clusters: { samples: rings.length, medianRingPx: Math.round(median(ringPx) ?? 0), minRingPx: Math.round(ringPx[0] ?? 0), ok: rings.length === 0 ? null : (median(ringPx) ?? 0) >= RING_MIN_PX * K },
-    unseen: Object.keys(BANDS).filter((foe) => !by[foe]),
+    unseen,
   };
 }

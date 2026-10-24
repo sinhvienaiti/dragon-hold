@@ -510,10 +510,14 @@ export function markdown(input: ReportInput): string {
   }
   const flowRow = (s: BotSummary, mode: BandMode): (string | number)[] => {
     const k = s.kit;
-    const score = scoreBand(k, BANDS[mode], ["win", "s", "p", "i", "o"]);
-    const mark = (metric: BandMetric, text: string) => (score.rows.find((row) => row.metric === metric)?.verdict === "in" || !["win", "s", "p", "i", "o"].includes(metric) ? text : "**" + text + "**");
+    // Every band metric is marked, N and Q too (B1 judges only win, S, P, I, O; the gate list says so).
+    const score = scoreBand(k, BANDS[mode]);
+    const mark = (metric: BandMetric, text: string) => {
+      const verdict = score.rows.find((row) => row.metric === metric)?.verdict;
+      return verdict === "below" || verdict === "above" ? "**" + text + "**" : text;
+    };
     return [
-      s.bot + (k.director ? "" : " (tắt nhịp)"), mark("win", pctMilli(k.win)), mark("s", pctMilli(k.s)), pctMilli(s.hpMin), mark("p", pctMilli(k.p)), mark("i", pctMilli(k.i)), mark("o", pctMilli(k.o)), k.n.toFixed(2), k.q === null ? "—" : pctMilli(k.q),
+      s.bot + (k.director ? "" : " (tắt nhịp)"), mark("win", pctMilli(k.win)), mark("s", pctMilli(k.s)), pctMilli(s.hpMin), mark("p", pctMilli(k.p)), mark("i", pctMilli(k.i)), mark("o", pctMilli(k.o)), mark("n", k.n.toFixed(2)), k.q === null ? "—" : mark("q", pctMilli(k.q)),
       k.support === null ? "—" : pctMilli(k.support), k.killSeconds === null ? "—" : k.killSeconds.toFixed(2), k.stepsPerWave === null ? "—" : k.stepsPerWave.toFixed(2),
       k.spawnMin === null ? "—" : pctMilli(k.spawnMin) + "–" + pctMilli(k.spawnMax ?? 1000),
     ];
@@ -523,7 +527,7 @@ export function markdown(input: ReportInput): string {
     if (!rows) continue;
     out.push("");
     out.push("## Vùng cuốn: " + MODE_LABELS[mode] + " (BALANCE.md §3; " + DIFFICULTY_OF[mode] + "; bộ điều nhịp bật trừ khi ghi)");
-    if (mode === "balanced") out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh. Ô **đậm**: ngoài dải.");
+    if (mode === "balanced") out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh. Ô **đậm**: ngoài dải (cả N và Q; B1 chỉ xét Thắng, S, P, I, O).");
     out.push(table(["Bot", "Thắng", "S", "Máu thấp nhất", "P", "I", "O", "N", "Q", "Phe ta", "Hạ quái (s)", "Bậc nhịp/đợt", "Khoảng sinh"], [
       ["**Dải " + MODE_LABELS[mode] + "**", ...(["win", "s"] as BandMetric[]).map((m) => bandText(m, mode)), "—", ...(["p", "i", "o", "n", "q"] as BandMetric[]).map((m) => bandText(m, mode)), "—", "—", "≤ 3", "±15 %"],
       ...Object.values(rows).map((s) => flowRow(s, mode)),

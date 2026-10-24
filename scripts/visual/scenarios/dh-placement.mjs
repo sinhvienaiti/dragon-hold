@@ -58,6 +58,15 @@ async function placeByKeys(page, digit, item, moves = 1) {
   return { item, way: "keys", mode, goldBefore: before.gold, goldAfter: after.gold, placed: after.slots.find((s) => s.includes("=" + item) && !before.slots.includes(s)) ?? null };
 }
 
+/** Carry-strip cells whose text runs past the cell (round 2 gate: "Thiếu 28" and "Bom Hạt" at 720p). */
+const STRIP_OVERFLOW = `[...document.querySelectorAll('.dh-strip .dh-cell')].filter((c) => c.offsetParent).flatMap((c) => {
+  const box = c.getBoundingClientRect();
+  return [...c.querySelectorAll('.dh-cell__name, .dh-cell__price, .dh-cell__reason')].filter((n) => n.offsetParent).filter((n) => {
+    const r = n.getBoundingClientRect();
+    return r.left < box.left - 0.5 || r.right > box.right + 0.5 || n.scrollWidth > n.clientWidth + 1;
+  }).map((n) => c.dataset.item + ':' + n.className.replace('dh-cell__', '') + ':' + n.innerText.replace(/\\s+/g, ' ').trim());
+})`;
+
 export default async function (page) {
   const out = outDir("integrator");
   const steps = [];
@@ -133,6 +142,7 @@ export default async function (page) {
   steps.push(await placeByMouse(page, "herb-hut"));
   await page.shot(join(out, `place-break3-${width}x${height}.png`));
   const cover = await page.eval(COVER);
+  const overflowBreak3 = await page.eval(STRIP_OVERFLOW);
   // Edit mode by keyboard: = twice upgrades the first built item, - twice sells the next one.
   await press(page, "Backquote");
   await page.sleep(150);
@@ -176,6 +186,9 @@ export default async function (page) {
     await page.sleep(150);
   }
   const shopAfter = await state(page);
+  // Round 2 gate: the "press again" notice must go with the buy (it named the old price).
+  const infoAfterBuy = await page.eval("document.querySelector('.dh-strip__info')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''");
+  const overflowAfterBuy = await page.eval(STRIP_OVERFLOW);
   const stripReasons = await page.eval("[...document.querySelectorAll('.dh-cell')].map((c) => c.dataset.item + ':' + c.innerText.replace(/\\s+/g, ' ').trim())");
 
   // Mouse edit: click a built marker, the menu shows upgrade and sell.
@@ -202,6 +215,9 @@ export default async function (page) {
       heroBuys: shopAfter.heroBuys,
       allBought: (shopAfter.held?.["small-potion"] ?? 0) >= 1 && (shopAfter.heroBuys?.["dragon-heart"] ?? 0) >= 1 && (shopAfter.heroBuys?.["hard-scale"] ?? 0) >= 1,
       stripReasons,
+      infoAfterBuy,
+      staleNotice: /lần nữa/.test(infoAfterBuy),
+      overflow: { break3: overflowBreak3, afterBuy: overflowAfterBuy },
     },
     edit: { mode: editMode, slotsBefore: sold.slots.length, upgraded: upgraded.slots, sold: sold.slots, goldAfterSell: sold.gold },
     menu: { opened: menuOpened, buttons: menuButtons },

@@ -45,9 +45,12 @@ Nobody edits `src/kit/**` (copied from `shared/game-kit`, sha256-checked).
   (00 §4.1). Foe HP = `enemyHp(w100, chapter, wPm)`.
 - Randomness only from `world.rng.<stream>` (`spawn`, `combat`, `words`, `ai`,
   `loot`, `rare`, `props`; never `crit`, there are no crits, 00 D03).
-- `hashWorld` walks the whole world except keys named `stage`, `map`,
-  `lanes`, `events`, `deck`, `wall`. Keep wall-clock values under `wall`.
-  Create objects with fields in a fixed order; never store floats.
+- `hashWorld` walks the whole world except the keys in `HASH_SKIP`
+  (`src/sim/world.ts`): `stage`, `map`, `lanes`, `events`, `deck`, `wall`,
+  and the static config `rules`, `def`, `band`, `table`. Keep wall-clock
+  values under `wall`. Create objects with fields in a fixed order; never
+  store floats (`tests/sim/battle-determinism.test.ts` walks every difficulty
+  and a whole run).
 
 ## The world and the step (`src/sim/world.ts`)
 

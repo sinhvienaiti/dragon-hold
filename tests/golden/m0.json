@@ -8,8 +8,8 @@
    "seed": 20261023,
    "ticks": 600,
    "every": 60,
-   "final": "192d89a9",
-   "hashes": ["acc1e169","1e9f21a9","42fb8749","139f7289","c6ee3ea9","a9b156a9","5af087c9","69135309","afe96fe9","192d89a9"],
+   "final": "61222e57",
+   "hashes": ["10aa3697","69e94657","d7844537","aa0dddf7","e491e157","4d8ef957","00ff89b7","df562877","f0293517","61222e57"],
    "log": []
   },
   {
@@ -18,8 +18,8 @@
    "seed": 1,
    "ticks": 10800,
    "every": 300,
-   "final": "4181e99c",
-   "hashes": ["2f307bd0","30a40292","413c20dd","ae04d727","2792effe","f6b02a15","a1bf4b4a","51021dfd","88adfd0a","ea0d6495","9f711cf4","53744502","a5753664","f0536fa4","426eaa94","39c80d9a","ec393791","4ee9909e","b64e1438","3b6e141d","6a07aec5","d7e9544a","aa2491a6","e26f2e84","7ec3f237","b190ebfc","a7820b37","9748665b","bee807d6","3b5c8a0c","d0edd214","f82a31ec","381d9ffd","dda1f213","2c28daf0","4181e99c"],
+   "final": "8b16e8be",
+   "hashes": ["55e422ee","154b6718","f20a1363","adaadd05","ae5ca95c","1a78fe43","6d504e58","bc36001b","424d9e9c","f65d48d3","991c1702","0ca30bcc","48e03986","ca2b7f46","3fea4856","cea624a8","9e19aa1f","19a10a14","14a6a1a6","98d4260b","4765eecb","e1032f04","ccb8a0f4","b84d5bc2","26da6af9","779eb8f6","a3c2a21d","01a72ead","c7a7a828","0edd39da","fda1e032","477df17a","ad52df73","83ba6fad","ee045fd6","8b16e8be"],
    "log": [
     [0,{"type":"buy","item":"small-potion"}],
     [30,{"type":"place","item":"pine-bomb","slot":"cau-t3"}],
@@ -181,8 +181,8 @@
    "seed": 2,
    "ticks": 3915,
    "every": 300,
-   "final": "4dd33565",
-   "hashes": ["b73479f0","f0375bd5","b971cc56","bc604b78","073a3288","31cf5921","e207d9f9","d134dbe2","05bdcb51","2084826b","3054fa15","0923deab","15a7615f"],
+   "final": "f1f9e5ab",
+   "hashes": ["b1d5b18a","7112d5b3","885c7cf0","1d750dc6","03a8ee1e","5aef73cf","9df121a7","0844a3cc","5d888927","d5396829","bb1ea34f","db19ca81","4021cec9"],
    "log": [
     [0,{"type":"place","item":"pine-bomb","slot":"cau-t3"}],
     [30,{"type":"buy","item":"small-potion"}],
