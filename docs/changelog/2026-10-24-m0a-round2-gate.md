@@ -186,7 +186,7 @@ Mọi ảnh nằm trong `tmp/` (không vào Git). Bước gộp đã mở xem c�
 
 Không mục nào dưới đây làm hỏng cổng đo được, trừ B1 và B7.
 
-**Cần anh quyết** (vòng 3, 24/10: cả 9 mục đã quyết, đã chọn theo đề xuất; cách chọn, lý do và số đo ở `2026-10-24-m0a-round3.md`. Tóm tắt: (1) cách (b), dải I ≤ 20 % ở Cân bằng (00 D27); (2) G8 theo 03 §0: phe ta là bẫy, nhà, lính (00 D28); (3) trần k 1,50, luật cổng co giãn cùng khoảng sinh (00 D29); (4)–(8) giữ nguyên, có số đo; (9) vẫn chờ anh chơi thử)
+**Cần anh quyết** (vòng 3, 24/10: cả 9 mục đã làm; cách chọn, lý do và số đo ở `2026-10-24-m0a-round3.md`. Tóm tắt: (1) cách (b), dải I ≤ 20 % ở Cân bằng (00 D27): không tài liệu nào đề xuất, nên là **đề xuất của vòng 3, chờ anh xác nhận**; cổng chính thức vẫn là dải chung ≤ 10 %, báo cáo in cả hai (sửa 25/10); (2) G8 theo 03 §0: phe ta là bẫy, nhà, lính (00 D28, đã chọn theo đề xuất); (3) trần k 1,50 (00 D29, đã chọn theo đề xuất); luật cổng giữ sàn 1,5 s và 0,6 s, khi giữ một toán thì cả đợt chờ theo (đề xuất của vòng sửa 25/10, chờ anh xác nhận); (4)–(8) giữ nguyên, có số đo; (9) vẫn chờ anh chơi thử)
 
 1. **Nhàn I (B1, B7).** Phần lớn là quái đi ngoài Vùng Chữ (11 điểm). Chỉ bỏ 0,2 s đòn bay khỏi I thì còn khoảng 17 %. Chọn một trong bốn: (a) đổi FlowMeter của kit (chỉ tính quãng nhàn ≥ 1 s, hoặc tính đòn bay là bận); (b) dải I riêng ≤ 20 % ở Cân bằng cho Rồng Giữ Ải; (c) tải đợt giữa 1,05–1,10, đỉnh ≤ 1,25, đợt 1 ≤ 0,75; (d) giảm phần sát thương không do gõ xuống 20–25 %.
 2. **G8 theo định nghĩa nào.** Báo cáo chỉ tính bẫy và lính (30,1 %). Gõ gây 54,1 % sát thương, trong khi DESIGN trụ 1 cần 65–80 %. Nếu tính cả kỹ năng là "không do gõ" thì 45,9 %, vượt trần 40 %.

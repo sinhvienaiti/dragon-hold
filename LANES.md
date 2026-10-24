@@ -289,10 +289,12 @@ placement), `src/app/app.ts` (visuals: `__dh.foeSizes`).
   The owner picks one of: I counts only gaps ≥ 1 s or the strike flight as
   busy (kit FlowMeter); an I band ≤ 20 % for this game; middle-wave load
   1.05–1.10 (peaks ≤ 1.25, wave 1 ≤ 0.75); untyped share 20–25 %.
-  Round 3: the I band ≤ 20 % (D27, recommended); B1 and B7 still fail (below).
+  Round 3: an I band ≤ 20 % (D27), round 3's own proposal waiting for the
+  owner (no document recommended it); the shared ≤ 10 % stays the gate of
+  record and the report prints B1 and B7 against both. Both fail (below).
 - The Fast bot wins 100 % (k cap 1.30); Q ~40 % (§9.1 aims 55–70 %); B9
   needs the owner's playtest. Round 3: k cap 1.50 (D29), Fast wins 77.5 %.
-- Written into the canon on 24/10 (round 3, parent repo, uncommitted there):
+- Written into the canon on 24/10 (committed in the parent at 26f97a9e):
   slip and unevenness margins and the pace (00 §4.4), Héo lan per mode and
   its rates (00 §4.10), wave 10 peak 1.39 (00 §7 M0 exceptions), Esc keeps
   wrong keys (00 D24), Học trước is no recall (00 D25), the typing speed is
@@ -383,22 +385,28 @@ Other lanes' files changed here (owners keep them): `src/ui/hud.ts`,
 ### Round 3 decisions (Dell, 24/10/2026)
 
 Notes: `docs/changelog/2026-10-24-m0a-round3.md`. The 9 owner decisions of the
-round 2 gate are taken as recommended (canon 00 D27–D29, parent repo, uncommitted).
+round 2 gate (canon 00 D27–D29, committed in the parent at 512033e9). D28 and
+the k cap are as recommended; D27 is round 3's own proposal, waiting for the
+owner (fixed after the round 3 review, 25/10).
 
-- `src/sim/director.ts` `DH_BANDS`: the game's bands, BALANCE.md §3 with
-  Cân bằng's I ≤ 20 % (D27). The bot report and B1–B9 read them; the pace
-  director still steers by the kit band + `DIRECTOR_IDLE_SLACK` (sim unchanged).
-- `PACE.kMaxPm` 1500 (D29). `stepSpawn` scales the gate rules (`FLOW.gateGapMs`,
-  `laneStaggerMs`) by `spawnMs` like every spawn gap: unscaled, k 1.44–1.50
-  bunched groups into 1.44–1.45 short peaks (G9). Golden `noTyping-seed2` and
+- `src/sim/director.ts` `DH_BANDS`: BALANCE.md §3 with Cân bằng's I ≤ 20 %
+  (D27's proposal). Since 25/10 the bot report prints B1–B9 against the shared
+  bands (the gates of record) and B1, B7 against `DH_BANDS` too
+  (`report.ts` `bandGates`); the pace director still steers by the kit band +
+  `DIRECTOR_IDLE_SLACK` (sim unchanged).
+- `PACE.kMaxPm` 1500 (D29). Round 3 scaled the gate rules (`FLOW.gateGapMs`,
+  `laneStaggerMs`) by `spawnMs`, which took the stagger to ~0.34 s at k 1.50;
+  replaced on 25/10 (below). Golden `noTyping-seed2` and
   `sloppy-hard-off-seed3` regenerated (k ≠ 1), logs unchanged.
 - G8 is traps, houses and units (03 §0, D28); `report.ts` adds G8b (the Fire
   Dragon's words and skills, 65–80 %), and the "Phe ta" column follows G8.
 - `scripts/balance/run.ts` workers wait for each send (Node 24 crashed the IPC).
-- Kit `feedback/numbers.ts` (parent `shared/game-kit`, uncommitted; synced here
-  only): digit cells as wide as the widest glyph's ink (≥ 64 px), the label in
-  its own row (atlas 1024 × 256), same drawn scale; exports `NUMBER_ATLAS`.
-  typing-survival is out of date with the kit until it is synced.
+- Kit `feedback/numbers.ts` (parent `shared/game-kit`, committed at 512033e9;
+  resynced here at a4d00e7, typing-survival synced too, `kit:check` passes for
+  all three games): digit cells as wide as the widest glyph's ink (≥ 64 px),
+  the label in its own row (atlas 1024 × 256), same drawn scale; exports
+  `NUMBER_ATLAS`. Commit 24c8591 carried the kit synced from the uncommitted
+  parent (`parentDirty: true`); from now on the parent commits first.
 - `src/view/number-field.ts`: the box reads `NUMBER_ATLAS` and the measured ink;
   `settle()` runs until no two boxes touch (the kit's one pass left storm numbers
   touching for a frame, 3 frames on screen at 1080p).
@@ -410,3 +418,26 @@ round 2 gate are taken as recommended (canon 00 D27–D29, parent repo, uncommit
 Still open: B1 and B7 (idle of the standard, skilled and fast bots; Mới's S;
 Khá's wins), B9 (the owner's playtest). The kit's `box()` and one-pass
 `settle()` stay as drift for `shared/game-kit`.
+
+### Round 3 review fixes (Dell, 25/10/2026)
+
+Notes: `docs/changelog/2026-10-25-m0a-round3-fix.md`.
+
+- `scripts/balance/report.ts` `bandGates` (bot-balance): B1–B9 against the
+  shared BALANCE §3 bands, B1 and B7 against D27's proposal too; per seed
+  set and in the JSON (`bGates`, `bGateSets`). Never D27 alone.
+- `src/sim/spawn.ts` `stepSpawn` (sim-battle): the gate rules follow the spawn
+  time scale only above 02 §5.3's 1.5 s and 01 §1.4's 0.6 s; while a gate rule
+  holds a due group, every later waiting group of its wave waits a tick too
+  (G9 1.40; the floors alone read 1.45). Golden `sloppy-hard-off-seed3`
+  back to `4d27a14a`. This part of D29 is a proposal waiting for the owner.
+- `scripts/visual/scenarios/lib/dh.mjs` `boot()` reads `WPM` (default 35);
+  `dh-words` and `dh-telegraphs` report `kPm` (integrator).
+- B1/B7: 4 measured iterations (foes × √k, a wave vanguard walking in during
+  the warning, the vanguard with Héo × 1.1); none kept (numbers and next
+  levers in the notes). The vanguard patch is kept in `tmp/` only.
+
+Waiting for the owner: D27 (I ≤ 20 % in Cân bằng) and D29's gate-rule part.
+Still open: B1, B7 (both bands), B9 (plus a run at `?wpm=70`). Key latency on
+the Dell depends on other lanes' load: 1080p read 76–77 ms (over the
+scenario's 70 ms) during their builds and tests, 26.2 ms on a later run.

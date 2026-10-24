@@ -13,10 +13,15 @@ Dev port 3005, host `dragon.typing-game.local`.
   and wins when documents disagree; `DESIGN.md` §9 has the milestones.
 - Current milestone: **M0a** grey box (full M0 rules, primitive placeholders,
   procedural terrain and river), map `L2-cau`.
-- State (24/10, round 3): the round 2 gate's owner decisions are taken as
-  recommended (00 D27–D29: Cân bằng I ≤ 20 %, G8 = traps, houses, units, k cap
-  1.50 with scaled gate rules). B1 and B7 still fail; B9 waits for the owner's
-  playtest. See `docs/changelog/2026-10-24-m0a-round3.md`.
+- State (25/10, round 3 review fixes): G8 = traps, houses, units (D28) and the
+  k cap 1.50 (D29) are taken as recommended. Cân bằng I ≤ 20 % (D27) and
+  D29's gate rules (never under 1.5 s / 0.6 s; the wave waits with a held
+  group) are proposals waiting for the owner. The bot report prints B1 and B7
+  against the shared BALANCE §3 band (the gate of record) and D27's; both
+  fail. B9 waits for the owner's playtest. See
+  `docs/changelog/2026-10-25-m0a-round3-fix.md`.
+- Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
+  alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
 
 ## Lanes
