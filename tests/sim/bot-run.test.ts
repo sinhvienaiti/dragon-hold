@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BOTS, replayHashes, runBot, type BotRun } from "../../scripts/balance/bot";
 import { botDeck } from "../../scripts/balance/deck";
-import { m0Gates, markdown, planRows, readiness, summarize } from "../../scripts/balance/report";
+import { bandGates, m0Gates, markdown, planRows, readiness, summarize } from "../../scripts/balance/report";
 
 const TWO_MIN = 2 * 60 * 60;
 
@@ -73,5 +73,22 @@ describe("bot runs", () => {
     expect(text).toContain("b35");
     expect(text).toContain("Vùng cuốn: Cân bằng");
     expect(text).toContain("B1–B9");
+    // B1 and B7 are printed against the shared band (BALANCE.md §3, I ≤ 10 %) and D27's proposed one, never D27 alone.
+    expect(text).toContain("≤ 10 % (D27 đề xuất: ≤ 20 %)");
+    expect(text).toContain("## Cổng B1–B9 (BALANCE.md §7, dải chung §3)");
+    expect(text).toContain("## B1, B7 theo dải đề xuất D27");
+  });
+
+  it("judges B1 and B7 against the shared band and D27's proposal", () => {
+    const row = (bot: string, i: number, director = true) => ({
+      bot, mode: "balanced" as const, director, runs: 20, win: 800, s: 500, p: 250, i, o: 0, n: 0.5, q: 600,
+      support: null, killSeconds: null, stepsPerWave: 1, maxWaveSteps: 2, spawnMin: 900, spawnMax: 1000, learnOk: true,
+    });
+    const rows = ["novice", "steady", "standard", "skilled", "sloppy", "fast"].map((bot) => row(bot, 150)).concat(row("standard", 150, false));
+    const both = bandGates(rows);
+    // I 15 %: out of the shared ≤ 10 %, in D27's ≤ 20 %.
+    expect(both.shared.find((g) => g.id === "B1")!.status).toBe("fail");
+    expect(both.shared.find((g) => g.id === "B7")!.status).toBe("fail");
+    expect(both.d27.map((g) => [g.id, g.status])).toEqual([["B1", "pass"], ["B7", "pass"]]);
   });
 });

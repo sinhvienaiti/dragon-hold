@@ -86,22 +86,21 @@ function floorOf(wave: WaveDef): number {
  * a fifth of the work. The director aims its idle target this much above the
  * kit band (BALANCE.md §3), so it does not press every run to its −15 % cap
  * chasing idle the plan cannot remove (B7 "nhẹ tay"); P, O and HP keep the
- * band's own numbers. In Cân bằng that target (30 %) sits 10 points above
- * the game's own I band (DH_BANDS, 20 %).
+ * band's own numbers. In Cân bằng that target (30 %) sits 20 points above
+ * the shared I band (10 %) and 10 above D27's proposed one (DH_BANDS, 20 %).
  */
 export const DIRECTOR_IDLE_SLACK = 200;
 
 /**
- * Rồng Giữ Ải's target bands (BALANCE.md §3 with the game's own I, 00 §7):
- * Cân bằng's I is ≤ 20 %, not the shared ≤ 10 % (round 3 decision 1, the
- * round 2 gate's option b; đã chọn theo đề xuất). In a lane defence the words
- * come up only in the last seconds of each foe's walk (the word zone), so
- * time with nothing to type while foes walk in is part of the game's rhythm;
- * measured on the bots, a 15 % heavier load (option c) took the standard bot
- * to 15.6 % idle but its wins from 100 % to 40 % (10 seeds), half the support
- * damage (option d) moved idle by 1 point, and counting only idle stretches
- * ≥ 1 s (option a) by 3. The bot report and B1–B9 read these bands; the
- * director keeps steering by the kit band and DIRECTOR_IDLE_SLACK.
+ * 00 D27's proposed bands: BALANCE.md §3 with Cân bằng's I ≤ 20 %, not the
+ * shared ≤ 10 %. Round 3's own proposal (no document chose among the round 2
+ * gate's options a–d), waiting for the owner; until then the shared bands
+ * stay the gates of record and the bot report prints B1 and B7 against both
+ * (scripts/balance/report.ts bandGates). Only Cân bằng differs because B1 and
+ * B7 read only Cân bằng. Option a (count only idle stretches ≥ 1 s) changes
+ * only the measurement, so it too keeps wins and S; it took the standard bot
+ * from 20.4 to 17.3 % (10 seeds), still over 10 %. The director keeps
+ * steering by the kit band and DIRECTOR_IDLE_SLACK.
  */
 export const DH_BANDS: { readonly [M in BandMode]: Band } = {
   ...BANDS,

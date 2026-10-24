@@ -10,10 +10,11 @@ import { MAPS } from "../../src/content/data/maps";
 import { HOUSES, PLACEABLES, TRAPS, UNITS } from "../../src/content/data/our-side";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { AREA, ECONOMY, FLOW, LETTER_BUDGET, LOAD, M0_GATES, SIM_BUDGET, chapterRow, stageGoldBudget } from "../../src/content/rules";
-import { BAND_MODES, METRIC_LABELS, MODE_LABELS, formatGates, runGates, scoreBand, summarizeRuns, type BandMetric, type BandMode, type BotModeSummary, type GateResult, type RunRecord } from "../../src/kit/balance";
+import { BANDS, BAND_MODES, METRIC_LABELS, MODE_LABELS, formatGates, gate, runGates, scoreBand, summarizeRuns, verdict, type BandMetric, type BandMode, type BotModeSummary, type GateResult, type RunRecord } from "../../src/kit/balance";
 import type { StageDef, Vec2 } from "../../src/content/types";
-// The game's own bands (BALANCE.md §3 with Cân bằng's I ≤ 20 %, round 3 decision 1).
-import { DH_BANDS as BANDS } from "../../src/sim/director";
+// BANDS: the shared bands (BALANCE.md §3), the gates of record. DH_BANDS: 00 D27's proposed Cân bằng I ≤ 20 %
+// (round 3's own proposal, waiting for the owner): B1 and B7 are printed against both, never against D27 alone.
+import { DH_BANDS } from "../../src/sim/director";
 import { U_PER_M } from "../../src/sim/fixed";
 import type { SlotState } from "../../src/sim/placement";
 import type { World } from "../../src/sim/world";
@@ -462,6 +463,25 @@ export function readiness(summaries: Readonly<Record<string, BotSummary>>): Read
   ];
 }
 
+// ── B1–B9 against both bands ───────────────────────────────────────────────
+
+/** The gates whose verdict depends on the band (B1: every flow bot in Cân bằng; B7: the standard bot, director off). */
+export const BAND_GATES = ["B1", "B7"] as const;
+
+/** B1–B9 against the shared bands (BALANCE.md §3, the gates of record), and B1, B7 against D27's proposed band. */
+export interface BandGates {
+  readonly shared: readonly GateResult[];
+  readonly d27: readonly GateResult[];
+}
+
+export function bandGates(rows: readonly BotModeSummary[]): BandGates {
+  const tacticsPair = ["standard@good", "standard@poor"] as const;
+  return {
+    shared: runGates({ summaries: rows, options: { bands: BANDS, tacticsPair } }),
+    d27: BAND_GATES.map((id) => gate(id, { summaries: rows, options: { bands: DH_BANDS, tacticsPair } })),
+  };
+}
+
 // ── Markdown ───────────────────────────────────────────────────────────────
 
 export interface ReportInput {
@@ -470,8 +490,8 @@ export interface ReportInput {
   readonly summaries: Readonly<Record<string, BotSummary>>;
   /** Every mode that ran, bot by bot (the flow tables and B1–B9). */
   readonly byMode: Readonly<Partial<Record<BandMode, Readonly<Record<string, BotSummary>>>>>;
-  /** B1–B9 on each seed set alone (independent sets), with its first seed. */
-  readonly sets: readonly { readonly base: number; readonly gates: readonly GateResult[] }[];
+  /** B1–B9 on each seed set alone (independent sets), with its first seed: shared bands and D27's. */
+  readonly sets: readonly ({ readonly base: number } & BandGates)[];
   readonly plan: readonly PlanRow[];
   readonly notes: readonly string[];
   readonly wallS: number;
@@ -480,13 +500,17 @@ export interface ReportInput {
 /** ‰ as "35 %". */
 const pctMilli = (milli: number): string => Math.round(milli / 10) + " %";
 
-/** A band cell (BALANCE.md §3). */
+/** A band cell (BALANCE.md §3); where D27 proposes another range, both, the shared one first. */
 function bandText(metric: BandMetric, mode: BandMode = "balanced"): string {
-  const range = BANDS[mode][metric];
-  const show = (v: number) => (metric === "n" ? String(v) : Math.round(v / 10) + " %");
-  if (range.min !== undefined && range.max !== undefined) return show(range.min) + "–" + show(range.max);
-  if (range.min !== undefined) return "≥ " + show(range.min);
-  return range.max !== undefined ? "≤ " + show(range.max) : "—";
+  const text = (range: { readonly min?: number; readonly max?: number }): string => {
+    const show = (v: number) => (metric === "n" ? String(v) : Math.round(v / 10) + " %");
+    if (range.min !== undefined && range.max !== undefined) return show(range.min) + "–" + show(range.max);
+    if (range.min !== undefined) return "≥ " + show(range.min);
+    return range.max !== undefined ? "≤ " + show(range.max) : "—";
+  };
+  const shared = text(BANDS[mode][metric]);
+  const own = text(DH_BANDS[mode][metric]);
+  return own === shared ? shared : shared + " (D27 đề xuất: " + own + ")";
 }
 
 /** The game's difficulty that plays each mode (00 §4.10). */
@@ -515,11 +539,14 @@ export function markdown(input: ReportInput): string {
   }
   const flowRow = (s: BotSummary, mode: BandMode): (string | number)[] => {
     const k = s.kit;
-    // Every band metric is marked, N and Q too (B1 judges only win, S, P, I, O; the gate list says so).
+    // Every band metric is marked against the shared band, N and Q too (B1 judges only win, S, P, I, O; the gate
+    // list says so). Where D27 proposes another range, the cell also says whether it sits in that one.
     const score = scoreBand(k, BANDS[mode]);
     const mark = (metric: BandMetric, text: string) => {
-      const verdict = score.rows.find((row) => row.metric === metric)?.verdict;
-      return verdict === "below" || verdict === "above" ? "**" + text + "**" : text;
+      const shared = score.rows.find((row) => row.metric === metric)?.verdict;
+      const bold = shared === "below" || shared === "above" ? "**" + text + "**" : text;
+      if (DH_BANDS[mode][metric] === BANDS[mode][metric]) return bold;
+      return bold + (verdict(k[metric] as number | null, DH_BANDS[mode][metric]) === "in" ? " (D27 ✓)" : " (D27 ✗)");
     };
     return [
       s.bot + (k.director ? "" : " (tắt nhịp)"), mark("win", pctMilli(k.win)), mark("s", pctMilli(k.s)), pctMilli(s.hpMin), mark("p", pctMilli(k.p)), mark("i", pctMilli(k.i)), mark("o", pctMilli(k.o)), mark("n", k.n.toFixed(2)), k.q === null ? "—" : mark("q", pctMilli(k.q)),
@@ -533,27 +560,32 @@ export function markdown(input: ReportInput): string {
     if (!rows) continue;
     out.push("");
     out.push("## Vùng cuốn: " + MODE_LABELS[mode] + " (BALANCE.md §3; " + DIFFICULTY_OF[mode] + "; bộ điều nhịp bật trừ khi ghi)");
-    if (mode === "balanced") out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh; dải I của Rồng Giữ Ải ở Cân bằng là ≤ 20 % (vòng 3, mục 1). Phe ta: sát thương của bẫy, nhà, lính (G8, 03 §0); chiêu của Hỏa Long tính vào phần Rồng. Ô **đậm**: ngoài dải (cả N và Q; B1 chỉ xét Thắng, S, P, I, O).");
+    if (mode === "balanced") out.push("Q: phần đường từ cổng tới chỗ dừng mà quái đã đi khi chết (trung vị). P: có quái trong Vòng Nguy 10 m, quái đứng trong Vùng Chữ, đòn báo trước, hoặc Rồng đang mất máu. I: không có chữ để gõ và tay rảnh. Dải I chung của Cân bằng là ≤ 10 % (BALANCE.md §3, cổng chính thức); 00 D27 đề xuất ≤ 20 % riêng cho Rồng Giữ Ải (đề xuất của vòng 3, chờ chủ dự án xác nhận): ô I ghi thêm (D27 ✓) hoặc (D27 ✗). Phe ta: sát thương của bẫy, nhà, lính (G8, 03 §0); chiêu của Hỏa Long tính vào phần Rồng. Ô **đậm**: ngoài dải chung (cả N và Q; B1 chỉ xét Thắng, S, P, I, O).");
     out.push(table(["Bot", "Thắng", "S", "Máu thấp nhất", "P", "I", "O", "N", "Q", "Phe ta", "Hạ quái (s)", "Bậc nhịp/đợt", "Khoảng sinh"], [
       ["**Dải " + MODE_LABELS[mode] + "**", ...(["win", "s"] as BandMetric[]).map((m) => bandText(m, mode)), "—", ...(["p", "i", "o", "n", "q"] as BandMetric[]).map((m) => bandText(m, mode)), "—", "—", "≤ 3", "±15 %"],
       ...Object.values(rows).map((s) => flowRow(s, mode)),
     ]));
   }
   const kitRows = Object.values(input.byMode).flatMap((rows) => Object.values(rows ?? {}).map((s) => s.kit));
-  const bGates: GateResult[] = runGates({ summaries: kitRows, options: { bands: BANDS, tacticsPair: ["standard@good", "standard@poor"] } });
+  const both = bandGates(kitRows);
+  const status = (g: GateResult): string => (g.status === "pass" ? "ĐẠT" : g.status === "fail" ? "TRƯỢT" : "THIẾU SỐ");
   out.push("");
-  out.push("## Cổng B1–B9 (BALANCE.md §7), mọi seed");
-  out.push("Chế độ: Thư giãn = mức Dễ, Cân bằng = Thường, Thử thách = Khó (00 §4.10); bộ điều nhịp lấy dải của chế độ. B9 cần buổi chơi thử của người thật.");
-  out.push(formatGates(bGates));
+  out.push("## Cổng B1–B9 (BALANCE.md §7, dải chung §3), mọi seed");
+  out.push("Chế độ: Thư giãn = mức Dễ, Cân bằng = Thường, Thử thách = Khó (00 §4.10); bộ điều nhịp lấy dải của chế độ. B9 cần buổi chơi thử của người thật. Đây là cổng chính thức; B1, B7 theo dải đề xuất D27 ở bảng sau.");
+  out.push(formatGates(both.shared));
+  out.push("");
+  out.push("## B1, B7 theo dải đề xuất D27 (Cân bằng I ≤ 20 %; đề xuất của vòng 3, chờ chủ dự án xác nhận)");
+  out.push("Chỉ dải I của Cân bằng khác dải chung. Không thay cho bảng trên.");
+  out.push(formatGates(both.d27));
   if (input.sets.length > 1) {
     out.push("");
-    out.push("## B1–B9 theo từng bộ seed độc lập");
-    out.push(table(["Bộ seed", ...bGates.map((g) => g.id)], input.sets.map((set) => [set.base + "…", ...set.gates.map((g) => (g.status === "pass" ? "ĐẠT" : g.status === "fail" ? "TRƯỢT" : "THIẾU SỐ"))])));
+    out.push("## B1–B9 theo từng bộ seed độc lập (dải chung; B1, B7 thêm theo D27)");
+    out.push(table(["Bộ seed", ...both.shared.map((g) => g.id), ...both.d27.map((g) => g.id + " (D27)")], input.sets.map((set) => [set.base + "…", ...set.shared.map(status), ...set.d27.map(status)])));
   }
   const extraModes = BAND_MODES.filter((mode) => mode !== "balanced" && input.byMode[mode]);
   if (extraModes.length > 0) {
     out.push("");
-    out.push("## Bot chuẩn trong dải của Thư giãn, Thử thách (ngoài B1, cùng năm chỉ số)");
+    out.push("## Bot chuẩn trong dải của Thư giãn, Thử thách (ngoài B1, cùng năm chỉ số, dải chung; D27 không đổi hai chế độ này)");
     const rows: (string | number)[][] = [];
     for (const mode of extraModes) {
       for (const s of Object.values(input.byMode[mode] ?? {})) {

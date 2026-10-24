@@ -23,11 +23,11 @@ import { fileURLToPath } from "node:url";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { M0_GATES } from "../../src/content/rules";
 import type { Difficulty } from "../../src/content/types";
-import { BAND_MODES, runGates, type BandMode } from "../../src/kit/balance";
-import { BAND_MODE, DH_BANDS } from "../../src/sim/director";
+import { BAND_MODES, type BandMode } from "../../src/kit/balance";
+import { BAND_MODE } from "../../src/sim/director";
 import { BOT_NAMES, BOTS, M0_BOTS, createBotWorld, runBot, type BotName, type BotRun } from "./bot";
 import { pacedStage } from "./variants";
-import { m0Gates, mapNotes, markdown, planRows, readiness, summarize, type BotSummary } from "./report";
+import { bandGates, m0Gates, mapNotes, markdown, planRows, readiness, summarize, type BotSummary } from "./report";
 
 interface Task {
   readonly bot: BotName;
@@ -133,10 +133,9 @@ async function main(): Promise<void> {
     return out;
   };
   const byMode = fold(() => true);
-  const setGates = bases.map((first) => {
-    const rows = fold((run) => run.seed >= first && run.seed < first + seeds);
-    return { base: first, gates: runGates({ summaries: Object.values(rows).flatMap((r) => Object.values(r ?? {}).map((s) => s.kit)), options: { bands: DH_BANDS, tacticsPair: ["standard@good", "standard@poor"] } }) };
-  });
+  const kitRows = (rows: Partial<Record<BandMode, Record<string, BotSummary>>>) => Object.values(rows).flatMap((r) => Object.values(r ?? {}).map((s) => s.kit));
+  // B1–B9 against the shared bands (BALANCE.md §3), B1 and B7 against D27's proposed band too.
+  const setGates = bases.map((first) => ({ base: first, ...bandGates(kitRows(fold((run) => run.seed >= first && run.seed < first + seeds))) }));
   const summaries = byMode.balanced ?? {};
   const world = createBotWorld(BOTS.b35, { seed: base });
   const notes = [
@@ -150,6 +149,6 @@ async function main(): Promise<void> {
   console.log(report);
   const gates = m0Gates(summaries);
   const json = arg("json");
-  if (json) writeFileSync(json, JSON.stringify({ seeds, bases, gates, readiness: readiness(summaries), plan: planRows(), byMode }, null, 1) + "\n");
+  if (json) writeFileSync(json, JSON.stringify({ seeds, bases, gates, bGates: bandGates(kitRows(byMode)), bGateSets: setGates, readiness: readiness(summaries), plan: planRows(), byMode }, null, 1) + "\n");
   if (args.includes("--strict") && gates.some((gate) => gate.status !== "đạt")) process.exitCode = 1;
 }
