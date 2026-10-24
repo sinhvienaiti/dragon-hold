@@ -9,7 +9,11 @@ coverage/
 # No media in Git, ever: models, images, audio and video live on Google Drive
 # (parent repo `pnpm media:push`). Only code, JSON data and docs are tracked.
 public/assets/**
-art-src/
+# art-src stays on Drive; only the 3D source index is tracked (media:check needs it)
+art-src/*
+!art-src/3d/
+art-src/3d/*
+!art-src/3d/SOURCES.json
 *.png
 *.jpg
 *.jpeg
