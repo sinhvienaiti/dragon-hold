@@ -11,8 +11,11 @@
 // Storms: BURSTS (default 10) × HITS (12) T4–T5 presentation hits on FOES (12) live
 // foes, GAP_MS (200, > the 0.15 s merge window) apart, so numbers also stack.
 // `outsideByGlyph` names the glyph whose ink leaves the box; `atlasRows` gives
-// each atlas cell's ink rows (a cell whose ink reaches row 64 carries ink that
-// is not its glyph's: the label row's accents reach up into the digit row).
+// each atlas cell's ink rows and its blank columns left|right (round 3: the
+// kit's cells are as wide as the widest glyph's ink, so a cell with ink in its
+// edge column carries a neighbour's ink; before, 48 px cells did, and the
+// label row's accents reached row 61–63 of the digit row, cell "3"), the
+// label row's ink rows, and any ink between the two rows (`gap`, must be null).
 // World stepped in the page to the crowd (no typing); works at any frame rate.
 // SIZE=1920 runs at 1920×1080 (default 1280×720). Owner: integrator (LANES.md).
 import { join } from "node:path";
@@ -24,14 +27,21 @@ const HITS = Number(process.env.HITS ?? "12");
 const FOES = Number(process.env.FOES ?? "12");
 const GAP_MS = Number(process.env.GAP_MS ?? "200");
 
-/** Ink rows of every glyph cell in the number atlas (0–64), and of the label row: where each glyph's ink starts and ends. */
-const ATLAS_ROWS = `(() => {
-  const canvas = window.__dh.numberLayer().sprites.mesh.material.uniforms.uAtlas.value.image;
+/** Ink of every glyph cell in the number atlas (rows; blank columns left|right), of the label row, and between the rows. */
+const ATLAS_ROWS = `(async () => {
+  const { NUMBER_ATLAS: A } = await import('/src/kit/feedback/index.ts');
+  const sprites = window.__dh.numberLayer().sprites;
+  const canvas = sprites.mesh.material.uniforms.uAtlas.value.image;
   const px = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-  const rows = (x0, x1, y0, y1) => { let a = Infinity; let b = -Infinity; for (let y = y0; y < y1; y += 1) for (let x = x0; x < x1; x += 1) if (px[(y * canvas.width + x) * 4 + 3] >= 26) { a = Math.min(a, y); b = Math.max(b, y); } return a === Infinity ? null : (a - y0) + '–' + (b + 1 - y0); };
-  const out = {};
-  [...'0123456789×'].forEach((g, i) => { out[g] = rows(i * 48, (i + 1) * 48, 0, 64); });
-  out.label = rows(0, canvas.width, 64, 128);
+  const ink = (x0, x1, y0, y1) => { let a = Infinity; let b = -Infinity; let c = Infinity; let e = -Infinity; for (let y = y0; y < y1; y += 1) for (let x = x0; x < x1; x += 1) if (px[(y * canvas.width + x) * 4 + 3] >= 26) { a = Math.min(a, y); b = Math.max(b, y); c = Math.min(c, x); e = Math.max(e, x); } return a === Infinity ? null : { rows: (a - y0) + '–' + (b + 1 - y0), left: c - x0, right: x1 - (e + 1) }; };
+  const cell = sprites.cellWidth;
+  const out = { cell };
+  [...A.glyphs].forEach((g, i) => { const k = ink(i * cell, (i + 1) * cell, 0, A.cellH); out[g] = k ? k.rows + ' (' + k.left + '|' + k.right + ')' : null; });
+  const label = ink(0, canvas.width, A.labelTop, A.labelTop + A.labelRowH);
+  out.label = label ? label.rows : null;
+  const gap = ink(0, canvas.width, A.cellH, A.labelTop);
+  out.gap = gap ? gap.rows : null;
+  out.edgeInk = [...A.glyphs].filter((g, i) => { const k = ink(i * cell, (i + 1) * cell, 0, A.cellH); return k !== null && (k.left === 0 || k.right === 0); });
   return out;
 })()`;
 

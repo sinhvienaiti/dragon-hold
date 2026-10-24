@@ -105,7 +105,9 @@ export const badResources = (page) =>
  * the ink inside each quad from the glyph atlas canvas (alpha ≥ 0.1, the dark
  * outline included; a glyph's ink bounding box, so a slight over-count).
  * Installs `window.__dhInk()`: live numbers, number pairs whose ink boxes
- * overlap, the smallest ink gap between two numbers (px, < 0 overlap), and
+ * overlap (all, and those whose overlap is inside the view: a number lifted
+ * above the top edge is uploaded but never seen), the smallest ink gap between
+ * two numbers (px, < 0 overlap; all, and between numbers both in view), and
  * how far ink reaches outside each number's box() (left, right, top, bottom).
  * Call it right after a frame (the field is then as last drawn).
  */
@@ -138,7 +140,7 @@ export const INSTALL_INK_CHECK = `(() => {
     const layer = window.__dh.numberLayer();
     const field = layer ? layer.numbers : null;
     const sprites = layer ? layer.sprites : null;
-    const empty = { numbers: field ? field.live : 0, perfect: 0, quads: 0, consistent: true, dropped: field ? field.dropped : 0, pairsTouching: 0, inkPairsOverlap: 0, minGapPx: null, outsideBox: 0, outsidePx: { left: 0, right: 0, top: 0, bottom: 0 }, outsideByGlyph: {}, examples: [], bounds: null };
+    const empty = { numbers: field ? field.live : 0, perfect: 0, quads: 0, consistent: true, dropped: field ? field.dropped : 0, pairsTouching: 0, pairsTouchingOnScreen: 0, inkPairsOverlap: 0, minGapPx: null, minGapOnScreenPx: null, outsideBox: 0, outsidePx: { left: 0, right: 0, top: 0, bottom: 0 }, outsideByGlyph: {}, examples: [], bounds: null };
     if (!field || field.live === 0 || !sprites) return empty;
     const mesh = sprites.mesh; const geo = mesh.geometry;
     readAtlas(mesh.material.uniforms.uAtlas.value.image);
@@ -159,15 +161,27 @@ export const INSTALL_INK_CHECK = `(() => {
       field.box(i, box);
       nums.push({ text: field.text(i) + (perfect ? '*' : ''), perfect, inks, box: { x: box.x, y: box.y, w: box.w, h: box.h } });
     }
-    let pairsTouching = 0; let inkPairsOverlap = 0; let minGap = Infinity; const examples = [];
+    // Round 3: an overlap is "on screen" when the two ink boxes' common part lies in the view (numbers lifted
+    // above the top edge are uploaded but never seen).
+    let pairsTouching = 0; let pairsTouchingOnScreen = 0; let inkPairsOverlap = 0; let minGap = Infinity; let minGapOnScreen = Infinity; const examples = [];
+    const seen = (x0, y0, x1, y1) => x1 > 0 && y1 > 0 && x0 < innerWidth && y0 < innerHeight;
     for (let a = 0; a < nums.length; a += 1) for (let b = a + 1; b < nums.length; b += 1) {
-      let touch = false;
+      let touch = false; let touchSeen = false;
       for (const p of nums[a].inks) for (const r of nums[b].inks) {
         const gap = Math.max(r.x - (p.x + p.w), p.x - (r.x + r.w), r.y - (p.y + p.h), p.y - (r.y + r.h));
         if (gap < minGap) minGap = gap;
-        if (gap < 0) { inkPairsOverlap += 1; touch = true; }
+        const visible = seen(Math.min(p.x, r.x), Math.min(p.y, r.y), Math.max(p.x + p.w, r.x + r.w), Math.max(p.y + p.h, r.y + r.h)) && seen(p.x, p.y, p.x + p.w, p.y + p.h) && seen(r.x, r.y, r.x + r.w, r.y + r.h);
+        if (visible && gap < minGapOnScreen) minGapOnScreen = gap;
+        if (gap < 0) {
+          inkPairsOverlap += 1; touch = true;
+          if (seen(Math.max(p.x, r.x), Math.max(p.y, r.y), Math.min(p.x + p.w, r.x + r.w), Math.min(p.y + p.h, r.y + r.h))) touchSeen = true;
+        }
       }
-      if (touch) { pairsTouching += 1; if (examples.length < 4) examples.push(nums[a].text + ' / ' + nums[b].text); }
+      if (touch) {
+        pairsTouching += 1;
+        if (touchSeen) pairsTouchingOnScreen += 1;
+        if (examples.length < 4) { const ys = [...nums[a].inks, ...nums[b].inks].map((k) => [k.y, k.y + k.h]).flat(); examples.push(nums[a].text + ' / ' + nums[b].text + ' y ' + Math.round(Math.min(...ys)) + '…' + Math.round(Math.max(...ys)) + (touchSeen ? '' : ' (off screen)')); }
+      }
     }
     const out = { left: 0, right: 0, top: 0, bottom: 0 }; let outsideBox = 0; const outsideByGlyph = {};
     let bx0 = Infinity; let by0 = Infinity; let bx1 = -Infinity; let by1 = -Infinity;
@@ -185,7 +199,7 @@ export const INSTALL_INK_CHECK = `(() => {
     }
     return {
       numbers: nums.length, perfect: nums.filter((m) => m.perfect).length, quads: n, consistent: q === n, dropped: field.dropped,
-      pairsTouching, inkPairsOverlap, minGapPx: minGap === Infinity ? null : r1(minGap), outsideBox,
+      pairsTouching, pairsTouchingOnScreen, inkPairsOverlap, minGapPx: minGap === Infinity ? null : r1(minGap), minGapOnScreenPx: minGapOnScreen === Infinity ? null : r1(minGapOnScreen), outsideBox,
       outsidePx: { left: r1(out.left), right: r1(out.right), top: r1(out.top), bottom: r1(out.bottom) }, outsideByGlyph, examples,
       bounds: bx0 === Infinity ? null : { x: Math.floor(bx0), y: Math.floor(by0), w: Math.ceil(bx1 - bx0), h: Math.ceil(by1 - by0) },
     };

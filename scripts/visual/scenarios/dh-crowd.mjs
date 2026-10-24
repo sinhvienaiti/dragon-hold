@@ -5,6 +5,9 @@
 // impact). Cover = share of each drawn foe body (outside 10 m; a swarm as its
 // ring) under a word tag, on a 6 × 6 grid; the target is ≤ 20 % mean and no
 // foe ≥ 40 %. SIZE=1920 runs 1920×1080 (default 1280×720), SEED (default 1).
+// GUARD (round 3, default 0 = off): below GUARD % Dragon HP the bot types every
+// word, as dh-scale's does, so a run where Héo lan would end the stage before
+// the third measurement (1080p, seeds 1–3) still gets there.
 // Pictures: tmp/shots/readability/ (OUT_DIR overrides).
 // Owner: view lane (round 2 readability).
 import { join } from "node:path";
@@ -13,6 +16,7 @@ import { boot, MOD, outDir, press, state } from "./lib/dh.mjs";
 const BIG = process.env.SIZE === "1920";
 const W = BIG ? 1920 : 1280;
 const H = BIG ? 1080 : 720;
+const GUARD = Number(process.env.GUARD ?? "0");
 
 const BOT = `(async () => {
   const d = window.__dh; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -23,10 +27,12 @@ const BOT = `(async () => {
     if (window.__mode === 'off' || (w.phase !== 'wave' && w.phase !== 'warning') || d.panel()) { await sleep(60); continue; }
     const ws = d.words();
     const distOf = (x) => { if (!x.target) return 0; const e = w.enemies.list[x.target.slot]; if (!e || !e.alive) return 1e9; return Math.hypot(e.x, e.z) / 60000; };
+    // Below GUARD % HP every word counts again (off at 0).
+    const all = window.__mode === 'all' || w.hero.hp * 100 < w.hero.hpMax * ${GUARD};
     const lock = w.words.lock;
     let word = lock >= 0 ? ws.find((x) => x.slot === lock) : null;
-    if (word && window.__mode === 'near' && distOf(word) >= window.__near) { d.send({ type: 'release' }); word = null; }
-    if (!word) { const c = ws.filter((x) => window.__mode === 'all' || distOf(x) < window.__near).sort((a, b) => distOf(a) - distOf(b)); word = c[0] ?? null; }
+    if (word && !all && distOf(word) >= window.__near) { d.send({ type: 'release' }); word = null; }
+    if (!word) { const c = ws.filter((x) => all || distOf(x) < window.__near).sort((a, b) => distOf(a) - distOf(b)); word = c[0] ?? null; }
     if (word) { for (const ch of word.text.slice(word.typed)) d.send({ type: 'key', letter: ch.charCodeAt(0) - 97 }); }
     await sleep(80);
   }
