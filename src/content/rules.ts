@@ -213,9 +213,12 @@ export const FLOW = {
   /** General W ≤ 35 % of the wave's W_gõ (40 % in a general stage's last wave) (00 §4.5). */
   generalSharePct: 35,
   generalShareFinalPct: 40,
-  /** Spawn groups on different lanes start ≥ 0.6 s apart (01 §1.4); like every spawn gap, × the run's spawn time scale (sim/spawn.ts spawnMs). */
+  /**
+   * Spawn groups on different lanes start ≥ 0.6 s apart (01 §1.4). The run's spawn time scale (sim/spawn.ts
+   * spawnMs) stretches it, never shortens it: 0.6 s is a floor at every pace (00 D29).
+   */
   laneStaggerMs: 600,
-  /** One group per gate every 1.5 s at most (02 §5.3), at the reference pace; × the spawn time scale like the stagger. */
+  /** One group per gate every 1.5 s at most (02 §5.3); stretched like the stagger, never under 1.5 s. */
   gateGapMs: 1500,
   /** Lulls between peaks ≥ 8 s at rate × 0.4; peaks run at rate × 1.6 (02 §5.3). */
   lullMinMs: 8000,

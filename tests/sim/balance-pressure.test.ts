@@ -111,26 +111,28 @@ describe("the player's time margin (BALANCE.md §2 factors 3 and 4)", () => {
     expect(paceFor(70, 970, 150).rootKPm).toBe(Math.round(Math.sqrt(1500 * 1000)));
   });
 
-  it("scales the gate rules with the spawn gaps, so a fast player's groups leave as the plan says (G9 at k 1.5)", () => {
-    // Three groups on one gate 1.5 s apart: the plan's gate rule at the reference pace.
-    const stage = battleStage([[0, 1500, 3000].map((atMs) => ({ atMs, lane: "cau", shape: "single" as const, foe: "moss-grunt" as const, count: 1 }))]);
-    const starts = (wpm: number, accuracyPm: number, cvPm: number): number[] => {
+  it("keeps the canon's gate floors at any pace, and the wave waits with a held group (00 D29, G9 at k 1.5)", () => {
+    // Two groups on Đường Cầu 1.5 s apart, one on Đường Suối 0.6 s after the second: the plan's gate rules at the reference pace.
+    const group = (atMs: number, lane: "cau" | "suoi") => ({ atMs, lane, shape: "single" as const, foe: "moss-grunt" as const, count: 1 });
+    const stage = battleStage([[group(0, "cau"), group(1500, "cau"), group(2100, "suoi")]]);
+    const starts = (wpm: number, accuracyPm: number, cvPm: number): { lane: string; tick: number }[] => {
       const log = new Log();
       const world = waveWorld(stage, { typistWpm: wpm, accuracyPm, cvPm, paceDirector: false }, log);
       run(world, 400, log);
-      const ticks = log.of("spawn").map((event) => event.tick);
-      expect(ticks).toHaveLength(3);
-      return ticks;
+      const spawns = log.of("spawn");
+      expect(spawns).toHaveLength(3);
+      // Ticks after the first group left.
+      return spawns.map((event) => ({ lane: event.lane, tick: event.tick - spawns[0]!.tick }));
     };
-    // k = 1: 1.5 s apart (90 ticks), as planned.
-    const ref = starts(35, 950, 250);
-    expect(ref[1]! - ref[0]!).toBe(90);
-    expect(ref[2]! - ref[1]!).toBe(90);
-    // k = 1.5: every gap / 1.5, the gate rule too (1 s, not held back to 1.5 s).
+    // k = 1: as planned, 1.5 s (90 ticks) on one gate, then 0.6 s (36 ticks) to the other lane.
+    expect(starts(35, 950, 250)).toEqual([{ lane: "cau", tick: 0 }, { lane: "cau", tick: 90 }, { lane: "suoi", tick: 126 }]);
+    // k = 1.5: the plan reads 0, 1.0 and 1.4 s, but one gate still waits 1.5 s (02 §5.3) and lanes 0.6 s (01 §1.4).
+    // While Đường Cầu holds its second group, the rest of the wave waits too: Đường Suối keeps its place
+    // behind it instead of leaving first (unheld it would leave at 1.4 s and push the second grunt to 2.0 s).
     expect(paceFor(70, 970, 150).kPm).toBe(1500);
-    const quick = starts(70, 970, 150);
-    expect(quick[1]! - quick[0]!).toBe(60);
-    expect(quick[2]! - quick[1]!).toBe(60);
+    expect(starts(70, 970, 150)).toEqual([{ lane: "cau", tick: 0 }, { lane: "cau", tick: 90 }, { lane: "suoi", tick: 126 }]);
+    // k = 0.75: every gap, the gate rules too, stretched by 1 / k.
+    expect(starts(15, 900, 400)).toEqual([{ lane: "cau", tick: 0 }, { lane: "cau", tick: 120 }, { lane: "suoi", tick: 168 }]);
   });
 });
 
@@ -146,7 +148,7 @@ describe("the pace director (BALANCE.md §4.2) in M0", () => {
     expect(waveWorld(EMPTY_STAGE, { difficulty: "hard" }).director.director.band.p).toEqual(BANDS.challenge.p);
   });
 
-  it("judges the game by its own bands: Cân bằng's I ≤ 20 % (round 3 decision 1), the rest as BALANCE.md §3", () => {
+  it("keeps D27's proposed bands (Cân bằng I ≤ 20 %, waiting for the owner) apart from the shared ones, the rest as BALANCE.md §3", () => {
     expect(DH_BANDS.balanced.i).toEqual({ max: 200 });
     expect({ ...DH_BANDS.balanced, i: BANDS.balanced.i }).toEqual(BANDS.balanced);
     expect(DH_BANDS.relax).toEqual(BANDS.relax);

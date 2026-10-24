@@ -1,9 +1,11 @@
 /**
  * Spawning (02 §5.2–5.5): a wave's groups queue at their gates, gaps scaled
- * by 1000 / k_E and difficulty; one group per gate every 1.5 s; lanes start
- * ≥ 0.6 s apart; the live cap holds groups at the gate (00 §4.8, D10) while
- * the wave clock runs on. Clusters spawn together with 0.5 m jitter from the
- * `spawn` RNG stream, hugging one edge of the path (02 §2.2 E25).
+ * by 1000 / k_E and difficulty; one group per gate every ≥ 1.5 s; lanes start
+ * ≥ 0.6 s apart (both stretched with the gaps, never shortened: 00 D29); while
+ * those rules hold a group, the rest of its wave waits too; the live cap holds
+ * groups at the gate (00 §4.8, D10) while the wave clock runs on. Clusters
+ * spawn together with 0.5 m jitter from the `spawn` RNG stream, hugging one
+ * edge of the path (02 §2.2 E25).
  * Owner: sim-battle (LANES.md).
  */
 import { GENERALS } from "../content/data/generals";
@@ -71,6 +73,9 @@ export function createSpawnState(init: WorldInit): SpawnState {
 export const spawnMs = (world: World, ms: number): number =>
   Math.round((((ms * DIFFICULTY[world.difficulty].spawnGapPm) / world.pace.kPm) * directorSpawnPm(world)) / 1000);
 
+/** `ms`, never under `floor` (a canon minimum the spawn time scale may stretch but not shorten). */
+const floorMs = (ms: number, floor: number): number => (ms < floor ? floor : ms);
+
 /** Queues every group of `wave` (called by waves at wave start). */
 export function scheduleWave(world: World, wave: WaveDef): void {
   const spawn = world.spawn;
@@ -97,10 +102,12 @@ export function stepSpawn(world: World): void {
   const spawn = world.spawn;
   const queue = spawn.queue;
   const tick = world.tick;
-  // The gate rules are spawn gaps too (00 §4.4: k stretches the spawn timing): at the run's spawn time scale the
-  // plan keeps its shape at every pace. Unscaled, a k of 1.44–1.50 bunched delayed groups into 1.44–1.45 short peaks (G9 ≤ 1.40).
-  const gateGap = msToTicks(spawnMs(world, FLOW.gateGapMs));
-  const stagger = msToTicks(spawnMs(world, FLOW.laneStaggerMs));
+  // The gate rules follow the run's spawn time scale (00 §4.4: k stretches the spawn timing) but never go under
+  // the canon's readability floors (02 §5.3: one group a gate every 1.5 s; 01 §1.4: lanes ≥ 0.6 s apart).
+  const gateGap = msToTicks(floorMs(spawnMs(world, FLOW.gateGapMs), FLOW.gateGapMs));
+  const stagger = msToTicks(floorMs(spawnMs(world, FLOW.laneStaggerMs), FLOW.laneStaggerMs));
+  /** A gate rule held a due group this tick (the rest of its wave already waited a tick). */
+  let held = false;
   let index = 0;
   while (index < queue.length) {
     const group = queue[index]!;
@@ -113,6 +120,12 @@ export function stepSpawn(world: World): void {
       const gateBusy = spawn.gateFreeAt[group.lane]! > tick;
       const staggered = group.shape !== "pincer" && spawn.lastStartLane !== group.lane && tick - spawn.lastStartAt < stagger;
       if (gateBusy || staggered) {
+        // The rest of the wave waits with it (00 D29): later groups keep the plan's spacing instead of bunching
+        // behind a held one, so a fast player's short peaks stay the plan's (G9). The live cap does not (00 §4.8).
+        if (!held) {
+          held = true;
+          for (const other of queue) if (other.startedAt < 0 && other.wave === group.wave && other.at > tick) other.at += 1;
+        }
         index += 1;
         continue;
       }

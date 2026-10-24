@@ -205,8 +205,8 @@
    "every": 600,
    "difficulty": "hard",
    "director": false,
-   "final": "d7fe18be",
-   "hashes": ["223ae5e7","871be239","c22721c4","944bd678","2de1dcc7","c8df1dfd","b16f799f","2ab1ea19","5b86df73","6e721629","9613b623","8ecc1caf","600ddecf","a6c2e2df","33711730","77aa6bca","1a9fb5dc","41197d9d","dcc441c1","31787361","bf5ca955","afa51a3d","d40cc583","c8b7a6c1","bed0a6a9","34b72090","786634d3","8898b9cb","6550553b","42d3dd09","c9a67a7f","46eb6c18","e869573d","640b218b","a49dbd93","94c8e02b","e2851b99","d13366c4","cc9cc720","65f7fdbb","f0e3f2bd","d7fe18be"],
+   "final": "4d27a14a",
+   "hashes": ["707e4283","6c711249","8fb98a94","b6b09118","c908660f","adeb8c05","a2219077","57330181","7c95e6fb","ce7e0ae1","a5c0e1b7","3f5c9263","cab1fe63","003d8efb","5eb35f2c","ad3758f6","4bde9320","a239e309","bd13a31d","0bd0699d","fc446ab9","918a1e79","d333e0bf","e13c3d45","36cf936d","704e219c","d7baa8f7","6d1f8d57","e6d15b9f","b020f6b5","ffaa4e83","44e21924","22f17a51","f8da7a4f","7542b2af","96b80677","06011065","86059d68","d3dae55c","23fee4e7","792882a9","4d27a14a"],
    "log": [
     [0,{"type":"buy","item":"small-potion"}],
     [30,{"type":"place","item":"pine-bomb","slot":"cau-t3"}],
