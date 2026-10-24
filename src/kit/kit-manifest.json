@@ -2,8 +2,8 @@
   "schema": 1,
   "kit": "@typing-game/game-kit",
   "kitVersion": "0.1.0",
-  "parentCommit": "339e6dacc59579881edeed14142dc3ae569bb614",
-  "parentDirty": true,
+  "parentCommit": "512033e9c1ff3656b2b0b1a9125eb86be462a151",
+  "parentDirty": false,
   "pinned": null,
   "modules": [
     "platform",
