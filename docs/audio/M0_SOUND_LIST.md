@@ -99,14 +99,22 @@ Quy ước file (theo TD 24.9):
 
 ## 5. Danh sách âm
 
-Cột: **Dài** (ms, bản tổng hợp), **Cách** (ms tối thiểu giữa hai lần), **Bus/P** (bus, mức ưu tiên). Prompt viết tiếng Anh vì công cụ tạo âm nhận tiếng Anh.
+Cột: **Dài** (ms, `lengthMs` của catalog: chỗ bộ giới hạn giữ cho tiếng và độ dài đích của file thật), **Cách** (ms tối thiểu giữa hai lần), **Bus/P** (bus, mức ưu tiên). Prompt viết tiếng Anh vì công cụ tạo âm nhận tiếng Anh.
+
+**Âm hành động** (đòn đánh, phép, bắn, nổ, trúng, chết, tiếng quái và rồng). Quyết định Q6 của chủ dự án ngày 24/10/2026, ghi ở `tools/audio-lab/DECISIONS.md` của repo cha:
+
+- Cảm giác và prompt ghi đủ bốn phần nếu hành động có: chuẩn bị (hít, tụ lực, vung), phát (đầu tiếng có lực), thân (lửa cháy, lực đẩy, vật bay), đuôi vang trong rừng thông, thung lũng của bản đồ.
+- Cỡ âm theo cỡ thứ phát ra âm: Hỏa Long, tướng và đòn to nghe to xác, có trọng lượng; kiến, ong thì nhỏ.
+- Không dùng hướng "bụp, thụp", "puff", "pop", tiếng trầm ngắn đứng riêng, kiểu đồ chơi hay hoạt hình. Lớp trầm chỉ làm lớp dưới, có thân và đuôi đè lên.
+- Dải 1–4 kHz chỉ ở đầu tiếng; đuôi nằm dưới 1 kHz hoặc trên 4 kHz. Âm phát sau mỗi từ (`fire.cast`, `fire.impact.a`, `fire.impact.b`) giữ đuôi thấp; đòn to (`fire.impact.c`, `dragon.skyfire.impact`, `dragon.inferno`) có đuôi dài hơn rõ.
+- Bản tổng hợp hiện tại trong `src/audio/synth.ts` chỉ giữ chỗ, không phải đích của file thật.
 
 ### 5.1 Gõ phím (bus `typing`, P2)
 
 | Id | Khi phát | Dài | Cách | Cảm giác | Prompt |
 |---|---|---|---|---|---|
 | `type.key` | Mỗi phím đúng (khóa từ, gõ tiếp, cặp chữ đầu). Chuông nhỏ lên 1 bán cung mỗi chữ, tối đa 12 | 60 | 0 | Gõ gỗ khô, chuông nhỏ trong | `Single short wooden knock with a tiny bright bell, dry, very fast attack, under 60 ms, no reverb` |
-| `type.miss` | Phím sai, phím lạc | 60 | 20 | "Tóc" đục, nhỏ, không còi | `Soft dull wooden thud, muted, short, gentle error tick, not a buzzer, under 60 ms` |
+| `type.miss` | Phím sai, phím lạc | 60 | 20 | "Tóc" đục, nhỏ, không còi | `Soft dull wooden knock, muted, short, gentle error tick, not a buzzer, under 60 ms` |
 | `type.back` | Backspace | 45 | 20 | Tách nhẹ | `Tiny soft tick, light plastic-wood click, 40 ms` |
 | `type.switch` | Đổi sang từ khác | 80 | 40 | Hai tiếng gõ nhanh | `Two quick light wooden taps, second slightly higher, 80 ms` |
 | `type.word` | Xong một từ. Hoàn hảo thêm nốt năm; Chớp thêm nốt thứ ba lấp lánh | 320 | 40 | Cạch gọn rồi một nốt chuông hợp giọng nhạc | `Crisp wooden clack followed by a clear bell note, pentatonic, satisfying word-complete chime, 300 ms` |
@@ -115,21 +123,21 @@ Cột: **Dài** (ms, bản tổng hợp), **Cách** (ms tối thiểu giữa hai
 
 | Id | Khi phát | Dài | Cách | Bus/P | Cảm giác | Prompt |
 |---|---|---|---|---|---|---|
-| `fire.cast` | Xong từ có mục tiêu: Hỏa Long khạc cầu lửa | 340 | 45 | dragon/P4 | "Khà!" ngắn và tiếng phụt lửa trầm | `Dragon short throaty spit with a deep fireball whoomph launch, no laser hiss, 350 ms` |
-| `fire.impact.a` | Cầu lửa trúng (biến thể 1) | 340 | 30 | dragon/P4 | Phụt lửa trầm, thân tròn | `Fireball impact, soft deep burst, low-passed flame whoomph, small crackle, 350 ms` |
-| `fire.impact.b` | Cầu lửa trúng (biến thể 2) | 380 | 30 | dragon/P4 | Như trên, tối hơn, có lách tách | `Fireball impact variant, darker, flame puff with a few dry crackles, 380 ms` |
-| `fire.impact.c` | Đòn to: bậc T3 trở lên, Hoàn hảo, Chớp | 520 | 30 | dragon/P4 | Bùng lửa lớn, trầm, cháy tiếp | `Big fire burst impact, heavy low thump, roaring flames and crackling embers, 500 ms` |
-| `impact.multi` | Một đòn chữ trúng 3 quái trở lên trong 45 ms | 480 | 90 | dragon/P4 | Một tiếng nặng thêm lách tách nhiều chỗ | `Heavy layered fire impact hitting several targets, sub thump and scattered crackles, 500 ms` |
-| `dragon.hurt` | Hỏa Long trúng đòn | 420 | 220 | dragon/P3 | Gầm đau ngắn, thịch trầm | `Large dragon short pained grunt with a heavy body thud, 400 ms` |
+| `fire.cast` | Xong từ có mục tiêu: Hỏa Long khạc cầu lửa | 750 | 45 | dragon/P4 | Khè họng của thú lớn, lửa bắt cháy dưới áp lực rồi gầm, cầu lửa lao ra xa; vang thung lũng thấp | `Large dragon throat huff into a pressurised flame ignition that roars, then a thick fireball whoosh travelling away, low valley echo tail, 750 ms` |
+| `fire.impact.a` | Cầu lửa trúng (biến thể 1) | 600 | 30 | dragon/P4 | Lửa bùng có thân khi trúng: lửa bùng, than nổ lách tách, mảnh văng; vang rừng thấp, ngắn | `Fireball impact: a flame burst flaring out on contact, crackling embers and scattering debris, short low forest echo, 600 ms` |
+| `fire.impact.b` | Cầu lửa trúng (biến thể 2) | 640 | 30 | dragon/P4 | Như .a, tối hơn: lửa bùng trầm, than nổ khô, dăm gỗ văng; vang rừng thấp, ngắn | `Darker fireball impact variant: a deep flame flare, dry ember crackle and splinters scattering, short low forest echo, 640 ms` |
+| `fire.impact.c` | Đòn to: bậc T3 trở lên, Hoàn hảo, Chớp | 1000 | 30 | dragon/P4 | Đòn to (T3 trở lên, Hoàn hảo, Chớp): lửa bùng lớn có trọng lượng, gầm cháy tiếp, than và mảnh văng xa; vang thung lũng dài, dài và nặng hơn .a rõ | `Big fire impact: a heavy flame explosion with weight, roaring flames that keep burning, embers and debris flung wide, long low valley echo, 1 s` |
+| `impact.multi` | Một đòn chữ trúng 3 quái trở lên trong 45 ms | 700 | 90 | dragon/P4 | Một đòn chữ trúng 3 quái trở lên: lửa bùng nặng nhiều chỗ, than lách tách tản rộng, mảnh văng; vang rừng | `Heavy fire impact spreading over several targets: layered flame bursts with weight, wide scattered ember crackles and debris, low forest echo, 700 ms` |
+| `dragon.hurt` | Hỏa Long trúng đòn | 600 | 220 | dragon/P3 | Hỏa Long trúng đòn: gầm đau của thú lớn, thân nặng bị đẩy lùi, vảy cào đá; vang thung lũng thấp | `Large dragon struck: a sharp pained roar from a huge creature, heavy body recoiling with scales scraping, low valley echo, 600 ms` |
 | `dragon.low` | Máu Hỏa Long vừa xuống dưới 35 % | 900 | 3000 | stingers/P1 | Hai nốt trầm báo nguy, không chói | `Low two-note warning horn, urgent but not shrill, with soft drum thumps, 900 ms` |
 | `dragon.heartbeat` | Mỗi 1,4 s khi máu còn dưới 35 % | 420 | 900 | stingers/P1 | Nhịp tim trầm, nhẹ | `Soft low heartbeat, two beats, deep and muffled, 400 ms` |
-| `dragon.down` | Thua: Hỏa Long kiệt sức | 1600 | 2000 | dragon/P1 | Gầm dài rơi xuống, lửa tắt | `Exhausted dragon long falling groan, fire dying out, heavy body settling, 1.6 s` |
-| `dragon.breath` | Phun Lửa (Alt + 1) | 1650 | 500 | dragon/P3 | Hít vào rồi luồng lửa cuộn dài | `Dragon inhale then long rolling fire breath, deep whoosh, crackling, no hiss, 1.6 s` |
-| `dragon.skyfire.cast` | Thiên Hỏa (Alt + 2): khối lửa rơi | 900 | 500 | dragon/P3 | Rít rơi từ cao xuống | `Falling fireball whistle from the sky, descending pitch, 900 ms` |
-| `dragon.skyfire.impact` | Thiên Hỏa chạm đất; Viêm Đế nổ | 1400 | 200 | dragon/P3 | Nổ trầm lớn, lửa bùng | `Massive meteor-like fire explosion, deep sub boom, roaring flames, 1.4 s` |
-| `dragon.roar` | Long Hống (Từ Khẩn) | 1300 | 600 | dragon/P3 | Gầm lớn, sóng gió đẩy ra | `Huge dragon roar with a pushing shockwave rumble, 1.3 s` |
-| `dragon.rage` | Long Nộ đầy | 1000 | 1500 | dragon/P3 | Dâng lên rồi một tiếng gầm gọn | `Rising fiery power swell ending in a short dragon growl, 1 s` |
-| `dragon.inferno` | Viêm Đế (tối thượng) | 1700 | 800 | dragon/P3 | Khạc lửa lớn, bùng cháy, hợp xướng trầm | `Dragon ultimate, giant fire spit and blaze, low choir pad swell, epic, 1.7 s` |
+| `dragon.down` | Thua: Hỏa Long kiệt sức | 1600 | 2000 | dragon/P1 | Hỏa Long kiệt sức: tiếng rên dài rơi xuống của thú lớn, thân nặng đổ xuống, lửa tắt; vang thung lũng dài | `Exhausted dragon: a long falling groan from a huge creature, heavy body collapsing onto earth, fire guttering out, long low valley echo, 1.6 s` |
+| `dragon.breath` | Phun Lửa (Alt + 1) | 1650 | 500 | dragon/P3 | Phun Lửa: hít sâu của thú lớn, lửa bắt rồi luồng lửa cuộn dài có áp lực, tắt dần vào vang thung lũng thấp | `Dragon breath attack: a deep creature inhale, flame igniting under pressure into a long rolling fire jet, roaring and crackling, dying off into a low valley echo, 1.6 s` |
+| `dragon.skyfire.cast` | Thiên Hỏa (Alt + 2): khối lửa rơi | 900 | 500 | dragon/P3 | Thiên Hỏa: khối lửa lớn rơi từ trời, tiếng ầm từ xa, lửa gầm và gió xé mạnh dần khi lao xuống | `A huge fireball falling from the sky: distant rumble growing, roaring flame and rushing air getting closer and louder, 900 ms` |
+| `dragon.skyfire.impact` | Thiên Hỏa chạm đất; Viêm Đế nổ | 1800 | 200 | dragon/P3 | Thiên Hỏa chạm đất (cả Viêm Đế nổ): nổ lửa rất lớn có thân, đất rung, lửa gầm cháy tiếp, đất đá rơi; vang thung lũng dài | `Massive meteor-like fire explosion: a cracking blast with a deep body, ground shaking, roaring flames and falling rocks, long rolling valley echo, 1.8 s` |
+| `dragon.roar` | Long Hống (Từ Khẩn) | 1300 | 600 | dragon/P3 | Long Hống: hít sâu, tiếng gầm lớn của rồng, sóng khí đẩy ra; vang thung lũng | `Huge dragon roar: a deep intake of breath, a massive roar with a pushing shockwave of air, echoing across the valley, 1.3 s` |
+| `dragon.rage` | Long Nộ đầy | 1000 | 1500 | dragon/P3 | Long Nộ đầy: lửa dâng lên trong ngực rồng, gầm gọn có lực; vang thung lũng ngắn | `Rising fiery power swell in a dragon's chest ending in a short forceful growl, brief valley echo, 1 s` |
+| `dragon.inferno` | Viêm Đế (tối thượng) | 2400 | 800 | dragon/P3 | Viêm Đế (tối thượng): rồng hít sâu, khạc lửa khổng lồ, bùng cháy lan rộng, hợp xướng trầm dâng; vang thung lũng rất dài | `Dragon ultimate: a deep inhale, a giant pressurised fire spit and blaze spreading wide, a low choir swell under the roar, very long valley echo, 2.4 s` |
 | `dragon.skill-ready` | Một kỹ năng hồi xong | 380 | 600 | dragon/P3 | Hai nốt đàn hạc | `Two-note harp pluck, ready cue, warm, 350 ms` |
 | `dragon.level` | Hỏa Long lên cấp trong ải | 900 | 800 | dragon/P3 | Đàn hạc rải lên | `Ascending four-note harp arpeggio, D minor pentatonic, level-up, 900 ms` |
 | `dragon.potion` | Dùng Bình Máu Nhỏ | 750 | 300 | dragon/P3 | Ực ực rồi lấp lánh hồi máu | `Three gulps of potion followed by a soft healing shimmer, 750 ms` |
@@ -140,31 +148,31 @@ Bốn lớp tổng hợp theo dáng: hai chân (E09 Yêu Rêu Lính, E11 Yêu R�
 
 | Id | Khi phát | Dài | Cách | P | Cảm giác | Prompt |
 |---|---|---|---|---|---|---|
-| `enemy.biped.spawn` | Quái hai chân xuất hiện | 380 | 120 | P5 | "Hự" gầm gừ | `Small moss goblin grunt, gruff short vocal, forest creature, 350 ms` |
+| `enemy.biped.spawn` | Quái hai chân xuất hiện | 380 | 120 | P5 | Yêu Rêu xuất hiện: khịt nhanh, tiếng gằn "hự" của quái nhỏ, giáp lá xào; vang rừng ngắn | `Small moss goblin appears: a quick snort into a gruff short grunt, bark armour rustling, short forest echo, 350 ms` |
 | `enemy.biped.windup` | Lên đòn | 260 | 90 | P5 | Giáp lách cách | `Light bark-armor rattle, wooden plates clicking, 250 ms` |
-| `enemy.biped.attack` | Chém cận chiến | 240 | 60 | P4 | Chém "xoẹt" | `Quick wooden blade slash whoosh, 250 ms` |
-| `enemy.biped.shoot` | Bắn tên, gai (E11) | 300 | 70 | P4 | Dây bật, gai rít | `Small bow string twang and thorn arrow whistle, 300 ms` |
-| `enemy.biped.hit` | Bị lính đánh trúng | 200 | 50 | P4 | Lá xào, thịch | `Leafy creature hit, dry leaves rustle with a soft thud, 200 ms` |
-| `enemy.biped.death` | Chết (gộp theo khung) | 560 | 40 | P4 | Vỏ vỡ, đốm sáng "linh" | `Moss creature shell cracking into leaves, then a tiny rising spirit chime, 550 ms` |
+| `enemy.biped.attack` | Chém cận chiến | 240 | 60 | P4 | Yêu Rêu chém: vung gươm gỗ, chém "xoẹt" trúng giòn; vang rừng ngắn | `Moss goblin melee strike: a quick wooden blade swing, a sharp slash landing, short forest echo, 250 ms` |
+| `enemy.biped.shoot` | Bắn tên, gai (E11) | 300 | 70 | P4 | Yêu Rêu Cung bắn: kéo dây kẽo kẹt, dây bật, gai bay rít ra xa; vang rừng ngắn | `Moss archer shoots: a creaking bow draw, a string snap and a thorn arrow hissing away into the forest, short echo, 300 ms` |
+| `enemy.biped.hit` | Bị lính đánh trúng | 200 | 50 | P4 | Yêu Rêu trúng đòn: cú đánh giòn vào giáp vỏ cây, lá vụn bay; vang rừng ngắn | `Leafy creature hit: a crisp strike on bark armour, dry leaves bursting and rustling, short forest echo, 200 ms` |
+| `enemy.biped.death` | Chết (gộp theo khung) | 560 | 40 | P4 | Yêu Rêu chết: vỏ cây vỡ thành lá, lá rơi lả tả, đốm linh nhỏ bay lên; vang rừng | `Moss creature shell cracking apart into leaves, leaves falling, then a tiny rising spirit chime, soft forest echo, 550 ms` |
 | `enemy.biped.march` | Vòng lặp bước chân khi có quái hai chân | lặp 4 s | — | P5 | Bước nhẹ của cả đội | `Seamless loop of a small group of light footsteps on forest dirt, occasional bark-armor clink, 4 s` |
-| `enemy.quadruped.spawn` | Thú bốn chân xuất hiện | 420 | 120 | P5 | Khịt rồi gầm | `Wolf-boar snort followed by a low growl, 400 ms` |
+| `enemy.quadruped.spawn` | Thú bốn chân xuất hiện | 420 | 120 | P5 | Thú bốn chân xuất hiện: khịt mũi ướt rồi gầm gừ trầm, móng cào lá; vang rừng ngắn | `Wolf-boar appears: a wet snort, then a low threatening growl, short forest echo, 400 ms` |
 | `enemy.quadruped.windup` | Lên đòn, cào đất | 300 | 90 | P5 | Cào đất, gầm trầm | `Paw scraping dirt with a low growl, 300 ms` |
-| `enemy.quadruped.attack` | Cắn (E18) | 220 | 60 | P4 | Cắn "phập" | `Fast animal bite snap, 200 ms` |
-| `enemy.quadruped.charge` | Húc (E19) | 420 | 120 | P4 | Húc "huỵch" | `Heavy boar charge impact, body slam thud, dust, 400 ms` |
-| `enemy.quadruped.howl` | Tru gọi bầy (dành sẵn cho kỹ năng E18) | 1100 | 1500 | P4 | Sói tru ngắn | `Short eerie wolf howl, rotten forest, 1 s` |
-| `enemy.quadruped.hit` | Bị lính đánh trúng | 200 | 50 | P4 | Lông "thịch" | `Furry body hit, soft heavy thump, 200 ms` |
-| `enemy.quadruped.death` | Chết | 600 | 40 | P4 | Ngã lăn, lông bay, đốm linh | `Beast collapse with fur puff, then a tiny spirit chime, 600 ms` |
+| `enemy.quadruped.attack` | Cắn (E18) | 220 | 60 | P4 | Thú cắn: lao tới thở hắt, hàm cắn "phập" có lực, gầm ngắn; vang rừng ngắn | `Wolf-boar bite: a short lunge breath, a powerful jaw snap with a snarl, short forest echo, 200 ms` |
+| `enemy.quadruped.charge` | Húc (E19) | 420 | 120 | P4 | Heo Nanh Đá húc: vó dồn tới, va "huỵch" nặng có thân, bụi đất tung; vang rừng ngắn | `Heavy boar charge: hooves pounding in, a weighty body slam with a grunt, dirt and dust spraying, short forest echo, 400 ms` |
+| `enemy.quadruped.howl` | Tru gọi bầy (dành sẵn cho kỹ năng E18) | 1100 | 1500 | P4 | Sói Mục tru gọi bầy: hít vào, tiếng tru dâng lên rồi hạ; vang rừng mục xa | `Wolf howl calling the pack: a breath in, one eerie howl rising then falling, echoing through a rotten forest, 1 s` |
+| `enemy.quadruped.hit` | Bị lính đánh trúng | 200 | 50 | P4 | Thú bốn chân trúng đòn: cú đánh vào lông dày có thân, kêu ngắn, lông xào; vang rừng ngắn | `Furry beast hit: a solid strike into thick fur, a short yelp-grunt, fur rustling, short forest echo, 200 ms` |
+| `enemy.quadruped.death` | Chết | 600 | 40 | P4 | Thú bốn chân chết: tiếng rên cuối, thân ngã lăn trên lá, bụi lắng, đốm linh nhỏ bay lên; vang rừng | `Beast collapse: a last groan, a heavy body falling and rolling on leaves, fur and dust settling, then a tiny spirit chime, forest echo, 600 ms` |
 | `enemy.quadruped.march` | Vòng lặp vó chạy | lặp 4 s | — | P5 | Vó lộp độp theo nhịp phi | `Seamless loop of several four-legged animals trotting on dirt, gallop triplets, 4 s` |
-| `enemy.flyer.spawn` | Ong Gai xuất hiện | 360 | 120 | P5 | Kêu cao, vo ve | `Giant wasp high chitter and wing buzz swell, 350 ms` |
+| `enemy.flyer.spawn` | Ong Gai xuất hiện | 360 | 120 | P5 | Ong Gai xuất hiện: tiếng cánh vo ve dâng lại gần, kêu cao lách cách; vang rừng ngắn | `Giant thorn wasp appears: wing buzz swelling in, a high chitter, short forest echo, 350 ms` |
 | `enemy.flyer.windup` | Chuẩn bị bổ nhào | 320 | 90 | P5 | Vo ve dâng lên | `Insect wing buzz rising in pitch, 300 ms` |
-| `enemy.flyer.attack` | Bổ nhào, chích | 300 | 60 | P4 | Rít bổ nhào, chích "tách" | `Diving wasp whistle ending in a sharp sting click, 300 ms` |
-| `enemy.flyer.hit` | Bị trúng | 180 | 50 | P4 | Vỏ "rắc" nhỏ | `Small chitin crack, insect shell hit, 180 ms` |
-| `enemy.flyer.death` | Chết, rơi xoáy | 700 | 40 | P4 | Vỏ vỡ, rơi xoáy, đốm linh | `Wasp shell crack, falling spiral buzz dying out, tiny spirit chime, 700 ms` |
+| `enemy.flyer.attack` | Bổ nhào, chích | 300 | 60 | P4 | Ong Gai bổ nhào chích: lao xuống gió rít, chích "tách" có lực; vang rừng ngắn | `Diving wasp attack: air rushing past as it dives, a sharp stinger strike, short forest echo, 300 ms` |
+| `enemy.flyer.hit` | Bị trúng | 180 | 50 | P4 | Ong Gai trúng đòn: vỏ kitin nứt "rắc", cánh khựng lại; vang ngắn | `Wasp hit: a small chitin shell cracking, wings faltering, short forest echo, 180 ms` |
+| `enemy.flyer.death` | Chết, rơi xoáy | 700 | 40 | P4 | Ong Gai chết: vỏ vỡ, rơi xoáy với tiếng cánh tắt dần, đốm linh; vang rừng | `Wasp shell cracking, falling in a spiral with its buzz dying out, a tiny spirit chime, forest echo, 700 ms` |
 | `enemy.flyer.march` | Vòng lặp vo ve khi có quái bay | lặp 4 s | — | P5 | Tiếng cánh xa | `Seamless loop of distant insect wing buzz, several wasps, 4 s` |
-| `enemy.swarm.spawn` | Cụm Kiến Gai xuất hiện | 300 | 150 | P5 | Lạo xạo nhanh | `Quick skittering of many tiny insect legs, 300 ms` |
-| `enemy.swarm.attack` | Cắn nhỏ | 140 | 70 | P4 | "Tách" nhỏ | `Tiny insect bite click, 140 ms` |
-| `enemy.swarm.hit` | Bị trúng | 140 | 50 | P4 | Vỏ "rắc" li ti | `Tiny chitin tick, 140 ms` |
-| `enemy.swarm.death` | Chết (cả cụm gộp lại) | 380 | 40 | P4 | Bụp nhỏ, vỏ vỡ | `Small insect pop and shell crunch, tiny spirit glint, 380 ms` |
+| `enemy.swarm.spawn` | Cụm Kiến Gai xuất hiện | 300 | 150 | P5 | Kiến Gai xuất hiện: nhiều chân nhỏ lạo xạo tràn ra trên lá; vang ngắn | `Thorn ant cluster appears: quick skittering of many tiny legs rushing out over leaves, short echo, 300 ms` |
+| `enemy.swarm.attack` | Cắn nhỏ | 140 | 70 | P4 | Kiến Gai cắn: lao nhỏ, cắn "tách" li ti | `Tiny ant bite: a quick skitter lunge and a small sharp mandible snap, brief tail, 140 ms` |
+| `enemy.swarm.hit` | Bị trúng | 140 | 50 | P4 | Kiến Gai trúng: vỏ li ti nứt "rắc", lá khẽ xào | `Tiny chitin hit: a very small crisp shell crack with a brief leaf rustle, 140 ms` |
+| `enemy.swarm.death` | Chết (cả cụm gộp lại) | 380 | 40 | P4 | Kiến Gai chết (cả cụm): vỏ nhỏ vỡ giòn liên tiếp, mảnh văng, đốm linh li ti; vang ngắn | `Small insect cluster crushed: crisp shell crunches in a quick burst, bits scattering, a tiny spirit glint, short echo, 380 ms` |
 | `enemy.swarm.march` | Vòng lặp lạo xạo khi có bầy | lặp 4 s | — | P5 | Chân kiến lạo xạo dày | `Seamless loop of dense ant swarm skittering on leaves, 4 s` |
 | `kill.chime` | Mỗi khung có quái chết; hạ liên tiếp trong 1 s thì lên nốt | 220 | 45 | P4 | Nốt ngũ cung ngắn | `Short soft pentatonic marimba-bell note, 200 ms, render 13 pitches F4 major pentatonic upward` |
 
@@ -180,32 +188,32 @@ Bốn lớp tổng hợp theo dáng: hai chân (E09 Yêu Rêu Lính, E11 Yêu R�
 | Id | Khi phát | Dài | Cách | P | Cảm giác | Prompt |
 |---|---|---|---|---|---|---|
 | `general.g01.horn` | G01 xuất hiện | 2200 | 3000 | P3 | Tù và trận trầm, mở dần | `Low war horn blast, wooden and mossy, swelling then fading, ominous, 2.2 s` |
-| `general.g01.attack` | G01 chém | 380 | 200 | P4 | Chém nặng | `Heavy wooden polearm slash with a body thump, 400 ms` |
-| `general.g01.skill` | Cắm Cờ: hô lệnh, cờ cắm xuống đất, trống | 1100 | 1000 | P3 | Hô có vang, thịch, trống trận | `Goblin captain shout, banner pole slammed into earth, one war drum hit, 1.1 s` |
+| `general.g01.attack` | G01 chém | 600 | 200 | P4 | G01 chém: vung cán cờ nặng, gió rít, trúng nặng có thân, dăm gỗ; vang rừng | `Heavy polearm strike: a big wooden pole swung with a deep whoosh, a weighty chopping hit, splinters, short forest echo, 600 ms` |
+| `general.g01.skill` | Cắm Cờ: hô lệnh, cờ cắm xuống đất, trống | 1100 | 1000 | P3 | Cắm Cờ: hô lệnh vang, cán cờ cắm phập xuống đất, một tiếng trống trận; vang thung lũng | `Goblin captain war shout, banner pole slammed into earth with a crunch, one war drum hit, echo across the valley, 1.1 s` |
 | `general.g01.aura` | Hào quang Xung Phong áp lên quân | 420 | 1500 | P4 | Hai tiếng trống trận | `Two war drum hits, deep frame drum, 400 ms` |
-| `general.g01.death` | G01 chết | 1800 | 1000 | P3 | Ngã nặng, tù và tắt, đốm sáng lớn | `Large creature collapse, dying war horn, big rising spirit chime, 1.8 s` |
-| `general.aura.break` | Hào quang tắt (Ấn Phá) | 700 | 400 | P3 | "Vỡ kính" | `Magical glass shatter, bright tinkling shards, 700 ms` |
+| `general.g01.death` | G01 chết | 1800 | 1000 | P3 | G01 chết: rên, ngã nặng, giáp gỗ vỡ, tù và tắt dần, đốm sáng lớn bay lên; vang thung lũng dài | `Large creature collapse with a dying groan, the war horn fading out, a big rising spirit chime, long valley echo, 1.8 s` |
+| `general.aura.break` | Hào quang tắt (Ấn Phá) | 700 | 400 | P3 | Hào quang tắt (Ấn Phá): phép nứt căng rồi vỡ như kính, mảnh sáng rơi lanh canh; vang ngắn | `Magical aura shattering: a tense crackle building, a glass-like burst, bright shards tinkling down, short echo, 700 ms` |
 
 ### 5.6 Bẫy (bus `traps`, P4)
 
 | Id | Khi phát | Dài | Cách | Cảm giác | Prompt |
 |---|---|---|---|---|---|
-| `trap.spikes.arm` | Đặt Gai Chông | 380 | 120 | Cạch gỗ, lò xo | `Wooden trap clack with a small spring boing, 400 ms` |
-| `trap.spikes.trigger` | Gai Chông đâm | 260 | 70 | Gai trồi "xoẹt" | `Sharp wooden spikes thrusting up from the ground, quick stab, 250 ms` |
+| `trap.spikes.arm` | Đặt Gai Chông | 380 | 120 | Cạch gỗ, lò xo | `Wooden trap clack with a small spring creak, 400 ms` |
+| `trap.spikes.trigger` | Gai Chông đâm | 260 | 70 | Gai Chông đâm: đất nứt, gai gỗ trồi "xoẹt" lên đâm trúng; vang rừng ngắn (không nổ) | `Wooden spikes thrusting up: soil cracking, sharp stakes stabbing up fast and hitting, short forest echo, 250 ms` |
 | `trap.pine-bomb.arm` | Đặt Bom Hạt Thông | 520 | 120 | Nhựa kẽo kẹt, quả thông thở | `Pine cone resin creak and soft breathing hiss, 500 ms` |
-| `trap.pine-bomb.trigger` | Bom Hạt Thông nổ (số quái trúng làm tiếng to hơn) | 1100 | 60 | Nổ trầm, hạt văng | `Pine cone bomb explosion, deep boom, seeds and splinters scattering, 1.1 s` |
+| `trap.pine-bomb.trigger` | Bom Hạt Thông nổ (số quái trúng làm tiếng to hơn) | 1100 | 60 | Bom Hạt Thông nổ: ngòi nhựa xì, nổ trầm có thân, hạt và dăm văng; vang rừng | `Pine cone bomb explosion: a short resin fuse hiss, a woody crack and deep boom with body, seeds and splinters scattering, forest echo, 1.1 s` |
 | `trap.net.arm` | Đặt Lưới Phóng | 560 | 120 | Cuộn dây lạch cạch | `Rope winch ratchet clicks and a wooden creak, 550 ms` |
-| `trap.net.trigger` | Lưới Phóng bắn, kéo quái bay xuống | 620 | 80 | Phụt, vút, quấn | `Net launcher thump, net whoosh through the air, rope wrapping, 600 ms` |
+| `trap.net.trigger` | Lưới Phóng bắn, kéo quái bay xuống | 620 | 80 | Lưới Phóng bắn: lò xo kẽo kẹt, nòng bật, lưới bung vút qua không khí, dây quấn siết; vang rừng ngắn (không nổ) | `Net launcher fires: a spring creak, a sharp launch snap, the net whooshing open through the air, ropes wrapping tight, short forest echo, 600 ms` |
 
 ### 5.7 Hỗ trợ (bus `units`, P4)
 
 | Id | Khi phát | Dài | Cách | Cảm giác | Prompt |
 |---|---|---|---|---|---|
 | `unit.warden.place` | Đặt Vệ Binh Rêu; lính hồi sinh (nhỏ hơn) | 620 | 150 | Đá gỗ đặt xuống, lá rung | `Moss stone guardian landing, heavy wood-stone thud, leaves rustling, low hum, 600 ms` |
-| `unit.warden.down` | Vệ Binh Rêu ngã thành nụ cây | 900 | 200 | Vỡ vụn, một nốt nhỏ | `Moss guardian crumbling into soil, soft collapse, ending with a tiny sprout pluck, 900 ms` |
+| `unit.warden.down` | Vệ Binh Rêu ngã thành nụ cây | 900 | 200 | Vệ Binh Rêu ngã: đá gỗ nứt, đổ vụn xuống đất, lá rơi, kết bằng một nốt mầm nhỏ; vang rừng | `Moss guardian falling: stone and wood cracking, crumbling down into soil with falling leaves, ending with a tiny sprout pluck, forest echo, 900 ms` |
 | `house.herb.place` | Dựng Nhà Thuốc Lá | 700 | 150 | Gỗ, bọt sủi, chuông nhỏ | `Small herbal hut placed, wood knock, bubbling potion, tiny chime, 700 ms` |
 | `house.herb.pulse` | Nhà Thuốc Lá hồi máu (Xung) | 900 | 300 | Lấp lánh hồi máu | `Gentle healing shimmer, soft major chord of bells, airy, 900 ms` |
-| `unit.hit` | Lính hoặc nhà bị đánh | 180 | 120 | Khiên gỗ "cộp" | `Wooden shield block knock, 180 ms` |
+| `unit.hit` | Lính hoặc nhà bị đánh | 180 | 120 | Lính hoặc nhà bị đánh: đòn trúng khiên gỗ "cộp" có thân gỗ; vang ngắn | `Wooden shield blocking a blow: a solid knock with a woody body, short forest echo, 180 ms` |
 
 ### 5.8 UI (bus `ui`, P2)
 
@@ -213,7 +221,7 @@ Bốn lớp tổng hợp theo dáng: hai chân (E09 Yêu Rêu Lính, E11 Yêu R�
 |---|---|---|---|---|---|
 | `ui.select` | Chọn ô, rê qua món (làn UI gọi `audio.ui("select")`) | 70 | 40 | Tích nhẹ | `Tiny soft UI tick, wooden, 60 ms` |
 | `ui.confirm` | Mua, nâng cấp | 260 | 80 | Hai nốt đàn hạc lên | `Two rising harp plucks, confirm, warm, 250 ms` |
-| `ui.deny` | Lệnh bị từ chối (thiếu vàng, sai ô) | 220 | 250 | Hai tiếng trầm êm | `Two soft low wooden bonks, gentle decline, 220 ms` |
+| `ui.deny` | Lệnh bị từ chối (thiếu vàng, sai ô) | 220 | 250 | Hai tiếng trầm êm | `Two soft low wooden knocks, gentle decline, 220 ms` |
 | `ui.gold` | Bán, thưởng cuối đợt | 380 | 120 | Đồng xu lanh canh | `Small coins clinking, bright, 350 ms` |
 
 ### 5.9 Mốc trận (bus `stingers`)
