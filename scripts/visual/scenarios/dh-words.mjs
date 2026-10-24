@@ -4,6 +4,7 @@
 // meaning line under it ≥ 13 px (05 §4).
 // Two sizes (1280×720, 1920×1080) × tag size 100 % and 150 %, world at ?speed=2,
 // the typist waits for ≥ 4 live words unless a foe is near (tags pile up).
+// WPM=70 plays at k 1.50 (lib/dh.mjs boot); each run reports its kPm.
 // Pictures in tmp/shots/integrator/.
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
@@ -73,7 +74,7 @@ async function play(page, size, out, tagSize) {
   await page.shot(join(out, `words-end-${width}x${height}-tags${tagSize}.png`));
   const worst = checks.reduce((acc, c) => ({ overlaps: Math.max(acc.overlaps, c.overlaps), missing: acc.missing + c.missing.length, extra: acc.extra + c.extra.length, minFont: Math.min(acc.minFont, c.minFont ?? 99), minMean: Math.min(acc.minMean, c.minMean ?? 99), maxTags: Math.max(acc.maxTags, c.tags) }), { overlaps: 0, missing: 0, extra: 0, minFont: 99, minMean: 99, maxTags: 0 });
   const lastMissing = checks.filter((c) => c.missing.length > 0).slice(-3);
-  return { size: width + "x" + height, tagSize, reachedWave: end.wave, started, typed, kills: end.kills - startKills, words: end.words, grades: end.grades, keys: end.keys, routerLetters: end.routerLetters, checks: checks.length, worst, lastMissing, perf: await page.eval("window.__dh.perf()"), replay: await page.eval("window.__dh.replayCheck()") };
+  return { size: width + "x" + height, tagSize, kPm: end.pace?.kPm ?? null, reachedWave: end.wave, started, typed, kills: end.kills - startKills, words: end.words, grades: end.grades, keys: end.keys, routerLetters: end.routerLetters, checks: checks.length, worst, lastMissing, perf: await page.eval("window.__dh.perf()"), replay: await page.eval("window.__dh.replayCheck()") };
 }
 
 export default async function (page) {

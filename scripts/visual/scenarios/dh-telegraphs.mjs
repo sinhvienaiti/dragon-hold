@@ -10,7 +10,8 @@
 // frame a wanted wind-up starts: polling over CDP took ~0.5 s of game time at
 // 6 ×, a whole 0.5 s wind-up (round 2 gate: one wolf picture with no warning).
 // A picture counts only with a live warning (`live` ≥ 1); `ok` says all did.
-// SIZE=1920 runs at 1920×1080 (default 1280×720).
+// SIZE=1920 runs at 1920×1080 (default 1280×720). WPM=70 plays at k 1.50
+// (lib/dh.mjs boot); the result reports kPm.
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
 import { badResources, boot, MOD, outDir, press, state, waitFor } from "./lib/dh.mjs";
@@ -140,6 +141,7 @@ export default async function (page) {
     byFoe,
     seen,
     end: { phase: end.phase, wave: end.wave, heroHp: end.heroHp },
+    kPm: end.pace?.kPm ?? null,
     badResources: await badResources(page),
   };
 }
