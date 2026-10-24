@@ -262,10 +262,69 @@ export class NumberField {
 const SCRATCH: Rect = { x: 0, y: 0, w: 0, h: 0 };
 const OTHER: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
-const GLYPHS = "0123456789×";
-const CELL_W = 48;
-const CELL_H = 64;
-const FONT = 52;
+/**
+ * NumberSprites' glyph atlas and how its quads map it to the screen
+ * (exported so a game can size a number's box as drawn). Digits sit in one
+ * row of cells, each wider than its glyph's ink (italic glyphs with their
+ * outline overran the old 48 px cells into the next one); the label has its
+ * own row, far enough below that its accents (À, Ả) stay out of the digits.
+ * The drawn scale is unchanged: a glyph quad is 1.25 font sizes tall for the
+ * 64 rows of a cell and 1.4 advances wide for 48 of its columns (`refCellW`),
+ * the label 1.3 label heights tall for 64 rows of its row, its middle 0.4
+ * label heights above the digits' top.
+ */
+export const NUMBER_ATLAS = {
+  glyphs: "0123456789×",
+  width: 1024,
+  height: 256,
+  /** Digit row: cells `cellH` tall at the top; each glyph painted at its cell's middle, `digitMidY` down, with a `digitOutline` px stroke. */
+  cellH: 64,
+  minCellW: 64,
+  refCellW: 48,
+  digitFont: 'italic 800 52px "Exo 2", "Be Vietnam Pro", system-ui, sans-serif',
+  digitMidY: 34,
+  digitOutline: 9,
+  /** Ink kept clear of a cell's edge, px (edge smoothing and mipmaps). */
+  edgePx: 3,
+  glyphQuadH: 1.25,
+  glyphQuadW: 1.4,
+  /** Label row: `labelRowH` rows from `labelTop`, painted at its middle with a `labelOutline` px stroke. */
+  labelFont: '800 40px "Be Vietnam Pro", "Exo 2", system-ui, sans-serif',
+  labelTop: 128,
+  labelRowH: 128,
+  labelOutline: 8,
+  labelQuadH: 1.3,
+  labelMidUp: 0.4,
+  /** Glyph advance and label height as shares of the font size (NumberField.box). */
+  advance: ADVANCE,
+  label: LABEL,
+} as const;
+
+/** The parts of canvas TextMetrics the atlas reads. */
+export type GlyphMetrics = { readonly width: number; readonly actualBoundingBoxLeft?: number; readonly actualBoundingBoxRight?: number };
+
+/** Ink half-width (px, outline and edge included) of a centred glyph: its measured box, or its advance plus an italic lean when the canvas gives no box. */
+function inkHalf(metrics: GlyphMetrics, outline: number): number {
+  const left = metrics.actualBoundingBoxLeft;
+  const right = metrics.actualBoundingBoxRight;
+  const half = Number.isFinite(left) && Number.isFinite(right) ? Math.max(left!, right!) : metrics.width * 0.75;
+  return half + outline / 2 + NUMBER_ATLAS.edgePx;
+}
+
+/**
+ * The digit cell width (px) that holds every glyph's ink, given its metrics in
+ * the digit font: at least `minCellW`, even, at most what fits the atlas.
+ */
+export function digitCellWidth(measure: (glyph: string) => GlyphMetrics): number {
+  const { glyphs, digitOutline, minCellW, width } = NUMBER_ATLAS;
+  let half = 0;
+  for (const glyph of glyphs) half = Math.max(half, inkHalf(measure(glyph), digitOutline));
+  const most = Math.floor(width / glyphs.length / 2) * 2;
+  return Math.min(most, Math.max(minCellW, Math.ceil(half) * 2));
+}
+
+const GLYPHS = NUMBER_ATLAS.glyphs;
+const CELL_H = NUMBER_ATLAS.cellH;
 
 const VERTEX = /* glsl */ `
 attribute vec4 iRect;
@@ -299,25 +358,29 @@ export class NumberSprites {
   private readonly color: Float32Array;
   private readonly capacity = MAX * 8;
   private readonly atlasWidth: number;
+  /** Width of a digit cell in the atlas (px): every glyph's ink fits in its own cell. */
+  readonly cellWidth: number;
   private readonly labelWidth: number;
   private readonly colors: THREE.Color[];
   private readonly labelColor: THREE.Color;
 
   constructor(readonly profile: FeedbackProfile = SHIP) {
     const { colors, label, labelColor } = profile.numbers;
+    const A = NUMBER_ATLAS;
     this.colors = colors.map((color) => new THREE.Color(color));
     this.labelColor = new THREE.Color(labelColor);
     const canvas = document.createElement("canvas");
-    this.atlasWidth = 1024;
-    canvas.width = this.atlasWidth;
-    canvas.height = CELL_H * 2;
+    this.atlasWidth = A.width;
+    canvas.width = A.width;
+    canvas.height = A.height;
     const paint = canvas.getContext("2d");
     this.labelWidth = 0;
+    this.cellWidth = A.minCellW;
     if (paint !== null) {
       paint.textAlign = "center";
       paint.textBaseline = "middle";
       paint.lineJoin = "round";
-      paint.font = "italic 800 " + FONT + 'px "Exo 2", "Be Vietnam Pro", system-ui, sans-serif';
+      paint.font = A.digitFont;
       // White glyphs in a dark outline (the outline stays dark under any tint).
       const glyph = (text: string, x: number, y: number, outline: number) => {
         paint.lineWidth = outline;
@@ -326,10 +389,14 @@ export class NumberSprites {
         paint.fillStyle = "#ffffff";
         paint.fillText(text, x, y);
       };
-      [...GLYPHS].forEach((char, index) => glyph(char, index * CELL_W + CELL_W / 2, CELL_H / 2 + 2, 9));
-      paint.font = '800 40px "Be Vietnam Pro", "Exo 2", system-ui, sans-serif';
-      this.labelWidth = Math.min(this.atlasWidth - 8, Math.ceil(paint.measureText(label).width) + 16);
-      glyph(label, this.labelWidth / 2, CELL_H * 1.5, 8);
+      const cell = digitCellWidth((char) => paint.measureText(char));
+      this.cellWidth = cell;
+      [...GLYPHS].forEach((char, index) => glyph(char, index * cell + cell / 2, A.digitMidY, A.digitOutline));
+      paint.font = A.labelFont;
+      const metrics = paint.measureText(label);
+      const inked = Number.isFinite(metrics.actualBoundingBoxLeft) && Number.isFinite(metrics.actualBoundingBoxRight) ? metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight : 0;
+      this.labelWidth = Math.min(A.width - 8, Math.ceil(Math.max(metrics.width, inked)) + 16);
+      glyph(label, this.labelWidth / 2, A.labelTop + A.labelRowH / 2, A.labelOutline);
     }
     const atlas = new THREE.CanvasTexture(canvas);
     atlas.colorSpace = THREE.SRGBColorSpace;
@@ -368,8 +435,13 @@ export class NumberSprites {
   /** Writes the field's glyphs for a view `width` × `height` CSS px. */
   write(field: NumberField, width: number, height: number): void {
     (this.mesh.material.uniforms.uScreen!.value as THREE.Vector2).set(width, height);
+    const A = NUMBER_ATLAS;
     const W = this.atlasWidth;
-    const H = CELL_H * 2;
+    const H = A.height;
+    const cell = this.cellWidth;
+    // A cell wider than the 48 columns 1.4 advances stand for keeps the glyph's drawn scale: the quad grows, not the glyph.
+    const cellScale = cell / A.refCellW;
+    const labelRows = A.labelRowH / CELL_H;
     let n = 0;
     for (let i = 0; i < field.alive.length; i += 1) {
       if (field.alive[i] === 0) continue;
@@ -387,13 +459,18 @@ export class NumberSprites {
       for (let c = 0; c < text.length; c += 1) {
         const g = GLYPHS.indexOf(text[c]!);
         const s = times >= 0 && c >= times ? 0.68 : 1;
-        n = this.quad(n, x - advance * 0.2, y + px * (1 - s) * 0.9, advance * 1.4 * s, px * 1.25 * s, (g * CELL_W) / W, 0, ((g + 1) * CELL_W) / W, CELL_H / H, color, alpha);
+        // The glyph's middle, as it always was: the middle of the old quad (advance × 1.4, from 0.2 advance left of x).
+        const middle = x - advance * 0.2 + (advance * A.glyphQuadW * s) / 2;
+        const w = advance * A.glyphQuadW * s * cellScale;
+        n = this.quad(n, middle - w / 2, y + px * (1 - s) * 0.9, w, px * A.glyphQuadH * s, (g * cell) / W, 0, ((g + 1) * cell) / W, CELL_H / H, color, alpha);
         x += advance * s;
       }
       if (style === STYLE.perfect) {
         const lh = px * LABEL;
-        const lw = lh * (this.labelWidth / (CELL_H * 0.75));
-        n = this.quad(n, field.x[i]! - lw / 2, y - lh * 1.05, lw, lh * 1.3, 0, CELL_H / H, this.labelWidth / W, 1, this.labelColor, alpha);
+        const lw = lh * (this.labelWidth / A.refCellW);
+        const h = lh * A.labelQuadH * labelRows;
+        // The label's middle sits labelMidUp label heights above the digits' top.
+        n = this.quad(n, field.x[i]! - lw / 2, y - lh * A.labelMidUp - h / 2, lw, h, 0, A.labelTop / H, this.labelWidth / W, (A.labelTop + A.labelRowH) / H, this.labelColor, alpha);
       }
     }
     uploadQuads(this.mesh.geometry, n);

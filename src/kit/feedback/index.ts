@@ -5,7 +5,7 @@ export { BlowQueue, HitStop } from "./hitstop";
 export { Trauma } from "./trauma";
 export { Reactions, squashAt } from "./reaction";
 export { Debris, type DebrisOptions } from "./debris";
-export { NumberField, NumberSprites, STYLE, popScale, type Rect } from "./numbers";
+export { NUMBER_ATLAS, NumberField, NumberSprites, STYLE, digitCellWidth, popScale, type GlyphMetrics, type Rect } from "./numbers";
 export { instancedQuads, uploadQuads } from "./quads";
 export { AudioCues, CUE_BUS_GAIN, keyStepRatio, pentatonicRatio, type AudioCuesOptions, type CueBus } from "./audio-cues";
 export {
