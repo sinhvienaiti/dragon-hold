@@ -302,3 +302,11 @@ placement), `src/app/app.ts` (visuals: `__dh.foeSizes`).
   striped ghost (the placeholder Vệ Binh Rêu is drawn × 2; M0b models decide).
 - Map slots `suoi-t2`/`suoi-b1` and `suoi-t3`/`suoi-b2` sit 0.5 m apart on the
   ground (trap under a blocker by design); the DOM markers offset blockers 2.2 m.
+- Round 2 gate (`docs/changelog/2026-10-24-m0a-round2-gate.md`): G01 carries
+  no banner and the view draws no `banner` event (05: banner, aura-coloured
+  light pillar, skill name 1 s); aura `#C8D24A` sinks into sunlit grass;
+  damage numbers side by side can touch (protect zones read every 250 ms);
+  the 1080p slot menu covers Hỏa Long; golden covers Thường with the
+  director on only and no `release` command (add a Khó, director-off case
+  with Esc); `sim/world.ts` imports the whole `kit/platform` barrel for
+  `createRng`.
