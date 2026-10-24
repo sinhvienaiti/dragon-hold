@@ -9,7 +9,7 @@
  * Owner: audio (LANES.md).
  */
 import { audioUrl, noiseBuffer } from "../kit/audio";
-import { AUDIO_BASE, SOUNDS, SOUND_IDS, type SoundId } from "./catalog";
+import { AUDIO_BASE, SOUNDS, SOUND_IDS, soundDef, type SoundId } from "./catalog";
 import { bedBuffer, isBed } from "./beds";
 import type { MusicLayer } from "./music-plan";
 import { SYNTH_RECIPES, SynthTools, type SoundParams } from "./synth";
@@ -24,6 +24,12 @@ export interface SoundBank {
   loop(ctx: BaseAudioContext, id: SoundId): AudioBuffer | null;
   /** A music layer recorded as a file, or null (the synth plays it). */
   music(layer: MusicLayer): AudioBuffer | null;
+}
+
+/** How long a synth placeholder lasts: its own length, not the real file's target (catalog lengthMs). */
+export function synthSeconds(id: SoundId): number {
+  const def = soundDef(id);
+  return (def.synthMs ?? def.lengthMs) / 1000;
 }
 
 /** Every catalog sound made in code. */
@@ -50,7 +56,7 @@ export class SynthBank implements SoundBank {
     const recipe = SYNTH_RECIPES[id];
     if (!recipe) return 0;
     recipe(new SynthTools(ctx, out, this.noiseFor(ctx), when, params.rate, this.random), params);
-    return SOUNDS[id].lengthMs / 1000;
+    return synthSeconds(id);
   }
 
   loop(ctx: BaseAudioContext, id: SoundId): AudioBuffer | null {

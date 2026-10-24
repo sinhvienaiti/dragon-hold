@@ -85,6 +85,21 @@ describe("audio voice limiter", () => {
     expect(limiter.active(0.5)).toBe(3);
   });
 
+  it("settles a voice to the length that really plays", () => {
+    const limiter = new VoiceLimiter();
+    const cast = ask(limiter, "fire.cast", 4, 0, { lengthS: 0.75 });
+    expect(cast.ok).toBe(true);
+    if (cast.ok) limiter.settle(cast.voice, 0.34);
+    expect(limiter.active(0.3)).toBe(1);
+    expect(limiter.active(0.35)).toBe(0);
+    // A file longer than the request keeps its slot to the end; an unknown voice is ignored.
+    const file = ask(limiter, "fire.cast", 4, 1, { lengthS: 0.75 });
+    if (file.ok) limiter.settle(file.voice, 1.9);
+    limiter.settle(9999, 5);
+    expect(limiter.active(1.8)).toBe(1);
+    expect(limiter.active(1.95)).toBe(0);
+  });
+
   it("keeps 200 foes fighting for 10 s inside the cap and the rate limits", () => {
     const limiter = new VoiceLimiter({ maxVoices: VOICE_CAP.high });
     const sounds = [

@@ -92,6 +92,8 @@ export class AudioEngine {
       gain.disconnect();
       return false;
     }
+    // Hold the voice for what plays (a short synth placeholder or the file), not the catalog's target length.
+    this.limiter.settle(admission.voice, when + length);
     this.voices.set(admission.voice, { gain, end: when + length });
     if (at > this.sweepAt) this.sweep(at);
     return true;

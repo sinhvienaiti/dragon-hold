@@ -65,7 +65,8 @@ interface Voice {
   readonly priority: Priority;
   readonly group: LimitGroup | undefined;
   readonly start: number;
-  readonly end: number;
+  /** Set from the request, then by settle() once the bank knows what it plays. */
+  end: number;
 }
 
 export interface LimiterStats {
@@ -105,6 +106,16 @@ export class VoiceLimiter {
   release(voice: number): void {
     const index = this.voices.findIndex((v) => v.id === voice);
     if (index >= 0) this.voices.splice(index, 1);
+  }
+
+  /** Moves an admitted voice's end to when it really stops (the bank's length: a synth placeholder or a file). */
+  settle(voice: number, end: number): void {
+    for (const v of this.voices) {
+      if (v.id === voice) {
+        v.end = Math.max(v.start + 0.01, end);
+        return;
+      }
+    }
   }
 
   /** Forgets every voice (context closed, run restarted). */
