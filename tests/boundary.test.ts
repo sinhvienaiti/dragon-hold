@@ -131,6 +131,50 @@ describe("dragon-hold boundary", () => {
     expect(bad).toEqual([]);
   });
 
+  it("keeps every kit file the rules import, directly or through a barrel, pure as well", () => {
+    // Round 2 gate: sim/world.ts took createRng through the kit/platform barrel, which also loads
+    // frame-loop.ts and safe-storage.ts (window, localStorage). Follow the real import chain.
+    const resolveFile = (from: string, spec: string): string | null => {
+      const base = resolve(dirname(from), spec);
+      for (const candidate of [base, base + ".ts", join(base, "index.ts")]) if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+      return null;
+    };
+    const seen = new Set<string>();
+    const queue = sources.filter((s) => isPure(s.path)).map((s) => s.abs);
+    const kitFiles: Source[] = [];
+    while (queue.length > 0) {
+      const abs = queue.pop()!;
+      if (seen.has(abs)) continue;
+      seen.add(abs);
+      const text = readFileSync(abs, "utf8");
+      const source: Source = { path: relative(ROOT, abs).split(sep).join("/"), abs, text };
+      if (source.path.startsWith("src/kit/")) kitFiles.push(source);
+      for (const spec of specifiers(source)) {
+        if (!spec.startsWith(".")) continue;
+        const next = resolveFile(abs, spec);
+        if (next !== null && !seen.has(next)) queue.push(next);
+      }
+    }
+    expect(kitFiles.some((s) => s.path === "src/kit/platform/rng.ts")).toBe(true);
+    expect(kitFiles.map((s) => s.path).filter((path) => path === "src/kit/platform/index.ts" || path === "src/kit/platform/frame-loop.ts" || path === "src/kit/platform/safe-storage.ts")).toEqual([]);
+    // Kit code may name its own locals like a global (kit/balance's `window: FlowWindow`): only undeclared names count.
+    const declared = (source: Source): Set<string> => {
+      const names = new Set<string>();
+      const file = ts.createSourceFile(source.path, source.text, ts.ScriptTarget.Latest, true);
+      const visit = (node: ts.Node): void => {
+        if ((ts.isParameter(node) || ts.isVariableDeclaration(node) || ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node) || ts.isImportSpecifier(node)) && node.name && ts.isIdentifier(node.name)) names.add(node.name.text);
+        ts.forEachChild(node, visit);
+      };
+      visit(file);
+      return names;
+    };
+    const bad = kitFiles.flatMap((source) => {
+      const own = declared(source);
+      return purityProblems(source).filter((problem) => !own.has(problem.split(" uses ")[1] ?? ""));
+    });
+    expect(bad).toEqual([]);
+  });
+
   it("catches what it should (self-test)", () => {
     const fake = (text: string): Source => ({ path: "src/sim/fake.ts", abs: join(SRC, "sim", "fake.ts"), text });
     expect(purityProblems(fake("const a = Math.random();"))).toHaveLength(1);

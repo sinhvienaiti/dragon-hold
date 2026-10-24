@@ -13,7 +13,8 @@
  * learning) read the world and drain `events`; they never write.
  * Owner: architect for M0a setup, sim-battle from now on (LANES.md).
  */
-import { createRng, type Rng } from "../kit/platform";
+// The rng file only: the kit/platform barrel also pulls frame-loop.ts and safe-storage.ts (window, localStorage).
+import { createRng, type Rng } from "../kit/platform/rng";
 import { MAPS } from "../content/data/maps";
 import { FIRE_DRAGON, PACE, TEMPO, WHITE_DRAGON, chapterRow, gPm } from "../content/rules";
 import type { Difficulty, EntityRef, FoeId, KillSource, MapDef, MoveMode, Phase, SimCommand, StageDef, WordDeck } from "../content/types";
