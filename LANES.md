@@ -350,3 +350,31 @@ integrator; `src/view/{banners,number-field}.ts`, `tests/view/number-field.test.
 view-crowd-fx. Other lanes' files changed in round 3 (owners keep them):
 `src/view/{telegraphs,fx}.ts`, `src/ui/placement-ui.ts`, `src/sim/world.ts`
 (import only), `scripts/balance/golden-spec.ts`, `tests/golden/**`.
+
+### Round 3 review fixes (Dell, 24/10/2026)
+
+Notes: `docs/changelog/2026-10-24-m0a-review2-minor.md`; GPU results in
+`2026-10-24-m0a-review2.md` ("Chạy lại trên GPU").
+
+- Speed card keys are stable: `PaceOption.key`, presets 1–7 always, the
+  measured row 0 (first and preselected, 00 D26). `KEYS` binds no bare
+  Digit 0, so the app's intercept hands it to the open card as `carry-0`.
+- The HUD toast stands 8 px above the carry strip as laid out (`hud.ts`
+  `placeToast`, measured while it shows; the CSS offsets are the fallback).
+- `DrawnNumberField.box()` also takes the glyph rows: the digit and label ink
+  rows of the atlas fonts, measured once, outline included (digits reached
+  13.5 px under the old box at 720p). Kit drift to report to
+  `shared/game-kit` feedback/numbers.ts: `box()` width (overhang, label) and
+  height (glyph quads 1.25 font sizes), and the atlas label row's accents
+  reaching into the digit row (glyph 3).
+- Reading what was drawn: `FxPresenter.sprites`, `__dh.numberLayer()`,
+  `scripts/visual/scenarios/lib/dh.mjs` `INSTALL_INK_CHECK` (quads uploaded
+  for the GPU + atlas ink, independent of `box()`); `dh-numbers-drawn.mjs`
+  (new, integrator) runs it with the kit's box as a control;
+  `dh-hitstop-keys` samples numbers in a frame callback.
+- Browser runs on the Dell use Windows Chrome with its GPU over CDP (a
+  Windows Node runs `cdp-run.mjs`, Vite stays in WSL); WSL's own Chrome only
+  draws in software.
+
+Other lanes' files changed here (owners keep them): `src/ui/hud.ts`,
+`src/view/{number-field,fx}.ts`, `src/content/rules.ts` (`PACE` comment only).
