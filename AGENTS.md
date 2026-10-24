@@ -9,7 +9,7 @@ Dev port 3005, host `dragon.typing-game.local`.
 ## Design
 
 - Authoritative design (Vietnamese): `docs/games/dragon-lane/` in the parent
-  repo (`/Users/toandx/htdocs/typing-game`). `00-canon.md` holds every number
+  repo (`../..` from this repo's root). `00-canon.md` holds every number
   and wins when documents disagree; `DESIGN.md` §9 has the milestones.
 - Current milestone: **M0a** grey box (full M0 rules, primitive placeholders,
   procedural terrain and river), map `L2-cau`.

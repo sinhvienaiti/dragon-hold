@@ -239,9 +239,10 @@ Contracts other lanes use:
 - `src/sim/world.ts`: `rules` (the typing session's compiled float config) and
   `def` (slot definitions) stay out of the hash: hashed state is integers only.
   Command logs unchanged, golden hashes regenerated.
-- `src/content/rules.ts` + `scripts/balance/report.ts`: G5 is judged by 00 §7
-  (typing only wins ≥ 70 % on stages 1–10); DESIGN.md §9's "≤ 40 %" contradicts
-  it and the canon wins.
+- `src/content/rules.ts` + `scripts/balance/report.ts`: G5 on the 10-wave M0
+  map is judged by the canon's M0 exception (00 §7, set 23/10): typing only
+  wins ≤ 40 % (`typingOnlyWinMax: 40`, DESIGN.md §9's row). The ≥ 70 % on
+  stages 1–10 of the 00 §7 table is for the real chapter 1 (M2).
 
 ## Round 2 integration (M0a, 24/10/2026)
 
@@ -290,10 +291,12 @@ placement), `src/app/app.ts` (visuals: `__dh.foeSizes`).
   1.05–1.10 (peaks ≤ 1.25, wave 1 ≤ 0.75); untyped share 20–25 %.
 - The Fast bot wins 100 % (k cap 1.30); Q ~40 % (§9.1 aims 55–70 %); B9
   needs the owner's playtest.
-- New numbers to write into 00 §4.10 / §9.1: slip and unevenness margins,
-  Héo lan per mode, wave 10 peak 1.39 (M0 exception ≤ 1.40). Proposed doc
-  lines for 01 §3.3 (Esc) and 01 §6.3 / §6.6 (Học trước is no recall) are in
-  `docs/changelog/2026-10-23-m0a-kit-learning.md`.
+- Written into the canon on 24/10 (round 3, parent repo, uncommitted there):
+  slip and unevenness margins and the pace (00 §4.4), Héo lan per mode and
+  its rates (00 §4.10), wave 10 peak 1.39 (00 §7 M0 exceptions), Esc keeps
+  wrong keys (00 D24), Học trước is no recall (00 D25), the typing speed is
+  asked, never assumed (00 D26). 01 §3.3, §6.3, §6.6 and BALANCE.md §9.1 still
+  carry the old lines (the canon wins; their owners update them).
 - A word let go with Esc that still carries wrong keys cannot be taken by a
   soft switch when locked again (kit behaviour; a change needs sim state and
   new golden replays).
@@ -302,11 +305,48 @@ placement), `src/app/app.ts` (visuals: `__dh.foeSizes`).
   striped ghost (the placeholder Vệ Binh Rêu is drawn × 2; M0b models decide).
 - Map slots `suoi-t2`/`suoi-b1` and `suoi-t3`/`suoi-b2` sit 0.5 m apart on the
   ground (trap under a blocker by design); the DOM markers offset blockers 2.2 m.
-- Round 2 gate (`docs/changelog/2026-10-24-m0a-round2-gate.md`): G01 carries
-  no banner and the view draws no `banner` event (05: banner, aura-coloured
-  light pillar, skill name 1 s); aura `#C8D24A` sinks into sunlit grass;
-  damage numbers side by side can touch (protect zones read every 250 ms);
-  the 1080p slot menu covers Hỏa Long; golden covers Thường with the
-  director on only and no `release` command (add a Khó, director-off case
-  with Esc); `sim/world.ts` imports the whole `kit/platform` barrel for
-  `createRng`.
+- Round 2 gate small fixes: done in round 3 (below).
+
+## Round 3 (M0a, Dell, 24/10/2026)
+
+Notes: `docs/changelog/2026-10-24-m0a-review2.md` (review 2 recorded, the
+35-WPM pacing trap fixed, the round 2 gate's small fixes).
+
+- Typing speed (00 D26): `src/app/typing-pace.ts` (header, presets, the
+  measured profile through kit/balance `parseSkill` / `updateSkill` under
+  `dragon-hold.skill`, the last pick under `dragon-hold.pace`, `PaceMeter`)
+  and `src/app/pace-card.ts` (the speed card), integrator. `startApp` builds
+  no world until `?wpm=` or the card gives a speed; `Run.header` is the
+  world's speed and replays use it; a finished stage updates the profile; the
+  pause menu has "Tốc độ gõ" (a new speed replays the stage). `?wpm=` is
+  clamped to a whole 10–120. `__dh.state()` has `pace` and `paceCard`.
+  Scenario `boot()` adds `wpm=35` unless the query names a speed;
+  `dh-pace.mjs` opens the card.
+- `banner` events are drawn: `src/view/banners.ts` (view-crowd-fx) puts a
+  placeholder banner on every live general and, on `plant`, a standing
+  banner, a light pillar in the aura colour, its aura ring
+  (`TelegraphsView.end(id)` is new) and "Cắm Cờ" for 1 s; `pulled` fells it,
+  `expired` sinks it. `__dh.state().banners`.
+- Aura rings (`telegraphs.ts`) keep #C8D24A with a paler core and a dark
+  Hắc Vụ edge on both sides.
+- Damage numbers: `src/view/number-field.ts` (`DrawnNumberField`, view-crowd-fx)
+  counts the glyph overhang and the "HOÀN HẢO" label in `box()`, so spawn and
+  settle keep labels apart. Kit drift to report to `shared/game-kit`
+  (feedback/numbers.ts `box()` counts digits only). `__dh.numbersTouching()`.
+- Scenarios that need a later wave step the world in the page (`dh-banner`,
+  `dh-numbers`: `import('/src/sim/world.ts')` then `step`, keys through
+  `__dh.send`, so `replayCheck` holds): the Dell's headless Chrome draws in
+  software (~1 frame a second at High under load).
+- Slot menu (`placement-ui.ts`): `placeNear` also keeps off Hỏa Long's screen
+  box (dais rim, up to 7 m), weighted × 2, and opens outward first.
+- Golden: case `sloppy-hard-off-seed3` (Ẩu bot, Khó, director off, 7 min,
+  4 `release` commands); `GoldenCase.difficulty`, `.director`.
+- `src/sim/world.ts` imports `../kit/platform/rng`; `tests/boundary.test.ts`
+  follows the rules' real import chain into `src/kit` and checks it is pure.
+
+New files and owners: `src/app/{typing-pace,pace-card}.ts`,
+`tests/app/typing-pace.test.ts`, `scripts/visual/scenarios/dh-{pace,banner,slot-menu,numbers}.mjs`
+integrator; `src/view/{banners,number-field}.ts`, `tests/view/number-field.test.ts`
+view-crowd-fx. Other lanes' files changed in round 3 (owners keep them):
+`src/view/{telegraphs,fx}.ts`, `src/ui/placement-ui.ts`, `src/sim/world.ts`
+(import only), `scripts/balance/golden-spec.ts`, `tests/golden/**`.

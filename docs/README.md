@@ -1,7 +1,7 @@
 # Tài liệu Rồng Giữ Ải
 
 Tài liệu thiết kế đầy đủ nằm ở repo cha, thư mục `docs/games/dragon-lane/`
-(`/Users/toandx/htdocs/typing-game/docs/games/dragon-lane`). Thư mục giữ tên cũ
+(từ gốc repo này: `../../docs/games/dragon-lane`). Thư mục giữ tên cũ
 `dragon-lane` tới mốc M1, khi tài liệu chuyển vào `docs/design/` của repo này.
 
 | File | Nội dung |
