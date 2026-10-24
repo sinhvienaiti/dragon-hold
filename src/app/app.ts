@@ -10,6 +10,9 @@
  * entered, which replays to the same hash (step applies input first).
  * The break clock stands still while a learning panel is open (00 §4.5), and
  * the whole sim stands still on focus loss and in the pause menu (06 §2).
+ * The world's typing speed comes from ?wpm= or the speed card before the
+ * first run (typing-pace.ts), never a silent 35; each finished stage updates
+ * the measured profile the card offers next.
  * Owner: integrator (LANES.md).
  */
 import "./app.css";
@@ -20,6 +23,7 @@ import { STAGE_M0 } from "../content/data/stages";
 import { RINGS } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
 import { createLearningBridge } from "../kit/learning";
+import { safeLocalStorage } from "../kit/platform";
 import { setSpeechGate } from "../kit/speech";
 import { mmToU, uToM } from "../sim/fixed";
 import { applyCommand, createWorld, hashWorldHex, runLog, step, type World } from "../sim/world";
@@ -33,6 +37,7 @@ import { el, installSkin, setShown, uiButton } from "../ui/skin";
 import { createTags } from "../ui/tags";
 import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
+import { createBanners, type BannersView } from "../view/banners";
 import { foeDrawnSize } from "../view/foe-look";
 import { createFx, type FxPresenter } from "../view/fx";
 import { createHeroes } from "../view/heroes";
@@ -43,6 +48,8 @@ import type { ActionHandler, FrameInfo, Presenter, Quality, ScreenPoint } from "
 import { createInputRouter, type InputRouter, type KeyPanel } from "./input-router";
 import { createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
+import { createPaceCard } from "./pace-card";
+import { PaceMeter, clampWpm, measuredHeader, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, type PaceHeader } from "./typing-pace";
 
 export interface App {
   dispose(): void;
@@ -53,7 +60,7 @@ export interface AppOptions {
   readonly quality?: Quality;
   readonly seed?: number;
   readonly difficulty?: Difficulty;
-  /** Typist speed E for word lengths and k_E (01 §3.4); 35 until the profile gives one. */
+  /** Typist speed E for word lengths and the pace k (01 §3.4, BALANCE.md §4.1); unset: the speed card asks. */
   readonly typistWpm?: number;
   /** Dev only: world time × speed (rules unchanged, scenarios run a whole stage faster). */
   readonly speed?: number;
@@ -89,7 +96,8 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
     quality: q && QUALITIES.includes(q) ? q : undefined,
     difficulty: d && DIFFICULTIES.includes(d) ? d : undefined,
     seed: num("seed"),
-    typistWpm: num("wpm"),
+    // A whole WPM in 10–120: the world keeps integers only.
+    typistWpm: clampWpm(num("wpm")),
     speed: dev && speed !== undefined ? Math.min(16, Math.max(0.25, speed)) : undefined,
     prelearn: params.get("prelearn") !== "0",
     tagSizePct: num("tagsize"),
@@ -99,6 +107,10 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
 /** What a run owns; rebuilt on retry. */
 interface Run {
   world: World;
+  /** The typing speed the world was built with (replays use it too). */
+  header: PaceHeader;
+  /** Word timings of this run, folded into the measured profile when it ends. */
+  meter: PaceMeter;
   log: { tick: number; command: SimCommand }[];
   presenters: Presenter[];
   /** Its 3D views (actors, telegraphs, bars, effects) and the roots they hung on the stage layers. */
@@ -107,6 +119,7 @@ interface Run {
   actors: ActorsView;
   fx: FxPresenter;
   telegraphs: TelegraphsView;
+  banners: BannersView;
   hud: Hud;
   placement: PlacementUi;
   /** The learning frame: covered while a learning panel asks (its lines would give answers away). */
@@ -140,6 +153,8 @@ export interface DebugHandle {
   replayCheck(): { live: string; replay: string; same: boolean; commands: number };
   perf(): { frames: number; meanMs: number; p95Ms: number; maxMs: number; drawCalls: number; triangles: number; keyLatencyMaxMs: number; keyLatencyMeanMs: number; keys: number };
   numbersOverlaps(): number;
+  /** Pairs of live damage numbers whose drawn boxes touch (view/number-field.ts; must stay 0 after a frame). */
+  numbersTouching(): number;
   setSpeed(speed: number): void;
   send(command: SimCommand): void;
   action(name: string): boolean;
@@ -164,7 +179,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const stage = options.stage ?? STAGE_M0;
   const quality: Quality = options.quality ?? "high";
   const seed = options.seed ?? stage.seed;
-  const typistWpm = options.typistWpm ?? 35;
+  /** The typing speed of the next run: from ?wpm=, else unset until the speed card is answered. */
+  const urlWpm = clampWpm(options.typistWpm);
+  let header: PaceHeader | null = urlWpm === undefined ? null : { typistWpm: urlWpm, source: "url" };
   let speed = options.speed ?? 1;
 
   installSkin(doc);
@@ -211,6 +228,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   setShown(veil, false);
   const countdownNode = el(doc, "div", "dh-countdown", "");
   setShown(countdownNode, false);
+  const paceCard = createPaceCard(overlay);
   const menu = el(doc, "section", "dh-panel dh-pausemenu");
   menu.dataset.dhAvoid = "";
   menu.setAttribute("role", "dialog");
@@ -282,6 +300,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const menuActions: { label: string; run(): void }[] = [
     { label: "Tiếp tục", run: () => closeMenu() },
     { label: "Chơi lại ải", run: () => { closeMenu(); restart(); } },
+    { label: "Tốc độ gõ", run: () => openPaceFromMenu() },
   ];
   for (const [index, item] of menuActions.entries()) {
     const button = uiButton(doc, "dh-pausemenu__item", () => item.run());
@@ -289,6 +308,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     button.addEventListener("pointerenter", () => selectMenu(index));
     menuItems.push(button);
   }
+  /** The menu row that names the speed in use. */
+  const paceItem = menuItems[2]!;
   menu.append(menuTitle, ...menuItems, menuKeys);
   overlay.append(hush, menu, veil, countdownNode);
 
@@ -297,13 +318,43 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     menuItems.forEach((button, k) => button.classList.toggle("is-on", k === menuIndex));
   }
   function openMenu(): void {
-    if (!run || menuOpen) return;
+    if (!run || menuOpen || paceCard.isOpen) return;
     const phase = run.world.phase;
     if (phase === "victory" || phase === "defeat") return;
     menuOpen = true;
+    paceItem.textContent = "Tốc độ gõ: " + paceLabel(run.header);
     selectMenu(0);
     setShown(menu, true);
     loop?.setPaused(true);
+  }
+
+  // ── Typing speed (typing-pace.ts) ──
+  /** Shows the speed card; `back`: Esc returns to the game (from the menu). */
+  function askPace(onPick: (picked: PaceHeader) => void, back?: () => void): void {
+    const { options: rows, selected } = paceOptions(readPaceMemory(safeLocalStorage));
+    paceCard.open(rows, selected, (picked) => {
+      rememberPick(safeLocalStorage, picked);
+      onPick(picked);
+    }, back, run?.header);
+  }
+  /** Pause menu → speed card: a new speed replays the stage with it; the same one goes back to the game. */
+  function openPaceFromMenu(): void {
+    if (!run) return;
+    menuOpen = false;
+    setShown(menu, false);
+    const current = run.header;
+    askPace(
+      (picked) => {
+        if (picked.typistWpm === current.typistWpm && picked.source === current.source && picked.accuracyPm === current.accuracyPm && picked.cvPm === current.cvPm) {
+          startCountdownIfWave();
+          return;
+        }
+        header = picked;
+        restart();
+        run?.hud.toast("Chơi lại ải với tốc độ " + paceLabel(picked));
+      },
+      () => startCountdownIfWave(),
+    );
   }
   function closeMenu(): void {
     if (!menuOpen) return;
@@ -396,8 +447,18 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   canvasHost.addEventListener("pointerup", onCanvasUp);
 
   // ── A run: world and every presenter that reads it ──
+  /** World options of a run at `pace` (E, and a and CV when they were measured). */
+  const worldOptions = (pace: PaceHeader) => ({
+    deck: deck!,
+    typistWpm: pace.typistWpm,
+    ...(pace.accuracyPm === undefined ? {} : { accuracyPm: pace.accuracyPm }),
+    ...(pace.cvPm === undefined ? {} : { cvPm: pace.cvPm }),
+    difficulty: options.difficulty,
+  });
+
   function buildRun(): Run {
-    const world = createWorld(stage, seed, { deck: deck!, typistWpm, difficulty: options.difficulty });
+    const pace = header!;
+    const world = createWorld(stage, seed, worldOptions(pace));
     const layers = map.stage.layers;
     const onStage = (): Object3D[] => [...layers.ground.children, ...layers.actors.children, ...layers.fx.children];
     const before = new Set(onStage());
@@ -405,6 +466,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     heroes.reset();
     heroes.setLocator(actors);
     const telegraphs = createTelegraphs(map.stage, map.terrain, { locator: actors });
+    const banners = createBanners(map.stage, map.terrain, { locator: actors, telegraphs });
     const hpbars = createHpBars(map.stage, { locator: actors, terrain: map.terrain });
     const fx = createFx(map.stage, { locator: actors, terrain: map.terrain, heroes, shake: (px) => map.rig.shake(px) });
     const tags = createTags(overlay!, map.stage.project, {
@@ -439,14 +501,17 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const replay: ActionHandler = { handleAction: (action) => action === "replay" && learning.handleAction("replay") };
     return {
       world,
+      header: pace,
+      meter: new PaceMeter(),
       log: [],
       // actors first: the others read the positions it computes each frame.
-      presenters: [actors, heroes, telegraphs, hpbars, fx, tags, frame, placement, hud, waveCard, strip, results, audio],
-      scene: { presenters: [actors, telegraphs, hpbars, fx], roots: onStage().filter((root) => !before.has(root)) },
+      presenters: [actors, heroes, telegraphs, banners, hpbars, fx, tags, frame, placement, hud, waveCard, strip, results, audio],
+      scene: { presenters: [actors, telegraphs, banners, hpbars, fx], roots: onStage().filter((root) => !before.has(root)) },
       handlers: [results, placement, strip, waveCard, hud, replay, map.rig],
       actors,
       fx,
       telegraphs,
+      banners,
       hud,
       placement,
       frame,
@@ -498,8 +563,17 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   }
 
   // ── Events the app itself follows: Thẻ Ôn, flushes, the hurt edge ──
+  /** A stage ended: its word timings go into the measured profile; a run on the measured speed follows it on retry. */
+  function measureStage(world: World, won: boolean): void {
+    if (!run) return;
+    const safety = won && world.hero.hpMax > 0 ? world.hero.hp / world.hero.hpMax : 0;
+    const measured = recordStage(safeLocalStorage, run.meter.sample(won ? "won" : "lost", world.stats, safety));
+    if (measured !== null && header?.source === "measured") header = measuredHeader(measured);
+  }
+
   function followEvents(events: readonly SimEvent[], now: number): void {
     if (!run) return;
+    run.meter.onEvents(events);
     for (const event of events) {
       switch (event.type) {
         case "wave-end":
@@ -518,6 +592,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         case "victory":
         case "defeat":
           learning.flush();
+          measureStage(run.world, event.type === "victory");
           run.placement.cancel();
           // The results screen owns the keys; an open panel would also freeze world time (telegraph fades).
           if (run.review.isOpen) run.review.handleAction("escape");
@@ -562,6 +637,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   /** Pause overlay, countdown and the pause menu see a press first. */
   const intercept = (event: KeyboardEvent, action: string | null): boolean => {
+    // The speed card takes every press while it is up (letters too: nothing types under it).
+    if (paceCard.isOpen) return paceCard.handleAction(action);
     if (menuOpen) {
       if (action === "escape") closeMenu();
       else if (action === "tilt-up") selectMenu(menuIndex - 1);
@@ -575,7 +652,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     return false;
   };
 
-  const paused = (now: number): boolean => menuOpen || veilMode === "focus" || countdownUntil > now || activePanel() !== null;
+  const paused = (now: number): boolean => menuOpen || paceCard.isOpen || veilMode === "focus" || countdownUntil > now || activePanel() !== null;
 
   // ── Frame ──
   function frame(info: FrameInfo): void {
@@ -627,7 +704,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
     const isPaused = paused(now);
     loop?.setPaused(isPaused);
-    const wantAudioPause = menuOpen || veilMode === "focus";
+    const wantAudioPause = menuOpen || paceCard.isOpen || veilMode === "focus";
     if (wantAudioPause !== audioPaused) {
       audioPaused = wantAudioPause;
       audio.setPaused(wantAudioPause);
@@ -642,7 +719,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     setShown(countdownNode, left > 0);
     if (left > 0) countdownNode.textContent = String(Math.ceil(left / 1000));
     // Words stay hidden while the game stands still for the menu or the 3-2-1; a learning panel covers the frame.
-    const hushed = menuOpen || left > 0;
+    const hushed = menuOpen || paceCard.isOpen || left > 0;
     setShown(hush, hushed);
     overlay!.classList.toggle("is-hushed", hushed);
     run.frame.setCovered(activePanel() !== null);
@@ -668,20 +745,11 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   // ── Boot: deck, world, loop, router ──
   let ready = false;
-  void learning.buildDeck(stage).then((built) => {
-    if (disposed) return;
-    deck = built;
-    notice.remove();
+  /** The first run, once the deck is in and the speed is known. */
+  const begin = (): void => {
+    if (disposed || run) return;
     run = buildRun();
-    router = createInputRouter(view, sink, {
-      intercept,
-      panel: activePanel,
-      locked: () => (run ? run.world.words.lock >= 0 : false),
-      fallback,
-      onImeSign: () => run?.hud.toast("Hãy tắt bộ gõ tiếng Việt để gõ từ tiếng Anh"),
-      now: () => view.performance.now(),
-    });
-    router.handlers.push(...run.handlers);
+    router!.handlers.push(...run.handlers);
     loop = createLoop({ step: () => run && step(run.world), frame, timeScale });
     loop.start();
     if (!doc.hasFocus()) {
@@ -691,6 +759,26 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       setShown(veil, true);
     }
     ready = true;
+  };
+  void learning.buildDeck(stage).then((built) => {
+    if (disposed) return;
+    deck = built;
+    notice.remove();
+    // The router first: the speed card answers to it before there is a run.
+    router = createInputRouter(view, sink, {
+      intercept,
+      panel: activePanel,
+      locked: () => (run ? run.world.words.lock >= 0 : false),
+      fallback,
+      onImeSign: () => (run ? run.hud.toast("Hãy tắt bộ gõ tiếng Việt để gõ từ tiếng Anh") : undefined),
+      now: () => view.performance.now(),
+    });
+    if (header !== null) begin();
+    else
+      askPace((picked) => {
+        header = picked;
+        begin();
+      });
   });
 
   const handle: DebugHandle = {
@@ -700,9 +788,11 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     world: () => run!.world,
     state: () => {
       const world = run?.world;
-      if (!world) return { ready };
+      if (!world) return { ready, paceCard: paceCard.isOpen };
       return {
         ready,
+        pace: { ...run!.header, kPm: world.pace.kPm, marginPm: world.pace.marginPm, graceTicks: world.pace.graceTicks },
+        paceCard: paceCard.isOpen,
         phase: world.phase,
         wave: world.wave,
         tick: world.tick,
@@ -734,6 +824,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         heroBuys: { ...world.shop.heroBuys },
         steps: loop?.steps ?? 0,
         commands: run!.log.length,
+        banners: { carried: run!.banners.carried, planted: run!.banners.planted, named: run!.banners.named },
         layers: { actors: map.stage.layers.actors.children.length, fx: map.stage.layers.fx.children.length, overlay: overlay!.childElementCount },
       };
     },
@@ -773,7 +864,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     hash: () => hashWorldHex(run!.world),
     replayCheck: () => {
       const world = run!.world;
-      const copy = createWorld(stage, seed, { deck: deck!, typistWpm, difficulty: options.difficulty });
+      const copy = createWorld(stage, seed, worldOptions(run!.header));
       runLog(copy, run!.log, world.tick);
       const live = hashWorldHex(world);
       const replay = hashWorldHex(copy);
@@ -797,6 +888,22 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       };
     },
     numbersOverlaps: () => run!.fx.numbers.overlaps(),
+    numbersTouching: () => {
+      const field = run!.fx.numbers;
+      const a = { x: 0, y: 0, w: 0, h: 0 };
+      const b = { x: 0, y: 0, w: 0, h: 0 };
+      let touching = 0;
+      for (let i = 0; i < field.alive.length; i += 1) {
+        if (field.alive[i] !== 1) continue;
+        field.box(i, a);
+        for (let j = i + 1; j < field.alive.length; j += 1) {
+          if (field.alive[j] !== 1) continue;
+          field.box(j, b);
+          if (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y) touching += 1;
+        }
+      }
+      return touching;
+    },
     setSpeed: (value) => {
       if (dev) speed = Math.min(16, Math.max(0.25, value));
     },
@@ -855,6 +962,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       loop?.stop();
       router?.dispose();
       disposeRun();
+      paceCard.dispose();
       heroes.dispose();
       audio.dispose();
       learning.dispose();

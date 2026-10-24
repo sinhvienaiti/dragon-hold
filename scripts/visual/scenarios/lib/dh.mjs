@@ -58,12 +58,17 @@ export async function typeWord(page, word, gapMs = 40) {
   }
 }
 
-/** Opens the game and waits for window.__dh.ready. */
+/**
+ * Opens the game and waits for window.__dh.ready. Without `wpm=` in the query
+ * the game asks for a typing speed first (app/typing-pace.ts): scenarios play
+ * at the reference 35 WPM unless they say otherwise (dh-pace.mjs opens the card).
+ */
 export async function boot(page, query = "", { width, height } = {}) {
   if (width && height) {
     await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: page.dpr ?? 1, mobile: false });
   }
-  await page.goto(BASE + "/" + (query ? "?" + query : ""), { settle: 300 });
+  if (!/(^|&)wpm=/.test(query)) query = query ? query + "&wpm=35" : "wpm=35";
+  await page.goto(BASE + "/" + "?" + query, { settle: 300 });
   for (let wait = 0; wait < 120; wait += 1) {
     const ready = await page.eval("window.__dh?.ready === true");
     if (ready === true) break;

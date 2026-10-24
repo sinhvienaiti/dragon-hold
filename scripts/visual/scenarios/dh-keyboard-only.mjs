@@ -175,8 +175,11 @@ export default async function (page) {
   await press(page, "ArrowDown");
   await press(page, "Tab");
   const replay = await page.eval("window.__dh.replayCheck()");
+  // The finished stage went into the measured profile (app/typing-pace.ts): the next visit's speed card offers it first.
+  const measured = await page.eval("(() => { try { const p = JSON.parse(localStorage.getItem('dragon-hold.skill') ?? 'null'); return p ? { e: Math.round(p.measures.e.value * 10) / 10, words: p.measures.e.n, a: Math.round(p.measures.a.value * 1000) / 1000, cv: Math.round(p.measures.cv.value * 1000) / 1000, stages: p.trend.stages } : null; } catch { return 'unreadable'; } })()");
   return {
     speed: SPEED,
+    measured,
     layout: process.env.LAYOUT ?? "mac",
     seconds: Math.round((Date.now() - t0) / 1000),
     end: { phase: end.phase, wave: end.wave, heroHp: end.heroHp, heroHpMax: end.heroHpMax, gold: end.gold, kills: end.kills, words: end.words, grades: end.grades, keys: end.keys, routerLetters: end.routerLetters, slots: end.slots, held: end.held, heroBuys: end.heroBuys, commands: end.commands },

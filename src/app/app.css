@@ -96,6 +96,78 @@
   color: var(--dh-muted);
 }
 
+/* Speed card (typing-pace.ts): before Học trước, and from the pause menu. */
+.dh-pacecard {
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: min(calc(560px * var(--ui)), calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: calc(20px * var(--ui)) calc(24px * var(--ui));
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--ui));
+  z-index: 43;
+}
+
+.dh-pacecard__title {
+  font: 700 calc(30px * var(--ui)) / 1.1 var(--dh-font-title);
+  color: var(--dh-cream);
+}
+
+.dh-pacecard__lead {
+  font: 500 calc(15px * var(--ui)) / 1.4 var(--dh-font);
+  color: var(--dh-parchment);
+  margin-bottom: calc(4px * var(--ui));
+}
+
+.dh-pacecard__list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--ui));
+}
+
+.dh-pacecard__row {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto max-content 1fr;
+  align-items: center;
+  gap: calc(10px * var(--ui));
+  padding: calc(7px * var(--ui)) calc(12px * var(--ui));
+  border-radius: calc(7px * var(--ui));
+  color: var(--dh-parchment);
+  background: rgba(255, 236, 200, 0.05);
+  box-shadow: inset 0 0 0 calc(1px * var(--ui)) rgba(154, 122, 85, 0.5);
+}
+
+.dh-pacecard__row.is-on {
+  color: var(--dh-cream);
+  background: rgba(134, 168, 97, 0.22);
+  box-shadow: inset 0 0 0 calc(1.5px * var(--ui)) var(--dh-moss-hi);
+}
+
+.dh-pacecard__wpm {
+  min-width: calc(150px * var(--ui));
+  white-space: nowrap;
+  font: 700 calc(18px * var(--ui)) / 1.2 var(--dh-font);
+}
+
+.dh-pacecard__hint {
+  font: 500 calc(14px * var(--ui)) / 1.3 var(--dh-font);
+  color: var(--dh-muted);
+}
+
+.dh-pacecard__row.is-on .dh-pacecard__hint {
+  color: var(--dh-parchment);
+}
+
+.dh-pacecard__keys {
+  font: 500 calc(14px * var(--ui)) / 1.3 var(--dh-font);
+  color: var(--dh-muted);
+}
+
 /* 120 ms dark edge when Hỏa Long is hit (05 §5); never over the centre. */
 .dh-hurt {
   position: absolute;
