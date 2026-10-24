@@ -13,6 +13,14 @@ describe("golden M0", () => {
     expect(readGolden().cases.map((item) => item.name)).toEqual(GOLDEN_CASES.map((item) => item.name));
   });
 
+  it("covers Khó with the director off and Esc (round 2 gate: only Thường, director on, no release)", () => {
+    const cases = readGolden().cases;
+    const hard = cases.find((item) => item.difficulty === "hard" && item.director === false);
+    expect(hard).toBeDefined();
+    // The Ẩu bot lets go after a slip (a wrong key on the locked word), so the replay walks the Esc rule (01 §3.3).
+    expect(hard!.log.filter(([, command]) => command.type === "release").length).toBeGreaterThanOrEqual(3);
+  });
+
   const file = existsSync(GOLDEN_PATH) ? readGolden() : { stage: "", deck: [], cases: [] };
   for (const stored of file.cases) {
     it("replays " + stored.name + " to its stored hashes", () => {
