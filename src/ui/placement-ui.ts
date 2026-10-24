@@ -12,7 +12,7 @@
  */
 import type { ActionHandler, CommandSink, FrameInfo, Presenter, Projector, ScreenPoint } from "../app/contracts";
 import { HOUSES, TRAPS, UNITS } from "../content/data/our-side";
-import { BLOCK } from "../content/rules";
+import { BLOCK, RINGS } from "../content/rules";
 import type { MapDef, PlaceableId, SimEvent, SlotDef, SlotKind, UpgradeDef, Vec2 } from "../content/types";
 import { MAX_LEVEL, canPlace as simCanPlace, sellRefund as simSellRefund, suggestedSlots as simSuggestedSlots, upgradePrice, type PlaceCheck } from "../sim/placement";
 import type { World } from "../sim/world";
@@ -55,6 +55,10 @@ export function upgradeCost(item: PlaceableId, level: number): number | null {
 export function sellRefund(world: World, index: number): number {
   return simSellRefund(world, index);
 }
+
+/** The Dragon's keep-out on screen: the dais rim (RINGS.daisMm) and up to Hỏa Long's head (2.5 m hover, 05 §6.1). */
+const DAIS_KEEP_RADIUS_M = RINGS.daisMm / 1000;
+const DAIS_KEEP_TOP_M = 7;
 
 /** Building, upgrading and selling happen in prep and breaks (03 §0.1 rule 6; quick place from C6 is not in M0). */
 export const buildPhase = (phase: World["phase"]): boolean => phase === "prep" || phase === "break";
@@ -414,7 +418,32 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
 
   const kindIcon: Readonly<Record<SlotKind, string>> = { trap: "bar", house: "rune", block: "flag" };
 
-  /** Puts a floating panel next to a screen point, clear of HUD panels (`data-keepout`) and inside the viewport. */
+  const daisPoint: ScreenPoint = { x: 0, y: 0, visible: false };
+  /**
+   * Hỏa Long on the dais, on screen: the box round the dais rim and the Dragon
+   * hovering over it (2.5 m up, head about 7 m). A slot menu must not cover it
+   * (round 2 gate: at 1080p the menu of a slot by the dais hid the Dragon).
+   */
+  const daisRect = (): { left: number; top: number; right: number; bottom: number } | null => {
+    const r = DAIS_KEEP_RADIUS_M;
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const [px, pz] of [[r, 0], [-r, 0], [0, r], [0, -r]] as const) {
+      for (const py of [0, DAIS_KEEP_TOP_M]) {
+        project(px, py, pz, daisPoint);
+        if (!Number.isFinite(daisPoint.x) || !Number.isFinite(daisPoint.y)) continue;
+        left = Math.min(left, daisPoint.x);
+        right = Math.max(right, daisPoint.x);
+        top = Math.min(top, daisPoint.y);
+        bottom = Math.max(bottom, daisPoint.y);
+      }
+    }
+    return right > left && bottom > top ? { left, top, right, bottom } : null;
+  };
+
+  /** Puts a floating panel next to a screen point, clear of HUD panels (`data-keepout`), the Dragon and inside the viewport. */
   const placeNear = (node: HTMLElement, x: number, y: number, prefer: "above" | "below"): void => {
     const view = doc.defaultView;
     if (!view) return;
@@ -423,11 +452,17 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
     const h = node.offsetHeight;
     const gap = 24 * ui;
     const keep = [...root.querySelectorAll<HTMLElement>("[data-keepout]")].filter((panel) => !panel.hidden && panel.offsetParent !== null).map((panel) => panel.getBoundingClientRect());
+    const dais = daisRect();
     const above = { left: x - w / 2, top: y - gap - h };
     const below = { left: x - w / 2, top: y + gap };
-    const spots = prefer === "above"
-      ? [above, below, { left: x + gap, top: y - h / 2 }, { left: x - gap - w, top: y - h / 2 }]
-      : [below, above, { left: x + gap, top: y - h / 2 }, { left: x - gap - w, top: y - h / 2 }];
+    const toRight = { left: x + gap, top: y - h / 2 };
+    const toLeft = { left: x - gap - w, top: y - h / 2 };
+    // Beside the slot on the side away from the dais first, so a slot next to the Dragon opens outward.
+    const outward = dais !== null && x < (dais.left + dais.right) / 2;
+    const spots = prefer === "above" ? [above, below] : [below, above];
+    spots.push(...(outward ? [toLeft, toRight] : [toRight, toLeft]));
+    // Last resorts: a step further out on the outward side, or further down.
+    spots.push({ left: outward ? toLeft.left - w / 2 : toRight.left + w / 2, top: y - h / 2 }, { left: x - w / 2, top: y + gap + h / 2 });
     const margin = 8;
     let best = spots[0]!;
     let bestCost = Infinity;
@@ -439,6 +474,12 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         const ox = Math.max(0, Math.min(left + w, r.right) - Math.max(left, r.left));
         const oy = Math.max(0, Math.min(top + h, r.bottom) - Math.max(top, r.top));
         cost += ox * oy;
+      }
+      if (dais !== null) {
+        // Covering the Dragon weighs double a HUD panel.
+        const ox = Math.max(0, Math.min(left + w, dais.right) - Math.max(left, dais.left));
+        const oy = Math.max(0, Math.min(top + h, dais.bottom) - Math.max(top, dais.top));
+        cost += 2 * ox * oy;
       }
       // Covering the slot itself is worse than a small overlap.
       if (x > left && x < left + w && y > top && y < top + h) cost += w * h;
