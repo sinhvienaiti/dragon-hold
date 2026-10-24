@@ -82,4 +82,19 @@ describe("typing pace", () => {
     expect(header.accuracyPm).toBe(930);
     expect(options).toHaveLength(PACE_PRESETS.length + 1);
   });
+
+  it("keeps the presets on keys 1–7 before and after a measured stage; the measured row is key 0", () => {
+    const storage = memoryStorage();
+    const presetKeys = PACE_PRESETS.map((_, index) => index + 1);
+    const before = paceOptions(readPaceMemory(storage)).options;
+    expect(before.map((option) => option.key)).toEqual(presetKeys);
+    const meter = new PaceMeter();
+    meter.onEvents(typedWords(25, 40));
+    recordStage(storage, meter.sample("lost", { keys: 200, wrongKeys: 10, strayKeys: 0 }, 0));
+    const after = paceOptions(readPaceMemory(storage)).options;
+    expect(after[0]!.header.source).toBe("measured");
+    expect(after.map((option) => option.key)).toEqual([0, ...presetKeys]);
+    // "35 WPM is key 5" holds either way (B9 steps).
+    for (const list of [before, after]) expect(list.find((option) => option.key === 5)!.header).toEqual({ typistWpm: 35, source: "pick" });
+  });
 });

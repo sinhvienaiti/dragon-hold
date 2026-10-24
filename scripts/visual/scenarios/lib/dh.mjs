@@ -96,6 +96,103 @@ export async function waitFor(page, predicate, { timeoutMs = 60000, everyMs = 20
 export const badResources = (page) =>
   page.eval("performance.getEntriesByType('resource').filter((r) => (r.responseStatus ?? 200) >= 400).map((r) => r.name + ' ' + r.responseStatus)");
 
+/**
+ * In-page check of the damage numbers as drawn, not as boxed (review 2 minor 2):
+ * NumberField.box() both spaces the numbers and judges __dh.numbersTouching(),
+ * so a box narrower than the drawing passes its own test. This reads what
+ * NumberSprites last uploaded for the GPU (`iRect`, `iUv`: one quad per glyph,
+ * one for the "HOÀN HẢO" label, grouped per live number in write() order) and
+ * the ink inside each quad from the glyph atlas canvas (alpha ≥ 0.1, the dark
+ * outline included; a glyph's ink bounding box, so a slight over-count).
+ * Installs `window.__dhInk()`: live numbers, number pairs whose ink boxes
+ * overlap, the smallest ink gap between two numbers (px, < 0 overlap), and
+ * how far ink reaches outside each number's box() (left, right, top, bottom).
+ * Call it right after a frame (the field is then as last drawn).
+ */
+export const INSTALL_INK_CHECK = `(() => {
+  if (window.__dhInk) return true;
+  const ALPHA = 26;
+  const cache = new Map();
+  let atlas = null; let pixels = null; let pw = 0; let ph = 0;
+  const readAtlas = (canvas) => {
+    if (canvas === atlas && pixels !== null) return;
+    pw = canvas.width; ph = canvas.height;
+    pixels = canvas.getContext('2d').getImageData(0, 0, pw, ph).data;
+    atlas = canvas; cache.clear();
+  };
+  const inkIn = (u0, v0, u1, v1) => {
+    const x0 = Math.round(u0 * pw); const x1 = Math.round(u1 * pw); const y0 = Math.round(v0 * ph); const y1 = Math.round(v1 * ph);
+    const key = x0 + ',' + y0 + ',' + x1 + ',' + y1;
+    if (cache.has(key)) return cache.get(key);
+    let a = Infinity; let b = -Infinity; let c = Infinity; let d = -Infinity;
+    for (let y = y0; y < y1; y += 1) for (let x = x0; x < x1; x += 1) {
+      if (pixels[(y * pw + x) * 4 + 3] < ALPHA) continue;
+      if (x < a) a = x; if (x > b) b = x; if (y < c) c = y; if (y > d) d = y;
+    }
+    const out = a === Infinity ? null : { fx0: (a - x0) / (x1 - x0), fx1: (b + 1 - x0) / (x1 - x0), fy0: (c - y0) / (y1 - y0), fy1: (d + 1 - y0) / (y1 - y0) };
+    cache.set(key, out);
+    return out;
+  };
+  const r1 = (v) => Math.round(v * 10) / 10;
+  window.__dhInk = () => {
+    const layer = window.__dh.numberLayer();
+    const field = layer ? layer.numbers : null;
+    const sprites = layer ? layer.sprites : null;
+    const empty = { numbers: field ? field.live : 0, perfect: 0, quads: 0, consistent: true, dropped: field ? field.dropped : 0, pairsTouching: 0, inkPairsOverlap: 0, minGapPx: null, outsideBox: 0, outsidePx: { left: 0, right: 0, top: 0, bottom: 0 }, outsideByGlyph: {}, examples: [], bounds: null };
+    if (!field || field.live === 0 || !sprites) return empty;
+    const mesh = sprites.mesh; const geo = mesh.geometry;
+    readAtlas(mesh.material.uniforms.uAtlas.value.image);
+    const n = geo.instanceCount; const R = geo.attributes.iRect.array; const U = geo.attributes.iUv.array;
+    const nums = []; let q = 0;
+    const box = { x: 0, y: 0, w: 0, h: 0 };
+    for (let i = 0; i < field.alive.length; i += 1) {
+      if (field.alive[i] === 0) continue;
+      const perfect = field.style[i] === 2;
+      const text = field.text(i);
+      const count = text.length + (perfect ? 1 : 0);
+      const inks = [];
+      for (let c = 0; c < count && q < n; c += 1, q += 1) {
+        const o = q * 4; const k = inkIn(U[o], U[o + 1], U[o + 2], U[o + 3]);
+        if (k === null) continue;
+        inks.push({ glyph: c < text.length ? text[c] : 'label', x: R[o] + k.fx0 * R[o + 2], y: R[o + 1] + k.fy0 * R[o + 3], w: (k.fx1 - k.fx0) * R[o + 2], h: (k.fy1 - k.fy0) * R[o + 3] });
+      }
+      field.box(i, box);
+      nums.push({ text: field.text(i) + (perfect ? '*' : ''), perfect, inks, box: { x: box.x, y: box.y, w: box.w, h: box.h } });
+    }
+    let pairsTouching = 0; let inkPairsOverlap = 0; let minGap = Infinity; const examples = [];
+    for (let a = 0; a < nums.length; a += 1) for (let b = a + 1; b < nums.length; b += 1) {
+      let touch = false;
+      for (const p of nums[a].inks) for (const r of nums[b].inks) {
+        const gap = Math.max(r.x - (p.x + p.w), p.x - (r.x + r.w), r.y - (p.y + p.h), p.y - (r.y + r.h));
+        if (gap < minGap) minGap = gap;
+        if (gap < 0) { inkPairsOverlap += 1; touch = true; }
+      }
+      if (touch) { pairsTouching += 1; if (examples.length < 4) examples.push(nums[a].text + ' / ' + nums[b].text); }
+    }
+    const out = { left: 0, right: 0, top: 0, bottom: 0 }; let outsideBox = 0; const outsideByGlyph = {};
+    let bx0 = Infinity; let by0 = Infinity; let bx1 = -Infinity; let by1 = -Infinity;
+    for (const m of nums) {
+      let worst = 0;
+      for (const r of m.inks) {
+        const l = m.box.x - r.x; const rt = r.x + r.w - (m.box.x + m.box.w); const t = m.box.y - r.y; const bt = r.y + r.h - (m.box.y + m.box.h);
+        out.left = Math.max(out.left, l); out.right = Math.max(out.right, rt); out.top = Math.max(out.top, t); out.bottom = Math.max(out.bottom, bt);
+        const most = Math.max(l, rt, t, bt);
+        if (most > 0.5) outsideByGlyph[r.glyph] = Math.max(outsideByGlyph[r.glyph] ?? 0, r1(most));
+        worst = Math.max(worst, most);
+        bx0 = Math.min(bx0, r.x); by0 = Math.min(by0, r.y); bx1 = Math.max(bx1, r.x + r.w); by1 = Math.max(by1, r.y + r.h);
+      }
+      if (worst > 0.5) outsideBox += 1;
+    }
+    return {
+      numbers: nums.length, perfect: nums.filter((m) => m.perfect).length, quads: n, consistent: q === n, dropped: field.dropped,
+      pairsTouching, inkPairsOverlap, minGapPx: minGap === Infinity ? null : r1(minGap), outsideBox,
+      outsidePx: { left: r1(out.left), right: r1(out.right), top: r1(out.top), bottom: r1(out.bottom) }, outsideByGlyph, examples,
+      bounds: bx0 === Infinity ? null : { x: Math.floor(bx0), y: Math.floor(by0), w: Math.ceil(bx1 - bx0), h: Math.ceil(by1 - by0) },
+    };
+  };
+  return true;
+})()`;
+
 /** Closes Học trước with Escape presses if it is open. */
 export async function skipPrelearn(page) {
   for (let k = 0; k < 12; k += 1) {

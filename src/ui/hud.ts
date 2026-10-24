@@ -206,6 +206,9 @@ export interface Hud extends Presenter, ActionHandler {
   toast(text: string): void;
 }
 
+/** Room between the toast and the carry strip's top edge (CSS px). */
+const TOAST_GAP_PX = 8;
+
 interface SlotNodes {
   readonly button: HTMLButtonElement;
   readonly cool: HTMLElement;
@@ -340,13 +343,35 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   const toastNode = el(doc, "div", "dh-toast");
   toastNode.setAttribute("role", "status");
   let toastTimer = 0;
+  let toastOn = false;
+  /**
+   * The toast stands TOAST_GAP_PX above the carry strip's top edge, as laid
+   * out now: the strip folds in a wave, grows with the 11 px font floor at
+   * 720p and a two-line hint, so a fixed offset put the toast over its head
+   * and key hint (review 2). No strip (hidden, or a page without one): the
+   * CSS offsets apply.
+   */
+  const placeToast = (): void => {
+    const strip = root.querySelector<HTMLElement>('[data-ui="shop-strip"]');
+    const box = strip !== null && strip.closest("[hidden]") === null ? strip.getBoundingClientRect() : null;
+    if (box === null || box.height === 0) {
+      toastNode.style.removeProperty("bottom");
+      return;
+    }
+    toastNode.style.bottom = Math.round(hud.getBoundingClientRect().bottom - box.top + TOAST_GAP_PX) + "px";
+  };
   const toast = (text: string): void => {
     setText(toastNode, text);
     setClass(toastNode, "is-on", true);
+    toastOn = true;
+    placeToast();
     const view = doc.defaultView;
     if (!view) return;
     view.clearTimeout(toastTimer);
-    toastTimer = view.setTimeout(() => setClass(toastNode, "is-on", false), 1800);
+    toastTimer = view.setTimeout(() => {
+      toastOn = false;
+      setClass(toastNode, "is-on", false);
+    }, 1800);
   };
 
   hud.append(battle, system, dragons, toastNode);
@@ -403,8 +428,9 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     else line = "Bệ Rồng thất thủ";
     if (phaseLine.innerHTML !== line) phaseLine.innerHTML = line;
 
-    // The toast sits just above the strip, which folds outside prep and breaks.
+    // The toast sits just above the strip, which folds outside prep and breaks (CSS fallback; placeToast measures).
     setClass(toastNode, "is-low", phase !== "prep" && phase !== "break");
+    if (toastOn) placeToast();
 
     // Hỏa Long.
     const hpFrac = hero.hpMax > 0 ? Math.max(0, Math.min(1, hero.hp / hero.hpMax)) : 0;

@@ -34,6 +34,8 @@ export interface PaceHeader {
 }
 
 export interface PaceOption {
+  /** The digit that picks the row: 0 for the measured speed, 1–7 for the presets, the same with or without a measurement. */
+  readonly key: number;
   readonly label: string;
   readonly hint: string;
   readonly header: PaceHeader;
@@ -109,19 +111,24 @@ export function measuredHeader(measured: MeasuredPace): PaceHeader {
 
 const percent = (value: number): string => String(Math.round(value * 100));
 
-/** The card's rows (the measured speed first when there is one) and the row to preselect. */
+/**
+ * The card's rows (the measured speed first when there is one, on key 0) and
+ * the row to preselect. Presets keep keys 1–7 either way, so "35 is key 5"
+ * holds before and after the first measured stage (review 2 minor 4).
+ */
 export function paceOptions(memory: PaceMemory): { options: PaceOption[]; selected: number } {
   const options: PaceOption[] = [];
   if (memory.measured !== null) {
     const header = measuredHeader(memory.measured);
     const stages = memory.measured.stages;
     options.push({
+      key: 0,
       label: "Số đo: " + header.typistWpm + " WPM",
       hint: "Đúng " + percent(memory.measured.a) + " % phím" + (stages > 0 ? ", đo qua " + stages + " ải" : ""),
       header,
     });
   }
-  for (const preset of PACE_PRESETS) options.push({ label: preset.wpm + " WPM", hint: preset.hint, header: { typistWpm: preset.wpm, source: "pick" } });
+  PACE_PRESETS.forEach((preset, index) => options.push({ key: index + 1, label: preset.wpm + " WPM", hint: preset.hint, header: { typistWpm: preset.wpm, source: "pick" } }));
   let selected = 0;
   if (memory.measured === null) {
     const want = memory.lastPick ?? TEMPO.refWpm;

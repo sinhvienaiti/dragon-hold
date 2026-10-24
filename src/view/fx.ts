@@ -1010,6 +1010,8 @@ export interface FxPresenter extends Presenter {
   readonly trauma: Trauma;
   /** The UI publishes rectangles numbers must not cover (learning frame, tags, boss bar). */
   readonly numbers: NumberField;
+  /** The quads the numbers were last drawn with (null before the first number): scenarios read them, never box(). */
+  readonly sprites: NumberSprites | null;
 }
 
 /** Grade → strong bolt (teal head, Attack_Both): Chớp and Hoàn hảo (05 §6). */
@@ -1064,6 +1066,9 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     hitStop,
     trauma,
     numbers,
+    get sprites() {
+      return sprites;
+    },
 
     timeScale(now: number): number {
       return hitStop.scale(now);

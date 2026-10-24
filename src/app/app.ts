@@ -155,6 +155,8 @@ export interface DebugHandle {
   numbersOverlaps(): number;
   /** Pairs of live damage numbers whose drawn boxes touch (view/number-field.ts; must stay 0 after a frame). */
   numbersTouching(): number;
+  /** The number field and the sprites that drew it last frame (dh-numbers-drawn reads the drawn quads and the atlas). */
+  numberLayer(): Pick<FxPresenter, "numbers" | "sprites"> | null;
   setSpeed(speed: number): void;
   send(command: SimCommand): void;
   action(name: string): boolean;
@@ -638,7 +640,11 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   /** Pause overlay, countdown and the pause menu see a press first. */
   const intercept = (event: KeyboardEvent, action: string | null): boolean => {
     // The speed card takes every press while it is up (letters too: nothing types under it).
-    if (paceCard.isOpen) return paceCard.handleAction(action);
+    // A bare Digit 0 has no KEYS action; on the card it picks the measured row.
+    if (paceCard.isOpen) {
+      const bare = !event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey;
+      return paceCard.handleAction(action ?? (bare && event.code === "Digit0" ? "carry-0" : null));
+    }
     if (menuOpen) {
       if (action === "escape") closeMenu();
       else if (action === "tilt-up") selectMenu(menuIndex - 1);
@@ -904,6 +910,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       }
       return touching;
     },
+    numberLayer: () => (run ? run.fx : null),
     setSpeed: (value) => {
       if (dev) speed = Math.min(16, Math.max(0.25, value));
     },

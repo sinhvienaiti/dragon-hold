@@ -1,8 +1,9 @@
 /**
  * The speed card (typing-pace.ts): asks how fast the player types before the
  * first run, and again from the pause menu. Rows are the measured speed (when
- * there is one) and the presets; 1–8 pick a row, ↑ ↓ move, Enter picks, a
- * click picks, Esc goes back when the card was opened from the menu.
+ * there is one, key 0) and the presets (keys 1–7, stable); a row's digit picks
+ * it, ↑ ↓ move, Enter picks, a click picks, Esc goes back when the card was
+ * opened from the menu. The app hands Digit 0 in as "carry-0" (KEYS binds 1–9 only).
  * Owner: integrator (LANES.md).
  */
 import { el, setShown, uiButton } from "../ui/skin";
@@ -73,8 +74,9 @@ export function createPaceCard(root: HTMLElement): PaceCard {
         row.dataset.wpm = String(option.header.typistWpm);
         row.dataset.source = option.header.source;
         const now = current !== undefined && current.typistWpm === option.header.typistWpm && current.source === option.header.source;
+        row.dataset.key = String(option.key);
         row.append(
-          el(doc, "span", "dh-key", k < 9 ? String(k + 1) : ""),
+          el(doc, "span", "dh-key", String(option.key)),
           el(doc, "span", "dh-pacecard__wpm", option.label),
           el(doc, "span", "dh-pacecard__hint", option.hint + (now ? " · đang dùng" : "")),
         );
@@ -82,7 +84,8 @@ export function createPaceCard(root: HTMLElement): PaceCard {
         return row;
       });
       list.replaceChildren(...rows);
-      keys.textContent = "Phím 1–" + Math.min(9, rows.length) + " chọn · ↑ ↓ rồi Enter" + (back ? " · Esc quay lại" : "");
+      const digits = options.map((option) => option.key);
+      keys.textContent = "Phím " + Math.min(...digits) + "–" + Math.max(...digits) + " chọn · ↑ ↓ rồi Enter" + (back ? " · Esc quay lại" : "");
       open = true;
       setShown(card, true);
       select(selected);
@@ -99,8 +102,9 @@ export function createPaceCard(root: HTMLElement): PaceCard {
           done();
         }
       } else if (action !== null && action.startsWith("carry-")) {
-        const k = Number(action.slice(6)) - 1;
-        if (k >= 0 && k < rows.length) choose(k);
+        const digit = Number(action.slice(6));
+        const k = items.findIndex((item) => item.key === digit);
+        if (k >= 0) choose(k);
       }
       return true;
     },

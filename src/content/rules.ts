@@ -142,11 +142,16 @@ export const PACE = {
   approachMinWords: 2,
   /**
    * Slip margin (BALANCE.md §2 factor 3 "Thói sửa lỗi → biên thời gian"): T_a
-   * and Héo lan's grace × (1 + this / 10 × the chance a word goes Ẩu at the
-   * player's accuracy): 85 % → × 1.45, 95 % → × 1.04, 99 % → × 1.00.
+   * and Héo lan's grace × margin, margin = 1 + this / 10 × P(a word of ℓ̄
+   * letters goes Ẩu at the player's accuracy) + the uneven part below
+   * (world.ts paceFor, `marginPm`). ℓ̄ follows E (5 letters under 45 WPM, 6
+   * from 45): the slip part is + 0.50 / + 0.67 at 85 %, + 0.07 / + 0.10 at
+   * 95 %, + 0.00 at 99 %. Whole margins: 95 %, CV 0.25 → 1.219 / 1.249 (the
+   * default profile; dh-pace reads 1219 at 25 WPM); 85 %, CV 0.35 → 1.705 /
+   * 1.882; 99 %, CV 0.20 → 1.123.
    */
   sloppyMarginX10: 30,
-  /** Uneven margin (BALANCE.md §2 factor 4): T_a and the grace × (1 + this % × CV): CV 0.35 → × 1.21, 0.15 → × 1.09. */
+  /** Uneven margin (BALANCE.md §2 factor 4): this % × CV added to the margin above: CV 0.35 → + 0.21, 0.25 → + 0.15, 0.15 → + 0.09. */
   unevenMarginPct: 60,
 } as const;
 
