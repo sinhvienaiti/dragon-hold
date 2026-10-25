@@ -279,7 +279,8 @@ export class NumberField {
   /**
    * Numbers that grew (a longer label) or drifted onto each other: the
    * younger merges into the older (same style, both below T3), else it moves
-   * above it, or is dropped if that puts it on a protected rectangle. One
+   * above it, or is dropped if that puts it on a protected rectangle or past
+   * the top edge (where spawn() would not place it either). One
    * pass can lift a number onto one it has already passed, so passes run
    * until one finds no two boxes touching, at most SETTLE_PASSES (dragon-hold
    * round 3: with one pass, storm numbers overlapped in 8–11 of ~2,770 frames
@@ -308,8 +309,8 @@ export class NumberField {
           const top = older === i ? a.y : b.y;
           const bottom = younger === i ? a.y + a.h : b.y + b.h;
           this.y[younger] = this.y[younger]! - (bottom - top) - 2;
-          // Lifted onto a protected rectangle (a word tag above): dropped, as one that drifts into one.
-          if (this.covers(this.box(younger, SCRATCH)) !== null) {
+          // Lifted onto a protected rectangle (a word tag above) or past the top edge: dropped, where spawn() would not place it.
+          if (this.covers(this.box(younger, SCRATCH)) !== null || SCRATCH.y < 0) {
             this.kill(younger);
             this.dropped += 1;
           }
