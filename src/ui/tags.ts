@@ -200,9 +200,9 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
             for (const dx of pushes) {
               const rect = at(size, dx, row);
               if (!free(rect)) continue;
-              const share = hides(rect);
-              if (share < least) {
-                least = share;
+              const most = hides(rect);
+              if (most < least) {
+                least = most;
                 best = { size, dx, row };
               }
             }
