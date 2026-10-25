@@ -104,7 +104,13 @@ const overlaps = (a: Rect, b: Rect, gap: number): boolean =>
  * With `bodies` (round 2), a tag first looks for a spot in the same pushes
  * and rows that leaves the other foes' bodies and the live enemy warnings
  * visible (a crowd held at a bridge head stays readable, a wind-up is never
- * hidden); only when none is free does it sit over them.
+ * hidden); only when none is free does it sit over them, then on the free
+ * spot that hides the least of any one body (its last spot unless another
+ * hides clearly less; until 25/10 the first free spot, so a wordless foe
+ * behind a bridge-head crowd stood 83 % under a tag kept at its ideal spot,
+ * dh-crowd 720p seed 5). What a tag hides of a body counts what the tags
+ * placed before it hide there: tags never overlap, so the shares add up to
+ * what the player sees (two tags at 20 % each hid 42 % of an archer, 1080p).
  * A tag inside its hold keeps its spot either way (no jumping).
  */
 export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): TagPlace[] {
@@ -117,7 +123,18 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
   const avoid = options.avoid ?? [];
   const bodies = options.bodies ?? [];
   const bodyCover = options.bodyCover ?? 0.2;
-  const near: BodyRect[] = [];
+  /** Over bodies, a tag leaves its last spot only for one hiding at least this much less of a body. */
+  const bodyStay = 0.1;
+  /** Indices of the bodies near the tag being placed. */
+  const near: number[] = [];
+  /** Share of each body the tags placed so far hide (they never overlap, so shares add). */
+  const hidden = new Float64Array(bodies.length);
+  const share = (rect: Rect, body: Rect): number => {
+    const ix = Math.min(rect.x + rect.w, body.x + body.w) - Math.max(rect.x, body.x);
+    if (ix <= 0) return 0;
+    const iy = Math.min(rect.y + rect.h, body.y + body.h) - Math.max(rect.y, body.y);
+    return iy > 0 ? (ix * iy) / (body.w * body.h) : 0;
+  };
   const placed: Rect[] = [];
   const out: TagPlace[] = [];
   const order = [...boxes].sort((a, b) => b.priority - a.priority || a.id - b.id);
@@ -147,17 +164,18 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
     near.length = 0;
     if (bodies.length > 0 && box.clearBodies !== false) {
       const reach: Rect = { x: box.ax - box.w / 2 - maxPush, y: box.ay - box.h - maxRows * rowStep, w: box.w + 2 * maxPush, h: box.h + maxRows * rowStep };
-      for (const body of bodies) if (body.owner !== box.id && overlaps(reach, body, 0)) near.push(body);
+      for (let i = 0; i < bodies.length; i += 1) if (bodies[i]!.owner !== box.id && overlaps(reach, bodies[i]!, 0)) near.push(i);
     }
-    const clear = (rect: Rect): boolean => {
-      for (const body of near) {
-        const ix = Math.min(rect.x + rect.w, body.x + body.w) - Math.max(rect.x, body.x);
-        if (ix <= 0) continue;
-        const iy = Math.min(rect.y + rect.h, body.y + body.h) - Math.max(rect.y, body.y);
-        if (iy > 0 && ix * iy > bodyCover * body.w * body.h) return false;
+    /** The largest share of one near body hidden once the rect is placed (with the tags placed before it), of the bodies it touches. */
+    const hides = (rect: Rect): number => {
+      let most = 0;
+      for (const i of near) {
+        const part = share(rect, bodies[i]!);
+        if (part > 0) most = Math.max(most, hidden[i]! + part);
       }
-      return true;
+      return most;
     };
+    const clear = (rect: Rect): boolean => hides(rect) <= bodyCover;
     let found: TagPlace | null = null;
     const accept = (size: { w: number; h: number; shrunk: boolean }, dx: number, row: number, needClear = false): boolean => {
       const rect = at(size, dx, row);
@@ -173,7 +191,29 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
       for (let row = 0; row <= maxRows && found === null; row += 1) {
         for (const dx of pushes) if (found === null) accept(sizes[0]!, dx, row, true);
       }
-      if (found === null && box.prev) accept(prevSize, box.prev.dx, box.prev.row);
+      if (found === null) {
+        // None: the free spot hiding the least of any one body (ties: nearest, full size first), the last spot unless clearly worse.
+        let best: { size: (typeof sizes)[number]; dx: number; row: number } | null = null;
+        let least = Infinity;
+        for (const size of sizes) {
+          for (let row = 0; row <= maxRows; row += 1) {
+            for (const dx of pushes) {
+              const rect = at(size, dx, row);
+              if (!free(rect)) continue;
+              const share = hides(rect);
+              if (share < least) {
+                least = share;
+                best = { size, dx, row };
+              }
+            }
+          }
+        }
+        if (box.prev) {
+          const rect = at(prevSize, box.prev.dx, box.prev.row);
+          if (free(rect) && hides(rect) <= least + bodyStay) accept(prevSize, box.prev.dx, box.prev.row);
+        }
+        if (found === null && best !== null) accept(best.size, best.dx, best.row);
+      }
     }
     for (const size of sizes) {
       for (let row = 0; row <= maxRows && found === null; row += 1) {
@@ -198,6 +238,7 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
     if (found === null) found = { id: box.id, ...at(sizes[1]!, 0, maxRows), dx: 0, row: maxRows, shrunk: true, leader: true };
     placed.push(found);
     out.push(found);
+    for (let i = 0; i < bodies.length; i += 1) hidden[i] = hidden[i]! + share(found, bodies[i]!);
   }
   return out;
 }
