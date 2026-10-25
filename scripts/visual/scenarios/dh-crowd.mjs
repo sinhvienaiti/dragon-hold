@@ -14,6 +14,13 @@
 // reaches three crowds. `ok`: three measurements, each with mean cover ≤ 20 %
 // and no foe ≥ 40 %, Thiên Hỏa cast, no page exception; `worst` lists each
 // measurement's most covered foes with their screen boxes.
+// Frames (26/10): three pictures catch a short cover only by luck (seed 1
+// 720p: 83 % at measurement 2 in one run, 3 % in the next), so from wave 3 a
+// monitor also checks every drawn frame after the game's own (`frames`: frames
+// with a foe ≥ 30 % and ≥ 40 %, the streaks of the latter, the first frame of
+// each with the tags over that foe). `ok` also needs no streak of a foe ≥ 40 %
+// longer than 6 frames (0.1 s at 60 Hz): a tag held over a foe that walked in
+// under it showed as 8–28 frames.
 // GUARD (round 3, default 0 = off): below GUARD % Dragon HP the bot types every
 // word, as dh-scale's does (with GUARD=50 the crowd never formed in 60 s).
 // Pictures: tmp/shots/readability/ (OUT_DIR overrides).
@@ -64,41 +71,78 @@ const CROWD = `(() => {
   return { wave: w.wave, phase: w.phase, best, at, live: list.length, hp: d.state().heroHp, heals: window.__heals ?? 0 };
 })()`;
 
-/** How much of each drawn foe body (outside the 10 m ring) the word tags cover, sampled on a 6 × 6 grid. */
-const COVER = `(async () => {
+/** Installs window.__dhCover(): how much of each drawn foe body (outside the 10 m ring) the word tags cover, sampled on a 6 × 6 grid. */
+const INSTALL_COVER = `(async () => {
   const look = await import('/src/view/foe-look.ts');
-  const d = window.__dh; const w = d.world(); const m = 60000;
-  const tags = [...document.querySelectorAll('.dh-tag')].filter((e) => Number(getComputedStyle(e).opacity) > 0.5 && !e.classList.contains('is-chip')).map((e) => e.querySelector('.dh-tag__body').getBoundingClientRect());
-  const foes = [];
-  const seenCluster = new Set();
-  for (const e of w.enemies.list) {
-    if (!e.alive) continue;
-    let x = e.x / m; let z = e.z / m;
-    if (Math.hypot(x, z) < 10) continue;
-    const fl = look.foeDrawLook(e.foe);
-    const [sw, sh, sl] = look.foeDrawnSize(e.foe);
-    const lift = Math.max(e.y / m, fl.placeholder.hoverM);
-    let r = Math.max(sw, sl) / 2;
-    // A swarm counts once, as its drawn ring (the bodies are spread round it in the view).
-    const ring = e.cluster >= 0 && fl.gait === 'swarm' ? look.drawnClusters.get(e.cluster) : undefined;
-    if (ring) { if (seenCluster.has(e.cluster)) continue; seenCluster.add(e.cluster); x = ring.x; z = ring.z; r = ring.radius; }
-    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; let ok = true;
-    for (const dy of [lift, lift + sh]) for (const dx of [-r, r]) for (const dz of [-r, r]) {
-      const p = d.project(x + dx, dy, z + dz);
-      if (!p.visible) ok = false;
-      x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+  window.__dhCover = () => {
+    const d = window.__dh; const w = d.world(); const m = 60000;
+    const tags = [...document.querySelectorAll('.dh-tag')].filter((e) => Number(getComputedStyle(e).opacity) > 0.5 && !e.classList.contains('is-chip')).map((e) => ({ word: e.dataset.word, r: e.querySelector('.dh-tag__body').getBoundingClientRect() }));
+    const foes = [];
+    const seenCluster = new Set();
+    for (const e of w.enemies.list) {
+      if (!e.alive) continue;
+      let x = e.x / m; let z = e.z / m;
+      if (Math.hypot(x, z) < 10) continue;
+      const fl = look.foeDrawLook(e.foe);
+      const [sw, sh, sl] = look.foeDrawnSize(e.foe);
+      const lift = Math.max(e.y / m, fl.placeholder.hoverM);
+      let r = Math.max(sw, sl) / 2;
+      // A swarm counts once, as its drawn ring (the bodies are spread round it in the view).
+      const ring = e.cluster >= 0 && fl.gait === 'swarm' ? look.drawnClusters.get(e.cluster) : undefined;
+      if (ring) { if (seenCluster.has(e.cluster)) continue; seenCluster.add(e.cluster); x = ring.x; z = ring.z; r = ring.radius; }
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; let ok = true;
+      for (const dy of [lift, lift + sh]) for (const dx of [-r, r]) for (const dz of [-r, r]) {
+        const p = d.project(x + dx, dy, z + dz);
+        if (!p.visible) ok = false;
+        x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+      }
+      if (!ok || x1 < 0 || y1 < 0 || x0 > innerWidth || y0 > innerHeight) continue;
+      let hit = 0;
+      for (let i = 0; i < 6; i += 1) for (let j = 0; j < 6; j += 1) {
+        const px = x0 + ((i + 0.5) / 6) * (x1 - x0); const py = y0 + ((j + 0.5) / 6) * (y1 - y0);
+        if (tags.some((t) => px >= t.r.left && px <= t.r.right && py >= t.r.top && py <= t.r.bottom)) hit += 1;
+      }
+      foes.push({ foe: ring ? 'swarm-cluster' : e.foe, word: e.word >= 0, cover: Math.round((hit / 36) * 100), box: [Math.round(x0), Math.round(y0), Math.round(x1 - x0), Math.round(y1 - y0)] });
     }
-    if (!ok || x1 < 0 || y1 < 0 || x0 > innerWidth || y0 > innerHeight) continue;
-    let hit = 0;
-    for (let i = 0; i < 6; i += 1) for (let j = 0; j < 6; j += 1) {
-      const px = x0 + ((i + 0.5) / 6) * (x1 - x0); const py = y0 + ((j + 0.5) / 6) * (y1 - y0);
-      if (tags.some((t) => px >= t.left && px <= t.right && py >= t.top && py <= t.bottom)) hit += 1;
-    }
-    foes.push({ foe: ring ? 'swarm-cluster' : e.foe, word: e.word >= 0, cover: Math.round((hit / 36) * 100), box: [Math.round(x0), Math.round(y0), Math.round(x1 - x0), Math.round(y1 - y0)] });
-  }
-  const n = foes.length;
-  return { n, tags: tags.length, over40: foes.filter((f) => f.cover >= 40).length, meanCover: n ? Math.round(foes.reduce((a, f) => a + f.cover, 0) / n) : 0, foes };
+    const n = foes.length;
+    const over = (f) => tags.filter((t) => t.r.left < f.box[0] + f.box[2] && t.r.right > f.box[0] && t.r.top < f.box[1] + f.box[3] && t.r.bottom > f.box[1]).map((t) => t.word);
+    return { n, tags: tags.length, over40: foes.filter((f) => f.cover >= 40).length, meanCover: n ? Math.round(foes.reduce((a, f) => a + f.cover, 0) / n) : 0, foes, over };
+  };
+  return true;
 })()`;
+
+/** Every drawn frame of a wave from here on (a requestAnimationFrame loop started from a frame callback, after the game's own): the most covered foe. */
+const FRAME_MONITOR = `(() => {
+  const m = { frames: 0, over30: 0, over40: 0, maxCover: 0, streaks: [], last: -10, examples: [], on: true };
+  window.__dhCoverFrames = m;
+  const tick = () => {
+    if (!m.on) return;
+    if (window.__dh.world().phase === 'wave') {
+      m.frames += 1;
+      const c = window.__dhCover();
+      let worst = null;
+      for (const f of c.foes) if (worst === null || f.cover > worst.cover) worst = f;
+      if (worst !== null) {
+        m.maxCover = Math.max(m.maxCover, worst.cover);
+        if (worst.cover >= 30) m.over30 += 1;
+        if (worst.cover >= 40) {
+          m.over40 += 1;
+          if (m.frames - m.last > 1) {
+            m.streaks.push(1);
+            if (m.examples.length < 8) m.examples.push({ frame: m.frames, foe: worst.foe + ':' + worst.cover + (worst.word ? 'w' : '') + '@' + worst.box.join(','), tags: c.over(worst) });
+          } else m.streaks[m.streaks.length - 1] += 1;
+          m.last = m.frames;
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(() => requestAnimationFrame(tick));
+  return true;
+})()`;
+
+/** Longest streak of frames with a foe ≥ 40 % that still passes (0.1 s at 60 Hz). */
+const STREAK_MAX = 6;
 
 async function tend(page) {
   const panel = await page.eval("window.__dh.panel()");
@@ -133,11 +177,13 @@ export default async function (page) {
   // From wave 3 type only foes within 7 m: a crowd builds at the bridge head.
   await until(page, (c) => c.wave >= 3 && c.phase === "wave", 300000);
   await page.eval("window.__mode = 'near'; window.__near = 7; window.__dh.setSpeed(1)");
+  await page.eval(INSTALL_COVER);
+  await page.eval(FRAME_MONITOR);
   for (let shot = 0; shot < 3; shot += 1) {
     const crowd = await until(page, (c) => c.best >= 4, 60000);
     if (!crowd) break;
     await page.sleep(700);
-    const cover = await page.eval(COVER);
+    const cover = await page.eval("(() => { const c = window.__dhCover(); delete c.over; return c; })()");
     const worst = [...cover.foes].sort((a, b) => b.cover - a.cover).slice(0, 3).map((f) => f.foe + ":" + f.cover + (f.word ? "w" : "") + "@" + f.box.join(","));
     res.covers.push({ crowd, cover: { n: cover.n, tags: cover.tags, over40: cover.over40, meanCover: cover.meanCover, worst, foes: cover.foes.map((f) => f.foe + ":" + f.cover + (f.word ? "w" : "")) } });
     await page.shot(join(out, `crowd-${shot}-${W}x${H}.png`));
@@ -155,6 +201,8 @@ export default async function (page) {
     await page.eval("window.__near = 10");
     await page.sleep(2500);
   }
+  const frames = await page.eval("(() => { const m = window.__dhCoverFrames; m.on = false; return m; })()");
+  res.frames = { frames: frames.frames, over30: frames.over30, over40: frames.over40, maxCover: frames.maxCover, streaks: frames.streaks, longest: Math.max(0, ...frames.streaks), examples: frames.examples };
   res.perf = await page.eval("(() => { const p = window.__dh.perf(); return { meanMs: +p.meanMs.toFixed(2), p95Ms: +p.p95Ms.toFixed(2), maxMs: +p.maxMs.toFixed(1), drawCalls: p.drawCalls }; })()");
   await page.eval("window.__stopBot = true");
   const end = await page.eval("(() => { const w = window.__dh.world(); return { wave: w.wave, phase: w.phase, hp: window.__dh.state().heroHp, heals: window.__heals ?? 0 }; })()");
@@ -165,6 +213,8 @@ export default async function (page) {
     res.covers.length === 3 &&
     res.covers.every((c) => c.cover.n > 0 && c.cover.meanCover <= 20 && c.cover.over40 === 0) &&
     (res.tally?.skill ?? 0) >= 1 &&
+    res.frames.frames > 0 &&
+    res.frames.longest <= STREAK_MAX &&
     page.exceptions.length === 0;
   return res;
 }
