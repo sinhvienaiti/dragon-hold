@@ -4,10 +4,18 @@
 // Thiên Hỏa cast on the first crowd in slow motion (16 frames from cast to
 // impact). Cover = share of each drawn foe body (outside 10 m; a swarm as its
 // ring) under a word tag, on a 6 × 6 grid; the target is ≤ 20 % mean and no
-// foe ≥ 40 %. SIZE=1920 runs 1920×1080 (default 1280×720), SEED (default 1).
+// foe ≥ 40 %. SIZE=1920 runs 1920×1080 (default 1280×720), SEED (default 5).
+// HOLD (25/10, default 40; 0 = off): this measures tags over bodies, not
+// survival, yet the bot leaves far foes untyped on purpose, so Héo lan drained
+// the Dragon and ended the stage before the third measurement (Dell round 3,
+// 1080p: seeds 1–4 and 7 got 1–2 of 3; the Mac at seed 1 too). Below HOLD %
+// HP the page sets the Dragon's HP back to full (a scenario-only change of the
+// world: replayCheck no longer holds, and `heals` counts them), so every seed
+// reaches three crowds. `ok`: three measurements, each with mean cover ≤ 20 %
+// and no foe ≥ 40 %, Thiên Hỏa cast, no page exception; `worst` lists each
+// measurement's most covered foes with their screen boxes.
 // GUARD (round 3, default 0 = off): below GUARD % Dragon HP the bot types every
-// word, as dh-scale's does, so a run where Héo lan would end the stage before
-// the third measurement (1080p, seeds 1–3) still gets there.
+// word, as dh-scale's does (with GUARD=50 the crowd never formed in 60 s).
 // Pictures: tmp/shots/readability/ (OUT_DIR overrides).
 // Owner: view lane (round 2 readability).
 import { join } from "node:path";
@@ -17,13 +25,17 @@ const BIG = process.env.SIZE === "1920";
 const W = BIG ? 1920 : 1280;
 const H = BIG ? 1080 : 720;
 const GUARD = Number(process.env.GUARD ?? "0");
+const HOLD = Number(process.env.HOLD ?? "40");
+const SEED = process.env.SEED ?? "5";
 
 const BOT = `(async () => {
   const d = window.__dh; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  window.__mode = 'all'; window.__near = 14; window.__stopBot = false;
+  window.__mode = 'all'; window.__near = 14; window.__stopBot = false; window.__heals = 0;
   for (let k = 0; k < 400000 && !window.__stopBot; k += 1) {
     const w = d.world();
     if (w.phase === 'victory' || w.phase === 'defeat') break;
+    // HOLD: keep the Dragon standing (scenario only, see the header).
+    if (${HOLD} > 0 && w.hero.hp > 0 && w.hero.hp * 100 < w.hero.hpMax * ${HOLD}) { w.hero.hp = w.hero.hpMax; window.__heals += 1; }
     if (window.__mode === 'off' || (w.phase !== 'wave' && w.phase !== 'warning') || d.panel()) { await sleep(60); continue; }
     const ws = d.words();
     const distOf = (x) => { if (!x.target) return 0; const e = w.enemies.list[x.target.slot]; if (!e || !e.alive) return 1e9; return Math.hypot(e.x, e.z) / 60000; };
@@ -49,7 +61,7 @@ const CROWD = `(() => {
     const n = list.filter((o) => Math.hypot(o.x - e.x, o.z - e.z) / m < 4).length;
     if (n > best) { best = n; at = [Math.round(e.x / m), Math.round(e.z / m)]; }
   }
-  return { wave: w.wave, phase: w.phase, best, at, live: list.length, hp: d.state().heroHp };
+  return { wave: w.wave, phase: w.phase, best, at, live: list.length, hp: d.state().heroHp, heals: window.__heals ?? 0 };
 })()`;
 
 /** How much of each drawn foe body (outside the 10 m ring) the word tags cover, sampled on a 6 × 6 grid. */
@@ -110,8 +122,8 @@ async function until(page, predicate, timeoutMs) {
 
 export default async function (page) {
   const out = outDir("readability");
-  const res = { size: `${W}x${H}`, covers: [] };
-  await boot(page, "prelearn=0&seed=" + (process.env.SEED ?? "1"), { width: W, height: H });
+  const res = { size: `${W}x${H}`, seed: SEED, hold: HOLD, covers: [] };
+  await boot(page, "prelearn=0&seed=" + SEED, { width: W, height: H });
   await press(page, "Digit4"); await page.sleep(150); await press(page, "Enter"); await page.sleep(250);
   await press(page, "Enter");
   for (let k = 0; k < 60; k += 1) { if ((await state(page)).phase === "wave") break; await page.sleep(250); }
@@ -126,7 +138,8 @@ export default async function (page) {
     if (!crowd) break;
     await page.sleep(700);
     const cover = await page.eval(COVER);
-    res.covers.push({ crowd, cover: { n: cover.n, tags: cover.tags, over40: cover.over40, meanCover: cover.meanCover, foes: cover.foes.map((f) => f.foe + ":" + f.cover + (f.word ? "w" : "")) } });
+    const worst = [...cover.foes].sort((a, b) => b.cover - a.cover).slice(0, 3).map((f) => f.foe + ":" + f.cover + (f.word ? "w" : "") + "@" + f.box.join(","));
+    res.covers.push({ crowd, cover: { n: cover.n, tags: cover.tags, over40: cover.over40, meanCover: cover.meanCover, worst, foes: cover.foes.map((f) => f.foe + ":" + f.cover + (f.word ? "w" : "")) } });
     await page.shot(join(out, `crowd-${shot}-${W}x${H}.png`));
     if (shot === 0) {
       // Thiên Hỏa on the crowd, slow motion.
@@ -144,5 +157,14 @@ export default async function (page) {
   }
   res.perf = await page.eval("(() => { const p = window.__dh.perf(); return { meanMs: +p.meanMs.toFixed(2), p95Ms: +p.p95Ms.toFixed(2), maxMs: +p.maxMs.toFixed(1), drawCalls: p.drawCalls }; })()");
   await page.eval("window.__stopBot = true");
+  const end = await page.eval("(() => { const w = window.__dh.world(); return { wave: w.wave, phase: w.phase, hp: window.__dh.state().heroHp, heals: window.__heals ?? 0 }; })()");
+  res.end = end;
+  res.heals = end.heals;
+  res.measured = res.covers.length;
+  res.ok =
+    res.covers.length === 3 &&
+    res.covers.every((c) => c.cover.n > 0 && c.cover.meanCover <= 20 && c.cover.over40 === 0) &&
+    (res.tally?.skill ?? 0) >= 1 &&
+    page.exceptions.length === 0;
   return res;
 }
