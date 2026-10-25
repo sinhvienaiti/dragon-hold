@@ -1,6 +1,6 @@
 /**
  * M0 items of our side (03; DESIGN.md §9 M0): traps Gai Chông, Bom Hạt Thông,
- * Lưới Phóng; blocker Vệ Binh Rêu; magic house Nhà Thuốc Lá; Bình Máu Nhỏ;
+ * Lưới Phóng; blocker Vệ Binh Rêu; magic house Lều Thuốc Nam; Bình Máu Nhỏ;
  * in-run buys Tim Rồng, Vảy Cứng. Chapter-1 numbers (×g(c) for damage and HP).
  * Seeded by the architect from 03 §6–§9, checked against 03 §6.2–§9.2 by
  * sim-ourside (owner, LANES.md). Bots tune numbers here, never in code
@@ -116,7 +116,7 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
 export const HOUSES: Readonly<Record<HouseId, HouseDef>> = {
   "herb-hut": {
     id: "herb-hut",
-    nameVi: "Nhà Thuốc Lá",
+    nameVi: "Lều Thuốc Nam",
     cost: 120,
     hp: 600,
     radiusMm: 7000,

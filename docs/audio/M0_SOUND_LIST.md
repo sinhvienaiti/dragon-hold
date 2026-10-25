@@ -211,8 +211,8 @@ Bốn lớp tổng hợp theo dáng: hai chân (E09 Yêu Rêu Lính, E11 Yêu R�
 |---|---|---|---|---|---|
 | `unit.warden.place` | Đặt Vệ Binh Rêu; lính hồi sinh (nhỏ hơn) | 620 | 150 | Đá gỗ đặt xuống có sức nặng, lá rung, ngân trầm; vang rừng ngắn | `Moss stone guardian landing: a heavy wood-and-stone impact settling into the ground, leaves rustling, a low earthy hum, a short forest echo, 600 ms` |
 | `unit.warden.down` | Vệ Binh Rêu ngã thành nụ cây | 900 | 200 | Vệ Binh Rêu ngã: đá gỗ nứt, đổ vụn xuống đất, lá rơi, kết bằng một nốt mầm nhỏ; vang rừng | `Moss guardian falling: stone and wood cracking, crumbling down into soil with falling leaves, ending with a tiny sprout pluck, forest echo, 900 ms` |
-| `house.herb.place` | Dựng Nhà Thuốc Lá | 700 | 150 | Gỗ, bọt sủi, chuông nhỏ | `Small herbal hut placed, wood knock, bubbling potion, tiny chime, 700 ms` |
-| `house.herb.pulse` | Nhà Thuốc Lá hồi máu (Xung) | 900 | 300 | Lấp lánh hồi máu | `Gentle healing shimmer, soft major chord of bells, airy, 900 ms` |
+| `house.herb.place` | Dựng Lều Thuốc Nam | 700 | 150 | Gỗ, bọt sủi, chuông nhỏ | `Small herbal hut placed, wood knock, bubbling potion, tiny chime, 700 ms` |
+| `house.herb.pulse` | Lều Thuốc Nam hồi máu (Xung) | 900 | 300 | Lấp lánh hồi máu | `Gentle healing shimmer, soft major chord of bells, airy, 900 ms` |
 | `unit.hit` | Lính hoặc nhà bị đánh | 180 | 120 | Lính hoặc nhà bị đánh: đòn trúng khiên gỗ "cộp" có thân gỗ; vang ngắn | `Wooden shield blocking a blow: a solid knock with a woody body, short forest echo, 180 ms` |
 
 ### 5.8 UI (bus `ui`, P2)

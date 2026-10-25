@@ -5,7 +5,7 @@
  *   balanced: the "average kit" (Cân Bằng, tactics "Vừa"): each break, score
  *             every action by value per gold against the next wave's card,
  *             take the best, fill useful slots before upgrading, value the
- *             first Nhà Thuốc Lá that reaches the dais, keep 10 % of the gold;
+ *             first Lều Thuốc Nam that reaches the dais, keep 10 % of the gold;
  *   good:     the same reading (tactics "Tốt"), and Tim Rồng, Vảy Cứng only
  *             for the last two waves;
  *   best:     the no-typing floor bot (G6): spends everything, leans on

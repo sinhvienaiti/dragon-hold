@@ -140,7 +140,7 @@ export const SOUNDS = {
   "trap.net.arm": def("traps", 4, 560, "sfx/trap/net-arm", { gapMs: 120, gainDb: -3 }),
   "trap.net.trigger": def("traps", 4, 620, "sfx/trap/net-trigger", { gapMs: 80, gainDb: -4 }),
 
-  // Supports ×2 each: Vệ Binh Rêu (place, down) and Nhà Thuốc Lá (place, pulse); a shared blow on our side.
+  // Supports ×2 each: Vệ Binh Rêu (place, down) and Lều Thuốc Nam (place, pulse); a shared blow on our side.
   "unit.warden.place": def("units", 4, 620, "sfx/unit/warden-place", { gapMs: 150, gainDb: -6 }),
   "unit.warden.down": def("units", 4, 900, "sfx/unit/warden-down", { gapMs: 200, gainDb: -6 }),
   "house.herb.place": def("units", 4, 700, "sfx/house/herb-place", { gapMs: 150, gainDb: -1 }),

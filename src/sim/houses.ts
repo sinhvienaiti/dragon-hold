@@ -2,8 +2,9 @@
  * Magic houses (03 §8): auras on allies, HP 600 (+40 % a level), Đổ Nát at 0
  * (off, never lost; repair 30 % of the spent price, or half mends itself at
  * wave end), energy +1 per word kill inside the area, pulse at 5 (03 §10.2).
- * M0: Nhà Thuốc Lá heals 1.5 % max HP a second to units and both Dragons
- * within 7 m (the Dragons count up to the dais edge), pulse heals 10 %.
+ * M0: Lều Thuốc Nam (03 gave 1.5 %; OUR_SIDE tuning 0.3 %) heals max HP a
+ * second to units and both Dragons within 7 m (the Dragons count up to the
+ * dais edge), pulse heals 10 %.
  * Levels 2–3: +45 % then +35 % healing (03 §3.3); chain tiers add 5–20 % (03 §10.4).
  * Owner: sim-ourside (LANES.md).
  */
@@ -247,7 +248,7 @@ export function onEnemyKilled(world: World, enemy: EnemyState): void {
     house.energy += 1;
     if (house.energy < OUR_SIDE.houseEnergyMax) continue;
     house.energy = 0;
-    // Xung: Nhà Thuốc Lá heals 10 % at once.
+    // Xung: Lều Thuốc Nam heals 10 % at once.
     if (def.pulse.kind === "heal-burst") healAllies(world, house, def.pulse.healPct * 10);
     emit(world, { type: "house-pulse", slot: house.slot, house: house.house, x: uToM(slot.x), z: uToM(slot.z) });
   }

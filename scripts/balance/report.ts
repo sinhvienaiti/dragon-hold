@@ -406,7 +406,7 @@ export function mapNotes(world: World): string[] {
   if (heroFar.length > 0) {
     const nearest = Math.min(...pads.map((pad) => dist(at(pad), [0, 0])));
     notes.push(
-      "Nhà Thuốc Lá (bán kính " + hut + " m): " + heroFar.length + "/" + pads.length + " bệ nhà cách tâm Rồng xa hơn bán kính (gần nhất " + nearest.toFixed(1) +
+      "Lều Thuốc Nam (bán kính " + hut + " m): " + heroFar.length + "/" + pads.length + " bệ nhà cách tâm Rồng xa hơn bán kính (gần nhất " + nearest.toFixed(1) +
         " m). Nếu sim đo tới tâm, nhà không hồi được Hỏa Long; đo tới mép Bệ Rồng (" + dais + " m) thì " +
         pads.filter((pad) => dist(at(pad), [0, 0]) <= hut + dais).length + " bệ với tới. Bot coi như đo tới mép bệ.",
     );

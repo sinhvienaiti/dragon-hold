@@ -737,7 +737,7 @@ export class FxCore {
     if (emitter !== null) emitter.mark = mark;
   }
 
-  /** Heal: a pale ring and motes rising over (x, z) (Nhà Thuốc Lá pulse, Bình Máu Nhỏ). */
+  /** Heal: a pale ring and motes rising over (x, z) (Lều Thuốc Nam pulse, Bình Máu Nhỏ). */
   heal(x: number, z: number, radiusM: number, seconds = 1.2): void {
     const y = this.heightAt(x, z);
     this.rings.spawn(x, y + 0.12, z, radiusM * 2, 1.1, FX_COLORS.heal, 0.5, { kind: 4, thickness: 0.1, fadeIn: 0.15, drag: 0 });
@@ -754,7 +754,7 @@ export class FxCore {
     this.glows.spawn(this.v.set(fromX, y, fromZ), this.u.set(-fromX / life * 0.55, 1.2, -fromZ / life * 0.55), this.c, 0.9 * s, life, { drag: 0.2, gravity: -0.6, grow: 0.8, alpha: 0.45 });
   }
 
-  /** One heal beat (Nhà Thuốc Lá): a light drop floats from the house to the ally, a small ring where it lands (05 §6.6). */
+  /** One heal beat (Lều Thuốc Nam): a light drop floats from the house to the ally, a small ring where it lands (05 §6.6). */
   healDrop(fromX: number, fromZ: number, toX: number, toZ: number, toY = 1): void {
     const y0 = this.heightAt(fromX, fromZ) + 2.2;
     const y1 = this.heightAt(toX, toZ) + toY;

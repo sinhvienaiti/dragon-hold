@@ -14,14 +14,14 @@ function built(items: [Parameters<typeof place>[1], string][]): World {
   return world;
 }
 
-/** One aura beat of Nhà Thuốc Lá on `hpMax`, at level 1 and chain 0. */
+/** One aura beat of Lều Thuốc Nam on `hpMax`, at level 1 and chain 0. */
 const beat = (hpMax: number, levelPm = 1000): number => {
   const effect = HOUSES["herb-hut"].effect;
   return Math.max(1, Math.round((hpMax * (effect.kind === "heal-aura" ? effect.healPmPerS : 0) * levelPm * 100) / 100_000_000));
 };
 
 describe("houses (03 §8, §10.2)", () => {
-  it("Nhà Thuốc Lá heals the Dragons (up to the dais edge) its aura's share of max HP a second", () => {
+  it("Lều Thuốc Nam heals the Dragons (up to the dais edge) its aura's share of max HP a second", () => {
     const world = built([["herb-hut", "h-ne"]]);
     world.hero.hp = 500;
     world.guide.hp = 300;
