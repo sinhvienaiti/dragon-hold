@@ -45,7 +45,7 @@ export interface TagBox {
   readonly sh?: number;
   /** Where it sat last frame, relative to its anchor (stability, 05 §4.3: hold ≥ 0.5 s). */
   readonly prev?: { readonly dx: number; readonly row: number; readonly shrunk: boolean } | undefined;
-  /** Still inside its 0.5 s hold: the last spot stays while free, even over a foe body. */
+  /** Still inside its 0.5 s hold: the last spot stays while free, even over a foe body, unless it hides more than `bodyFirm` of one. */
   readonly firm?: boolean;
   /** Keeps clear of other foes' bodies when it can (default true; ring tags and edge chips false). */
   readonly clearBodies?: boolean;
@@ -92,6 +92,8 @@ export interface LayoutOptions {
   readonly bodies?: readonly BodyRect[];
   /** Share of a body's box a tag may cover and still count as clear of it (default 0.2). */
   readonly bodyCover?: number;
+  /** Share of one body a tag inside its hold may hide and still keep its spot (default 0.35, under dh-crowd's 40 % line). */
+  readonly bodyFirm?: number;
 }
 
 const overlaps = (a: Rect, b: Rect, gap: number): boolean =>
@@ -111,7 +113,12 @@ const overlaps = (a: Rect, b: Rect, gap: number): boolean =>
  * dh-crowd 720p seed 5). What a tag hides of a body counts what the tags
  * placed before it hide there: tags never overlap, so the shares add up to
  * what the player sees (two tags at 20 % each hid 42 % of an archer, 1080p).
- * A tag inside its hold keeps its spot either way (no jumping).
+ * A tag inside its hold keeps its spot (no jumping) while it hides at most
+ * `bodyFirm` of one body. Past that it moves once: a foe that spawns or walks
+ * in under a held tag, or a tag that grows a meaning line, hid 42–89 % of a
+ * foe for up to 0.47 s (dh-crowd 720p seed 1, 26/10), and a hidden foe costs
+ * the player more than one jump. Over bodies, the last spot also stays only
+ * while it hides at most `bodyFirm`, unless no spot hides less.
  */
 export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): TagPlace[] {
   const margin = options.margin ?? 8;
@@ -123,6 +130,7 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
   const avoid = options.avoid ?? [];
   const bodies = options.bodies ?? [];
   const bodyCover = options.bodyCover ?? 0.2;
+  const bodyFirm = options.bodyFirm ?? 0.35;
   /** Over bodies, a tag leaves its last spot only for one hiding at least this much less of a body. */
   const bodyStay = 0.1;
   /** Indices of the bodies near the tag being placed. */
@@ -175,21 +183,21 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
       }
       return most;
     };
-    const clear = (rect: Rect): boolean => hides(rect) <= bodyCover;
     let found: TagPlace | null = null;
-    const accept = (size: { w: number; h: number; shrunk: boolean }, dx: number, row: number, needClear = false): boolean => {
+    /** Takes the spot when it is free and hides at most `limit` of any one near body. */
+    const accept = (size: { w: number; h: number; shrunk: boolean }, dx: number, row: number, limit = Infinity): boolean => {
       const rect = at(size, dx, row);
-      if (!free(rect) || (needClear && !clear(rect))) return false;
+      if (!free(rect) || (limit < Infinity && hides(rect) > limit)) return false;
       const leader = row > 0 || Math.abs(rect.x + rect.w / 2 - box.ax) > rect.w / 2 || Math.abs(rect.y + rect.h - box.ay) > rowStep;
       found = { id: box.id, ...rect, dx, row, shrunk: size.shrunk, leader };
       return true;
     };
     const prevSize = box.prev?.shrunk ? sizes[1]! : sizes[0]!;
-    if (box.prev) accept(prevSize, box.prev.dx, box.prev.row, near.length > 0 && box.firm !== true);
+    if (box.prev) accept(prevSize, box.prev.dx, box.prev.row, near.length === 0 ? Infinity : box.firm === true ? bodyFirm : bodyCover);
     if (found === null && near.length > 0) {
       // A spot that leaves the crowd visible, nearest first.
       for (let row = 0; row <= maxRows && found === null; row += 1) {
-        for (const dx of pushes) if (found === null) accept(sizes[0]!, dx, row, true);
+        for (const dx of pushes) if (found === null) accept(sizes[0]!, dx, row, bodyCover);
       }
       if (found === null) {
         // None: the free spot hiding the least of any one body (ties: nearest, full size first), the last spot unless clearly worse.
@@ -210,7 +218,8 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
         }
         if (box.prev) {
           const rect = at(prevSize, box.prev.dx, box.prev.row);
-          if (free(rect) && hides(rect) <= least + bodyStay) accept(prevSize, box.prev.dx, box.prev.row);
+          const stay = free(rect) ? hides(rect) : Infinity;
+          if (stay <= least + bodyStay && (stay <= bodyFirm || stay <= least)) accept(prevSize, box.prev.dx, box.prev.row);
         }
         if (found === null && best !== null) accept(best.size, best.dx, best.row);
       }
