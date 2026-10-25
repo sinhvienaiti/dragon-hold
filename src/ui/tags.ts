@@ -92,7 +92,7 @@ export interface LayoutOptions {
   readonly bodies?: readonly BodyRect[];
   /** Share of a body's box a tag may cover and still count as clear of it (default 0.2). */
   readonly bodyCover?: number;
-  /** Share of one body a tag inside its hold may hide and still keep its spot (default 0.35, under dh-crowd's 40 % line). */
+  /** Share of one body a tag inside its hold may hide and still keep its spot (default 0.3: dh-crowd's 6 × 6 grid read 33–34 % as 42 %). */
   readonly bodyFirm?: number;
 }
 
@@ -118,7 +118,11 @@ const overlaps = (a: Rect, b: Rect, gap: number): boolean =>
  * in under a held tag, or a tag that grows a meaning line, hid 42–89 % of a
  * foe for up to 0.47 s (dh-crowd 720p seed 1, 26/10), and a hidden foe costs
  * the player more than one jump. Over bodies, the last spot also stays only
- * while it hides at most `bodyFirm`, unless no spot hides less.
+ * while it hides at most `bodyFirm`, unless no spot hides less. The last
+ * resort (rings round the anchor) takes the nearest free spot that keeps off
+ * the tag's own foe and hides at most `bodyFirm` of a near body, within twice
+ * the reach; else the nearest free spot (a ring spot over its own foe hid it
+ * 56–67 % for up to 11 frames, dh-crowd 1080p seed 6).
  */
 export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): TagPlace[] {
   const margin = options.margin ?? 8;
@@ -130,7 +134,7 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
   const avoid = options.avoid ?? [];
   const bodies = options.bodies ?? [];
   const bodyCover = options.bodyCover ?? 0.2;
-  const bodyFirm = options.bodyFirm ?? 0.35;
+  const bodyFirm = options.bodyFirm ?? 0.3;
   /** Over bodies, a tag leaves its last spot only for one hiding at least this much less of a body. */
   const bodyStay = 0.1;
   /** Indices of the bodies near the tag being placed. */
@@ -234,15 +238,23 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
       // Last resort: the nearest free spot on the screen, in rings around the anchor (never overlap, 05 §4.3).
       const size = sizes[1]!;
       const step = Math.max(12, Math.round(size.h / 2));
+      const own = box.clearBodies === false ? undefined : bodies.find((body) => body.owner === box.id);
+      const reachClean = 2 * Math.max(maxPush, maxRows * rowStep);
+      let first: TagPlace | null = null;
       for (let ring = 1; found === null && ring * step < Math.max(options.width, options.height); ring += 1) {
+        if (first !== null && ring * step > reachClean) break;
         for (let k = -ring; k <= ring && found === null; k += 1) {
           for (const [dx, dy] of [[k * step, -ring * step], [k * step, ring * step], [-ring * step, k * step], [ring * step, k * step]] as const) {
             if (found !== null) break;
             const rect = { x: box.ax - size.w / 2 + dx, y: box.ay - size.h + dy, w: size.w, h: size.h };
-            if (free(rect)) found = { id: box.id, ...rect, dx, row: Math.max(0, Math.round(-dy / rowStep)), shrunk: true, leader: true };
+            if (!free(rect)) continue;
+            const place: TagPlace = { id: box.id, ...rect, dx, row: Math.max(0, Math.round(-dy / rowStep)), shrunk: true, leader: true };
+            if ((own === undefined || !overlaps(rect, own, 0)) && hides(rect) <= bodyFirm) found = place;
+            else if (first === null) first = place;
           }
         }
       }
+      if (found === null) found = first;
     }
     if (found === null) found = { id: box.id, ...at(sizes[1]!, 0, maxRows), dx: 0, row: maxRows, shrunk: true, leader: true };
     placed.push(found);
