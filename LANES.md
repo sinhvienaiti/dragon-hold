@@ -441,3 +441,39 @@ Waiting for the owner: D27 (I ≤ 20 % in Cân bằng) and D29's gate-rule part.
 Still open: B1, B7 (both bands), B9 (plus a run at `?wpm=70`). Key latency on
 the Dell depends on other lanes' load: 1080p read 76–77 ms (over the
 scenario's 70 ms) during their builds and tests, 26.2 ms on a later run.
+
+### Mac: kit drift, dh-crowd, tag cover (Mac mini M4, 25–26/10/2026)
+
+Notes: `docs/changelog/2026-10-25-mac-kit-drift-crowd.md`.
+
+- Kit `feedback/numbers.ts` (parent `52bdc8df`, `fc69a921`, `df2f4882`,
+  `21e8eaf9`; synced here last at `4e388dd`, `parentDirty: false`):
+  `NumberField.box()` is what `NumberSprites` draws (atlas ink measured once
+  on a canvas, `numberInk`; the whole quads without one, `quadInk`), and
+  `settle()` runs until no two boxes touch (at most 4 passes) and drops a
+  number it would lift onto a protected rect or past the top edge; a number
+  floats up to the top edge, not past it. `src/view/number-field.ts` (`DrawnNumberField`) is gone; `fx.ts`
+  uses the kit field. The round 3 drift is closed. typing-survival still has
+  the older kit until the coordinator syncs it.
+- `src/app/app.ts` `refreshKeepOut` (integrator): the damage numbers' keep-out
+  rects are read before the presenters run, so the field drops a covered
+  number before it is drawn.
+- `scripts/visual/scenarios/dh-crowd.mjs` (integrator): `HOLD` (default 40)
+  sets the Dragon's HP back to full below 40 % (scenario only; `heals`
+  counts it), default `SEED` 5, an `ok` verdict and each measurement's most
+  covered foes (`worst`). From `73b265c` it also checks every drawn frame of
+  a wave from wave 3 (`frames`: frames with a foe ≥ 30 % and ≥ 40 %, streaks,
+  the tags over that foe); `ok` needs no ≥ 40 % streak over 6 frames.
+- `src/ui/tags.ts` `layoutTags` (typing-learning): what a tag hides of a body
+  adds what the tags placed before it hide there (`hidden[]`; tags never
+  overlap, so shares add); with no clear spot a tag takes the free spot
+  hiding the least of one body, its last spot unless another hides 10 points
+  less. From `9395667`/`710f34a` a firm tag (the 0.5 s hold) keeps its spot
+  only while it hides ≤ 30 % of one body (`bodyFirm`; an exception to 05 §4.3,
+  taken as recommended), a last spot over bodies past 30 % stays only if no
+  spot hides less, and the last-resort ring spot keeps off the tag's own foe.
+  On `710f34a`, seeds 1, 4–7 × 720p/1080p: 10/10 `ok`, 0 of 33,592 frames
+  with a foe ≥ 40 %.
+
+Still open: B1, B7 (both bands), B9, D27 and D29's gate-rule part; how
+often a held tag moves is not counted yet.

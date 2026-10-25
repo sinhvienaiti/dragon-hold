@@ -20,6 +20,14 @@ Dev port 3005, host `dragon.typing-game.local`.
   against the shared BALANCE §3 band (the gate of record) and D27's; both
   fail. B9 waits for the owner's playtest. See
   `docs/changelog/2026-10-25-m0a-round3-fix.md`.
+- State (25–26/10, Mac): the damage-number box and multi-pass `settle()` live
+  in the kit (synced at parent `21e8eaf9`, `DrawnNumberField` removed);
+  `dh-crowd` holds the Dragon so every seed gets three measurements and checks
+  every frame from wave 3; word tags add up what they hide of a body, and a
+  tag inside its 0.5 s hold moves once it hides > 30 % of one (an exception to
+  05 §4.3, taken as recommended). On `710f34a`: 10/10 `dh-crowd` runs `ok`,
+  0 of 33,592 frames with a foe ≥ 40 %. See
+  `docs/changelog/2026-10-25-mac-kit-drift-crowd.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
