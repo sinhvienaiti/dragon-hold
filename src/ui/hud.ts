@@ -155,7 +155,7 @@ const REJECT_PAIR: Readonly<Record<string, string>> = {
   "continue|phase": "Chỉ vào đợt sớm được lúc nghỉ",
   "upgrade|not-ruined": "Nhà chưa đổ nát, chưa cần sửa",
   "buy|limit": "Đã mua đủ số lần trong ải",
-  "skill|no-target": "Không có mục tiêu: kỹ năng chưa tốn hồi chiêu",
+  "skill|no-target": "Không có mục tiêu: kỹ năng chưa dùng, không mất hồi chiêu",
 };
 
 const REJECT_TEXT: Readonly<Record<string, string>> = {
@@ -163,7 +163,7 @@ const REJECT_TEXT: Readonly<Record<string, string>> = {
   phase: "Việc này chỉ làm được lúc nghỉ",
   cooldown: "Kỹ năng đang hồi",
   rage: "Long Nộ chưa đầy",
-  "ult-gap": "Tối Thượng cần nghỉ 45 s",
+  "ult-gap": "Tối Thượng: cách lần trước ít nhất 45 s",
   occupied: "Ô đã có món",
   "slot-kind": "Món này không đặt được ở ô đó",
   limit: "Đã đủ giới hạn",

@@ -75,6 +75,8 @@ describe("ui hud read-outs", () => {
     expect(rejectText("consumable", "cooldown")).toBe("Đồ tiêu hao đang hồi");
     expect(rejectText("skill", "cooldown")).toBe("Kỹ năng đang hồi");
     expect(rejectText("start", "phase")).toBe("Ải đã bắt đầu");
+    // Never "cần nghỉ": "Nghỉ" is the break between waves.
+    expect(rejectText("skill", "ult-gap")).toBe("Tối Thượng: cách lần trước ít nhất 45 s");
     expect(viNumber(1.5)).toBe("1,5");
   });
 

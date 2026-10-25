@@ -275,7 +275,12 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       warn.append(summary.generals.length > 1 ? "Tướng ×" + summary.generals.length : "Tướng địch");
       warnNodes.push(warn);
     }
-    if (summary.breather) warnNodes.push(el(doc, "span", "dh-warn", "Đợt thở"));
+    // "Đợt thở" (02 §5.1) is the design's word; on the card it read as "a breathing wave", so the player sees "Đợt nhẹ".
+    if (summary.breather) {
+      const warn = el(doc, "span", "dh-warn", "Đợt nhẹ");
+      warn.title = "Đợt nhẹ hơn sau tướng địch: quái đến thưa hơn, kịp bày lại binh";
+      warnNodes.push(warn);
+    }
     warns.replaceChildren(...warnNodes);
     setShown(warns, warnNodes.length > 0);
 

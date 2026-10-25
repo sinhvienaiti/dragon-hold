@@ -59,7 +59,7 @@ export function effectLine(id: PlaceableId | ConsumableId | HeroUpgradeId): stri
     const e = trap.effect;
     if (e.kind === "spikes") return `Chậm ${e.slowPct} %, ${e.dps} sát thương mỗi giây trên đường`;
     if (e.kind === "bomb") return `Nổ ${e.damage} sát thương khi ≥ ${trap.triggerMin} quái, đẩy lùi ${metres(e.pushMm)}; nạp ${sec(trap.rechargeMs)}`;
-    return `Lưới quái bay thấp xuống đất ${sec(e.groundMs)} trong ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
+    return `Kéo ${e.targets > 1 ? e.targets : "một"} quái bay thấp xuống đất trong ${sec(e.groundMs)}, tầm ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
   }
   if (id in HOUSES) {
     const house = HOUSES[id as keyof typeof HOUSES];

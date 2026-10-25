@@ -10,7 +10,7 @@ const SIZES = [
   [1280, 720],
   [1920, 1080],
 ];
-const SCENES = ["prep", "break", "placing", "edit", "menu", "warning", "wave", "low", "victory", "defeat"];
+const SCENES = ["prep", "break", "breather", "placing", "edit", "menu", "warning", "wave", "low", "victory", "defeat"];
 
 async function boot(page) {
   await page.goto(base + "/?view=ui", { settle: 600 });

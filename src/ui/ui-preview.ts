@@ -167,7 +167,7 @@ const WORDS: readonly { text: string; vi: string; ipa: string; group: WordGroup 
 
 // ── The preview ─────────────────────────────────────────────────────────────
 
-export type PreviewScene = "prep" | "break" | "placing" | "edit" | "warning" | "wave" | "low" | "victory" | "defeat";
+export type PreviewScene = "prep" | "break" | "breather" | "placing" | "edit" | "warning" | "wave" | "low" | "victory" | "defeat";
 
 export interface PreviewHandle {
   scene(name: PreviewScene, options?: { freeze?: boolean }): void;
@@ -482,6 +482,13 @@ export function startUiPreview(doc: Document = document): PreviewHandle {
         world.phase = "break";
         world.phaseEndsAt = world.tick + Math.round(14.2 * 60);
         emit({ type: "phase", phase: "break", wave: 3, endsAtTick: world.phaseEndsAt });
+        break;
+      case "breather":
+        // The break after wave 5: the card shows wave 6, the breather (its "Đợt nhẹ" tag).
+        midRun(5);
+        world.phase = "break";
+        world.phaseEndsAt = world.tick + Math.round(14.2 * 60);
+        emit({ type: "phase", phase: "break", wave: 5, endsAtTick: world.phaseEndsAt });
         break;
       case "warning":
         midRun(4);
