@@ -153,7 +153,7 @@ export interface DebugHandle {
   replayCheck(): { live: string; replay: string; same: boolean; commands: number };
   perf(): { frames: number; meanMs: number; p95Ms: number; maxMs: number; drawCalls: number; triangles: number; keyLatencyMaxMs: number; keyLatencyMeanMs: number; keys: number };
   numbersOverlaps(): number;
-  /** Pairs of live damage numbers whose drawn boxes touch (view/number-field.ts; must stay 0 after a frame). */
+  /** Pairs of live damage numbers whose drawn boxes touch (kit feedback/numbers.ts box(); must stay 0 after a frame). */
   numbersTouching(): number;
   /** The number field and the sprites that drew it last frame (dh-numbers-drawn reads the drawn quads and the atlas). */
   numberLayer(): Pick<FxPresenter, "numbers" | "sprites"> | null;
@@ -688,6 +688,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     followEvents(events, now);
     for (const presenter of run.presenters) presenter.onEvents(events, world);
     map.update(info.dt);
+    refreshKeepOut(now);
     for (const presenter of run.presenters) presenter.frame(world, info);
     map.render();
     run.fx.renderOverlay();
@@ -729,17 +730,26 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     setShown(hush, hushed);
     overlay!.classList.toggle("is-hushed", hushed);
     run.frame.setCovered(activePanel() !== null);
+  }
 
-    if (now >= protectAt) {
-      protectAt = now + PROTECT_EVERY_MS;
-      const rects: { x: number; y: number; w: number; h: number }[] = [];
-      for (const node of overlay!.querySelectorAll<HTMLElement>("[data-dh-avoid], [data-keepout], .kit-learning-frame, .dh-tag")) {
-        if (node.hidden) continue;
-        const r = node.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
-      }
-      run.fx.numbers.protected = rects;
+  /**
+   * Reads the UI rectangles damage numbers keep off (fx.numbers.protected).
+   * Called before the presenters run, so the number field drops a number the
+   * new rectangles cover before it is drawn. Read after them (until 25/10),
+   * the field learnt the rectangles a frame late and __dh.numbersOverlaps()
+   * found a number on one after the frame (dh-hitstop-keys on the Mac, one
+   * sample a run). Between reads (250 ms) a tag can still move onto a number.
+   */
+  function refreshKeepOut(now: number): void {
+    if (!run || now < protectAt) return;
+    protectAt = now + PROTECT_EVERY_MS;
+    const rects: { x: number; y: number; w: number; h: number }[] = [];
+    for (const node of overlay!.querySelectorAll<HTMLElement>("[data-dh-avoid], [data-keepout], .kit-learning-frame, .dh-tag")) {
+      if (node.hidden) continue;
+      const r = node.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
     }
+    run.fx.numbers.protected = rects;
   }
 
   const timeScale = (now: number): number => {
