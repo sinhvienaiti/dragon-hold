@@ -268,6 +268,12 @@ export class NumberField {
       this.x[i] = this.x[i]! + this.vx[i]! * dt;
       this.y[i] = this.y[i]! + this.vy[i]! * dt;
       this.pop[i] = Math.max(0, this.pop[i]! - dt * 7);
+      // It floats up to the top edge, not past it (spawn() never places one there; a label cut off reads as a glitch).
+      const top = this.box(i, SCRATCH).y;
+      if (top < 0) {
+        this.y[i] = this.y[i]! - top;
+        if (this.vy[i]! < 0) this.vy[i] = 0;
+      }
       if (this.covers(this.box(i, SCRATCH)) !== null) {
         this.kill(i);
         this.dropped += 1;

@@ -2,7 +2,7 @@
   "schema": 1,
   "kit": "@typing-game/game-kit",
   "kitVersion": "0.1.0",
-  "parentCommit": "df2f4882ef37e216110269b19ff710335a727ce8",
+  "parentCommit": "21e8eaf9b4806644b92a4366f2d2fd027909cb0a",
   "parentDirty": false,
   "pinned": null,
   "modules": [
@@ -40,7 +40,7 @@
     "feedback/hitstop.ts": "a310135bb45553f2cbac7bff20a74ec9d9668928a81c9defa602e3a4582a7ea6",
     "feedback/index.ts": "e80c5bc8a00f49d4373862faaeaed251caf30dba74363a00472b82d4d0f9e2db",
     "feedback/kill-translation.ts": "63720f9faa1966042b1ff5ac48b1e4b38857210aef00dbc78b4d18438df2f125",
-    "feedback/numbers.ts": "7516e5e4a6c6c1d94ad369effe0c9c1e64b94ff95712ce97880617e85ccfb584",
+    "feedback/numbers.ts": "2fbb14f0fb8157b68c7cb0c569a8cdd29b8a1d7f1434dc0b5b7d501ae9f77ef3",
     "feedback/profiles.ts": "ae6108d8f06490bbb379291fabb12814dd3dc3afeac099c1e5e029777863d64e",
     "feedback/quads.ts": "c595a871fdf4ed8d5648e2b728f1b6c1f60135f5b517f89c4da0d76f3fec31c6",
     "feedback/reaction.ts": "95de6524d265105a9adf0aa926379584c9f8cf265feebe069fb2f972d8d7c86f",
