@@ -25,7 +25,6 @@ import type { FeedbackTier, Grade, Material, SimEvent } from "../content/types";
 import type { World } from "../sim/world";
 import type { FrameInfo, Presenter, Quality, ScreenPoint } from "../app/contracts";
 import type { FoeLocator } from "./actors";
-import { DrawnNumberField } from "./number-field";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 
@@ -1024,8 +1023,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   core.warm(stage.renderer, stage.scene, stage.camera);
   const hitStop = new HitStop(DRAGON);
   const trauma = new Trauma(DRAGON, options.random);
-  // The kit field, with a box as wide as the drawn digits and label (number-field.ts: labels side by side touched).
-  const numbers: NumberField = new DrawnNumberField(DRAGON);
+  // The kit field: its box is the drawn digits and label, settle() runs until none touch (round 3 kit drift, fixed in the kit).
+  const numbers = new NumberField(DRAGON);
   numbers.limit = FX_BUDGET[stage.quality].numbers;
   let sprites: NumberSprites | null = null;
   const screen: ScreenPoint = { x: 0, y: 0, visible: false };

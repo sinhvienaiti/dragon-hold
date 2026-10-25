@@ -4,7 +4,7 @@
 // = key commands = the sim's key count), the world must have been slowed by
 // hit-stop meanwhile, and the key → drawn frame time must stay ≤ 70 ms.
 // Round 3: the storm's numbers must not touch each other (drawn boxes with the
-// "HOÀN HẢO" label, view/number-field.ts): sampled after every word, three pictures.
+// "HOÀN HẢO" label, kit feedback/numbers.ts box()): sampled after every word, three pictures.
 // Review 2 minor 1: each sample also records how many numbers were live and
 // checks them as drawn (lib/dh.mjs INSTALL_INK_CHECK), so a run where no word
 // finished and no number spawned cannot read as evidence.

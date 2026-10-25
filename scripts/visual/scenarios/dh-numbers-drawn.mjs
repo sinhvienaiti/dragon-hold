@@ -1,13 +1,15 @@
 // dh-numbers-drawn (review 2 minor 2): the damage-number fix measured on what
 // is drawn, not on the box that does the spacing. dh-numbers and
-// __dh.numbersTouching() test DrawnNumberField.box(), the same box spawn() and
-// settle() push apart with, so a box too small would pass its own test. Here
+// __dh.numbersTouching() test the kit's NumberField.box(), the same box spawn()
+// and settle() push apart with, so a box too small would pass its own test. Here
 // every frame is read from the quads NumberSprites uploaded and the ink in the
 // glyph atlas (lib/dh.mjs INSTALL_INK_CHECK). Three results:
 //   fixed:   storms on a crowd; ink of two numbers never overlaps;
 //   cover:   how far each number's ink reaches outside its box() (what the fix rests on);
-//   control: the same storms with the kit's box() put back on this field
-//            (NumberField.prototype.box): ink must overlap, so the check can see the old bug.
+//   control: the same storms with the box from before the fix put back on this
+//            field (OLD_BOX: digits' advances, one font size tall; round 3 kit
+//            drift, fixed in shared/game-kit on 25/10): ink must overlap, so the
+//            check can see the old bug.
 // Storms: BURSTS (default 10) × HITS (12) T4–T5 presentation hits on FOES (12) live
 // foes, GAP_MS (200, > the 0.15 s merge window) apart, so numbers also stack.
 // `outsideByGlyph` names the glyph whose ink leaves the box; `atlasRows` gives
@@ -53,6 +55,26 @@ const WALK_IN = (n) => `(async () => {
     step(w);
   }
   return d.foes().filter((f) => f.visible).length;
+})()`;
+
+/**
+ * The kit's box() before 25/10 (digits' advances, one font size tall, a
+ * perfect number 1.42 with the label above), set on the field instance so
+ * spawn(), settle() and update() space numbers with it.
+ */
+const OLD_BOX = `(async () => {
+  const { popScale } = await import('/src/kit/feedback/index.ts');
+  const field = window.__dh.numberLayer().numbers;
+  field.box = function (i, out, x = this.x[i], y = this.y[i]) {
+    const px = this.fontPx * this.size[i] * popScale(this.tier[i], this.pop[i], this.profile.tiers);
+    const perfect = this.style[i] === 2;
+    out.w = this.text(i).length * 0.58 * px;
+    out.h = px * (perfect ? 1.42 : 1);
+    out.x = x - out.w / 2;
+    out.y = y - px / 2 - (perfect ? 0.42 * px : 0);
+    return out;
+  };
+  return 'old digits-only box on ' + field.constructor.name;
 })()`;
 
 const frames = (page, n = 1) => page.eval(`new Promise((done) => { let k = 0; const f = () => (++k >= ${n} ? done(k) : requestAnimationFrame(f)); requestAnimationFrame(f); })`);
@@ -109,16 +131,9 @@ export default async function (page) {
   await page.eval(INSTALL_INK_CHECK);
 
   const fixed = await storms(page, out, "fixed");
-  // Let every number fade, then put the kit's box() back on this field.
+  // Let every number fade, then put the old box on this field.
   await waitFor(page, "window.__dh.numberLayer().numbers.live === 0", { timeoutMs: 15000 });
-  const patched = await page.eval(`(() => {
-    const field = window.__dh.numberLayer().numbers;
-    const own = Object.getPrototypeOf(field);
-    const kit = Object.getPrototypeOf(own).box;
-    if (kit === own.box) return false;
-    field.box = function (i, out, x, y) { return kit.call(this, i, out, x, y); };
-    return own.constructor.name + ' -> ' + Object.getPrototypeOf(own).constructor.name;
-  })()`);
+  const patched = await page.eval(OLD_BOX);
   const control = await storms(page, out, "control");
   await page.eval("delete window.__dh.numberLayer().numbers.box");
   await waitFor(page, "window.__dh.numberLayer().numbers.live === 0", { timeoutMs: 15000 });

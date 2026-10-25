@@ -1,6 +1,6 @@
 // dh-numbers (round 2 gate: "two HOÀN HẢO numbers touch"): T4–T5 presentation
 // hits (__dh.fxStorm) on live foes, many at once, then the drawn number boxes
-// (digits with their overhang, the "HOÀN HẢO" label; view/number-field.ts) are
+// (digits with their overhang, the "HOÀN HẢO" label; kit feedback/numbers.ts) are
 // checked pairwise after every frame (__dh.numbersTouching must stay 0) and
 // against the protected UI (__dh.numbersOverlaps). Works at any frame rate: the
 // world is stepped in the page to wave 1's crowd (logged keys only).
