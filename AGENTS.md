@@ -28,6 +28,12 @@ Dev port 3005, host `dragon.typing-game.local`.
   05 §4.3, taken as recommended). On `710f34a`: 10/10 `dh-crowd` runs `ok`,
   0 of 33,592 frames with a foe ≥ 40 %. See
   `docs/changelog/2026-10-25-mac-kit-drift-crowd.md`.
+- State (26/10, Mac): the herb hut is "Lều Thuốc Nam" (owner; taken as
+  recommended), and the labels that read wrong are reworded. B1/B7: 6
+  measured rounds, none kept (each easier-play lever broke B3 or B4), sim
+  unchanged; B1 and B7 still fail both bands. Recommended to the owner:
+  confirm D27, keep the kit's idle metric. See
+  `docs/changelog/2026-10-26-b1b7-names.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.

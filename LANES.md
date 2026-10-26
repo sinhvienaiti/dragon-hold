@@ -477,3 +477,27 @@ Notes: `docs/changelog/2026-10-25-mac-kit-drift-crowd.md`.
 
 Still open: B1, B7 (both bands), B9, D27 and D29's gate-rule part; how
 often a held tag moves is not counted yet.
+
+### Mac: B1/B7 rounds, herb hut name, Vietnamese labels (Mac mini M4, 26/10/2026)
+
+Notes: `docs/changelog/2026-10-26-b1b7-names.md`.
+
+- B1/B7 (bot-balance, sim-battle): 6 measured rounds, none kept, sim
+  unchanged (the committed code's `pnpm dh:balance` matches `0cc3370`
+  number for number). Tried: a wave vanguard leaving in the warning (first
+  word at the wave start), the word zone not shrinking above k 1, words
+  from that zone but Héo lan from T_a / k (or / √k), `DIRECTOR_IDLE_SLACK`
+  100, Héo lan's grace tilted by accuracy, the sloppy margin 3.0 → 2.0.
+  They cut I by 1.6–10 points but made runs easier, and each counterweight
+  broke B4 (r4, r5) or B3 (r6). The r6 patch stays in `tmp/` only. The notes
+  split I by cause (70–86 % is foes walking from the gate) and recommend D27
+  over the kit change (a).
+- `src/content/data/our-side.ts` (sim-ourside): the herb hut is "Lều Thuốc
+  Nam" (owner, 26/10; taken as recommended), id `herb-hut` kept; comments,
+  bot notes, `docs/audio/M0_SOUND_LIST.md` and tests follow.
+- `src/ui/{wave-card,hud,shop-strip}.ts` (ui): the breather tag reads "Đợt
+  nhẹ" (tooltip), the ultimate-gap and no-target toasts and Lưới Phóng's line
+  reworded; `ui-preview.ts` and `ui-preview.mjs` get a `breather` scene.
+
+Waiting for the owner: D27 (recommended: confirm), D29's gate-rule part.
+Still open: B1, B7 (both bands), B9; how often a held tag moves.
