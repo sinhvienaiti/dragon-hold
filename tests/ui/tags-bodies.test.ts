@@ -115,7 +115,7 @@ describe("word tags keep the crowd and its warnings visible (round 2)", () => {
     // The limit is an option: at 0.8 the same tag holds.
     const [held] = layoutTags([base], { ...view, bodies: [arrived], bodyFirm: 0.8 });
     expect(held).toMatchObject({ dx: 0, row: 0 });
-    // A third of a body is past the default 30 % (dh-crowd's 6 × 6 grid read 33–34 % under a held tag as 42 %).
+    // A third of a body is past the default 30 % (10 points under dh-crowd's 40 %, on the same exact areas).
     const third: BodyRect = { x: 480, y: 262, w: 40, h: 90, owner: -1 };
     expect(covered({ x: 460, y: 270, w: 80, h: 30 }, third)).toBeCloseTo(1 / 3, 6);
     const [left] = layoutTags([base], { ...view, bodies: [third] });
@@ -170,10 +170,103 @@ describe("word tags keep the crowd and its warnings visible (round 2)", () => {
     for (const zone of wide) expect(overlap(squeezed!, zone)).toBe(false);
   });
 
-  it("ring tags and edge chips ignore bodies (fixed slots, 05 §4.3)", () => {
-    const behind: BodyRect = { x: 480, y: 262, w: 40, h: 34, owner: -1 };
-    const [place] = layoutTags([{ id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, clearBodies: false }], { ...view, bodies: [behind] });
-    expect(place).toMatchObject({ dx: 0, row: 0 });
+  it("the last resort weighs every body round the anchor, below it too (26/10 review: a ring spot under the anchor hid another foe 56 %)", () => {
+    // Panels fill every push and row; the tag's own foe stands under the anchor and a wordless foe just below-left,
+    // outside the pushes' reach (`near` only looks above the anchor), where the nearest ring spot fell.
+    const own: BodyRect = { x: 480, y: 300, w: 40, h: 60, owner: 1 };
+    const other: BodyRect = { x: 400, y: 330, w: 40, h: 50, owner: -1 };
+    const avoid: Rect[] = [{ x: 330, y: 160, w: 340, h: 141 }];
+    expect(covered({ x: 393, y: 342, w: 74, h: 28 }, other)).toBeCloseTo(0.56, 6);
+    const [place] = layoutTags([{ id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1 }], { ...view, avoid, bodies: [own, other] });
+    for (const zone of avoid) expect(overlap(place!, zone)).toBe(false);
+    expect(overlap(place!, own)).toBe(false);
+    expect(covered(place!, other)).toBeLessThanOrEqual(0.3);
+    // Within twice the reach (2 × max(120 px, 3 rows × 34 px)) of the anchor, each way.
+    expect(Math.abs(place!.x + place!.w / 2 - 500)).toBeLessThanOrEqual(240);
+    expect(Math.abs(place!.y + place!.h - 300)).toBeLessThanOrEqual(240);
+  });
+
+  it("ring-slot tags keep off bodies, their own foe's too; edge chips ignore them (26/10 review: ring tags hid foes within 10 m up to 92 %)", () => {
+    // A slot's anchor right over a foe walking in (another's) and over the tag's own foe.
+    const walker: BodyRect = { x: 480, y: 262, w: 40, h: 34, owner: -1 };
+    const ownFoe: BodyRect = { x: 480, y: 262, w: 40, h: 34, owner: 1 };
+    const ring: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, ownClear: true };
+    const [a] = layoutTags([ring], { ...view, bodies: [walker] });
+    expect(covered(a!, walker)).toBeLessThanOrEqual(0.2);
+    const [b] = layoutTags([ring], { ...view, bodies: [ownFoe] });
+    expect(covered(b!, ownFoe)).toBeLessThanOrEqual(0.2);
+    // A tag over its own foe's head still stands there (it is the anchor's point).
+    const [head] = layoutTags([{ ...ring, ownClear: false }], { ...view, bodies: [ownFoe] });
+    expect(head).toMatchObject({ dx: 0, row: 0 });
+    // Edge chips sit at the screen's edge whatever is under them.
+    const [chip] = layoutTags([{ id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, clearBodies: false }], { ...view, bodies: [walker] });
+    expect(chip).toMatchObject({ dx: 0, row: 0 });
+  });
+
+  it("after a move for a body inside its hold, moves again only for a foe 40 % hidden (26/10 review: tags jumped again inside the hold)", () => {
+    const arrived: BodyRect = { x: 480, y: 262, w: 40, h: 34, owner: -1 };
+    const third: BodyRect = { x: 480, y: 262, w: 40, h: 90, owner: -1 };
+    const base: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, prev: { dx: 0, row: 0, shrunk: false }, firm: true };
+    const [first] = layoutTags([base], { ...view, bodies: [third] });
+    expect(first!.left).toBe("body");
+    expect(covered(first!, third)).toBeLessThanOrEqual(0.2);
+    // It moved for a body less than 0.5 s ago: a third of a foe under its new spot does not move it again.
+    const [held] = layoutTags([{ ...base, yielded: true }], { ...view, bodies: [third] });
+    expect(held).toMatchObject({ dx: 0, row: 0 });
+    expect(held!.left).toBeUndefined();
+    // A foe 76 % under it does.
+    const [again] = layoutTags([{ ...base, yielded: true }], { ...view, bodies: [arrived] });
+    expect(again!.left).toBe("body");
+    expect(covered(again!, arrived)).toBeLessThanOrEqual(0.2);
+  });
+
+  it("inside its hold it never goes back to the spot it just left while another is free; with none, it does (26/10 review: 216–240 px and back in 100–150 ms)", () => {
+    // It left its ideal spot (back) for dx −24; now a higher tag holding its own spot (it grew a line) covers dx −24,
+    // and the ideal spot is free again.
+    const blocker: TagBox = { id: 2, ax: 476, ay: 300, w: 80, h: 30, priority: 9, prev: { dx: 0, row: 0, shrunk: false }, firm: true };
+    const tag: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, prev: { dx: -24, row: 0, shrunk: false }, firm: true, back: { dx: 0, row: 0, shrunk: false } };
+    const places = layoutTags([blocker, tag], view);
+    const moved = places.find((p) => p.id === 1)!;
+    expect(moved.left).toBe("busy");
+    expect([moved.dx, moved.row, moved.shrunk]).not.toEqual([0, 0, false]);
+    for (const p of places) if (p.id !== 1) expect(overlap(p, moved)).toBe(false);
+    // Panels leave only the spot it left free in reach: it goes back there, not across the screen.
+    const avoid: Rect[] = [{ x: 0, y: 0, w: 1280, h: 269 }, { x: 0, y: 301, w: 1280, h: 419 }, { x: 0, y: 269, w: 459, h: 32 }, { x: 541, y: 269, w: 739, h: 32 }];
+    const [home] = layoutTags([{ ...tag, prev: { dx: 24, row: 0, shrunk: false } }], { ...view, avoid });
+    expect(home).toMatchObject({ dx: 0, row: 0, shrunk: false });
+  });
+
+  it("a tag laid out afresh keeps off a held tag's spot while another is free (26/10: most moves inside a hold were held tags pushed off)", () => {
+    // A higher tag whose hold ended is laid out again: its ideal spot covers a lower tag's held spot.
+    const fresh: TagBox = { id: 2, ax: 476, ay: 300, w: 80, h: 30, priority: 9 };
+    const held: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, prev: { dx: -24, row: 0, shrunk: false }, firm: true };
+    const places = layoutTags([fresh, held], view);
+    const kept = places.find((p) => p.id === 1)!;
+    expect(kept).toMatchObject({ dx: -24, row: 0 });
+    expect(kept.left).toBeUndefined();
+    expect(overlap(places.find((p) => p.id === 2)!, kept)).toBe(false);
+    // With no other spot in reach for it, the higher tag still takes it (the held tag moves).
+    const avoid: Rect[] = [{ x: 0, y: 0, w: 1280, h: 269 }, { x: 0, y: 301, w: 1280, h: 419 }, { x: 0, y: 269, w: 435, h: 32 }, { x: 517, y: 269, w: 763, h: 32 }];
+    const squeezed = layoutTags([fresh, held], { ...view, avoid });
+    expect(squeezed.find((p) => p.id === 2)).toMatchObject({ dx: 0, row: 0 });
+    expect(squeezed.find((p) => p.id === 1)!.left).toBe("busy");
+  });
+
+  it("over bodies, a last spot past the hold's limit stays unless another hides at least 5 points less (no jump for a point or two)", () => {
+    // Two spots free (row 0 and row 3): row 0 hides 34 % of A, row 3 (shrunk) 32.4 % of B: 1.6 points less, it stays.
+    const avoid: Rect[] = [
+      { x: 0, y: 0, w: 459, h: 720 },
+      { x: 541, y: 0, w: 739, h: 720 },
+      { x: 460, y: 199, w: 80, h: 70 },
+      { x: 460, y: 0, w: 80, h: 167 },
+      { x: 460, y: 301, w: 80, h: 419 },
+    ];
+    const a: BodyRect = { x: 460, y: 270, w: 40, h: 88.24, owner: -1 };
+    const b: BodyRect = { x: 460, y: 168, w: 40, h: 80, owner: -1 };
+    expect(covered({ x: 460, y: 270, w: 80, h: 30 }, a)).toBeCloseTo(0.34, 3);
+    const tag: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, prev: { dx: 0, row: 0, shrunk: false } };
+    const [kept] = layoutTags([tag], { ...view, avoid, bodies: [a, b] });
+    expect(kept).toMatchObject({ dx: 0, row: 0, shrunk: false });
   });
 
   it("lays out 20 tags among 40 bodies within the frame budget", () => {
