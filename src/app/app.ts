@@ -43,6 +43,7 @@ import { createFx, type FxPresenter } from "../view/fx";
 import { createHeroes } from "../view/heroes";
 import { createHpBars } from "../view/hpbars";
 import { createMapStage, type MapStage } from "../view/stage";
+import { createLaneCue } from "../view/lane-cue";
 import { createTelegraphs, type TelegraphsView } from "../view/telegraphs";
 import type { ActionHandler, FrameInfo, Presenter, Quality, ScreenPoint } from "./contracts";
 import { createInputRouter, type InputRouter, type KeyPanel } from "./input-router";
@@ -481,6 +482,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const placement = createPlacementUi(overlay!, map.stage.project, sink, { onSlots: (visible, highlight) => map.paths.showSlots(visible, highlight) });
     const hud = createHud(overlay!, sink, { onPause: openMenu, onCameraReset: () => map.rig.reset() });
     const waveCard = createWaveCard(overlay!, sink);
+    // The card's "Quái sắp vào từ các đường sáng": the coming wave's lanes light on the map (26/10 review).
+    const laneCue = createLaneCue(map.paths);
     const strip = createShopStrip(overlay!, sink, { placement });
     const results = createResults(overlay!, { retry: restart, listen: (text) => learning.speak(text), gloss: learning.gloss });
     const hooks = {
@@ -507,7 +510,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       meter: new PaceMeter(),
       log: [],
       // actors first: the others read the positions it computes each frame.
-      presenters: [actors, heroes, telegraphs, banners, hpbars, fx, tags, frame, placement, hud, waveCard, strip, results, audio],
+      presenters: [actors, heroes, telegraphs, banners, hpbars, fx, tags, frame, placement, hud, waveCard, laneCue, strip, results, audio],
       scene: { presenters: [actors, telegraphs, banners, hpbars, fx], roots: onStage().filter((root) => !before.has(root)) },
       handlers: [results, placement, strip, waveCard, hud, replay, map.rig],
       actors,

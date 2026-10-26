@@ -1,7 +1,11 @@
 /**
  * Dirt paths along MapDef.lanes (decals or painted ground), the bridge deck
  * as a placeholder primitive, faint sky-lane markers, slot ghosts shown only
- * while placing or in a break (05 §2.1).
+ * while placing or in a break (05 §2.1), and the wave warning's lit lanes:
+ * during the 6 s warning every lane the next wave uses glows and pulses with
+ * light running toward the dais; a sky lane's chevrons run only while a wave
+ * on the way uses it (26/10 review: the card said "Quái sắp vào từ các đường
+ * sáng" and no lane lit, and the sky arrows ran under "Đường Trời: Yên").
  * The dirt itself is painted by the ground shader (terrain.ts, lane mask);
  * here: the bridge (boxes, one draw call), the sky lane (a faint drifting
  * ribbon at flight height) and the slot ghosts (one instanced quad each,
@@ -9,13 +13,15 @@
  * Owner: view-terrain (LANES.md).
  */
 import * as THREE from "three";
-import type { MapDef, SlotKind } from "../content/types";
+import type { MapDef, SlotKind, Vec2 } from "../content/types";
 import { catmullRom, DH_GLSL, hash2, mergeSimple, paintMaterial, Polyline, type PaintedTerrain } from "./terrain";
 
 export interface PathsView {
   readonly group: THREE.Group;
   /** Shows or hides the slot markers (placement mode, breaks). */
   showSlots(visible: boolean, highlight?: readonly number[]): void;
+  /** Lanes the coming wave uses (ground and sky ids); `warning`: its 6 s warning runs, so its ground lanes light up. */
+  cueLanes(ids: readonly string[], warning: boolean): void;
   dispose(): void;
   /** Animates the sky marker and the slot pulse. */
   update(dt: number): void;
@@ -99,12 +105,14 @@ ${DH_GLSL}
 uniform vec3 uTint;
 uniform float uLength;
 uniform float uOpacity;
+uniform float uFlow;
 varying vec2 vUv;
 varying vec3 vDhWorld;
 void main() {
   float across = abs(vUv.x - 0.5) * 2.0;
   float body = 1.0 - smoothstep(0.35, 1.0, across);
-  float chevron = fract(vUv.y * 0.28 + across * 0.35 - uTime * 0.45);
+  // uFlow: the chevrons' phase, advanced only while a wave on the way uses this lane.
+  float chevron = fract(vUv.y * 0.28 + across * 0.35 - uFlow * 0.45);
   float mark = smoothstep(0.0, 0.08, chevron) * (1.0 - smoothstep(0.18, 0.3, chevron));
   float ends = smoothstep(0.0, 4.0, vUv.y) * (1.0 - smoothstep(uLength - 3.0, uLength, vUv.y));
   float alpha = (body * 0.32 + mark * (1.0 - across) * 0.75) * ends * uOpacity;
@@ -114,6 +122,99 @@ void main() {
   #include <colorspace_fragment>
 }
 `;
+
+/**
+ * A lit lane in the wave warning: a pulsing gold band with bright rims and
+ * near-white chevrons running toward the dais. (A first cut in pale cream at
+ * alpha 0.3 hardly showed on the light dirt in the 1280×720 pictures, 26/10.)
+ */
+const CUE_FRAGMENT = /* glsl */ `
+${DH_GLSL}
+uniform vec3 uTint;
+uniform float uLength;
+uniform float uOpacity;
+varying vec2 vUv;
+varying vec3 vDhWorld;
+void main() {
+  float across = abs(vUv.x - 0.5) * 2.0;
+  float body = 1.0 - smoothstep(0.55, 1.0, across);
+  float rim = smoothstep(0.6, 0.8, across) * (1.0 - smoothstep(0.86, 1.0, across));
+  float chevron = fract(vUv.y * 0.22 + across * 0.3 - uTime * 0.9);
+  float mark = smoothstep(0.0, 0.1, chevron) * (1.0 - smoothstep(0.24, 0.38, chevron));
+  float pulse = 0.65 + 0.35 * sin(uTime * 6.0);
+  float ends = smoothstep(0.0, 2.5, vUv.y) * (1.0 - smoothstep(uLength - 5.0, uLength - 1.0, vUv.y));
+  vec3 colour = mix(uTint, vec3(1.0, 0.97, 0.86), mark * (1.0 - across));
+  float alpha = min(1.0, body * 0.42 * pulse + rim * 0.6 + mark * (1.0 - across * 0.7) * 0.95) * ends * uOpacity;
+  if (alpha < 0.01) discard;
+  gl_FragColor = vec4(dhMist(colour, vDhWorld), alpha);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+
+/** A ribbon `half` metres either side of a smoothed line, `lift` above what actors stand on (ground, bridge deck); uv.y is metres along. */
+function ribbon(points: readonly Vec2[], terrain: PaintedTerrain, half: number, lift: number): { geometry: THREE.BufferGeometry; length: number } {
+  const smooth = catmullRom(points, 0.5);
+  const line = new Polyline(smooth.points);
+  const positions = new Float32Array(line.count * 6);
+  const uvs = new Float32Array(line.count * 4);
+  for (let row = 0; row < line.count; row += 1) {
+    const prev = Math.max(0, row - 1);
+    const next = Math.min(line.count - 1, row + 1);
+    let dx = line.xs[next]! - line.xs[prev]!;
+    let dz = line.zs[next]! - line.zs[prev]!;
+    const length = Math.hypot(dx, dz) || 1;
+    dx /= length;
+    dz /= length;
+    const x = line.xs[row]!;
+    const z = line.zs[row]!;
+    for (let col = 0; col < 2; col += 1) {
+      const offset = (col === 0 ? -1 : 1) * half;
+      const px = x - dz * offset;
+      const pz = z + dx * offset;
+      const index = row * 2 + col;
+      positions[index * 3] = px;
+      positions[index * 3 + 1] = terrain.heightAt(px, pz) + lift;
+      positions[index * 3 + 2] = pz;
+      uvs[index * 2] = col;
+      uvs[index * 2 + 1] = line.cum[row]!;
+    }
+  }
+  const indices: number[] = [];
+  for (let row = 0; row < line.count - 1; row += 1) {
+    const a = row * 2;
+    indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  return { geometry, length: line.length };
+}
+
+/** One lit-lane ribbon per dirt lane, hidden until a wave warning uses it. */
+function cueMeshes(map: MapDef, terrain: PaintedTerrain, look: PaintedTerrain["look"]): THREE.Mesh[] {
+  return map.lanes.map((lane) => {
+    const { geometry, length } = ribbon(lane.points, terrain, (lane.widthM / 2) * 0.85, 0.1);
+    const material = new THREE.ShaderMaterial({
+      vertexShader: SKY_VERTEX,
+      fragmentShader: CUE_FRAGMENT,
+      uniforms: { ...look.uniforms, uTint: { value: new THREE.Color("#ffbd45") }, uLength: { value: length }, uOpacity: { value: 0 } },
+      transparent: true,
+      depthWrite: false,
+      // The strip's winding faces down from the camera's side, as the sky ribbon's does.
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = "dh-lane-cue-" + lane.id;
+    mesh.renderOrder = 4;
+    mesh.visible = false;
+    return mesh;
+  });
+}
 
 function skyMesh(map: MapDef, terrain: PaintedTerrain, look: PaintedTerrain["look"]): THREE.Mesh[] {
   return map.sky.map((lane) => {
@@ -157,7 +258,7 @@ function skyMesh(map: MapDef, terrain: PaintedTerrain, look: PaintedTerrain["loo
     const material = new THREE.ShaderMaterial({
       vertexShader: SKY_VERTEX,
       fragmentShader: SKY_FRAGMENT,
-      uniforms: { ...look.uniforms, uTint: { value: new THREE.Color("#f4efff") }, uLength: { value: line.length }, uOpacity: { value: 0.55 } },
+      uniforms: { ...look.uniforms, uTint: { value: new THREE.Color("#f4efff") }, uLength: { value: line.length }, uOpacity: { value: SKY_ACTIVE }, uFlow: { value: 0 } },
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -168,6 +269,12 @@ function skyMesh(map: MapDef, terrain: PaintedTerrain, look: PaintedTerrain["loo
     return mesh;
   });
 }
+
+/** Sky ribbon opacity: a wave on the way uses the lane / it stays quiet ("Yên" on the wave card). */
+const SKY_ACTIVE = 0.55;
+const SKY_QUIET = 0.2;
+/** Lit lanes fade in and out over this long, seconds. */
+const CUE_FADE_S = 0.25;
 
 const SLOT_SHAPE: Readonly<Record<SlotKind, number>> = { trap: 0, block: 1, house: 2 };
 const SLOT_SIZE: Readonly<Record<SlotKind, number>> = { trap: 2.0, block: 1.8, house: 4.6 };
@@ -238,10 +345,20 @@ export function buildPaths(map: MapDef, terrain: PaintedTerrain): PathsView {
     disposables.push(bridge.geometry, bridge.material as THREE.Material);
   }
 
-  for (const mesh of skyMesh(map, terrain, look)) {
+  const skies = skyMesh(map, terrain, look);
+  for (const mesh of skies) {
     group.add(mesh);
     disposables.push(mesh.geometry, mesh.material as THREE.Material);
   }
+  const cues = cueMeshes(map, terrain, look);
+  for (const mesh of cues) {
+    group.add(mesh);
+    disposables.push(mesh.geometry, mesh.material as THREE.Material);
+  }
+  // Targets of the lit lanes (0–1) and of the sky lanes (active or not); `update` eases toward them.
+  // Sky lanes start active: a page that never cues (terrain preview, bench) looks as before.
+  const cueTarget = new Float32Array(cues.length);
+  const skyActive = new Uint8Array(skies.length).fill(1);
 
   // Slot ghosts: one instanced flat quad per slot, lying on the ground.
   const slots = map.slots;
@@ -290,8 +407,33 @@ export function buildPaths(map: MapDef, terrain: PaintedTerrain): PathsView {
       for (const index of highlight) if (index >= 0 && index < lit.length) lit[index] = 1;
       litAttribute.needsUpdate = true;
     },
-    update(): void {
-      // Time lives in the shared look (terrain.update advances it).
+    cueLanes(ids: readonly string[], warning: boolean): void {
+      map.lanes.forEach((lane, index) => {
+        cueTarget[index] = warning && ids.includes(lane.id) ? 1 : 0;
+      });
+      map.sky.forEach((lane, index) => {
+        skyActive[index] = ids.includes(lane.id) ? 1 : 0;
+      });
+    },
+    update(dt: number): void {
+      // Time lives in the shared look (terrain.update advances it); the cues ease toward their targets.
+      const step = dt / CUE_FADE_S;
+      cues.forEach((mesh, index) => {
+        const uniforms = (mesh.material as THREE.ShaderMaterial).uniforms;
+        const value = uniforms.uOpacity!.value as number;
+        const next = value + Math.max(-step, Math.min(step, cueTarget[index]! - value));
+        uniforms.uOpacity!.value = next;
+        mesh.visible = next > 0.001;
+      });
+      skies.forEach((mesh, index) => {
+        const uniforms = (mesh.material as THREE.ShaderMaterial).uniforms;
+        const goal = skyActive[index] === 1 ? SKY_ACTIVE : SKY_QUIET;
+        const value = uniforms.uOpacity!.value as number;
+        const skyStep = step * (SKY_ACTIVE - SKY_QUIET);
+        uniforms.uOpacity!.value = value + Math.max(-skyStep, Math.min(skyStep, goal - value));
+        // Chevrons drift only on an active lane.
+        if (skyActive[index] === 1) uniforms.uFlow!.value = (uniforms.uFlow!.value as number) + dt;
+      });
     },
     dispose(): void {
       group.removeFromParent();
