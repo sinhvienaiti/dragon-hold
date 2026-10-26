@@ -6,9 +6,16 @@
 // the typist waits for ≥ 4 live words unless a foe is near (tags pile up).
 // WPM=70 plays at k 1.50 (lib/dh.mjs boot); each run reports its kPm.
 // Pictures in tmp/shots/integrator/.
+// `ok` (26/10 review: with the network voice CDP stalled and runs typed 1–4
+// words, which read as a pass): every run started wave 1 and typed ≥ 20
+// words, and no check saw overlapping tags, a missing or extra tag, a word
+// under 16 px or a meaning line under 13 px.
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
-import { badResources, boot, MOD, outDir, pickWord, press, state, typeWord, waitFor } from "./lib/dh.mjs";
+import { badResources, boot, MOD, outDir, pickWord, press, startWave, state, typeWord } from "./lib/dh.mjs";
+
+/** Words a 60 s run must type for its checks to count (a stalled run typed 1–4). */
+const TYPED_MIN = 20;
 
 const TAG_CHECK = `(() => {
   const d = window.__dh; const words = d.words();
@@ -31,8 +38,7 @@ const TAG_CHECK = `(() => {
 async function play(page, size, out, tagSize) {
   const [width, height] = size;
   await boot(page, "prelearn=0&speed=" + (process.env.SPEED ?? "2") + "&tagsize=" + tagSize, { width, height });
-  await press(page, "Enter");
-  const started = await waitFor(page, "s.phase === 'wave'", { timeoutMs: 20000 });
+  const started = await startWave(page);
   const checks = [];
   let typed = 0;
   let shot = 0;
@@ -74,12 +80,21 @@ async function play(page, size, out, tagSize) {
   await page.shot(join(out, `words-end-${width}x${height}-tags${tagSize}.png`));
   const worst = checks.reduce((acc, c) => ({ overlaps: Math.max(acc.overlaps, c.overlaps), missing: acc.missing + c.missing.length, extra: acc.extra + c.extra.length, minFont: Math.min(acc.minFont, c.minFont ?? 99), minMean: Math.min(acc.minMean, c.minMean ?? 99), maxTags: Math.max(acc.maxTags, c.tags) }), { overlaps: 0, missing: 0, extra: 0, minFont: 99, minMean: 99, maxTags: 0 });
   const lastMissing = checks.filter((c) => c.missing.length > 0).slice(-3);
-  return { size: width + "x" + height, tagSize, kPm: end.pace?.kPm ?? null, reachedWave: end.wave, started, typed, kills: end.kills - startKills, words: end.words, grades: end.grades, keys: end.keys, routerLetters: end.routerLetters, checks: checks.length, worst, lastMissing, perf: await page.eval("window.__dh.perf()"), replay: await page.eval("window.__dh.replayCheck()") };
+  const okWhy = [];
+  if (!started) okWhy.push("wave 1 never started");
+  if (typed < TYPED_MIN) okWhy.push("typed " + typed + " < " + TYPED_MIN);
+  if (worst.overlaps > 0) okWhy.push("overlaps " + worst.overlaps);
+  if (worst.missing > 0) okWhy.push("missing " + worst.missing);
+  if (worst.extra > 0) okWhy.push("extra " + worst.extra);
+  if (worst.minFont < 16) okWhy.push("word font " + worst.minFont + " px");
+  if (worst.minMean < 13) okWhy.push("meaning font " + worst.minMean + " px");
+  return { ok: okWhy.length === 0, okWhy, size: width + "x" + height, tagSize, kPm: end.pace?.kPm ?? null, reachedWave: end.wave, started, typed, kills: end.kills - startKills, words: end.words, grades: end.grades, keys: end.keys, routerLetters: end.routerLetters, checks: checks.length, worst, lastMissing, perf: await page.eval("window.__dh.perf()"), replay: await page.eval("window.__dh.replayCheck()") };
 }
 
 export default async function (page) {
   const out = outDir("integrator");
   const runs = [];
   for (const size of [[1280, 720], [1920, 1080]]) for (const tagSize of [100, 150]) runs.push(await play(page, size, out, tagSize));
-  return { runs, badResources: await badResources(page) };
+  const bad = await badResources(page);
+  return { ok: runs.every((run) => run.ok) && bad.length === 0 && page.exceptions.length === 0, runs, badResources: bad, spoke: await page.eval("window.__dhSpoke ?? null") };
 }

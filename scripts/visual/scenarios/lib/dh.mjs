@@ -59,12 +59,28 @@ export async function typeWord(page, word, gapMs = 40) {
 }
 
 /**
+ * speechSynthesis stubbed in every document the page opens (26/10 review): on
+ * the Mac, headless Chrome 155 stalls CDP replies for 13–15 s after
+ * cancel() + speak() with the network voice, so dh-hitstop-keys sent 23 of
+ * ~100 keys and dh-words typed 1–4 words a run. The stub counts what the game
+ * would say (`window.__dhSpoke`). SPEECH=1 keeps the real voice.
+ */
+const SPEECH_STUB = "(() => { window.__dhSpoke = 0; try { const s = window.speechSynthesis; if (s) { s.speak = () => { window.__dhSpoke += 1; }; s.cancel = () => {}; } } catch {} })()";
+const stubbed = new WeakSet();
+async function stubSpeech(page) {
+  if (process.env.SPEECH === "1" || stubbed.has(page)) return;
+  stubbed.add(page);
+  await page.send("Page.addScriptToEvaluateOnNewDocument", { source: SPEECH_STUB });
+}
+
+/**
  * Opens the game and waits for window.__dh.ready. Without `wpm=` in the query
  * the game asks for a typing speed first (app/typing-pace.ts): scenarios play
  * at the reference 35 WPM unless they say otherwise (dh-pace.mjs opens the card)
  * or the WPM environment variable names another speed (WPM=70: k 1.50).
  */
 export async function boot(page, query = "", { width, height } = {}) {
+  await stubSpeech(page);
   if (width && height) {
     await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: page.dpr ?? 1, mobile: false });
   }
@@ -82,6 +98,23 @@ export async function boot(page, query = "", { width, height } = {}) {
 }
 
 export const state = (page) => page.eval("window.__dh.state()");
+
+/**
+ * Enter until wave 1 runs (26/10 review: one 720p run's Enter after boot left
+ * the stage in Bày binh, and 89 keys typed nothing while the run still read
+ * "0 lost"). Up to `tries` presses, `waitMs` each; true once the phase is
+ * "wave". Scenarios put the result in their `ok`.
+ */
+export async function startWave(page, { tries = 3, waitMs = 8000 } = {}) {
+  for (let k = 0; k < tries; k += 1) {
+    const phase = (await state(page)).phase;
+    if (phase === "wave") return true;
+    // In the 6 s warning the wave is already on its way: wait, do not press again.
+    if (phase !== "warning") await press(page, "Enter");
+    if (await waitFor(page, "s.phase === 'wave'", { timeoutMs: waitMs })) return true;
+  }
+  return (await state(page)).phase === "wave";
+}
 
 /** Steps the scenario until `predicate` (a JS expression over s = __dh.state()) is true. */
 export async function waitFor(page, predicate, { timeoutMs = 60000, everyMs = 200 } = {}) {

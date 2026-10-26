@@ -18,9 +18,16 @@
 // Every check also says which overlaps lie in the view: settle() and merges
 // can lift a storm number above the top edge, where it is uploaded but unseen.
 // SIZE=1920 runs at 1920×1080 (default 1280×720).
+// `ok` (26/10 review: a run whose Enter never started wave 1 typed 89 keys
+// into Bày binh and still read "0 lost"): wave 1 started, ≥ 90 keys sent, none
+// lost, ≥ 3 words done, key → frame ≤ 70 ms, no number over a protected rect,
+// no two numbers touching after a word or in any drawn frame (in view).
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
-import { INSTALL_INK_CHECK, badResources, boot, outDir, pickWord, press, state, waitFor } from "./lib/dh.mjs";
+import { INSTALL_INK_CHECK, badResources, boot, outDir, pickWord, press, startWave, state, waitFor } from "./lib/dh.mjs";
+
+/** Key → drawn frame limit, ms (05 §10). */
+const LATENCY_MAX_MS = 70;
 
 const [W, H] = process.env.SIZE === "1920" ? [1920, 1080] : [1280, 720];
 
@@ -56,8 +63,7 @@ const FRAME_MONITOR = `(() => {
 export default async function (page) {
   const out = outDir("integrator");
   await boot(page, "prelearn=0", { width: W, height: H });
-  await press(page, "Enter");
-  await waitFor(page, "s.phase === 'wave'", { timeoutMs: 15000 });
+  const started = await startWave(page);
   await waitFor(page, "window.__dh.words().length >= 2", { timeoutMs: 20000 });
   const before = await state(page);
   const eventsBefore = await page.eval("window.__dh.events()");
@@ -119,14 +125,28 @@ export default async function (page) {
   const letters = after.routerLetters - before.routerLetters;
   const toSim = after.keysToSim - before.keysToSim;
   const simKeys = after.keys - before.keys;
+  const words = after.words - before.words;
+  const keyLatencyMaxMs = Math.round(perf.keyLatencyMaxMs * 10) / 10;
+  const okWhy = [];
+  if (!started) okWhy.push("wave 1 never started");
+  if (sent < 90) okWhy.push("sent " + sent + " < 90");
+  if (sent - simKeys !== 0) okWhy.push("lost " + (sent - simKeys));
+  if (words < 3) okWhy.push("words " + words + " < 3");
+  if (keyLatencyMaxMs > LATENCY_MAX_MS) okWhy.push("key latency " + keyLatencyMaxMs + " ms > " + LATENCY_MAX_MS);
+  if (overlapsMax > 0) okWhy.push("numbers over protected " + overlapsMax);
+  if (touchingMax > 0 || drawn.pairsTouchingOnScreen > 0) okWhy.push("numbers touching after a word");
+  if (frames.inkTouchOnScreenFrames > 0) okWhy.push("frames with ink touching " + frames.inkTouchOnScreenFrames);
   return {
+    ok: okWhy.length === 0 && page.exceptions.length === 0,
+    okWhy,
+    started,
     sent,
     letters,
     toSim,
     simKeys,
     lost: sent - simKeys,
     hitStopFrames: eventsAfter.slowFrames - eventsBefore.slowFrames,
-    keyLatencyMaxMs: Math.round(perf.keyLatencyMaxMs * 10) / 10,
+    keyLatencyMaxMs,
     keyLatencyMeanMs: Math.round(perf.keyLatencyMeanMs * 10) / 10,
     numbersOverProtected: overlapsMax,
     numbersTouching: { max: touchingMax, samples: touchingSamples },
@@ -137,7 +157,8 @@ export default async function (page) {
       minGapPx: frames.minGapPx, minGapOnScreenPx: frames.minGapOnScreenPx, examples: frames.examples,
     },
     between,
-    words: after.words - before.words,
+    words,
+    spoke: await page.eval("window.__dhSpoke ?? null"),
     kills: after.kills - before.kills,
     frame: { meanMs: perf.meanMs, p95Ms: perf.p95Ms, maxMs: perf.maxMs },
     replay: await page.eval("window.__dh.replayCheck()"),
