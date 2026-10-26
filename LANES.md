@@ -470,6 +470,7 @@ Notes: `docs/changelog/2026-10-25-mac-kit-drift-crowd.md`.
   hiding the least of one body, its last spot unless another hides 10 points
   less. From `9395667`/`710f34a` a firm tag (the 0.5 s hold) keeps its spot
   only while it hides ≤ 30 % of one body (`bodyFirm`; an exception to 05 §4.3,
+  the lane's own proposal waiting for the owner, 00 D32; 25/10 wrongly said
   taken as recommended), a last spot over bodies past 30 % stays only if no
   spot hides less, and the last-resort ring spot keeps off the tag's own foe.
   On `710f34a`, seeds 1, 4–7 × 720p/1080p: 10/10 `ok`, 0 of 33,592 frames
@@ -491,7 +492,9 @@ Notes: `docs/changelog/2026-10-26-b1b7-names.md`.
   They cut I by 1.6–10 points but made runs easier, and each counterweight
   broke B4 (r4, r5) or B3 (r6). The r6 patch stays in `tmp/` only. The notes
   split I by cause (70–86 % is foes walking from the gate) and recommend D27
-  over the kit change (a).
+  over the kit change (a). (Corrected after the review: the vanguard itself
+  breaks B4 at 80 seeds, so r5's B4 is r3's; most of I in four bots is the
+  26 m ring of the word zone, not T_a / k.)
 - `src/content/data/our-side.ts` (sim-ourside): the herb hut is "Lều Thuốc
   Nam" (owner, 26/10; taken as recommended), id `herb-hut` kept; comments,
   bot notes, `docs/audio/M0_SOUND_LIST.md` and tests follow.
@@ -501,3 +504,33 @@ Notes: `docs/changelog/2026-10-26-b1b7-names.md`.
 
 Waiting for the owner: D27 (recommended: confirm), D29's gate-rule part.
 Still open: B1, B7 (both bands), B9; how often a held tag moves.
+
+### Mac: review fixes (Mac mini M4, 26/10/2026)
+
+Notes: `docs/changelog/2026-10-26-review-fix.md` (section "Sửa sau phản biện"
+names each of the 16 review findings).
+
+- `src/ui/tags.ts` (typing-learning): the last-resort ring spot weighs every
+  body within twice the reach, below the anchor too (`around`); ring-slot tags
+  (foes within 10 m) keep off bodies and red wind-ups, their own foe's body
+  included (`ownClear`); a held tag yields for a body once (`yielded`: again
+  only past 40 %, `bodyAgain`), never goes back to the spot it left within
+  0.5 s while another is free (`back`), and tags laid out afresh keep off
+  held tags' spots (`reserved`). A tag whose best spot in reach still hides
+  ≥ 40 % of a body takes a clean ring spot first (at most 4 searches a frame);
+  a ring spot is held as drawn (`dy`); every place has one object shape (the
+  layout test's time). `TagPlace.left` and `data-left` say why a tag moved.
+- `src/view/lane-cue.ts`, `src/view/paths.ts` (view-terrain): in the 6 s
+  warning the coming wave's dirt lanes glow gold with chevrons toward the
+  dais (01 §1.2); the sky lane's chevrons run only while a wave uses it.
+- `scripts/visual/scenarios` (integrator): `lib/dh.mjs` stubs
+  speechSynthesis (`SPEECH=1` keeps it) and `startWave()` presses Enter until
+  wave 1 runs; `dh-hitstop-keys`, `dh-words` have `ok`; `dh-crowd` measures
+  exact union areas for far foes, foes within 10 m and wind-ups, counts jumps
+  and bounces, and runs to the end of wave 2 + `WAVES`; `dh-lanes` is new.
+- Kit synced at parent `cfad21e1` (`settle()` merge clamps to the top edge,
+  `quadInk(label, cellW)`).
+
+Waiting for the owner: D27 (with the 26 m ring lever and the I ↔ Q
+trade-off), D29's gate-rule part, D30–D32 (lane proposals).
+Still open: B1, B7 (both bands), B9.

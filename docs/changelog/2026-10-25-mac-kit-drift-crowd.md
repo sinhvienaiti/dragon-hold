@@ -8,7 +8,7 @@ Làm trên **Mac mini M4** (Apple M4, 10 nhân, 16 GB, macOS 15.5), Node 24.22, 
 |---|---|---|---|
 | Process §6.A (dragon-hold, phụ); vòng 3 "Còn mở"; §6.B | Kit `feedback/numbers.ts`: chữ số nghiêng tràn ô atlas 48 px, dấu của nhãn lấn ô "3"; `box()` chỉ tính bước chữ số và 1 cỡ chữ; `settle()` một lượt | Phần atlas đã sửa ở vòng 3 (repo cha `512033e9`). Bước này đưa phần còn lại vào kit: hộp theo phần vẽ, `settle()` chạy tới khi hết chạm. Commit ở repo cha trước (`52bdc8df`), rồi chép vào game (`5187d76`, `parentDirty: false`). Game bỏ `DrawnNumberField` | Mục 1 |
 | Process §6.A (dragon-hold, phụ) | `dh-crowd` ở 1920 chỉ lấy được 1/3 lần đo vì Rồng gục | Kịch bản giữ Rồng đứng (`HOLD`), mặc định seed 5, có `ok` (`62255d9`) | 6/6 lượt đủ 3/3 lần đo (mục 3); mã cuối, thêm seed 1 và 7: 10/10 (mục 5) |
-| Vòng 3 "Còn mở" | `dh-crowd` seed 4, lần đo 2: một Yêu Rêu Cung bị che 44 % | Đo lại độ che trên seed 4, 5, 6 ở hai cỡ. Thấy một quái bị che 83 % và sửa cách xếp thẻ (`249102d`) | 0 / 139 mẫu quái bị che ≥ 30 % (mục 4); mã cuối: 0 / 224 mẫu ảnh, 0 / 33.592 khung có quái ≥ 40 % (mục 4b) |
+| Vòng 3 "Còn mở" | `dh-crowd` seed 4, lần đo 2: một Yêu Rêu Cung bị che 44 % | Đo lại độ che trên seed 4, 5, 6 ở hai cỡ. Thấy một quái bị che 83 % và sửa cách xếp thẻ (`249102d`) | 0 / 139 mẫu quái bị che ≥ 30 % (mục 4); mã cuối: 0 / 224 mẫu ảnh, 0 / 33.592 khung có quái ≥ 40 % (mục 4b). **Sửa sau phản biện (26/10):** số này chỉ đo quái ngoài 10 m bằng lưới 6 × 6; thẻ ở khe (quái trong 10 m) và báo trước đỏ không được đo, và lưới đọc thiếu. Đo lại bằng diện tích thật: `2026-10-26-review-fix.md` mục 1 |
 | Mới, bước này (26/10) | `dh-crowd` trên mã đã commit (`4e388dd`), seed 1, 720p, lần đo 2: một Yêu Rêu không chữ bị thẻ che 50 % (một lượt thử sau: 83 %). Đo từng khung: 48–57 khung mỗi lượt có quái bị che ≥ 40 % | Thẻ đang giữ chỗ 0,5 s nhường chỗ khi che quá 30 % một thân (`9395667`, `710f34a`); vòng tìm chỗ cuối tránh thân quái của chính thẻ (`710f34a`); `dh-crowd` đo từng khung (`73b265c`) | Mục 4b |
 | Mới, bước này | `dh-hitstop-keys`: mỗi lượt có 1 mẫu số sát thương nằm trên vùng cấm sau khung; ở 720p số mất nhãn ở mép trên | Đọc vùng cấm trước khi vẽ (`e117ce0`); `settle()` không nâng số lên ô cấm hay quá mép trên; số bay lên dừng ở mép trên (kit `fc69a921`, `df2f4882`, `21e8eaf9`; game `6f739ec`, `cc52ed9`, `4e388dd`) | Mục 2 |
 
@@ -29,7 +29,7 @@ Hai nhãn cạnh nhau chạm nhau (cổng vòng 2), chữ số chạm nhãn củ
 - `settle()`: chạy lại tới khi một lượt không gặp cặp nào chạm, tối đa 4 lượt mỗi khung.
 - `DRIFT.md` thêm một dòng (việc của Space và typing-survival).
 
-**Test của kit** (5 test mới, số đo phông của Chrome 155 trên Mac):
+**Test của kit** (5 test mới, số đo phông của Chrome 155 trên Mac; **kiểm lại 26/10 sau phản biện:** phản biện nghi đó là phông hệ thống. Đo trong trang game: máy không có "Exo 2", chữ số rơi về "Be Vietnam Pro" 800 mà game nạp từ @fontsource (nghiêng giả), nhãn là Be Vietnam Pro 800; số khớp từng chữ, system-ui cho 30,1 và 213,5. Vậy số đo là của Be Vietnam Pro, không phải phông hệ thống):
 
 | Test | Chứng minh |
 |---|---|
@@ -127,7 +127,7 @@ Kết quả r4: 8 / 10 lượt `ok`. Hai lượt trượt ở 1080p: seed 6 (chu
 
 **Nguyên nhân 2 và 3.** Ghi nhánh lại trên 5 lượt thử:
 
-- thẻ giữ chỗ che 33–34 % diện tích một thân, lưới 6 × 6 của `dh-crowd` đọc 42 % (2–4 khung). Lưới lấy cả cột, cả hàng mẫu khi mép thẻ vừa qua tâm của nó;
+- thẻ giữ chỗ che 33–34 % diện tích một thân, lưới 6 × 6 của `dh-crowd` đọc 42 % (2–4 khung). Lưới lấy cả cột, cả hàng mẫu khi mép thẻ vừa qua tâm của nó. (**Sửa sau phản biện:** lưới cũng đọc thiếu: probe 12 × 12 của người phản biện thấy 75 % ở chỗ lưới 6 × 6 đọc 33 %. Ngưỡng 30 % dưới đây được chỉnh theo sai số của lưới; nay `dh-crowd` đo diện tích thật như `share()`, mục 1 của `2026-10-26-review-fix.md`);
 - thẻ vào **vòng tìm chỗ cuối** (không còn chỗ trống trong tầm đẩy và 3 hàng) lấy chỗ trống gần nhất, nằm ngay trên thân quái **của chính nó**: 56–67 %, đến 11 khung (seed 6, 1080p, thẻ "make" và "love"). `layoutTags` không tính thân quái mang thẻ, vì thẻ đứng trên đầu nó. Vòng tìm cuối thì có thể đặt thẻ xuống dưới.
 
 **r5 (`710f34a`).**
@@ -146,13 +146,13 @@ Mỗi vòng: seed 1, 4, 5, 6, 7 × 720p, 1080p = 10 lượt, 30 lần đo ảnh.
 Kết quả r5:
 
 - 10 / 10 lượt `ok`, cả 10 lượt đủ 3 / 3 lần đo (15 lần hồi máu).
-- Trong khung: quái ≥ 30 % ở 364 / 33.592 khung (1,08 %; r4: 569, 1,69 %), không khung nào ≥ 40 %, lớn nhất 39 %.
+- Trong khung: quái ≥ 30 % ở 364 / 33.592 khung (1,08 %; r4: 569, 1,69 %), không khung nào ≥ 40 %, lớn nhất 39 %. (**Sửa sau phản biện, 26/10:** chỉ quái ngoài 10 m, đo bằng lưới 6 × 6; không đo quái trong 10 m và báo trước đỏ. Đo lại bằng diện tích thật: `2026-10-26-review-fix.md` mục 1.)
 - Ảnh: che TB trung bình 3,1 % (lớn nhất 8 %); quái bị che nhiều nhất mỗi lần đo TB 14,0 % (lớn nhất 25 %); 0 / 224 mẫu ≥ 30 %.
 - Khung TB 16,67 ms, p95 16,7–16,8 ms (Apple M4, khóa 60 Hz): bộ đo từng khung không làm rớt khung.
 
 Đã xem ảnh r5. Seed 1, 720p, `crowd-1`: năm thẻ quanh đám đông ở cuối làn bắc, ba quái trên cầu thấy rõ (thẻ "food" nhỏ hơn vì ảnh chụp lúc thẻ đang bật ra, `dh-tag-pop`). Seed 6, 1080p, `crowd-0`: Thiên Hỏa đang báo trước, sáu thẻ xếp hai bên cầu, hai dấu "!" của báo trước đỏ không bị che.
 
-**Lý do thiết kế.** 05 §4.3 ghi "Thẻ giữ chỗ ≥ 0,5 s để không nhảy": luật có để người chơi đọc thẻ không bị giật. Nhưng một quái vừa tới bị che 40–89 % suốt 0,5 s thì người chơi không thấy nó. Thấy cả đám đông là mục đích của vòng 2. Báo trước đỏ cũng nằm trong danh sách thân, nên thẻ đang giữ chỗ cũng không che quá 30 % một đòn sắp tới. Dời thẻ một lần rẻ hơn. Thẻ chỉ dời khi che quá 30 % một thân, nên ở ca che vừa phải nó vẫn đứng yên. **Đã chọn theo đề xuất:** đây là ngoại lệ của luật giữ chỗ 05 §4.3. Anh đổi được ngưỡng bằng `bodyFirm` của `layoutTags` (0,8 thì gần như luật cũ).
+**Lý do thiết kế.** 05 §4.3 ghi "Thẻ giữ chỗ ≥ 0,5 s để không nhảy": luật có để người chơi đọc thẻ không bị giật. Nhưng một quái vừa tới bị che 40–89 % suốt 0,5 s thì người chơi không thấy nó. Thấy cả đám đông là mục đích của vòng 2. Báo trước đỏ cũng nằm trong danh sách thân, nên thẻ thường đang giữ chỗ cũng không che quá 30 % một đòn sắp tới. (**Sửa sau phản biện, 26/10:** câu này chỉ đúng với thẻ thường; thẻ ở khe quanh bệ khi đó bỏ qua mọi thân và che báo trước đỏ tới 92 %. Đã sửa: `2026-10-26-review-fix.md` mục 1.) Dời thẻ một lần rẻ hơn. Thẻ chỉ dời khi che quá 30 % một thân, nên ở ca che vừa phải nó vẫn đứng yên. Đây là ngoại lệ của luật giữ chỗ 05 §4.3. ~~Đã chọn theo đề xuất.~~ **Sửa sau phản biện:** không tài liệu nào đề xuất ngoại lệ này; làn tự đề xuất. Nay là đề xuất chờ anh, 00 D32. Anh đổi được ngưỡng bằng `bodyFirm` của `layoutTags` (0,8 thì gần như luật cũ).
 
 **Test mới** (`tests/ui/tags-bodies.test.ts`, nay 13 ca):
 
@@ -235,10 +235,10 @@ Khung TB 16,67 ms, p95 16,7–16,8 ms, 44–52 lệnh vẽ. Mỗi lượt khoả
 - **B9:** chờ anh chơi thử 10 đợt, thêm một lượt `?wpm=70`.
 - **D27, phần luật cổng của D29:** chờ anh xác nhận.
 - **Kit cho typing-survival:** người điều phối chạy `kit:sync`. Hộp số to hơn với cùng quad của `SHIP`: số đứng xa nhau hơn và gần vùng cấm bị bỏ nhiều hơn. Cần chạy lại kịch bản số của game đó.
-- **Thẻ dời trong thời gian giữ:** chưa đếm số lần dời. Ngưỡng 30 % chỉ chạm khi một thân bị che quá 30 %, nhưng chưa có số đo độ giật. Đợt test chia theo màn (70 WPM, 1080p) nên đếm.
-- **Ngoại lệ của luật giữ chỗ 05 §4.3:** đã chọn theo đề xuất (mục 4b). Nếu anh đồng ý, người điều phối ghi vào canon (05 §4.3, hoặc một mục D mới ở 00 §4.4).
+- **Thẻ dời trong thời gian giữ:** ~~chưa đếm số lần dời~~. Đã đếm và sửa sau phản biện 26/10 (thẻ nhảy đi rồi về trong 100–150 ms): `2026-10-26-review-fix.md` mục 1.
+- **Ngoại lệ của luật giữ chỗ 05 §4.3:** ~~đã chọn theo đề xuất~~ đề xuất chờ anh (sửa sau phản biện 26/10), nay ghi ở 00 D32, 05 §4.3 trỏ tới.
 - **`dh-crowd` chỉ đo đợt 3 ở `L2-cau`:** đám đông lớn hơn (đợt 7–10, tướng, boss) chưa đo từng khung.
-- **Số bị bỏ trong cơn đòn:** `dh-numbers-drawn` bỏ khoảng 90 trên 120 đòn T4–T5 mỗi cơn (12 đòn dồn vào 12 quái, số T3 trở lên không gộp). Hộp này giống hệt hộp `DrawnNumberField` từ vòng 3, nên không phải lỗi mới. Đây là luật "không chỗ thì bỏ, không chồng".
+- **Số bị bỏ trong cơn đòn:** `dh-numbers-drawn` bỏ khoảng 90 trên 120 đòn T4–T5 ~~mỗi cơn~~ của cả 10 cơn (10 cơn × 12 đòn; sửa đơn vị sau phản biện 26/10; số T3 trở lên không gộp). Hộp này giống hệt hộp `DrawnNumberField` từ vòng 3, nên không phải lỗi mới. Đây là luật "không chỗ thì bỏ, không chồng".
 
 ## 8. File
 

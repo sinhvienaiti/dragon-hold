@@ -25,15 +25,28 @@ Dev port 3005, host `dragon.typing-game.local`.
   `dh-crowd` holds the Dragon so every seed gets three measurements and checks
   every frame from wave 3; word tags add up what they hide of a body, and a
   tag inside its 0.5 s hold moves once it hides > 30 % of one (an exception to
-  05 §4.3, taken as recommended). On `710f34a`: 10/10 `dh-crowd` runs `ok`,
-  0 of 33,592 frames with a foe ≥ 40 %. See
+  05 §4.3: the lane's own proposal, 00 D32, waiting for the owner; 25/10
+  wrongly said "taken as recommended"). On `710f34a`: 10/10 `dh-crowd` runs
+  `ok`, 0 of 33,592 frames with a foe ≥ 40 % (foes 10 m and more only, on a
+  6 × 6 grid; see the 26/10 review fixes). See
   `docs/changelog/2026-10-25-mac-kit-drift-crowd.md`.
 - State (26/10, Mac): the herb hut is "Lều Thuốc Nam" (owner; taken as
   recommended), and the labels that read wrong are reworded. B1/B7: 6
   measured rounds, none kept (each easier-play lever broke B3 or B4), sim
   unchanged; B1 and B7 still fail both bands. Recommended to the owner:
-  confirm D27, keep the kit's idle metric. See
-  `docs/changelog/2026-10-26-b1b7-names.md`.
+  confirm D27, keep the kit's idle metric (corrected after the review: the
+  vanguard itself breaks B4 at 80 seeds; in four bots 60–72 % of I is the
+  26 m ring, not T_a / k, so D27 comes with that lever and the I ↔ Q
+  trade-off). See `docs/changelog/2026-10-26-b1b7-names.md`.
+- State (26/10, Mac, review fixes): ring-slot tags keep off bodies and red
+  wind-ups, the last-resort ring spot weighs bodies in every direction, a
+  held tag yields once and never bounces back, a tag whose best spot in reach
+  still hides ≥ 40 % of a body takes a clean ring spot; `dh-crowd` measures exact
+  areas for far foes, foes within 10 m and wind-ups, and counts jumps; the
+  wave warning lights its lanes (`view/lane-cue.ts`); scenarios stub
+  speechSynthesis and have `ok`. Canon: D30–D32 are the lane's proposals
+  waiting for the owner. Kit synced at parent `cfad21e1`. See
+  `docs/changelog/2026-10-26-review-fix.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
