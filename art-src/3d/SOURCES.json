@@ -1,0 +1,153 @@
+{
+ "version": 1,
+ "rule": "art-src/<path>/<name>.png -> art-src/3d/<path>/<name>.glb (ships: art-src/ships/ship-NN-<id>-2d.png -> art-src/3d/ships/ship-NN-<id>.glb; skills/ and items/ hold Text to 3D models with no 2D image). Owner originals from Tripo/Meshy, never edited; pipelines read them and write processed copies elsewhere. Regenerate: pnpm models:index --root games/dragon-hold",
+ "files": {
+  "enemies/blight-wolf.glb": {
+   "md5": "e9b8ca33ae90aa83fac73150185abddb",
+   "bytes": 3440660,
+   "image": "art-src/enemies/blight-wolf.png",
+   "usedBy": []
+  },
+  "enemies/moss-archer.glb": {
+   "md5": "a0311861d2c65352a135295f3f3a3825",
+   "bytes": 3340620,
+   "image": "art-src/enemies/moss-archer.png",
+   "usedBy": []
+  },
+  "enemies/moss-grunt.glb": {
+   "md5": "5fca91b8c14b0928b93a0b2a84ecb1bb",
+   "bytes": 3609872,
+   "image": "art-src/enemies/moss-grunt.png",
+   "usedBy": []
+  },
+  "enemies/thorn-ant.glb": {
+   "md5": "44cff52c719a6793ae764e24dd89461a",
+   "bytes": 2945900,
+   "image": "art-src/enemies/thorn-ant.png",
+   "usedBy": []
+  },
+  "enemies/thorn-wasp.glb": {
+   "md5": "113c094bf5233b7b0b11476c6c8e1543",
+   "bytes": 3923812,
+   "image": "art-src/enemies/thorn-wasp.png",
+   "usedBy": []
+  },
+  "enemies/tusk-boar.glb": {
+   "md5": "5c5bc0fd19792b95cc87a3a7a278c4de",
+   "bytes": 3303048,
+   "image": "art-src/enemies/tusk-boar.png",
+   "usedBy": []
+  },
+  "generals/moss-banner.glb": {
+   "md5": "0b6a17e0090b5b13f23a90a9f10774e3",
+   "bytes": 3990772,
+   "image": "art-src/generals/moss-banner.png",
+   "usedBy": []
+  },
+  "houses/herb-hut.glb": {
+   "md5": "b2ade5601998050f7e12beb3ba7e6459",
+   "bytes": 3216504,
+   "image": "art-src/houses/herb-hut.png",
+   "usedBy": []
+  },
+  "props/pine-river/bridge-old.glb": {
+   "md5": "e97acdb1793e3e06db060f220763931d",
+   "bytes": 3093516,
+   "image": "art-src/props/pine-river/bridge-old.png",
+   "usedBy": []
+  },
+  "props/pine-river/bush-blossom.glb": {
+   "md5": "68313ee620b177853b0909fb2e3645f1",
+   "bytes": 2225264,
+   "image": "art-src/props/pine-river/bush-blossom.png",
+   "usedBy": []
+  },
+  "props/pine-river/bush-moss.glb": {
+   "md5": "88ce63d1c15c5b4425c5cfdff9325cf1",
+   "bytes": 2164732,
+   "image": "art-src/props/pine-river/bush-moss.png",
+   "usedBy": []
+  },
+  "props/pine-river/log.glb": {
+   "md5": "ff5d6c41b96747469b594bb82097d397",
+   "bytes": 2791872,
+   "image": "art-src/props/pine-river/log.png",
+   "usedBy": []
+  },
+  "props/pine-river/pine-round.glb": {
+   "md5": "23a38d0a2d67b6fd138398a814f3053d",
+   "bytes": 2783960,
+   "image": "art-src/props/pine-river/pine-round.png",
+   "usedBy": []
+  },
+  "props/pine-river/pine-tall.glb": {
+   "md5": "feebb658d48f921d909a8f3c6cbdee5e",
+   "bytes": 2306076,
+   "image": "art-src/props/pine-river/pine-tall.png",
+   "usedBy": []
+  },
+  "props/pine-river/pine-young.glb": {
+   "md5": "d7aa24506d80312df69584743fb96c9e",
+   "bytes": 2121272,
+   "image": "art-src/props/pine-river/pine-young.png",
+   "usedBy": []
+  },
+  "props/pine-river/river-stones.glb": {
+   "md5": "bc865a645b6710eecb5b3b70de583360",
+   "bytes": 2312424,
+   "image": "art-src/props/pine-river/river-stones.png",
+   "usedBy": []
+  },
+  "props/pine-river/rock-boulder.glb": {
+   "md5": "4c6fcb2c0d0111f13da9c2e8a48cfb16",
+   "bytes": 2138368,
+   "image": "art-src/props/pine-river/rock-boulder.png",
+   "usedBy": []
+  },
+  "props/pine-river/rock-slab.glb": {
+   "md5": "05ff888b9d03e2c0d340ebbff4a29b03",
+   "bytes": 2195968,
+   "image": "art-src/props/pine-river/rock-slab.png",
+   "usedBy": []
+  },
+  "props/pine-river/stump.glb": {
+   "md5": "c766746553eaccbff9d2d405eaca8180",
+   "bytes": 2305836,
+   "image": "art-src/props/pine-river/stump.png",
+   "usedBy": []
+  },
+  "props/pine-river/tree-violet.glb": {
+   "md5": "4565ed93a34f23a8e8548662bf78f53f",
+   "bytes": 2743240,
+   "image": "art-src/props/pine-river/tree-violet.png",
+   "usedBy": []
+  },
+  "traps/net-launcher.glb": {
+   "md5": "deca49318cfc738084285643a3a2c5f6",
+   "bytes": 2993308,
+   "image": "art-src/traps/net-launcher.png",
+   "usedBy": []
+  },
+  "traps/pine-bomb.glb": {
+   "md5": "668d53406fdde4c89a0f81c86cf4babf",
+   "bytes": 3010480,
+   "image": "art-src/traps/pine-bomb.png",
+   "usedBy": []
+  },
+  "traps/spikes.glb": {
+   "md5": "0465f7360d25ed8933b8cc96d0f06176",
+   "bytes": 2527600,
+   "image": "art-src/traps/spikes.png",
+   "usedBy": []
+  },
+  "units/moss-warden.glb": {
+   "md5": "5771d6a3b083439f4f427d74fb98dda1",
+   "bytes": 3714468,
+   "image": "art-src/units/moss-warden.png",
+   "usedBy": []
+  }
+ },
+ "notMadeYet": {},
+ "noOriginalOnThisMachine": {},
+ "history": {}
+}
