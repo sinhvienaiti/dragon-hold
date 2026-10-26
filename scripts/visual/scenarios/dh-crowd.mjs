@@ -15,8 +15,11 @@
 // src/ui/tags.ts measures the same way). Until 26/10 a 6 × 6 grid sampled it:
 // it read 33–34 % as 42 % and a 75 % cover as 33 %, and the layout's limit
 // was tuned to that error.
-// Three kinds of box, each checked every drawn frame from wave 3 to the end of
-// wave 2 + WAVES (default 2: waves 3–4), after the game's own frame:
+// Three kinds of box, each checked every drawn frame from wave 3 until the end
+// of wave 2 + WAVES (default 2: waves 3–4) or 240 s after the third
+// measurement, whichever comes first (`end` says where it stopped: the bot
+// then types only foes within 10 m, so a wave can outlast that), after the
+// game's own frame:
 //   far:  drawn foe bodies 10 m and more from the dais (a swarm as its ring);
 //   near: foes within 10 m, whose tags sit in the ring of slots round the dais
 //         (until 26/10 nothing measured them: ring tags hid them up to 92 %);
@@ -308,7 +311,7 @@ export default async function (page) {
     await page.eval("window.__near = 10");
     await page.sleep(2500);
   }
-  // Keep measuring to the end of wave 2 + WAVES (breaks called early).
+  // Keep measuring to the end of wave 2 + WAVES, at most 240 s more.
   await until(page, (c) => c.wave > 2 + WAVES, 240000, out);
   const f = await page.eval("(() => { const m = window.__dhCoverFrames; m.on = false; return m; })()");
   res.frames = { frames: f.frames, far: kindResult(f.far), near: kindResult(f.near), warn: kindResult(f.warn) };
