@@ -43,18 +43,26 @@ export interface TagBox {
   /** Size with the frame shrunk (measured); default w and h × the shrink factor's half. */
   readonly sw?: number;
   readonly sh?: number;
-  /** Where it sat last frame, relative to its anchor (stability, 05 §4.3: hold ≥ 0.5 s). */
-  readonly prev?: { readonly dx: number; readonly row: number; readonly shrunk: boolean } | undefined;
+  /** Where it sat last frame, relative to its anchor (stability, 05 §4.3: hold ≥ 0.5 s); `dy` for a ring spot. */
+  readonly prev?: Spot | undefined;
   /** Still inside its 0.5 s hold: the last spot stays while free, even over a foe body, unless it hides more than `bodyFirm` of one. */
   readonly firm?: boolean;
   /** It left a spot for a body less than 0.5 s ago: its spot now stays while free unless it hides `bodyAgain` of a body. */
   readonly yielded?: boolean;
   /** The spot it left less than 0.5 s ago: it goes back there only when nothing else in reach is free (no bounce). */
-  readonly back?: { readonly dx: number; readonly row: number; readonly shrunk: boolean } | undefined;
+  readonly back?: Spot | undefined;
   /** Keeps clear of other foes' bodies when it can (default true; edge chips false). */
   readonly clearBodies?: boolean;
   /** Keeps clear of its own foe's body too (ring-slot tags: they stand away from their foe, at a slot round the dais). */
   readonly ownClear?: boolean;
+}
+
+/** A spot relative to the anchor: push and rows, or for a ring spot (last resort) its exact drop `dy` below the anchor, px. */
+export interface Spot {
+  readonly dx: number;
+  readonly row: number;
+  readonly shrunk: boolean;
+  readonly dy?: number | undefined;
 }
 
 /** A drawn foe or a live enemy warning on screen (its box) and the tag id of its own word (−1: none): tags keep off it when they can. */
@@ -76,8 +84,10 @@ export interface TagPlace {
   readonly shrunk: boolean;
   /** Far enough from its anchor to need a leader line. */
   readonly leader: boolean;
+  /** A ring spot's exact drop below the anchor, px (`row` is only its rounded lift): held as it was drawn. */
+  readonly dy?: number | undefined;
   /** Why it left its last spot: "body" (still free, but it hid a body past the limit), "busy" (taken or off the screen); none if it stayed or had none. */
-  readonly left?: "body" | "busy";
+  readonly left?: "body" | "busy" | undefined;
 }
 
 export interface LayoutOptions {
@@ -143,15 +153,22 @@ const overlaps = (a: Rect, b: Rect, gap: number): boolean =>
  * left (`back`) within 0.5 s unless nothing else in reach is free (26/10
  * review: tags moved 216–240 px and back within 100–150 ms; with no second
  * move at all, a foe that walked in under a moved tag stood 90 % hidden for
- * 19 frames, dh-crowd 720p seed 1). Over bodies, a last spot past `bodyFirm` stays unless another
- * hides at least `bodyStep` less. The last resort (rings round the anchor)
- * takes the nearest free spot that keeps off the tag's own foe and hides at
- * most `bodyFirm` of any body within twice the reach, every direction; else
- * the nearest free spot (a ring spot over its own foe hid it 56–67 % for up
- * to 11 frames, dh-crowd 1080p seed 6; until 26/10 it only weighed the bodies
- * above the anchor, so a spot below it hid another foe 56 %). Ring-slot tags
- * (`ownClear`) keep off bodies too, their own foe's included (26/10 review:
- * they hid foes within 10 m up to 92 % and red wind-ups up to 92 %).
+ * 19 frames, dh-crowd 720p seed 1). Over bodies, a last spot past
+ * `bodyFirm` stays unless another hides at least `bodyStep` less. The last
+ * resort (rings round the anchor) takes the nearest free spot that keeps off
+ * the tag's own foe and hides at most `bodyFirm` of any body within twice the
+ * reach, every direction; else the nearest free spot (a ring spot over its
+ * own foe hid it 56–67 % for up to 11 frames, dh-crowd 1080p seed 6; until
+ * 26/10 it only weighed the bodies above the anchor, so a spot below it hid
+ * another foe 56 %). A tag whose best spot in reach still hides 40 % or more
+ * of a body (every spot taken or over the crowd) takes such a clean ring spot
+ * first (rings three times as coarse; at most 4 such searches a frame,
+ * highest priority first, to keep the layout in its budget). A ring spot is
+ * held as drawn (`dy`), and the bodies under a tag's last spot count wherever
+ * it is (26/10: a held tag stayed over an archer 80 % for 24 frames, dh-crowd
+ * 720p 70 WPM seed 1). Ring-slot tags (`ownClear`) keep off bodies too, their
+ * own foe's included (26/10 review: they hid foes within 10 m up to 92 % and
+ * red wind-ups up to 92 %).
  */
 export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): TagPlace[] {
   const margin = options.margin ?? 8;
@@ -190,20 +207,27 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
   // Inside the screen first: a tag whose anchor sits at an edge starts from the nearest spot that fits.
   const clampX = (x: number, w: number) => Math.min(Math.max(x, margin), options.width - margin - w);
   const clampY = (y: number, h: number) => Math.min(Math.max(y, margin), options.height - margin - h);
-  const rectAt = (box: TagBox, size: { w: number; h: number }, dx: number, row: number): Rect => ({
+  const rectAt = (box: TagBox, size: { w: number; h: number }, dx: number, row: number, dy?: number): Rect => ({
     x: clampX(box.ax - size.w / 2 + dx, size.w),
-    y: clampY(box.ay - size.h - row * rowStep, size.h),
+    y: clampY(dy === undefined ? box.ay - size.h - row * rowStep : box.ay - size.h + dy, size.h),
     w: size.w,
     h: size.h,
   });
+  const spotRect = (box: TagBox, spot: Spot): Rect => rectAt(box, sizesOf(box)[spot.shrunk ? 1 : 0]!, spot.dx, spot.row, spot.dy);
   // Spots of tags inside their hold, not placed yet: a tag that moves keeps off them while it has another
   // choice in reach (26/10: most moves inside a hold were a held tag pushed off its spot by a tag re-laid
   // after its own hold, or by another one moving).
   const reserved: { id: number; rect: Rect }[] = [];
   for (const box of order) {
-    if (box.firm === true && box.prev) reserved.push({ id: box.id, rect: rectAt(box, sizesOf(box)[box.prev.shrunk ? 1 : 0]!, box.prev.dx, box.prev.row) });
+    if (box.firm === true && box.prev) reserved.push({ id: box.id, rect: spotRect(box, box.prev) });
   }
+  // Every place has the same fields in the same order (one object shape keeps the layout fast).
+  const placeOf = (id: number, rect: Rect, dx: number, row: number, dy: number | undefined, shrunk: boolean, leader: boolean, left?: "body" | "busy"): TagPlace => ({
+    id, x: rect.x, y: rect.y, w: rect.w, h: rect.h, dx, row, dy, shrunk, leader, left,
+  });
   let current = -1;
+  /** Escapes to a clean ring spot left this frame (each searches up to ~140 spots; highest priority first). */
+  let escapes = 4;
   /** Tags placed this frame (their reservation is spent: `placed` holds where they went). */
   const done = new Set<number>();
   const free = (rect: Rect, strict = false): boolean => {
@@ -216,12 +240,19 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
   for (const box of order) {
     current = box.id;
     const sizes = sizesOf(box);
-    const at = (size: { w: number; h: number }, dx: number, row: number): Rect => rectAt(box, size, dx, row);
+    const at = (size: { w: number; h: number }, dx: number, row: number, dy?: number): Rect => rectAt(box, size, dx, row, dy);
     // Other foes' bodies within reach of this tag's pushes and rows.
     near.length = 0;
     if (bodies.length > 0 && box.clearBodies !== false) {
       const reach: Rect = { x: box.ax - box.w / 2 - maxPush, y: box.ay - box.h - maxRows * rowStep, w: box.w + 2 * maxPush, h: box.h + maxRows * rowStep };
-      for (let i = 0; i < bodies.length; i += 1) if ((box.ownClear === true || bodies[i]!.owner !== box.id) && overlaps(reach, bodies[i]!, 0)) near.push(i);
+      // Its last spot and the one it left may lie outside that reach (a ring spot): their bodies count too.
+      const last = box.prev ? spotRect(box, box.prev) : null;
+      const left = box.back ? spotRect(box, box.back) : null;
+      for (let i = 0; i < bodies.length; i += 1) {
+        const body = bodies[i]!;
+        if (box.ownClear !== true && body.owner === box.id) continue;
+        if (overlaps(reach, body, 0) || (last !== null && overlaps(last, body, 0)) || (left !== null && overlaps(left, body, 0))) near.push(i);
+      }
     }
     /** The largest share of one body in `list` hidden once the rect is placed (with the tags placed before it), of the bodies it touches. */
     const hides = (rect: Rect, list: readonly number[] = near): number => {
@@ -234,21 +265,68 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
     };
     let found: TagPlace | null = null;
     // The same push and row, frame shrunk or not: on screen the same place.
-    const isBack = (dx: number, row: number): boolean => box.back !== undefined && box.back.dx === dx && box.back.row === row;
+    const isBack = (dx: number, row: number, dy?: number): boolean => box.back !== undefined && box.back.dx === dx && box.back.row === row && box.back.dy === dy;
     /** Takes the spot when it is free (`strict`: off the held tags' spots too) and hides at most `limit` of any one near body; never the spot it just left unless `back`. */
-    const accept = (size: { w: number; h: number; shrunk: boolean }, dx: number, row: number, limit = Infinity, back = false, strict = true): boolean => {
-      if (!back && isBack(dx, row)) return false;
-      const rect = at(size, dx, row);
+    const accept = (size: { w: number; h: number; shrunk: boolean }, dx: number, row: number, limit = Infinity, back = false, strict = true, dy?: number): boolean => {
+      if (!back && isBack(dx, row, dy)) return false;
+      const rect = at(size, dx, row, dy);
       if (!free(rect, strict) || (limit < Infinity && hides(rect) > limit)) return false;
-      const leader = row > 0 || Math.abs(rect.x + rect.w / 2 - box.ax) > rect.w / 2 || Math.abs(rect.y + rect.h - box.ay) > rowStep;
-      found = { id: box.id, ...rect, dx, row, shrunk: size.shrunk, leader };
+      const leader = row > 0 || dy !== undefined || Math.abs(rect.x + rect.w / 2 - box.ax) > rect.w / 2 || Math.abs(rect.y + rect.h - box.ay) > rowStep;
+      found = placeOf(box.id, rect, dx, row, dy, size.shrunk, leader);
       return true;
     };
+    const ringSize = sizes[1]!;
+    const step = Math.max(12, Math.round(ringSize.h / 2));
+    const own = box.clearBodies === false ? undefined : bodies.find((body) => body.owner === box.id);
+    const reachClean = 2 * Math.max(maxPush, maxRows * rowStep);
+    // Bodies a ring spot within reachClean can touch, every direction (`near` only looks above the anchor); read once, when a ring is searched.
+    const around: number[] = [];
+    let aroundRead = false;
+    const readAround = (): void => {
+      aroundRead = true;
+      if (box.clearBodies === false) return;
+      const zone: Rect = { x: box.ax - reachClean - ringSize.w, y: box.ay - reachClean - ringSize.h, w: 2 * (reachClean + ringSize.w), h: 2 * (reachClean + ringSize.h) };
+      for (let i = 0; i < bodies.length; i += 1) if (bodies[i]!.owner !== box.id && overlaps(zone, bodies[i]!, 0)) around.push(i);
+    };
+    /**
+     * Rings round the anchor, shrunk frame: the nearest free spot that keeps off its own foe and hides at most
+     * `bodyFirm` of any body (clean) within reachClean; with `any`, else the nearest free spot on the screen.
+     * Without `any` (an escape from a spot over a body) the rings step three times as far: about 140 spots.
+     */
+    /** Hides at most `bodyFirm` of every body around (with the tags placed before it); stops at the first that is hidden more. */
+    const clean = (rect: Rect): boolean => {
+      for (const i of around) {
+        const part = share(rect, bodies[i]!);
+        if (part > 0 && hidden[i]! + part > bodyFirm) return false;
+      }
+      return true;
+    };
+    const ring = (any: boolean): TagPlace | null => {
+      if (!aroundRead) readAround();
+      let first: TagPlace | null = null;
+      const st = any ? step : 3 * step;
+      for (let r = 1; r * st < Math.max(options.width, options.height); r += 1) {
+        if ((first !== null || !any) && r * st > reachClean) break;
+        for (let k = -r; k <= r; k += 1) {
+          for (const [dx, dy] of [[k * st, -r * st], [k * st, r * st], [-r * st, k * st], [r * st, k * st]] as const) {
+            const rect = { x: box.ax - ringSize.w / 2 + dx, y: box.ay - ringSize.h + dy, w: ringSize.w, h: ringSize.h };
+            const isClean = (own === undefined || !overlaps(rect, own, 0)) && clean(rect);
+            // Only the nearest free spot matters past the clean ones: skip the rest unchecked.
+            if (!isClean && (!any || first !== null)) continue;
+            if (!free(rect) || isBack(dx, Math.max(0, Math.round(-dy / rowStep)), dy)) continue;
+            const place = placeOf(box.id, rect, dx, Math.max(0, Math.round(-dy / rowStep)), dy, true, true);
+            if (isClean) return place;
+            first = place;
+          }
+        }
+      }
+      return any ? first : null;
+    };
     const prevSize = box.prev?.shrunk ? sizes[1]! : sizes[0]!;
-    const prevFree = box.prev !== undefined && free(at(prevSize, box.prev.dx, box.prev.row));
+    const prevFree = box.prev !== undefined && free(at(prevSize, box.prev.dx, box.prev.row, box.prev.dy));
     // In its hold: stays while free and under bodyFirm of a body; after a move for a body, under bodyAgain.
     const firmLimit = box.yielded === true ? bodyAgain : bodyFirm;
-    if (box.prev) accept(prevSize, box.prev.dx, box.prev.row, near.length === 0 ? Infinity : box.firm === true ? firmLimit : bodyCover, true, false);
+    if (box.prev) accept(prevSize, box.prev.dx, box.prev.row, near.length === 0 ? Infinity : box.firm === true ? firmLimit : bodyCover, true, false, box.prev.dy);
     if (found === null && near.length > 0) {
       // A spot that leaves the crowd visible, nearest first.
       for (let row = 0; row <= maxRows && found === null; row += 1) {
@@ -271,57 +349,68 @@ export function layoutTags(boxes: readonly TagBox[], options: LayoutOptions): Ta
             }
           }
         }
+        let stays = false;
+        let most = least;
         if (box.prev) {
-          const rect = at(prevSize, box.prev.dx, box.prev.row);
+          const rect = at(prevSize, box.prev.dx, box.prev.row, box.prev.dy);
           const stay = free(rect) ? hides(rect) : Infinity;
-          if (stay <= least + bodyStay && (stay <= bodyFirm || stay <= least + bodyStep)) accept(prevSize, box.prev.dx, box.prev.row, Infinity, true, false);
+          stays = stay <= least + bodyStay && (stay <= bodyFirm || stay <= least + bodyStep);
+          if (stays) most = stay;
         }
+        // Still 40 % of a body or more (every spot in reach taken or over the crowd): a clean ring spot first
+        // (26/10, dh-crowd 720p 70 WPM seed 1: a held tag stayed over an archer 80 % for 24 frames).
+        if (most >= bodyAgain && (stays || best !== null) && escapes > 0) {
+          escapes -= 1;
+          found = ring(false);
+        }
+        if (found === null && stays && box.prev) accept(prevSize, box.prev.dx, box.prev.row, Infinity, true, false, box.prev.dy);
         if (found === null && best !== null) accept(best.size, best.dx, best.row);
       }
     }
-    // Any free spot in reach, off the held tags' spots first; then over one (that tag moves instead).
-    for (const strict of [true, false]) {
-      for (const size of sizes) {
-        for (let row = 0; row <= maxRows && found === null; row += 1) {
-          for (const dx of pushes) if (found === null) accept(size, dx, row, Infinity, false, strict);
-        }
-        if (found !== null) break;
-      }
-      if (found !== null) break;
-    }
-    // Nothing else in reach is free: back to the spot it just left (a bounce beats a jump across the screen).
-    if (found === null && box.back !== undefined) accept(box.back.shrunk ? sizes[1]! : sizes[0]!, box.back.dx, box.back.row, Infinity, true, false);
+    // Any free spot in reach, off the held tags' spots first; then over one (that tag moves instead). Over
+    // bodies: spots under 40 % of any body first, then a clean ring spot, then any. One sweep, nearest first.
     if (found === null) {
-      // Last resort: the nearest free spot on the screen, in rings around the anchor (never overlap, 05 §4.3).
-      const size = sizes[1]!;
-      const step = Math.max(12, Math.round(size.h / 2));
-      const own = box.clearBodies === false ? undefined : bodies.find((body) => body.owner === box.id);
-      const reachClean = 2 * Math.max(maxPush, maxRows * rowStep);
-      // Bodies a ring spot within reachClean can touch, every direction (`near` only looks above the anchor).
-      const around: number[] = [];
-      if (box.clearBodies !== false) {
-        const zone: Rect = { x: box.ax - reachClean - size.w, y: box.ay - reachClean - size.h, w: 2 * (reachClean + size.w), h: 2 * (reachClean + size.h) };
-        for (let i = 0; i < bodies.length; i += 1) if (bodies[i]!.owner !== box.id && overlaps(zone, bodies[i]!, 0)) around.push(i);
-      }
-      let first: TagPlace | null = null;
-      for (let ring = 1; found === null && ring * step < Math.max(options.width, options.height); ring += 1) {
-        if (first !== null && ring * step > reachClean) break;
-        for (let k = -ring; k <= ring && found === null; k += 1) {
-          for (const [dx, dy] of [[k * step, -ring * step], [k * step, ring * step], [-ring * step, k * step], [ring * step, k * step]] as const) {
-            if (found !== null) break;
-            const rect = { x: box.ax - size.w / 2 + dx, y: box.ay - size.h + dy, w: size.w, h: size.h };
+      type Cand = { size: (typeof sizes)[number]; dx: number; row: number };
+      let lightStrict: Cand | null = null;
+      let light: Cand | null = null;
+      let anyStrict: Cand | null = null;
+      let any: Cand | null = null;
+      sweep: for (const size of sizes) {
+        for (let row = 0; row <= maxRows; row += 1) {
+          for (const dx of pushes) {
+            if (isBack(dx, row)) continue;
+            const rect = at(size, dx, row);
             if (!free(rect)) continue;
-            const place: TagPlace = { id: box.id, ...rect, dx, row: Math.max(0, Math.round(-dy / rowStep)), shrunk: true, leader: true };
-            if ((own === undefined || !overlaps(rect, own, 0)) && hides(rect, around) <= bodyFirm) found = place;
-            else if (first === null) first = place;
+            const strict = free(rect, true);
+            const under = near.length === 0 || hides(rect) <= bodyAgain;
+            const cand = { size, dx, row };
+            if (strict && under && lightStrict === null) lightStrict = cand;
+            if (under && light === null) light = cand;
+            if (strict && anyStrict === null) anyStrict = cand;
+            if (any === null) any = cand;
+            if (lightStrict !== null) break sweep;
           }
         }
       }
-      if (found === null) found = first;
+      const take = (cand: Cand, strict: boolean) => accept(cand.size, cand.dx, cand.row, Infinity, false, strict);
+      if (lightStrict !== null) take(lightStrict, true);
+      else if (light !== null) take(light, false);
+      else {
+        if (near.length > 0 && escapes > 0) {
+          escapes -= 1;
+          found = ring(false);
+        }
+        if (found === null && anyStrict !== null) take(anyStrict, true);
+        else if (found === null && any !== null) take(any, false);
+      }
     }
-    if (found === null) found = { id: box.id, ...at(sizes[1]!, 0, maxRows), dx: 0, row: maxRows, shrunk: true, leader: true };
+    // Nothing else in reach is free: back to the spot it just left (a bounce beats a jump across the screen).
+    if (found === null && box.back !== undefined) accept(box.back.shrunk ? sizes[1]! : sizes[0]!, box.back.dx, box.back.row, Infinity, true, false, box.back.dy);
+    // Last resort: the nearest free spot on the screen, in rings around the anchor (never overlap, 05 §4.3).
+    if (found === null) found = ring(true);
+    if (found === null) found = placeOf(box.id, at(sizes[1]!, 0, maxRows), 0, maxRows, undefined, true, true);
     const spot: TagPlace = found;
-    if (box.prev !== undefined && (spot.dx !== box.prev.dx || spot.row !== box.prev.row || spot.shrunk !== box.prev.shrunk)) found = { ...spot, left: prevFree ? "body" : "busy" };
+    if (box.prev !== undefined && (spot.dx !== box.prev.dx || spot.row !== box.prev.row || spot.shrunk !== box.prev.shrunk || spot.dy !== box.prev.dy)) found = placeOf(spot.id, spot, spot.dx, spot.row, spot.dy, spot.shrunk, spot.leader, prevFree ? "body" : "busy");
     placed.push(found);
     out.push(found);
     done.add(box.id);
@@ -504,10 +593,10 @@ interface Tag {
   leaveAt: number;
   shakeUntil: number;
   pinkUntil: number;
-  prev: { dx: number; row: number; shrunk: boolean } | undefined;
+  prev: Spot | undefined;
   movedAt: number;
   /** The spot it left at its last move, and when; when it last left a spot for a body (one such move per hold). */
-  back: { dx: number; row: number; shrunk: boolean } | undefined;
+  back: Spot | undefined;
   backAt: number;
   yieldAt: number;
   ring: number;
@@ -924,7 +1013,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
         // Locked first, then special words, new words, ring tags, then lower on screen (nearer the camera).
         const priority = (lock === slot ? 1e9 : 0) + (word.kind === "urgent" || word.kind === "seal" || word.kind === "general" ? 1e6 : 0) + (word0?.group === "new" ? 1e5 : 0) + (a.ring ? 5e4 : 0) + a.y;
         // A moved tag holds its spot ≥ 0.5 s (05 §4.3); one at its ideal spot stays there while it is free.
-        const ideal = tag.prev !== undefined && tag.prev.dx === 0 && tag.prev.row === 0 && !tag.prev.shrunk;
+        const ideal = tag.prev !== undefined && tag.prev.dx === 0 && tag.prev.row === 0 && !tag.prev.shrunk && tag.prev.dy === undefined;
         const held = now - tag.movedAt < MS.hold;
         const prev = tag.prev && (ideal || held) ? tag.prev : undefined;
         // The locked tag shows at 110 % and a new one pops to 106 %: reserve that room (scaled about its bottom centre).
@@ -940,7 +1029,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
       for (const place of places) {
         const tag = bySlot.get(place.id)!;
         const a = anchors.get(place.id)!;
-        if (!tag.prev || tag.prev.dx !== place.dx || tag.prev.row !== place.row || tag.prev.shrunk !== place.shrunk) {
+        if (!tag.prev || tag.prev.dx !== place.dx || tag.prev.row !== place.row || tag.prev.shrunk !== place.shrunk || tag.prev.dy !== place.dy) {
           tag.movedAt = now;
           tag.back = tag.prev;
           tag.backAt = now;
@@ -948,7 +1037,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
           // Why it moved ("body", "busy"; "" a new layout once its hold ended): read by dh-crowd's jump count.
           tag.el.dataset.left = place.left ?? "";
         }
-        tag.prev = { dx: place.dx, row: place.row, shrunk: place.shrunk };
+        tag.prev = { dx: place.dx, row: place.row, shrunk: place.shrunk, dy: place.dy };
         // The element keeps its own size; centred on the reserved rect's bottom, its scaled body fills the rect.
         const baseW = place.shrunk ? tag.sw : tag.w;
         const baseH = place.shrunk ? tag.sh : tag.h;

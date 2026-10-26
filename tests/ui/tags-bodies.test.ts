@@ -269,6 +269,52 @@ describe("word tags keep the crowd and its warnings visible (round 2)", () => {
     expect(kept).toMatchObject({ dx: 0, row: 0, shrunk: false });
   });
 
+  it("whose best spot in reach still hides 40 % of a body takes a clean ring spot within twice the reach (dh-crowd 720p 70 WPM seed 1: a held tag stayed over an archer 80 % for 24 frames)", () => {
+    // Panels leave one spot in reach (dx 0, row 0), over a wordless foe, and a hole 210 px to the right
+    // (an escape's rings step 42 px here: three times the last resort's, half the shrunk height).
+    const avoid: Rect[] = [
+      { x: 0, y: 0, w: 1280, h: 269 },
+      { x: 0, y: 301, w: 1280, h: 419 },
+      { x: 0, y: 269, w: 459, h: 32 },
+      { x: 541, y: 269, w: 120, h: 32 },
+      { x: 760, y: 269, w: 520, h: 32 },
+    ];
+    const foe: BodyRect = { x: 470, y: 262, w: 60, h: 40, owner: -1 };
+    expect(covered({ x: 460, y: 270, w: 80, h: 30 }, foe)).toBeCloseTo(0.75, 6);
+    const tag: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1 };
+    const [place] = layoutTags([tag], { ...view, avoid, bodies: [foe] });
+    expect(place).toMatchObject({ dx: 210, dy: 0, shrunk: true, leader: true });
+    expect(covered(place!, foe)).toBe(0);
+    for (const zone of avoid) expect(overlap(place!, zone)).toBe(false);
+    // Held there, it stays (exactly where it was drawn) while it is clean.
+    const [held] = layoutTags([{ ...tag, prev: { dx: 210, row: 0, dy: 0, shrunk: true }, firm: true }], { ...view, avoid, bodies: [foe] });
+    expect(held).toMatchObject({ x: place!.x, y: place!.y, dx: 210, dy: 0 });
+    expect(held!.left).toBeUndefined();
+    // With the hole closed it still sits in reach, over the foe (never overlap, never off screen).
+    const shut = [...avoid, { x: 661, y: 269, w: 99, h: 32 }];
+    const [over] = layoutTags([tag], { ...view, avoid: shut, bodies: [foe] });
+    expect(over!.row).toBe(0);
+    expect(Math.abs(over!.dx)).toBeLessThanOrEqual(120);
+  });
+
+  it("holds a ring spot where it was drawn, below the anchor too (it used to snap to row 0 the next frame)", () => {
+    const tag: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, prev: { dx: 42, row: 0, dy: 42, shrunk: true }, firm: true };
+    const [place] = layoutTags([tag], view);
+    expect(place).toMatchObject({ dx: 42, dy: 42, shrunk: true });
+    expect(place!.y + place!.h).toBe(300 + 42);
+    expect(place!.left).toBeUndefined();
+  });
+
+  it("weighs the bodies under its last spot even out of the pushes' reach (a ring spot 210 px away over a foe)", () => {
+    const foe: BodyRect = { x: 680, y: 268, w: 60, h: 34, owner: -1 };
+    const tag: TagBox = { id: 1, ax: 500, ay: 300, w: 80, h: 30, priority: 1, prev: { dx: 210, row: 0, dy: 0, shrunk: true }, firm: true };
+    const last = { x: 500 - 37 + 210, y: 272, w: 74, h: 28 };
+    expect(covered(last, foe)).toBeGreaterThan(0.3);
+    const [place] = layoutTags([tag], { ...view, bodies: [foe] });
+    expect(place!.left).toBe("body");
+    expect(covered(place!, foe)).toBeLessThanOrEqual(0.2);
+  });
+
   it("lays out 20 tags among 40 bodies within the frame budget", () => {
     const tags: TagBox[] = Array.from({ length: 20 }, (_, k) => ({ id: k, ax: 300 + (k % 5) * 40, ay: 300 + Math.floor(k / 5) * 20, w: 60 + (k % 8) * 14, h: k % 3 === 0 ? 46 : 30, priority: 20 - k }));
     const bodies: BodyRect[] = Array.from({ length: 40 }, (_, k) => ({ x: 260 + (k % 8) * 30, y: 220 + Math.floor(k / 8) * 26, w: 22, h: 30, owner: k < 20 ? k : -1 }));
