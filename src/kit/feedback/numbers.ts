@@ -13,8 +13,10 @@
  * is moved above it or dropped, and one that drifts into one is dropped (its
  * box counts its pop). A number landing on a young one of the same style
  * below T3 is taken into it (a crowd's hits read as one growing number, not a
- * tower); else it moves beside it, and only then above. Live numbers never
- * overlap after a frame (settle() runs passes until none touch).
+ * tower); else it moves beside it, and only then above. settle() runs
+ * passes until none touch, at most SETTLE_PASSES (4) a frame: two live
+ * numbers overlap after a frame only when four passes were not enough
+ * (dragon-hold's storms: none in any drawn frame on the Mac, 26/10).
  * A number's box is what NumberSprites draws: the glyphs' and the label's ink
  * in the atlas (measured once on a canvas; the whole quads without one).
  * NumberSprites draws the field in one instanced draw call.
@@ -240,6 +242,10 @@ export class NumberField {
     this.pop[other] = 1;
     this.relabel(other);
     this.kill(slot);
+    // The pop and a longer label grow the box: to the top edge, not past it, as update() keeps a floating number
+    // (until 26/10 a merge inside settle() could leave it over the edge for a frame).
+    const top = this.box(other, SCRATCH).y;
+    if (top < 0) this.y[other] = this.y[other]! - top;
     if (this.covers(this.box(other, SCRATCH)) !== null) {
       this.kill(other);
       this.dropped += 1;
@@ -411,10 +417,16 @@ function inkHalf(metrics: GlyphMetrics, outline: number): number {
   return glyphHalf(metrics) + outline / 2 + NUMBER_ATLAS.edgePx;
 }
 
-/** The whole quads counted as ink (no canvas to measure with): a box that can only be too big. */
-export function quadInk(label: string): NumberInk {
+/**
+ * The whole quads counted as ink, for digit cells `cellW` atlas px wide (no
+ * canvas to measure with). The atlas makes a cell wider than `minCellW` when
+ * a glyph's ink needs it (digitCellWidth), so a caller that knows the cell
+ * width passes it; the default, `minCellW`, is only too big while the cells
+ * keep that width (26/10 review: the comment said "can only be too big").
+ */
+export function quadInk(label: string, cellW: number = NUMBER_ATLAS.minCellW): NumberInk {
   const A = NUMBER_ATLAS;
-  return { digitHalf: A.minCellW / 2, digitTop: 0, digitBottom: A.cellH, labelWidth: Math.min(A.width - 8, label.length * 26 + 16), labelUp: A.labelRowH / 2, labelDown: A.labelRowH / 2 };
+  return { digitHalf: Math.max(A.minCellW, cellW) / 2, digitTop: 0, digitBottom: A.cellH, labelWidth: Math.min(A.width - 8, label.length * 26 + 16), labelUp: A.labelRowH / 2, labelDown: A.labelRowH / 2 };
 }
 
 /**
@@ -425,7 +437,8 @@ export function quadInk(label: string): NumberInk {
  */
 export function numberInk(label: string, measure: (font: string, text: string) => GlyphMetrics): NumberInk {
   const A = NUMBER_ATLAS;
-  const whole = quadInk(label);
+  // A part the canvas cannot measure counts the whole quad of the cell the atlas paints (it may be wider than minCellW).
+  const whole = quadInk(label, digitCellWidth((glyph) => measure(A.digitFont, glyph)));
   let half = 0;
   let ascent = 0;
   let descent = 0;
