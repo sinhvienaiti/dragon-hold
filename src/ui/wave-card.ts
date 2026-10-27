@@ -237,6 +237,12 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
     banner.style.translate = "none";
   };
 
+  const countNode = (count: number): HTMLElement => {
+    const node = el(doc, "span", "dh-foe__count");
+    node.append(el(doc, "span", "dh-count-times", "×"), String(count));
+    return node;
+  };
+
   const render = (summary: WaveSummary): void => {
     lanesNode.replaceChildren(
       ...summary.lanes.map((lane) => {
@@ -255,7 +261,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
             `<span class="dh-icon">${foeIcon(tally.gait, tally.color)}</span>` +
             (tally.flyer && !lane.sky ? `<span class="dh-icon dh-foe__mark">${icon("wing")}</span>` : "");
           // The short name beside the icon: a new player reads "Kiến ×6", not only a shape (the title keeps the full name).
-          chip.append(el(doc, "span", "dh-foe__name", shortFoeName(tally)), el(doc, "span", "dh-foe__count", "×" + tally.count));
+          chip.append(el(doc, "span", "dh-foe__name", shortFoeName(tally)), countNode(tally.count));
           foes.append(chip);
         }
         row.append(name, foes);
@@ -269,7 +275,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       warn.dataset.warn = "flyer";
       warn.title = "Quái bay ×" + summary.flyers + (skyNames.length ? " trên " + skyNames.join(", ") : "") + ": bẫy sàn không trúng, dùng Lưới Phóng";
       warn.innerHTML = `<span class="dh-icon">${icon("wing")}</span>`;
-      warn.append("Quái bay ×" + summary.flyers);
+      warn.append("Quái bay ", countNode(summary.flyers));
       warnNodes.push(warn);
     }
     if (summary.generals.length > 0) {
@@ -277,7 +283,8 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       warn.dataset.warn = "general";
       warn.title = "Tướng địch: " + summary.generals.map((general) => GENERALS[general].nameVi).join(", ");
       warn.innerHTML = `<span class="dh-icon">${icon("crown")}</span>`;
-      warn.append(summary.generals.length > 1 ? "Tướng ×" + summary.generals.length : "Tướng địch");
+      if (summary.generals.length > 1) warn.append("Tướng ", countNode(summary.generals.length));
+      else warn.append("Tướng địch");
       warnNodes.push(warn);
     }
     // "Đợt thở" (02 §5.1) is the design's word; on the card it read as "a breathing wave", so the player sees "Đợt nhẹ".

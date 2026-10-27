@@ -787,6 +787,19 @@ body {
   height: calc(20px * var(--ui));
 }
 
+.dh-foe__count {
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.dh-foe__count .dh-count-times {
+  display: inline-block;
+  /* Be Vietnam Pro 700: × is 396 units high, digits up to 760; 1.4 gives 73 %. */
+  font-size: 1.4em;
+  font-weight: inherit;
+  line-height: 0.7;
+}
+
 .dh-foe.is-general .dh-foe__count {
   color: var(--dh-blight);
 }
