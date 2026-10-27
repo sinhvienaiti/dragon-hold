@@ -1,6 +1,6 @@
 /**
- * In-wave HUD (05 §4.2): top-left gold, wave n/N, chain and the phase clock
- * (break timer, call-early bonus); top-right system buttons (pause, camera);
+ * In-wave HUD (05 §4.2): top-left gold, wave n/N, chain and phase;
+ * top-right system buttons (pause, camera);
  * bottom-left Hỏa Long (HP, shield, armour, level), skill slots Alt + 1/2 with
  * cooldowns, the urgent-word Long Hống, consumable slots Alt + 7/8, Long Nộ and
  * Viêm Đế (Alt + 5). Bạch Long stands by as a guide (00 D21). DOM, ≤ 10 % of
@@ -13,7 +13,6 @@ import { CONSUMABLES } from "../content/data/our-side";
 import { CHAIN, FLOW, HERO_LEVEL, HERO_SKILLS, OUR_SIDE, RAGE, URGENT } from "../content/rules";
 import type { ConsumableId, HeroSkillId, SimCommand, SimEvent } from "../content/types";
 import { TICK_HZ, msToTicks } from "../sim/fixed";
-import { callEarlyRoom } from "../sim/economy";
 import type { World } from "../sim/world";
 import { el, icon, keyLabel, setClass, setShown, setText, setVar, uiButton } from "./skin";
 
@@ -416,20 +415,18 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     setText(chainValue, String(w.words.chain));
     setText(chainMult, chainMultiplier(w.words.chain));
 
-    // Phase line: prep, warning, break clock with the call-early bonus.
+    // The wave card owns the countdown and call-early action.
     const left = phaseTicksLeft(w);
     let line = "";
     if (phase === "prep") line = `Bày binh · <b>${keyLabel("enter")}</b> để bắt đầu`;
-    else if (phase === "warning") line = `Đợt ${upcomingWave(w)} tới sau <b>${clockSeconds(left ?? 0)} s</b>`;
+    else if (phase === "warning") line = `Đợt ${upcomingWave(w)} sắp tới`;
     else if (phase === "break") {
       const held = options.heldBy?.() ?? null;
-      // No gold left in the stage's call-early pool: the line says only the call (test pass 27/10: "+0 vàng" in gold).
-      const bonus = left === null ? 0 : callEarlyBonus(left, callEarlyRoom(w));
       line = left === null
         ? `Nghỉ · <b>${keyLabel("enter")}</b> để vào đợt ${upcomingWave(w)}`
         : held !== null
-          ? `Nghỉ <b>${clockSeconds(left)} s</b> · đứng chờ khi mở ${held}`
-          : `Nghỉ <b>${clockSeconds(left)} s</b> · ${keyLabel("call-early")} gọi sớm` + (bonus > 0 ? ` <span class="dh-bonus">+${bonus} vàng</span>` : "");
+          ? `Nghỉ giữa đợt · đứng chờ khi mở ${held}`
+          : "Nghỉ giữa đợt";
     } else if (phase === "wave") line = `Đang giữ ải · đợt <b>${w.wave}</b>`;
     else if (phase === "victory") line = "Giữ ải thành công";
     else line = "Bệ Rồng thất thủ";

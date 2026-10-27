@@ -312,7 +312,7 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
         el.classList.toggle("is-idle", view === null);
         if (view === null) {
           word.innerHTML = resting
-            ? '<span class="dh-learn__idle">' + (world.phase === "prep" ? "Bày binh" : "Nghỉ") + ": phím 1–8 chọn món ở dải dưới</span>"
+            ? '<span class="dh-learn__idle">' + (world.phase === "prep" ? "Bày binh" : "Nghỉ") + "</span>"
             : anyWord
               ? '<span class="dh-learn__idle">Gõ chữ đầu của một từ để khóa</span>'
               : "";
