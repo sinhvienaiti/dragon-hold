@@ -5,9 +5,12 @@
 // 3-2-1, after a break pause it goes through. Esc opens the pause menu
 // (sim still), Esc closes it. The portal's nav and alt-tab are simulated with
 // blur and visibilitychange events on this page.
+// SIZE=1920 runs at 1920×1080 (default 1280×720).
 // Owner: integrator (LANES.md).
 import { join } from "node:path";
 import { badResources, boot, outDir, press, state, waitFor } from "./lib/dh.mjs";
+
+const [W, H] = process.env.SIZE === "1920" ? [1920, 1080] : [1280, 720];
 
 async function clickAt(page, selector) {
   const p = await page.locate(selector);
@@ -25,7 +28,7 @@ const activeTag = (page) => page.eval("document.activeElement ? document.activeE
 export default async function (page) {
   const out = outDir("integrator");
   const r = {};
-  await boot(page, "prelearn=0", { width: 1280, height: 720 });
+  await boot(page, "prelearn=0", { width: W, height: H });
 
   // Clicks keep the keys: HUD skill slot, a strip cell, the wave card, the canvas.
   const clicks = [];
@@ -52,14 +55,14 @@ export default async function (page) {
   const t1 = (await state(page)).tick;
   await page.sleep(1500);
   const t2 = (await state(page)).tick;
-  await page.shot(join(out, "focus-veil-wave.png"));
+  await page.shot(join(out, `focus-veil-wave-${W}x${H}.png`));
   r.waveBlur = { veil: (await state(page)).veil, ticksWhileVeiled: t2 - t1 };
   // A key lifts it and starts 3-2-1; the key itself is used up.
   const kBefore = await keysNow(page);
   await press(page, "KeyA");
   await page.sleep(400);
   const during = await state(page);
-  await page.shot(join(out, "focus-countdown.png"));
+  await page.shot(join(out, `focus-countdown-${W}x${H}.png`));
   const tc1 = during.tick;
   await page.sleep(1200);
   const tc2 = (await state(page)).tick;
@@ -91,7 +94,7 @@ export default async function (page) {
   const m1 = s.tick;
   await page.sleep(1000);
   const m2 = (await state(page)).tick;
-  await page.shot(join(out, "focus-pause-menu.png"));
+  await page.shot(join(out, `focus-pause-menu-${W}x${H}.png`));
   await press(page, "Escape");
   await page.sleep(100);
   r.menu = { opened: s.menuOpen, ticksWhileOpen: m2 - m1, closed: !(await state(page)).menuOpen };
