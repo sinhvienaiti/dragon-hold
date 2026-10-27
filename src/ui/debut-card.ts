@@ -29,6 +29,8 @@ export const DEBUT_LINES: Readonly<Partial<Record<FoeId, { readonly does: string
 
 /** A card stays this long (02 §1.5: 3 s). */
 export const DEBUT_MS = 3000;
+/** A queued card older than this is dropped (a general's never): it would name a foe long after it came. */
+export const DEBUT_STALE_MS = 6000;
 /** Introductions per species per player, across runs. */
 export const SHOWN_MAX = 3;
 const STORE_KEY = "dragon-hold.debuts";
@@ -54,6 +56,29 @@ export function debutsIn(events: readonly SimEvent[], seen: Set<FoeId>, shown: R
   return out;
 }
 
+/** A species waiting for its card, and when it was queued (0: stamp it at the next frame). */
+export interface QueuedDebut {
+  readonly foe: FoeId;
+  at: number;
+}
+
+/**
+ * The next card to show from `queue` at `now`, or null; drops stale cards
+ * (a fast-forward or a crowded first peak can queue several: a card naming a
+ * foe 10 s after it came reads wrong) but never a general's, and shows a
+ * general first so it does not wait behind its escort.
+ */
+export function nextDebut(queue: QueuedDebut[], now: number): FoeId | null {
+  for (let k = queue.length - 1; k >= 0; k -= 1) {
+    const item = queue[k]!;
+    if (item.at <= 0) item.at = now;
+    else if (!(item.foe in GENERALS) && now - item.at > DEBUT_STALE_MS) queue.splice(k, 1);
+  }
+  if (queue.length === 0) return null;
+  const general = queue.findIndex((item) => item.foe in GENERALS);
+  return queue.splice(general >= 0 ? general : 0, 1)[0]!.foe;
+}
+
 export function createDebutCard(root: HTMLElement): Presenter {
   const doc = root.ownerDocument;
   const card = el(doc, "section", "dh-panel dh-debut");
@@ -76,7 +101,8 @@ export function createDebutCard(root: HTMLElement): Presenter {
 
   let world: World | null = null;
   const seen = new Set<FoeId>();
-  const queue: FoeId[] = [];
+  const queue: QueuedDebut[] = [];
+  let now = 0;
   let showing: FoeId | null = null;
   let until = 0;
 
@@ -113,9 +139,10 @@ export function createDebutCard(root: HTMLElement): Presenter {
         showing = null;
         setShown(card, false);
       }
-      queue.push(...debutsIn(events, seen, readShown()));
+      for (const foe of debutsIn(events, seen, readShown())) queue.push({ foe, at: now });
     },
     frame(w: World, info: FrameInfo): void {
+      now = info.now;
       if (w.phase === "victory" || w.phase === "defeat") {
         queue.length = 0;
         showing = null;
@@ -126,11 +153,9 @@ export function createDebutCard(root: HTMLElement): Presenter {
         showing = null;
         setShown(card, false);
       }
-      // A general goes first: its card should not wait behind its escort's.
-      if (showing === null && queue.length > 0) {
-        const general = queue.findIndex((foe) => foe in GENERALS);
-        const next = queue.splice(general >= 0 ? general : 0, 1)[0]!;
-        show(next, info.now);
+      if (showing === null) {
+        const next = nextDebut(queue, info.now);
+        if (next !== null) show(next, info.now);
       }
     },
     dispose(): void {
