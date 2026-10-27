@@ -832,3 +832,199 @@ Lượt trước đã chạy cùng kịch bản (không có bước Thiên Hỏa
   - (a) Giữ V2 và dời bầy khỏi đầu đợt, đặt vào quãng lặng sau đỉnh 1 của đợt 7, 9, 10, để Thiên Hỏa còn cho đỉnh 1. Việc dời là đường cong đợt, nên đo cùng (4).
   - (b) Giữ V2 như hiện nay và nhận Khá thấp hơn (B1 thêm 2 ô). Rồi bù vực đợt 10 của người gõ nhanh bằng phần đợt 10 của (4).
   - (c) Không dùng chữ chung. Sói đi hàng như nay, và chọn một trong hai cách còn lại của phát hiện 17: W thấp hơn, hoặc bỏ tru bầy ở M0.
+
+## 6. D33 (1): bẫy và nhà gần như không chạy — đã đo, **giữ** (V2: bom nổ theo luật mới, mỗi lần nổ 30 sát thương); xung Lều Thuốc Nam vẫn 0 lần mỗi lượt ở bot
+
+Hướng (1) của D33 là phát hiện 11 của `2026-10-27-test-pass.md`: món mua 80–120 vàng mà gần như không làm gì.
+
+- **Bom Hạt Thông** nổ khi có từ 2 quái trong 3 m (thay 3), hoặc khi có quái đang bị lính chặn trong vùng nổ.
+- **Xung Lều Thuốc Nam** phát sau 3 lần gõ hạ quái (thay 5), đo như luật cũ (03 §10.2: quái chết vì đòn từ khi đứng trong 7 m của lều).
+- **Lưới Phóng** giữ luật. Ô và cửa hàng ghi rõ "chỉ bắn quái bay"; bot mua khi đợt kế có quái bay (đổi bot, không đổi sim).
+- Mỗi ô bẫy và nhà hiện trạng thái **sẵn sàng** và **vừa nổ** mà người chơi thấy được, ở cả hai cỡ.
+
+Nhánh `s6-traps`, hai commit trên `abc2a75` (`2fccf86` luật, bot, giao diện; `90e7f35` sửa độ tương phản chấm Năng sau lượt trình duyệt), đã gộp `--ff-only` vào `main`. Bằng chứng ở `tmp/mac-2026-10-27/owner/s6-traps/`.
+
+### 6.1 Đã làm gì
+
+- **Sim** (`src/sim/traps.ts`, `houses.ts`; `src/content/types.ts`, `data/our-side.ts`, `rules.ts`):
+  - `TrapDef.triggerHeld`: bẫy nổ cả khi chỉ có một quái trong vùng mà quái đó đang bị lính chặn (`blockedBy ≥ 0`, movement đặt trong tick này). Bom Hạt Thông: `triggerMin` 3 → 2, `triggerHeld: true`.
+  - Bom Hạt Thông mỗi lần nổ **120 → 30 sát thương** (biến thể V2, mục 6.6). Đẩy lùi 2 m, nạp 22 s giữ nguyên.
+  - `HouseDef.energyMax`: số lần gõ hạ quái để phát Xung, mặc định 5 (`OUR_SIDE.houseEnergyMax`). Lều Thuốc Nam: 3.
+- **Bot** (`scripts/balance/policy.ts`): khi đợt kế có quái bay và chưa có Lưới Phóng nào với tới đường bay, lưới ở ô với tới được (`cau-t4`) đáng 6 điểm (7,5 điểm mỗi 100 vàng), cao hơn mọi dải gai. Người mua kém (`poor`) không đọc thẻ đợt nên không đổi.
+- **Giao diện**:
+  - `src/ui/slot-state.ts` (mới) vẽ một chip DOM cạnh mỗi bẫy (bên trái chiều đi, cách 2,4 m, để không che quái đứng trên bẫy) và trên mái mỗi nhà, chỉ trong đợt và lúc báo đợt. Chip nằm dưới lớp thẻ chữ.
+  - Sẵn sàng: vòng sáng đủ vòng. Đang nạp: vòng chạy theo phần đã nạp, kèm số giây còn lại. Bị chặn hay đổ nát: xám.
+  - Vừa nổ: chip phóng to, sáng lên, chữ "Nổ!" (bom), "Bắn!" (lưới), "Xung!" (nhà) bay lên rồi mờ trong 1,2 s. Gai Chông chỉ chớp 0,45 s, không có chữ, vì nó đâm mỗi 0,5 s.
+  - Nhà có 3 chấm Năng dưới chip, sáng dần theo số lần gõ hạ quái.
+  - Menu ô (lúc nghỉ) và thẻ sửa món ghi luật kích và trạng thái: "Tự nổ khi ≥ 2 quái trong 3 m, hoặc khi lính đang chặn quái trong vùng nổ · Sẵn sàng", "Chỉ bắn quái bay", "Đủ 3 lần gõ hạ quái trong 7 m: phát Xung hồi 10 % · Năng 0/3".
+  - Lưới Phóng: dòng của cửa hàng mở đầu bằng "Chỉ bắn quái bay"; hàng của lưới trong menu ô trống ghi "Lưới Phóng · Chỉ bắn quái bay"; thẻ đặt món ghi "Chỉ bắn quái bay · đợt kế: N quái bay" thay cho số quái đi đường.
+  - Câu mới không đặt thêm tên món nào; tên cũ giữ cho lượt đổi tên của game.
+- **Test**: bom chờ 2 quái và nổ với một quái bị chặn (`ourside-traps`); Xung ở 3 (`ourside-houses`); bot mua lưới khi đợt kế có quái bay (`bot-policy`); trạng thái chip, dòng luật, chỗ đặt chip (`tests/ui/slot-state.test.ts`).
+- **Golden** cập nhật bằng `pnpm dh:golden:update`, có ghi trong commit: `b35-seed1` `8b16e8be` → `cbdcb227` (152 lệnh, giữ nguyên); `noTyping-seed2` `59192d7b` → `b3a40135` (11 → 10 lệnh). `sloppy-hard-off-seed3` chạy 8 phút thay 7, vì 7 phút đầu nay chỉ còn 2 lần nhả khóa bằng Esc mà test đòi ≥ 3 (8 phút: 4 lần); `4d27a14a` → `b19a8316`, 623 → 681 lệnh.
+- `pnpm check` 410/410. Lượt `pnpm dh:balance --modes=balanced --seeds=60 --jobs=3` trên đầu nhánh khớp 15/15 bot với lượt đo của cây V2.
+
+### 6.2 Mỗi món chạy bao nhiêu lần (mục tiêu của bước)
+
+Cân bằng, 2 × 60 seed. Mốc → V0 (luật mới, bom 120) → V2 (bản giữ, bom 30). Lưới: số lần bắn mỗi lượt, trong ngoặc là số lưới bot mua mỗi lượt. Bom: số lần nổ mỗi lượt, trong ngoặc là số quái trúng mỗi lần nổ.
+
+| Bot | Bom nổ mỗi lượt (quái mỗi lần) | Lưới bắn mỗi lượt (lưới mua) | Xung Lều mỗi lượt | Bom, % sát thương lên quái | Phe ta, % |
+|---|---|---|---|---|---|
+| b25 | 2,5 (3,1) → 10,5 (1,2) → 9,9 (1,2) | 0 (0) → 2,4 (0,89) → 2,5 (0,89) | 0 → 0 → 0 | 1,1 → 3,1 → 1,4 | 34,6 → 37,0 → 35,4 |
+| Chuẩn (b35) | 2,2 (3,1) → 7,2 (1,3) → 7,2 (1,3) | 0 (0) → 1,6 (0,93) → 1,7 (0,93) | 0 → 0 → 0 | 1,0 → 2,2 → 1,1 | 30,7 → 32,0 → 30,9 |
+| b60 | 2,8 (3,6) → 12,9 (1,2) → 13,0 (1,5) | 0 (0) → 0,7 (0,89) → 0,8 (0,89) | 0 → 0 → 0 | 1,5 → 4,3 → 2,2 | 35,7 → 38,3 → 36,3 |
+| Mới | 3,1 (3,2) → 12,0 (1,2) → 12,7 (1,2) | 0 (0) → 2,1 (0,66) → 2,0 (0,66) | 0 → 0 → 0 | 1,5 → 3,8 → 1,9 | 35,2 → 37,6 → 35,7 |
+| Chậm chắc | 2,3 (3,1) → 9,4 (1,2) → 9,5 (1,3) | 0 (0) → 2,0 (0,91) → 2,1 (0,91) | 0 → 0 → 0 | 1,0 → 2,8 → 1,4 | 33,6 → 35,6 → 34,2 |
+| Khá | 1,2 (3,3) → 9,9 (1,2) → 9,6 (1,1) | 0 (0) → 1,0 (0,89) → 1,1 (0,89) | 0 → 0 → 0 | 0,7 → 3,5 → 1,3 | 31,4 → 34,2 → 32,0 |
+| Ẩu | 2,4 (3,1) → 10,9 (1,2) → 10,7 (1,3) | 0 (0) → 0,9 (0,34) → 1,0 (0,34) | 0 → 0 → 0 | 1,3 → 3,4 → 1,6 | 30,2 → 32,5 → 30,3 |
+| Nhanh | 3,0 (3,6) → 12,4 (1,3) → 12,3 (1,4) | 0 (0) → 0,6 (0,88) → 0,7 (0,88) | 0 → 0 → 0 | 1,6 → 4,4 → 1,9 | 36,1 → 38,7 → 36,8 |
+| Chuẩn tốt | 2,4 (3,1) → 6,8 (1,3) → 6,9 (1,3) | 0 (0) → 0,9 (0,91) → 1,0 (0,91) | 0 → 0 → 0 | 1,0 → 2,0 → 1,1 | 30,6 → 32,2 → 31,3 |
+| Chuẩn kém | 2,6 (3,3) → 6,6 (1,7) → 5,7 (1,7) | 0 (1,17) → 0 (1,17) → 0 (1,17) | 0 → 0 → 0 | 2,0 → 3,8 → 1,5 | 19,3 → 21,0 → 18,8 |
+| Chuẩn tắt nhịp | 2,1 (3,1) → 6,4 (1,3) → 6,4 (1,3) | 0 (0) → 1,1 (0,88) → 1,1 (0,88) | 0 → 0 → 0 | 1,0 → 2,0 → 1,0 | 30,1 → 31,9 → 30,5 |
+| Trẻ em | 0,7 (3,3) → 2,3 (1,7) → 1,9 (1,7) | 0 (0,88) → 0 (0,90) → 0 (0,86) | 0 → 0 → 0 | 1,7 → 4,0 → 1,5 | 26,5 → 28,7 → 24,5 |
+
+Phe ta ở bảng này là trung bình theo lượt của từng bot; G8 của báo cáo (Chuẩn) là 30,3 → 31,8 → 30,6 %.
+
+- **Bom** nổ 3–8 lần nhiều hơn (Chuẩn 2,2 → 7,2 lần mỗi lượt), phần lớn là một quái bị Vệ Binh Rêu chặn ở `cau-b2`, cạnh bom ở `cau-t3` (1,1–1,5 quái mỗi lần nổ). Mốc chỉ nổ ở đợt 1–3, khi bầy Kiến Gai đi qua; nay nổ ở mọi đợt. Theo đợt, Chuẩn (bom / lưới mỗi lượt vào đợt, mốc → V2): đợt 1 1,04 / 0 → 1,15 / 0; đợt 2 0,57 / 0 → 1,57 / 0,18; đợt 3 0,30 / 0 → 1,26 / 0,32; đợt 4 0 / 0 → 1,16 / 0,33; đợt 5 0 / 0 → 0,63 / 0,14; đợt 6 0 / 0 → 0,37 / 0,08; đợt 7 0,11 / 0 → 0,70 / 0,23; đợt 8 0,10 / 0 → 0,28 / 0,17; đợt 9 0,02 / 0 → 0,10 / 0,20; đợt 10 0,03 / 0 → 0,13 / 0,09.
+- **Lưới** trước đây không bot nào mua đúng chỗ (người mua kém mua nhưng đặt ở `cau-t3`, ngoài tầm, nên bắn 0 lần). Nay bot đọc thẻ đợt mua lưới ở nghỉ đợt 1 trong 88–93 % lượt (Mới 66 %, Ẩu 34 %, vì hai bot này mua Bình Máu Nhỏ trước rồi hết vàng) và bắn 0,6–2,5 lần mỗi lượt. Mỗi đợt từ 2 chỉ có một Ong Gai (đợt 10 hai con), và người gõ nhanh thường hạ nó trước khi nó vào tầm 11 m, nên Nhanh, b60 bắn ít nhất.
+- **Xung Lều Thuốc Nam vẫn 0 lần mỗi lượt ở mọi bot**, như mốc. Mục 6.7.
+
+### 6.3 Cả ải, Cân bằng, 120 seed
+
+Mỗi ô: Thắng / S / P / I / O / N / Q (%, N là số lần). V0: luật mới, bom 120. V1: bom 40. V2: bom 30 (bản giữ).
+
+| Bot | Mốc | V0 | V1 | V2 | Hạ quái (s) |
+|---|---|---|---|---|---|
+| b25 | 85,8 / 70,6 / 20,3 / 18,5 / 0 / 0,42 / 40,9 | 97,5 / 77,6 / 18,5 / 18,8 / 0 / 0,33 / 40,7 | 93,3 / 74,7 / 19,3 / 18,8 / 0 / 0,27 / 40,8 | 90,8 / 68,4 / 19,7 / 18,6 / 0 / 0,33 / 40,8 | 5,3 → 5,0 → 5,2 → 5,2 |
+| Chuẩn (b35) | 86,7 / 60,1 / 21,3 / 20,8 / 0 / 0,48 / 38,4 | **91,7** / 59,7 / 20,4 / 20,7 / 0 / 0,47 / 38,5 | 88,3 / 61,4 / 21,3 / 20,5 / 0 / 0,62 / 38,6 | 88,3 / 60,8 / 21,2 / 20,5 / 0 / 0,57 / 38,8 | 4,2 → 4,1 → 4,2 → 4,2 |
+| b60 | 77,5 / 36,1 / 31,3 / 29,5 / 0 / 0,76 / 48,4 | 89,2 / 41,8 / 27,1 / 32,0 / 0 / 0,67 / 47,1 | 85,0 / 38,4 / 29,9 / 30,0 / 0 / 0,81 / 48,4 | 80,0 / 37,7 / 30,1 / 29,8 / 0 / 0,74 / 48,4 | 3,6 → 3,3 → 3,6 → 3,6 |
+| Mới | 72,5 / 61,2 / 23,9 / 16,4 / 0 / 0,85 / 42,7 | 87,5 / 71,9 / 20,4 / 17,6 / 0 / 0,41 / 41,8 | 85,0 / 67,3 / 22,0 / 17,2 / 0 / 0,63 / 42,2 | 82,5 / 67,3 / 22,3 / 17,1 / 0 / 0,63 / 41,9 | 6,1 → 5,5 → 5,8 → 5,8 |
+| Chậm chắc | 94,2 / 63,5 / 19,9 / 18,8 / 0 / 0,29 / 40,0 | 97,5 / 68,4 / 19,0 / 19,1 / 0 / 0,17 / 40,1 | 95,0 / 68,2 / 19,7 / 18,8 / 0 / 0,26 / 40,3 | 96,7 / 67,6 / 19,7 / 18,8 / 0 / 0,32 / 40,3 | 4,9 → 4,8 → 4,9 → 4,9 |
+| Khá | 75,8 / 47,5 / 23,7 / 26,6 / 0 / 0,78 / 37,6 | 85,8 / 55,1 / 21,5 / 27,9 / 0 / 0,56 / 36,9 | 74,2 / 47,4 / 23,2 / 26,3 / 0 / 0,81 / 37,7 | 69,2 / 47,2 / 23,3 / 26,3 / 0 / 0,82 / 38,2 | 3,9 → 3,7 → 3,9 → 4,0 |
+| Ẩu | 73,3 / 61,2 / 23,8 / 16,2 / 0,2 / 0,65 / 37,7 | 91,7 / **71,5** / 21,2 / 16,5 / 0,2 / 0,53 / 37,3 | 74,2 / 62,5 / 23,4 / 16,3 / 0,2 / 0,65 / 37,5 | 77,5 / 62,7 / 23,2 / 16,3 / 0,2 / 0,74 / 37,8 | 5,3 → 4,9 → 5,2 → 5,2 |
+| Nhanh | 90,0 / 44,5 / 30,3 / 30,7 / 0 / 0,72 / 48,4 | 91,7 / 46,1 / 26,6 / 33,0 / 0 / 0,47 / 48,4 | 88,3 / 46,7 / 29,0 / 30,7 / 0 / 0,51 / 49,0 | 87,5 / 43,6 / 29,3 / 30,8 / 0 / 0,56 / 48,9 | 3,5 → 3,2 → 3,4 → 3,4 |
+| Chuẩn tốt | 85,8 / 61,1 / 19,1 / 20,5 / 0 / 0,38 / 40,4 | 96,7 / 67,3 / 18,2 / 20,9 / 0 / 0,32 / 40,1 | 94,2 / 66,8 / 18,4 / 20,8 / 0 / 0,31 / 40,0 | 92,5 / 67,4 / 18,6 / 20,6 / 0 / 0,33 / 40,2 | 4,1 → 3,9 → 4,0 → 4,0 |
+| Chuẩn kém | 40,8 / 0 / 22,1 / 18,8 / 0 / 2,39 / 48,4 | 55,8 / 19,9 / 21,1 / 19,4 / 0 / 2,21 / 48,4 | 38,3 / 0 / 22,0 / 18,7 / 0 / 2,49 / 48,9 | 41,7 / 0 / 22,0 / 18,7 / 0 / 2,49 / 49,5 | 4,6 → 4,5 → 4,6 → 4,6 |
+| Chuẩn tắt nhịp (B7) | 84,2 / 67,4 / 20,5 / 22,2 / 0 / 0,26 / 38,1 | 94,2 / 66,2 / 18,8 / 23,3 / 0 / 0,17 / 37,6 | 90,8 / 68,9 / 19,4 / 23,0 / 0 / 0,23 / 37,8 | 85,0 / 65,7 / 19,8 / 22,7 / 0 / 0,21 / 38,0 | 4,2 → 4,0 → 4,0 → 4,1 |
+| Chỉ gõ | 0 / 0 / 24,8 / 17,7 / 0 / 0,53 / 47,7 | như mốc | như mốc | như mốc | 5,1 |
+| Không gõ | 0 / 0 / 70,2 / 4,5 / 0 / 0,00 / 76,2 | 0 / 0 / 70,1 / 4,6 / 0 / 0,00 / 79,5 | 0 / 0 / 70,1 / 4,6 / 0 / 0,00 / 83,9 | 0 / 0 / 70,1 / 4,6 / 0 / 0,00 / 83,9 | 9,2 → 9,3 |
+| Trẻ em | 9,2 / 0 / 38,8 / 7,8 / 0 / 1,62 / 88,1 | 7,5 / 0 / 38,4 / 7,9 / 0 / 1,61 / 88,4 | 6,7 / 0 / 38,7 / 7,9 / 0 / 1,64 / 88,2 | 5,8 / 0 / 38,7 / 7,8 / 0 / 1,54 / 89,0 | 9,5 → 9,6 |
+
+Hai chế độ kia, mốc → V0 → V1 → V2:
+
+- Thư giãn: mọi bot gõ thắng 100 % ở cả bốn bản; Trẻ em 90,8 → 91,7 → 92,5 → 92,5 %.
+- Thử thách: Chuẩn 60,0 → 77,5 → 75,0 → 70,0 %; Mới 63,3 → 88,3 → 79,2 → 65,8 %; Chậm chắc 81,7 → 96,7 → 93,3 → 84,2 %; Khá 69,2 → 90,8 → 74,2 → 74,2 %; Ẩu 53,3 → 78,3 → 59,2 → 49,2 %; Nhanh 94,2 → 94,2 → 89,2 → 91,7 %; Chuẩn tắt nhịp 80,8 → 95,0 → 90,8 → 87,5 %.
+
+### 6.4 Cổng (mốc → V0 → V1 → V2)
+
+- **G1** (Chuẩn thắng 75–90 %): 86,7 → **91,7 (gãy)** → 88,3 → 88,3 %.
+- G3: 85,8 → 97,5 → 93,3 → 90,8 %, đạt. G5: 0 %, đạt. G6: 120/120 thua ở đợt 1, đạt. G9: 1,40 ở cả bốn, đạt.
+- **G8** (phe ta 20–35 %, trần 40 %): 30,3 → 31,8 → 30,9 → 30,6 %, đạt. G8b: 69,7 → 68,2 → 69,1 → 69,4 %, đạt. D23a (Thiên Hỏa ≤ 15 %): 12,8 → 12,7 → 12,7 → 12,8 %, đạt.
+- G9b (7), G10 (0/phút), G11 (1,2–1,4 %), G13 (1333 → 1356 → 1335 → 1341 vàng), G13b, G15 (tệ nhất 22,2–22,7 %): đạt ở cả bốn. G16: 171,5 → 167,9 s (V2), trượt như cũ (cổng từ ải 15).
+- B2, B5, B8: đạt ở cả bốn.
+- B3: Mới 73 → 88 → 85 → 83 %; Trẻ em Thư giãn 91 → 92 → 93 → 93 %. Đạt.
+- **B4** (S Chậm chắc > S Ẩu): 64 / 61 → **68 / 72 (gãy)** → 68 / 63 → 68 / 63. Biên của V2 là 4,9 điểm nên không bắt buộc 300 seed; tôi vẫn chạy (mục 6.5): 65,3 so với 62,9, đạt. Hạ quái Chuẩn so với Ẩu: 4,21 / 5,25 → 4,12 / 4,88 → 4,23 / 5,22 → 4,23 / 5,22 s. Theo bộ seed, V1 trượt ở bộ 20261023 (67 so với 69); V2 đạt ở cả hai bộ (67 / 58 và 69 / 68).
+- **B6** (Tốt hơn Kém ≥ 10 điểm): Cân bằng 86 / 41 → 97 / 56 → 94 / 38 → 93 / 42 %; Thử thách 78 / 25 → 88 / 41 → 78 / 25 → 76 / 21 %. Đạt ở cả bốn.
+- B7, phần bộ điều nhịp (≤ 3 bậc mỗi đợt, ±15 %): đạt ở cả bốn.
+- **B1 theo dải D27**: 6 → 10 → 8 → 7 ô lệch.
+  - V2 so với mốc: Mới đổi "thắng thấp" thành "S cao" (S 61,2 → 67,3); Chậm chắc thêm "S cao" (63,5 → 67,6); Khá thêm "thắng thấp" (75,8 → 69,2); Ẩu vào dải (73,3 → 77,5).
+  - Ở 300 seed (mục 6.5) Khá 75,7 → 75,3 % và S Chậm chắc 64,3 → 65,3 %: hai ô mới của V2 nằm trong độ nhiễu seed.
+- **B7 theo dải D27** (Chuẩn tắt nhịp): 2 → 3 → 3 → 2 ô (V0, V1 thêm thắng cao 94,2 và 90,8 %; V2 85,0 %).
+- B9: thiếu số (buổi chơi thử của chủ dự án).
+- Hai bộ seed cho cùng kết quả ở mọi cổng của V2.
+
+### 6.5 300 seed (2 × 150, Cân bằng), mốc → V2
+
+Mốc 300 seed lấy từ `s2-d31/b4-v2-300.json` (Chậm chắc, Ẩu, Mới, Chuẩn: k ≤ 1, trùng mốc từng số) và `s2-d31/fast300-base.json` (Khá, Nhanh, b60).
+
+| Bot | Mốc | V2 |
+|---|---|---|
+| Chậm chắc | 93,3 / 64,3 / 20,0 / 18,8 / 0 / 0,39 / 40,3 | 94,7 / 65,3 / 19,8 / 18,7 / 0 / 0,38 / 40,3 |
+| Ẩu | 73,0 / 61,1 / 24,3 / 16,2 / 0,2 / 0,67 / 37,7 | 77,0 / 62,9 / 23,3 / 16,4 / 0,2 / 0,72 / 37,5 |
+| Mới | 80,0 / 62,7 / 23,2 / 16,7 / 0 / 0,89 / 42,3 | 84,0 / 64,5 / 22,2 / 17,1 / 0 / 0,64 / 41,6 |
+| Chuẩn (b35) | 81,7 / 59,5 / 21,6 / 20,4 / 0 / 0,55 / 38,7 | 85,0 / 60,5 / 21,3 / 20,5 / 0 / 0,55 / 38,7 |
+| Khá | 75,7 / 50,4 / 23,7 / 26,7 / 0 / 0,74 / 38,2 | 75,3 / 50,4 / 23,3 / 26,5 / 0 / 0,75 / 37,9 |
+| Nhanh | 90,3 / 43,2 / 30,2 / 30,7 / 0 / 0,71 / 48,6 | 87,7 / 43,0 / 29,2 / 30,9 / 0 / 0,60 / 48,8 |
+| b60 | 79,3 / 37,9 / 31,1 / 29,6 / 0 / 0,80 / 48,4 | 84,7 / 38,7 / 30,0 / 29,9 / 0 / 0,73 / 48,4 |
+
+B4 ở 300 seed: S Chậm chắc 65,3 so với Ẩu 62,9, đạt (mốc 64,3 so với 61,1). Hạ quái Chuẩn so với Ẩu 4,26 / 5,23 s. Thắng tăng 1–5 điểm ở người gõ chậm và b60, S tăng 1–2 điểm; Khá, Nhanh không đổi quá độ nhiễu.
+
+### 6.6 Biến thể đã thử, và phần nào gây gì
+
+Đo riêng từng phần trên mốc (Cân bằng, 120 seed, thắng %; công cụ `items.ts`, cùng seed với `dh:balance`):
+
+| Bot | Mốc | Chỉ "≥ 2 quái" | Chỉ "quái bị chặn" (≥ 3 giữ nguyên) | Cả hai, bom 120, chưa đổi bot | V0 (cả hai, bot mua lưới) |
+|---|---|---|---|---|---|
+| Chuẩn | 86,7 | 86,7 | 84,2 | 89,2 | 91,7 |
+| Mới | 72,5 | 77,5 | 90,0 | 88,3 | 87,5 |
+| Ẩu | 73,3 | 86,7 | 90,8 | 89,2 | 91,7 |
+| Khá | 75,8 | 82,5 | 83,3 | 86,7 | 85,8 |
+| b25 | 85,8 | 94,2 | 99,2 | 99,2 | 97,5 |
+| Chuẩn tắt nhịp | 84,2 | 83,3 | 94,2 | 95,8 | 94,2 |
+| Chuẩn tốt | 85,8 | 86,7 | 89,2 | 88,3 | 96,7 |
+
+- Phần "quái bị chặn" làm bom nổ gấp 3–5 lần và gây phần lớn mức dễ thêm. Phần "≥ 2 quái" một mình đã đưa Ẩu lên 86,7 %.
+- Phần mua lưới thêm 2–8 điểm ở Chuẩn, Chuẩn tốt, b60.
+- Phần Lều 3 Năng không đổi số nào, vì Xung không phát.
+
+Các bản đo thêm, giữ luật kích của chủ dự án và chỉ đổi số của bom:
+
+| Bản | Khác gì | Kết quả |
+|---|---|---|
+| V0 | Luật mới, bom 120 VL, đẩy 2 m, nạp 22 s | **G1 91,7 %, B4 gãy (S 68 so với 72)**, B1 10 ô, B7 3 ô |
+| (thử nhanh) | Như V0, nổ do quái bị chặn thì không đẩy | Thắng như V0 (Chuẩn 90,0, Mới 89,2, Ẩu 91,7 %): đẩy lùi không phải nguyên nhân |
+| (thử nhanh) | Như V0, nạp 30 s | Bom nổ chỉ ít đi khoảng 10 %; Mới 95,0, Ẩu 87,5 %: nạp không phải núm |
+| V1 | Bom 40 VL | Mọi cổng đạt; B1 8 ô (Chậm chắc S 68,2, Khá thắng 74,2), B7 3 ô (Chuẩn tắt nhịp 90,8 %); B4 trượt ở một bộ seed |
+| V2 | Bom 30 VL (một phần tư 120, vì bom nổ 3–5 lần nhiều hơn) | Mọi cổng đạt ở cả hai bộ seed; B1 7 ô, ở 300 seed trong độ nhiễu; B7 2 ô; phần sát thương của bom 1,1–2,2 % (mốc 0,7–1,6 %) |
+
+Hai bản thử nhanh chỉ đo thắng (`items.ts`), không chạy `dh:balance`. V1 và V2 là hai biến thể, trong hướng chủ dự án (luật kích giữ nguyên; chỉ đổi sát thương mỗi lần nổ, số dữ liệu mà 03 §13.1 cho bot chỉnh).
+
+### 6.7 Xung Lều Thuốc Nam: luật 3 lần đã vào, bot vẫn 0 lần
+
+- Bot đặt lều ở `h-nw` (bệ trong, vì hào quang với tới bệ Rồng) và dựng muộn: Chuẩn 0,5 lều mỗi lượt, phần lớn ở đợt 7–9.
+- Lần gõ hạ quái trong 7 m của mỗi bệ, mỗi lượt (20 seed, cây V0, `padprobe.ts`):
+
+| Bot | `h-nw` | `h-ne` | `h-sw` | `h-e` | `h-w` (bệ ngoài, cạnh khúc suối) |
+|---|---|---|---|---|---|
+| Chuẩn | 0,8 | 4,1 | 1,2 | 0,4 | 26,6 |
+| Mới | 1,65 | 5,5 | 2,8 | 0,2 | 34,4 |
+| Chậm chắc | 1,15 | 5,4 | 1,9 | 0,65 | 33,2 |
+| Chuẩn kém | 1,35 | 4,4 | 0,75 | 1,1 | 42,0 |
+| Trẻ em | 13,3 | 12,25 | 1,9 | 0,35 | 3,55 |
+
+- Ở `h-nw`, các lần đó rơi vào đợt 3–4, trước khi bot dựng lều. Sau khi dựng thì gần như 0, nên lều của bot không bao giờ đủ 3.
+- Lều ở `h-w` (bệ ngoài cạnh khúc suối) có 27–42 lần gõ hạ quái trong vùng mỗi lượt, tức có thể phát Xung 9–14 lần mỗi lượt. Lều ở `h-ne` được 4–5,5 lần. Nhưng `h-w` cách bệ 15,4 m, quá tầm 11 m, nên Xung không hồi máu Rồng, chỉ hồi lính trong vùng.
+- Kết luận: với luật 3 lần, Xung chạy được khi người chơi đặt lều chỗ quái chết. Lều dựng cho hào quang Rồng (bệ trong) thì vẫn gần như không phát Xung. Trình duyệt (mục 6.8) cho thấy Xung phát với lều ở `h-w`.
+
+### 6.8 Trình duyệt (Apple M4, Vite riêng 127.0.0.1:4151 `--strictPort`, đã tắt)
+
+Hai kịch bản tạm, chạy qua `heavy.sh --gpu node scripts/visual/cdp-run.mjs`, 1280×720 rồi 1920×1080 trong cùng một lượt, 35 WPM. Cả hai: 0 exception, 0 tài nguyên lỗi, mã băm phát lại khớp ở cả hai cỡ; mọi chip nằm trong màn và không đè bảng HUD (`data-keepout`).
+
+- `traps.mjs` (`browser-run.json`; mã `2fccf86`):
+  - Bày binh: bom ở `cau-t3`, Vệ Binh Rêu ở `cau-b2`; bấm chuột vào ô bom thì menu ghi "Tự nổ khi ≥ 2 quái trong 3 m, hoặc khi lính đang chặn quái trong vùng nổ · Sẵn sàng". Phím 3 (lưới) cho thẻ "Chỉ bắn quái bay · đợt kế: 0 quái bay · Thiếu 40 vàng".
+  - Đợt 1, quái Đường Cầu để yên tới khi bom nổ: chip "Nổ!" kèm số 22, 3 s sau vòng nạp còn 19 s.
+  - Nghỉ đợt 1: thẻ lưới "Chỉ bắn quái bay · đợt kế: 1 quái bay"; đặt ở `cau-t4`; menu ô "Lưới Phóng · cấp 1 · Chỉ bắn quái bay · Sẵn sàng".
+  - Đợt 2, Ong Gai để yên tới khi lưới bắn: chip "Bắn!" kèm số 14, ong rơi xuống đất.
+  - Lượt này gõ mọi chữ ngay khi hiện, nên quái chết ngoài 20 m và lều ở `h-w` không phát Xung; menu lều ghi "Đủ 3 lần gõ hạ quái trong 7 m: phát Xung hồi 10 % · Đang hồi máu · Năng 0/3".
+- `hut.mjs` (`browser-hut-run.json`, rồi `browser-hut2-run.json` sau khi sửa chấm Năng): lều dựng lúc bày binh ở `h-w`, quái Đường Suối để yên tới khi vào 7 m của lều. Năng 0 → 1 → 2 → Xung ở đợt 1 (về 0), chip "Xung!".
+
+Ảnh đã xem:
+
+- `browser/prep-bomb-menu-1280x720.png`: menu bom ghi luật kích và "Sẵn sàng", nằm trên ô, không đè bảng đợt hay Bộ Mang Theo.
+- `browser/w1-ready-1920x1080.png`: chip bom cạnh cây cầu, vòng sáng đủ, không che lính hay quái.
+- `browser/w1-bomb-fired-1280x720.png` và `-crop-1920x1080.png`: "Nổ!" trên chip, số 22, quái bị Vệ Binh chặn ở đầu cầu; thẻ chữ ("place", "good" ở 1280; "small", "give" ở 1920) nằm phía trên, chip không che thân quái.
+- `browser/w1-bomb-charging-crop-1280x720.png`: vòng nạp, số 19.
+- `browser/b1-net-card-1920x1080.png`: thẻ đặt lưới "Chỉ bắn quái bay · đợt kế: 1 quái bay", thẻ đợt góc trái có "Quái bay ×1".
+- `browser/b1-net-menu-1920x1080.png`: menu lưới "Chỉ bắn quái bay · Sẵn sàng".
+- `browser/w2-net-fired-1280x720.png` và `-crop-1920x1080.png`: "Bắn!" trên chip lưới, số 14; ong đã xuống đất ở bên phải bệ.
+- `browser/b-hut-menu-1280x720.png`: menu lều "Đủ 3 lần gõ hạ quái trong 7 m: phát Xung hồi 10 % · Đang hồi máu · Năng 0/3".
+- `browser-hut/hut-pips-crop-1920x1080.png`: lượt đầu, hai chấm Năng sáng khó tách khỏi thân lều màu xanh nhạt. Đã sửa (`90e7f35`): chấm nằm trên nền tối.
+- `browser-hut2/hut-pips-crop-1920x1080.png` và `-1280x720.png`: hai chấm sáng, một chấm tối, đọc rõ ở cả hai cỡ.
+- `browser-hut2/hut-pulse-crop-1280x720.png`, `browser-hut/hut-pulse-1280x720.png`: "Xung!" trên chip, vòng hồi xanh của hiệu ứng, chấm về 0.
+
+### 6.9 Kết luận, chờ anh
+
+- **Giữ (V2).** Bom và lưới nay chạy, mỗi ô bẫy và nhà hiện sẵn sàng, đang nạp, vừa nổ ở cả hai cỡ. Mọi cổng đạt ở cả hai bộ seed. B1 theo dải D27 6 → 7 ô ở 120 seed, nhưng ở 300 seed hai ô mới nằm trong độ nhiễu. B7 không đổi.
+- **Điều anh cần biết:** để giữ G1 và B4, bom mỗi lần nổ 30 sát thương thay 120 (03 §7.2 đã sửa). Với 120, luật mới gãy G1 (91,7 %) và B4 (S Chậm chắc 68 so với Ẩu 72). Phần sát thương của bom nay 1,1–2,2 % (mốc 0,7–1,6 %).
+- **Còn chờ anh: Xung Lều Thuốc Nam.** Luật 3 lần đã vào, đo đúng thước 03 §10.2. Bot vẫn phát 0 lần mỗi lượt, vì bot đặt lều ở bệ trong cho hào quang Rồng, mà quái hiếm khi chết trong 7 m của bệ đó. Lều ở bệ ngoài `h-w` thì phát Xung (27–42 lần gõ hạ quái trong vùng mỗi lượt, trình duyệt thấy Xung ở đợt 1), nhưng không hồi Rồng. Anh chọn:
+  - (a) Giữ như nay: Xung thưởng người đặt lều chỗ quái chết.
+  - (b) Đổi thước cho Lều: đếm lần hạ quái trên đoạn đường gần nhà, hoặc mọi lần hạ quái của đợt. Hướng này nằm ngoài chữ "sau 3 lần hạ quái" của D33 (1), nên cần anh chốt rồi đo lại.
