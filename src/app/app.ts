@@ -40,7 +40,7 @@ import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
 import { createBanners, type BannersView } from "../view/banners";
 import { foeDrawnSize } from "../view/foe-look";
-import { createFx, type FxPresenter } from "../view/fx";
+import { createFx, seededRandom, type FxPresenter } from "../view/fx";
 import { createHeroes } from "../view/heroes";
 import { createHpBars } from "../view/hpbars";
 import { createMapStage, type MapStage } from "../view/stage";
@@ -71,6 +71,12 @@ export interface AppOptions {
   readonly prelearn?: boolean;
   /** Word tag size, 80–150 % (01 §3.1; the settings screen comes later). */
   readonly tagSizePct?: number;
+  /** Dev only (VFX captures, VFX_STANDARD §4.5): lights and mist dimmed to a dusk shade, the dark-background test. */
+  readonly dusk?: boolean;
+  /** Dev only: the HDR bloom on or off where the tier builds it (High, Ultra); unset keeps the tier's default. */
+  readonly bloom?: boolean;
+  /** Dev only: Hỏa Long's mouth light (fx.ts) on or off; unset keeps the tier's default. */
+  readonly mouthLight?: boolean;
 }
 
 const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
@@ -87,7 +93,25 @@ const PICK_PX = 44;
 /** Word zone (01 §2.1, rules RINGS), sim u: fast-forward stays off while a foe is inside it. */
 const WORD_ZONE_U = mmToU(RINGS.wordZoneMm);
 
-/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?tagsize=80–150, and in dev ?speed=. */
+/**
+ * Dev only (dusk=1): the key, sky and fill lights, the mist and the clear colour dimmed to a dusk shade, so a
+ * VFX capture can be judged on a dark ground as well as on the sunlit one (VFX_STANDARD §4.5).
+ */
+function dimToDusk(map: MapStage): void {
+  const { sky, key, fill } = map.stage.lights;
+  sky.intensity *= 0.3;
+  key.intensity *= 0.28;
+  fill.intensity *= 0.5;
+  const look = map.terrain.look.uniforms;
+  look.uFogCool.value.multiplyScalar(0.3);
+  look.uFogWarm.value.multiplyScalar(0.3);
+  look.uSunColor.value.multiplyScalar(0.4);
+  const mist = map.terrain.look.mist.clone().multiplyScalar(0.3);
+  map.scene.background = mist;
+  map.renderer.setClearColor(mist, 1);
+}
+
+/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?tagsize=80–150, and in dev ?speed=, ?dusk=1, ?bloom=0|1, ?mouthlight=0|1. */
 export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   const params = new URLSearchParams(search);
   const q = params.get("q") as Quality | null;
@@ -97,8 +121,12 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
     const value = raw === null ? NaN : Number(raw);
     return Number.isFinite(value) ? value : undefined;
   };
+  const flag = (name: string): boolean | undefined => (!dev || params.get(name) === null ? undefined : params.get(name) === "1");
   const speed = num("speed");
   return {
+    dusk: flag("dusk"),
+    bloom: flag("bloom"),
+    mouthLight: flag("mouthlight"),
     quality: q && QUALITIES.includes(q) ? q : undefined,
     difficulty: d && DIFFICULTIES.includes(d) ? d : undefined,
     seed: num("seed"),
@@ -209,6 +237,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   if (!foundMap) throw new Error("app: stage " + stage.id + " names unknown map " + stage.mapId);
   const mapDef: MapDef = foundMap;
   const map: MapStage = createMapStage(canvasHost, mapDef, quality);
+  if (options.bloom !== undefined) map.stage.setBloom(options.bloom);
+  if (options.dusk) dimToDusk(map);
   map.render();
 
   // The Dragons live as long as the app: a retry resets them instead of loading and decoding the GLBs again.
@@ -519,7 +549,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const telegraphs = createTelegraphs(map.stage, map.terrain, { locator: actors });
     const banners = createBanners(map.stage, map.terrain, { locator: actors, telegraphs });
     const hpbars = createHpBars(map.stage, { locator: actors, terrain: map.terrain });
-    const fx = createFx(map.stage, { locator: actors, terrain: map.terrain, heroes, shake: (px) => map.rig.shake(px) });
+    // VFX randomness from its own seeded stream (VFX_STANDARD §3.1 rule 4): a capture plays the same twice.
+    const fx = createFx(map.stage, { locator: actors, terrain: map.terrain, heroes, shake: (px) => map.rig.shake(px), random: seededRandom(seed ^ 0x5eed) });
     const tags = createTags(overlay!, map.stage.project, {
       gloss: learning.gloss,
       sizePct: options.tagSizePct === undefined ? undefined : Math.min(150, Math.max(80, options.tagSizePct)),

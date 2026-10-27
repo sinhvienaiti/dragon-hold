@@ -75,6 +75,19 @@ export const FX_BUDGET: Readonly<Record<Quality, { particles: number; numbers: n
 };
 
 const TAU = Math.PI * 2;
+
+/** A small seeded stream (mulberry32) for view-side randomness: a VFX capture repeats exactly (VFX_STANDARD §3.1 rule 4). */
+export function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /** 05 §6.1: fireball speed. */
 const BOLT_SPEED = 18;
 /**
@@ -198,7 +211,7 @@ class QuadPool {
   private cursor = 0;
   live = 0;
 
-  constructor(readonly capacity: number, flat: boolean, blending: THREE.Blending, renderOrder: number) {
+  constructor(readonly capacity: number, flat: boolean, blending: THREE.Blending, renderOrder: number, private readonly random: () => number = Math.random) {
     const f = (n = 1): Float32Array => new Float32Array(capacity * n);
     this.iPos = f(3);
     this.iData = f(4);
@@ -258,7 +271,7 @@ class QuadPool {
     this.fadeIn[i] = options.fadeIn ?? 0.06;
     this.drag[i] = options.drag ?? 1.2;
     // Flat marks: integer kind + thickness / 2 in the fraction; puffs: a random seed.
-    this.seed[i] = this.flat ? (options.kind ?? 1) + Math.min(0.49, (options.thickness ?? 0.25) / 2) : (options.seed ?? Math.random());
+    this.seed[i] = this.flat ? (options.kind ?? 1) + Math.min(0.49, (options.thickness ?? 0.25) / 2) : (options.seed ?? this.random());
     this.color[i * 3] = color.r;
     this.color[i * 3 + 1] = color.g;
     this.color[i * 3 + 2] = color.b;
@@ -430,9 +443,9 @@ export class FxCore {
     const tex = textures();
     this.sparks = new ParticlePool(Math.round(budget.particles * 0.6), tex.spark, false, this.random);
     this.glows = new ParticlePool(Math.round(budget.particles * 0.4), tex.soft, false, this.random);
-    this.puffs = new QuadPool(quality === "low" ? 120 : 260, false, THREE.NormalBlending, 5);
-    this.rings = new QuadPool(64, true, THREE.AdditiveBlending, 4);
-    this.marks = new QuadPool(96, true, THREE.NormalBlending, 2);
+    this.puffs = new QuadPool(quality === "low" ? 120 : 260, false, THREE.NormalBlending, 5, this.random);
+    this.rings = new QuadPool(64, true, THREE.AdditiveBlending, 4, this.random);
+    this.marks = new QuadPool(96, true, THREE.NormalBlending, 2, this.random);
     this.debris = new Debris(budget.debris, { profile: DRAGON, floorY: this.heightAt(0, 0) + 0.04, random: this.random });
     this.group.add(this.marks.mesh, this.rings.mesh, this.puffs.mesh, this.debris.mesh, this.glows.points, this.sparks.points);
     for (let k = 0; k < MAX_BOLTS; k += 1) {
