@@ -268,6 +268,18 @@ describe("view telegraphs", () => {
     telegraphs.dispose();
   });
 
+  it("fades a warning whose foe died while the world stands still (Thẻ Ôn holds the break)", () => {
+    const stage = fakeStage();
+    const telegraphs = createTelegraphs(stage, FLAT, { locator: fixed(5, 0, -5) });
+    const world = fakeWorld([{ slot: 3, serial: 4, x: 0, z: -12 }]);
+    telegraphs.onEvents([ev({ type: "telegraph", id: 1, owner: "enemy", shape: "line", x: 0, z: -12, toX: 0, toZ: -4, radiusM: 0, widthM: 1.6, durationMs: 1000, source: { kind: "enemy", slot: 3, serial: 4 } })], world);
+    telegraphs.onEvents([ev({ type: "death", enemy: { slot: 3, serial: 4 }, foe: "tusk-boar", by: "word", x: 0, z: -12, material: "flesh", tier: 1 })], world);
+    // World time stopped: only wall time passes.
+    telegraphs.tick(0, 0.5, 0.5);
+    expect(telegraphs.live).toBe(0);
+    telegraphs.dispose();
+  });
+
   it("shows an enemy warning's outline through bodies, never ours or an aura (round 2)", () => {
     const stage = fakeStage();
     const telegraphs = createTelegraphs(stage, FLAT, { locator: fixed(5, 0, -5) });

@@ -216,7 +216,8 @@ export interface TelegraphsView extends Presenter {
   /** Fades telegraph `id` out (a planted banner's ring when the banner goes). */
   end(id: number): void;
   /** Advances without a World (bench, showcase). */
-  tick(worldDt: number, time: number): void;
+  /** `realDt` (default `worldDt`): wall time, for fading out while the world stands still (a pause, Thẻ Ôn). */
+  tick(worldDt: number, time: number, realDt?: number): void;
   readonly live: number;
   clear(): void;
 }
@@ -411,7 +412,7 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
     }
   };
 
-  const tick = (worldDt: number, now: number): void => {
+  const tick = (worldDt: number, now: number, realDt = worldDt): void => {
     time = now;
     // Screen right in the world, for the "!" beside a body.
     right.setFromMatrixColumn(stage.camera.matrixWorld, 0).setY(0).normalize();
@@ -430,7 +431,9 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
         if (slot.age >= slot.duration && slot.fade < 0) slot.fade = FADE_S;
       }
       if (slot.fade >= 0) {
-        slot.fade -= worldDt;
+        // A warning ending as the world stops (the wave's last foe, then Thẻ Ôn holds the break) still goes:
+        // the fade runs on wall time (test pass 27/10: a boar's red arrow stood through Thẻ Ôn).
+        slot.fade -= realDt > worldDt ? realDt : worldDt;
         uniforms.uAlpha!.value = Math.max(0, slot.fade / FADE_S) * 1.2;
         if (slot.fade <= 0) {
           slot.active = false;
@@ -503,7 +506,7 @@ export function createTelegraphs(stage: Stage, terrain: TerrainView, options: Te
       }
     },
     frame(_world: World, info: FrameInfo): void {
-      tick(info.worldDt, info.now / 1000);
+      tick(info.worldDt, info.now / 1000, info.dt);
     },
     dispose(): void {
       for (const slot of slots) {
