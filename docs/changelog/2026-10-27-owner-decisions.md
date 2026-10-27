@@ -581,3 +581,254 @@ Vite riêng ở 127.0.0.1:4151 `--strictPort`, mã của V1 (cây làm việc, �
   - (b) Ghi ngoại lệ cho toán của tướng vào 00 §4.4 và G9 (ví dụ "toán hộ tống tướng tính đỉnh riêng"), rồi giữ V2. Khi đó cờ hiện ở 63–82 % lượt; đổi lại đỉnh đợt 5 là 1,72 trong trận, và đợt 5 cần được kéo ngắn lại để không nhàn hơn.
   - (c) Đổi luật cắm cờ (ví dụ cắm cả khi chỉ có 1 quân trong 5 m, hoặc sớm nhất 2 s thay cho 4 s), rồi đo lại cùng V1. Hướng này ngoài chữ "luật cờ giữ như nay" của bước này.
 - Bậc khó mới ở đợt 5 (thua ở đợt 5: Mới 1 → 8, b60 0 → 5–7) đi kèm mọi bản có toán. Nếu giữ bản nào thì cần xem lại cùng hướng (4).
+
+## 5. D33 (3): bầy Sói Mục đi sát dưới một chữ chung — đã đo, **không giữ** (B1 xấu thêm ở Khá ở cả ba bản; V1 gãy thêm D23a)
+
+Hướng (3) của D33 là phát hiện 17 của `2026-10-27-test-pass.md`: bầy Sói Mục đi sát nhau trong 6 m của tiếng tru, mang **một chữ chung** dài hơn chữ thường, và tru bầy kích được (≥ 3 sói trong 6 m thì +15 % tốc, 02 §2.2 E18). Chữ chung tính **một lần** trong tải gõ, để trần đỉnh ngắn vẫn giữ (đợt giữa 1,15, đợt cuối 1,40; 00 §4.4). Bước này còn phải chọn chữ chung làm gì khi gõ xong (theo 02 §2.2), và làm thẻ chữ đọc thành một chữ cho cả bầy.
+
+Nhánh `s5-wolf-pack` chưa gộp, có ba commit trên `bf11ee6`: `c586d5e` (V0), `54d92c5` (V1), `8348655` (V2). Bằng chứng ở `tmp/mac-2026-10-27/owner/s5-wolf-pack/`.
+
+Lượt trước của bước này bị cắt vì hết hạn mức. Lúc đó nó đã commit V0, đã đo V0 và V1, đã chạy trình duyệt với mã V1. Nó để lại phần V1 trong `src/content/data/waves.ts` (đã `git add`, chưa commit) và cây tạm V2. Lượt này rà lại:
+
+- Phần đã `add` đúng là V1: cây `v1-src` trùng cây làm việc từng file. Tôi giữ nguyên và commit.
+- Cây `v2-src` chỉ khác V1 ở `src/sim/combat.ts`. Tôi chép sang và thêm test.
+- V2 chưa được đo, nên lượt này đo đủ.
+- Lượt `pnpm dh:balance` chính thức trên đầu nhánh khớp 15/15 bot với lượt đo của cây V2.
+
+### 5.1 Đã làm gì
+
+- **Bầy trong sim** (`src/sim/spawn.ts`, `movement.ts`, `waves.ts`; `rules.ts` `PACK`):
+  - Một nhóm sói `shape: "cluster"` rời cổng cùng lúc, xếp hình vòng cung (02 §2.2 "chạy vòng cung"): con đầu đi trước 1,5 m, hai con kia lệch 0,9 m mỗi bên.
+  - Cả bầy chung một mã nhóm (dùng lại mã cụm của bầy Kiến).
+  - Con nào vượt tâm bầy quá 2 m thì chậm lại, con nào tụt sau quá 2 m thì nhanh lên. Giống cụm Kiến, nhưng không đi zíc zắc.
+  - Đo trong lượt bot, bầy giãn trung bình 1,5–1,8 m, lớn nhất 3,5–4,0 m: luôn trong 6 m của tiếng tru.
+- **Một chữ chung** (loại chữ mới `"pack"`; `src/sim/words.ts`, `src/typing/lengths.ts`):
+  - Con đầu còn sống của bầy mang chữ. Con đó chết thì chữ chuyển sang con khác.
+  - Chữ lấy ô độ dài `medium` (D3, ô của quái Vừa), dài hơn ô `fast` của một con sói.
+  - Đo trong lượt bot (đợt 7, 9, 10; 20 seed; `wordlen-*.txt`): ở 35 WPM, chữ bầy dài trung bình 5,64 chữ cái (4–7; 20 % là 4 chữ cái). Ở mốc, chữ riêng của một con sói dài 4,19 (3–5), chữ của Lính và Ong 4,57. Ở bot Nhanh: 7,39, so với 4,85 và 5,51.
+- **Chữ chung làm gì** (`src/sim/combat.ts` `packHit`): xem 5.2.
+- **Tải gõ** (00 §4.4; `waves.ts` `groupW100`, `src/sim/waves.ts` `memberW100`, `scripts/balance/load.ts`): bầy tính như **một con sói** (1,2 W), một lần, ở cả kế hoạch, bộ sinh và thước của bot. Ba chữ sói tới cùng lúc đọc 1,59 trong cửa sổ 6 s; một chữ chung đọc 1,00 (test).
+- **Thẻ chữ** (`src/ui/tags.ts`): một thẻ cho cả bầy, đứng trên hộp bao mọi con của bầy, có biểu tượng móng chân và số con (×3, ×2…). Các con đứng dưới chữ đó không có chấm "chưa có chữ".
+- Luật riêng của bầy Kiến vẫn chỉ áp cho bầy Kiến: kinh nghiệm cụm (trả một lần khi con cuối chết) không áp cho sói; mỗi con sói trả vàng và kinh nghiệm như một con sói.
+- Đợt 7, 9, 10 mở bằng một bầy 3 con. Trước đây là một hàng 3 con cách nhau 3 s (đợt 10: 2,2 s).
+- **V0** (`c586d5e`): kế hoạch xếp đợt theo tải, nên quãng lặng của bầy ngắn lại theo 1,2 W thay cho 3,6 W. Thời lượng: đợt 7 58 → 52 s, đợt 9 60 → 54 s, đợt 10 67 → 62 s. Tải trung bình: 0,91 → 0,89; 0,88 → 0,86; 1,15 → 1,14.
+- **V1** (`54d92c5`, biến thể 1): hướng (3) chỉ đổi bầy sói, còn đường cong đợt là việc của (4). Vì vậy quãng lặng của bầy giữ đúng độ dài cũ (`holdW100`: bầy giữ người gõ lâu như ba con sói trước đây). Thời lượng các đợt như mốc (đợt 10: 67 → 66 s). Tải trung bình đợt 7 0,91 → 0,80, đợt 9 0,88 → 0,78, đợt 10 1,15 → 1,07, vẫn trong dải của 00 §4.4.
+- **V2** (`8348655`, biến thể 2, trên V1):
+  - Một đòn vùng (Thiên Hỏa, Phun Lửa, đòn kết của Viêm Đế) lấy tối đa 60 % máu hiện có của một bầy sói, như với cụm Kiến (BALANCE.md §9.1: "kỹ năng vùng không quét sạch"; `AREA.clusterCapPct`).
+  - Thẻ ra mắt Sói Mục bỏ câu "gõ từng con sớm" (sai khi cả bầy chung một chữ). Câu mới: "Chạy sát nhau theo bầy, cả bầy mang một chữ; vồ qua lính chặn. — Gõ chữ của bầy sớm: trúng mọi con trong bầy. Spikes làm chậm." Câu viết lại nên dùng tên tiếng Anh của bẫy, theo luật tên 27/10.
+- **Test**:
+  - `tests/sim/battle-pack.test.ts`:
+    - bầy rời cổng cùng lúc theo hình vòng cung, giữ trong 6 m và tru (+15 %);
+    - một chữ D3 trên một con, chuyển sang con khác khi con mang chữ chết;
+    - chữ trúng mọi con trong 6 m: mỗi con chết với chữ không Ẩu, chữ Ẩu chỉ gây sát thương chữ; con ở ngoài 6 m không bị trúng;
+    - tải tính một lần ở cả kế hoạch, bộ sinh và thước bot;
+    - V2 thêm: Thiên Hỏa lấy ≤ 60 % máu bầy và chữ bầy còn. Test này trượt với mã V1.
+  - `tests/ui/tags-pack.test.ts`: một thẻ, có biểu tượng, ×3 rồi ×2, không chấm.
+  - `tests/sim/battle-waves.test.ts`: mọi nhóm sói của M0 là bầy 3–5 con.
+- Golden không đổi: không lượt golden nào tới đợt 7. `pnpm check`: 411/411 ở V0 và V1, 412/412 ở V2. Lượt đầu ở V1 có một test đo thời gian trượt (`tags-bodies`, 1,06 ms so với trần 1 ms) khi load máy khoảng 20; chạy lại qua `heavy.sh --cores=10` thì đạt.
+
+### 5.2 Chữ chung làm gì, và vì sao
+
+Gõ xong chữ của bầy thì chữ đó **trúng như một chữ trên mỗi con sói còn trong 6 m quanh con mang chữ**, kể cả con mang chữ. Mỗi con chết nếu chữ không Ẩu. Chữ Ẩu chỉ gây sát thương chữ của nó cho từng con, nên bầy còn sống và nhận chữ mới. Lý do:
+
+- Sói Mục là quái **Nhỏ** 1,2 W (02 §2.2 E18), không phải Bầy 0,3–0,5 W. Quái Nhỏ luôn chết sau một chữ không Ẩu (00 §4.6). Nếu dùng luật cụm Kiến (1 W sát thương chữ cho mỗi con trong 3 m, 02 §1.4), sói 1,2 W sống sót sau chữ chung, và cả bầy lại cần thêm chữ: không còn là "một chữ cho cả bầy".
+- 02 §2.2 định nghĩa bầy bằng tiếng tru: ≥ 3 sói trong 6 m. Vậy "cả bầy" là những con trong 6 m quanh con mang chữ. Con đã vồ qua lính chặn và ra xa hơn 6 m thì không còn trong bầy, và nhận chữ riêng.
+- Chữ Ẩu không hạ được cả bầy, nên lợi thế của gõ chính xác giữ nguyên (B4).
+- Một chữ dài hơn hạ ba con, nên bầy tính một lần trong tải gõ, ở mức một con sói (1,2 W).
+
+### 5.3 Cả ải, Cân bằng, 120 seed
+
+Mỗi ô ghi Thắng / S / P / I / O / N / Q (%, N là số lần). Nguồn: `v0-all.json`, `v1-all.json`, `v2-all.json` (cả ba chế độ, 2 × 60 seed); `table-all.md`, `cmp-base-v0.txt`, `cmp-base-v1.txt`, `cmp-base-v2.txt`.
+
+| Bot | Mốc `83da970` | V0 (`c586d5e`) | V1 (`54d92c5`) | V2 (`8348655`) | Hạ quái (s) |
+|---|---|---|---|---|---|
+| b25 | 85,8 / 70,6 / 20,3 / 18,5 / 0 / 0,42 / 40,9 | 87,5 / 59,8 / 20,8 / 19,0 / 0 / 0,44 / 40,6 | 89,2 / 66,8 / 20,2 / 20,9 / 0 / 0,45 / 40,4 | 90,0 / 64,0 / 20,3 / 20,2 / 0 / 0,45 / 41,1 | 5,3 → 5,4 → 5,4 → 5,4 |
+| Chuẩn (b35) | 86,7 / 60,1 / 21,3 / 20,8 / 0 / 0,48 / 38,4 | 82,5 / 49,3 / 22,2 / 20,9 / 0 / 0,65 / 38,6 | 83,3 / 51,2 / 21,8 / 22,8 / 0 / 0,52 / 38,5 | 85,8 / 50,7 / 21,7 / 21,9 / 0 / 0,62 / 39,0 | 4,2 → 4,3 → 4,3 → 4,3 |
+| b60 | 77,5 / 36,1 / 31,3 / 29,5 / 0 / 0,76 / 48,4 | 75,0 / 35,1 / 31,6 / 29,7 / 0 / 0,72 / 48,4 | 76,7 / 34,7 / 30,9 / 31,2 / 0 / 0,78 / 48,4 | 75,0 / 34,0 / 30,8 / 30,5 / 0 / 0,74 / 48,4 | 3,6 → 3,7 → 3,7 → 3,7 |
+| Mới | 72,5 / 61,2 / 23,9 / 16,4 / 0 / 0,85 / 42,7 | 70,8 / 49,3 / 24,5 / 17,0 / 0 / 0,86 / 42,5 | 70,0 / 51,1 / 23,9 / 18,7 / 0 / 0,70 / 42,3 | 73,3 / 55,1 / 24,0 / 17,9 / 0 / 0,82 / 43,3 | 6,1 → 6,2 → 6,2 → 6,2 |
+| Chậm chắc | 94,2 / 63,5 / 19,9 / 18,8 / 0 / 0,29 / 40,0 | 95,0 / 57,5 / 20,8 / 19,0 / 0 / 0,44 / 39,9 | 93,3 / 60,1 / 20,0 / 21,4 / 0 / 0,28 / 40,0 | 90,8 / 59,4 / 20,2 / 20,5 / 0 / 0,30 / 40,0 | 4,9 → 5,0 → 5,0 → 5,0 |
+| **Khá** | 75,8 / 47,5 / 23,7 / 26,6 / 0 / 0,78 / 37,6 | **64,2 / 25,4** / 25,8 / 25,7 / 0 / 1,12 / 40,1 | **66,7 / 25,9** / 24,8 / 27,5 / 0 / 1,03 / 39,8 | **63,3 / 25,2** / 24,7 / 26,8 / 0 / 1,00 / 40,9 | 3,9 → 4,1 → 4,1 → 4,1 |
+| Ẩu | 73,3 / 61,2 / 23,8 / 16,2 / 0,2 / 0,65 / 37,7 | 75,0 / 58,2 / 24,1 / 16,4 / 0,2 / 0,72 / 38,0 | 71,7 / 55,2 / 23,8 / 18,0 / 0,2 / 0,67 / 38,0 | 77,5 / 59,4 / 23,8 / 17,4 / 0,2 / 0,64 / 38,4 | 5,3 ở cả bốn |
+| Nhanh | 90,0 / 44,5 / 30,3 / 30,7 / 0 / 0,72 / 48,4 | 82,5 / 41,8 / 30,9 / 31,2 / 0 / 0,65 / 48,4 | 88,3 / 42,6 / 30,1 / 32,2 / 0 / 0,78 / 48,8 | 89,2 / 40,9 / 30,1 / 31,8 / 0 / 0,63 / 48,7 | 3,5 ở cả bốn |
+| Chuẩn tốt | 85,8 / 61,1 / 19,1 / 20,5 / 0 / 0,38 / 40,4 | 75,8 / 44,2 / 20,7 / 20,0 / 0 / 0,54 / 41,6 | 86,7 / 50,0 / 20,2 / 22,3 / 0 / 0,45 / 41,7 | 86,7 / 50,4 / 19,8 / 21,5 / 0 / 0,39 / 42,1 | 4,1 → 4,3 → 4,2 → 4,2 |
+| Chuẩn kém | 40,8 / 0 / 22,1 / 18,8 / 0 / 2,39 / 48,4 | 42,5 / 0 / 22,6 / 18,8 / 0 / 2,48 / 48,7 | 41,7 / 0 / 21,8 / 20,3 / 0 / 2,23 / 48,6 | 39,2 / 0 / 21,8 / 20,1 / 0 / 2,19 / 48,8 | 4,6 → 4,7 → 4,7 → 4,7 |
+| Chuẩn tắt nhịp (B7) | 84,2 / 67,4 / 20,5 / 22,2 / 0 / 0,26 / 38,1 | 80,8 / 54,3 / 21,1 / 22,5 / 0 / 0,27 / 37,9 | 80,0 / 54,2 / 20,6 / 24,4 / 0 / 0,30 / 37,9 | 81,7 / 54,1 / 20,8 / 23,7 / 0 / 0,33 / 38,6 | 4,2 → 4,3 → 4,3 → 4,3 |
+| Chỉ gõ | 0 / 0 / 24,8 / 17,7 / 0 / 0,53 / 47,7 | 0 / 0 / 24,8 / 17,7 / 0 / 0,51 / 47,7 | 0 / 0 / 24,8 / 17,9 / 0 / 0,51 / 47,7 | 0 / 0 / 24,9 / 17,8 / 0 / 0,52 / 47,7 | 5,1 ở cả bốn |
+| Không gõ | 0 / 0 / 70,2 / 4,5 / 0 / 0 / 76,2 | không đổi | không đổi | không đổi | 9,2 |
+| Trẻ em | 9,2 / 0 / 38,8 / 7,8 / 0 / 1,62 / 88,1 | 8,3 / 0 / 38,9 / 7,8 / 0 / 1,66 / 88,1 | 9,2 / 0 / 38,8 / 8,0 / 0 / 1,62 / 88,1 | 8,3 / 0 / 38,8 / 8,0 / 0 / 1,59 / 88,1 | 9,5 → 9,6 → 9,6 → 9,6 |
+
+- Thư giãn: mọi bot gõ vẫn thắng 100 % ở cả ba bản; Trẻ em 90,8 %.
+- Thử thách, mốc → V0 → V1 → V2:
+  - Khá 69,2 → 51,7 → 53,3 → 49,2 %.
+  - Nhanh 94,2 → 82,5 → 90,0 → 91,7 %; b60 85,0 → 72,5 → 75,8 → 79,2 %.
+  - Chuẩn 60,0 → 60,0 → 61,7 → 60,0 %; Chậm chắc 81,7 → 81,7 → 81,7 → 83,3 %; Ẩu 53,3 → 51,7 → 52,5 → 52,5 %.
+  - Chuẩn tốt / kém 78,3 / 25,0 → 70,8 / 18,3 → 75,0 / 17,5 → 81,7 / 20,8 %.
+- Khá theo bộ seed (thắng ở 20261023 / 21261026): mốc 68 / 83 %, V0 58 / 70 %, V1 65 / 68 %, V2 57 / 70 %. Hai bộ cùng chiều.
+- 300 seed (2 × 150; mốc lấy từ `s2-d31/b4-v2-300.json` và `s2-d31/fast300-base.json`, nơi các bot này trùng mốc từng số):
+  - Chậm chắc / Ẩu: mốc 93,3 / 64,3 / 20,0 / 18,8 / 0 / 0,39 / 40,3 và 73,0 / 61,1 / 24,3 / 16,2 / 0,2 / 0,67 / 37,7; V0 93,0 / 57,2 / 20,9 / 19,0 / 0 / 0,47 / 40,3 và 72,3 / 56,1 / 24,7 / 16,4 / 0,2 / 0,65 / 38,2; V2 90,7 / 58,4 / 20,3 / 20,5 / 0 / 0,41 / 40,6 và 73,7 / 57,0 / 24,5 / 17,2 / 0,2 / 0,72 / 38,7.
+  - Chuẩn thắng 81,7 → 80,7 (V0) → 80,7 % (V2); Mới 80,0 → 78,7 → 78,0 %.
+  - **Khá** (V2): 75,7 / 50,4 / 23,7 / 26,7 / 0 / 0,74 / 38,2 → **66,3 / 28,9** / 24,7 / 26,9 / 0 / 0,88 / 40,2. Ở 300 seed, độ nhiễu khoảng ±2,5 điểm.
+
+### 5.4 Cổng (mốc → V0 → V1 → V2)
+
+| Cổng | Mốc | V0 | V1 | V2 | |
+|---|---|---|---|---|---|
+| G1 (b35 thắng 75–90 %) | 86,7 % | 82,5 % | 83,3 % | 85,8 % | đạt |
+| G3 (b25 ≥ 70 %) | 85,8 % | 87,5 % | 89,2 % | 90,0 % | đạt |
+| G5 (chỉ gõ ≤ 40 %) | 0 % | 0 % | 0 % | 0 % | đạt |
+| G6 (không gõ thua trước đợt 3) | 120/120 ở đợt 1 | như cũ | như cũ | như cũ | đạt |
+| G8 (phe ta 20–35 %) / G8b | 30,3 / 69,7 % | 30,3 / 69,7 % | 30,4 / 69,6 % | 30,8 / 69,2 % | đạt |
+| G9 (tải đỉnh ≤ 1,40) | 1,40 | 1,40 | 1,40 | 1,40 | đạt |
+| **D23a** (Thiên Hỏa ≤ 15 % sát thương, b35; BALANCE §9.1) | 12,8 % | 14,9 % | **15,0 %** | 13,4 % | **V1 gãy** |
+| D23b, G9b, G10, G11, G13, G13b, G15 | đạt | đạt | đạt | đạt | G9b 7 → 8 → 7 → 7 chữ sống; G11 1,2 → 1,2 → 1,2 → 1,1 %; G13 1333 → 1325 → 1325 → 1329 vàng |
+| G16 (cổng từ ải 15) | 171,5 s | 159,7 s | 165,5 s | 158,3 s | trượt như cũ |
+| B2 | đạt | đạt | đạt | đạt | |
+| B3 | Mới 73 %, Trẻ em Thư giãn 91 % | 71 / 91 % | 70 / 91 % | 73 / 91 % | đạt |
+| B4 (S Chậm chắc > S Ẩu) | 120 seed: 63,5 so với 61,2; 300 seed: 64,3 so với 61,1 | 120 seed: 57,5 so với 58,2; **300 seed: 57,2 so với 56,1** | 120 seed: 60,1 so với 55,2 | 120 seed: 59,4 so với 59,4; **300 seed: 58,4 so với 57,0** | đạt (V0, V2 sát: biên 1,1 và 1,4 điểm ở 300 seed, mốc 3,2) |
+| B4 (hạ quái Chuẩn nhanh hơn Ẩu) | 4,21 so với 5,25 s | 4,33 so với 5,33 s | 4,33 so với 5,34 s | 4,35 so với 5,35 s | đạt |
+| B5, B8 | đạt | đạt | đạt | đạt | |
+| B6 (Tốt hơn Kém ≥ 10 điểm) | 86 / 41 % (Cân bằng), 78 / 25 % (Thử thách) | 76 / 43 %, 71 / 18 % | 87 / 42 %, 75 / 18 % | 87 / 39 %, 82 / 21 % | đạt |
+| B7, phần bộ điều nhịp | đạt | đạt | đạt | đạt | |
+| **B1 theo dải D27** | 6 ô lệch | **7 ô** | **9 ô** | **8 ô** | **xấu thêm ở cả ba bản** |
+| B7 theo dải D27 (bot tắt nhịp) | 2 ô (S cao, I cao) | 1 ô (I cao) | 1 ô | 1 ô | không xấu thêm |
+
+B1 theo dải D27, các ô lệch:
+
+- Mốc: Mới thắng thấp, Chậm chắc thắng cao, Chuẩn I cao, Khá I cao, Ẩu thắng thấp, Nhanh I cao.
+- Cả ba bản thêm **Khá thắng thấp và S thấp**: 64,2 / 25,4 % (V0), 66,7 / 25,9 % (V1), 63,3 / 25,2 % (V2); mốc 75,8 / 47,5 %.
+- V1 và V2 thêm Chậm chắc I cao: 21,4 % và 20,5 %.
+- V0 và V2 đưa Ẩu vào dải: thắng 75,0 và 77,5 %.
+
+Hai bộ seed cho cùng kết quả ở mọi cổng, trừ B4 của V0 và V2 ở 120 seed:
+
+- V0: bộ 20261023 đạt (57 so với 55), bộ 21261026 trượt (58 so với 60).
+- V2: bộ 20261023 đạt, bộ 21261026 trượt; làm tròn thì cả hai bộ bằng nhau (58 so với 58, 61 so với 61).
+- Vì biên dưới 3 điểm nên tôi chạy 300 seed: cả hai bản đạt.
+
+### 5.5 Đợt có sói (7, 9, 10)
+
+Cân bằng, 2 × 60 seed (`perwave.ts`; `wolf-waves-3.md`, `wolf-waves-base-v0.md`, `wolf-waves-base-v1.md`, `wolf-waves-base-v2.md`). Các cột:
+
+- Thua: số lượt thua ở đợt, trên số lượt vào đợt.
+- Héo: máu mất do Héo lan mỗi lượt.
+- Tru: phần thời gian sống của sói có ≥ 3 sói trong 6 m.
+- Chữ bầy: số chữ bầy gõ xong mỗi lượt.
+- Hạ bằng chữ: phần sói chết vì chữ.
+
+Mỗi ô: mốc → V1 → V2.
+
+| Bot | Đợt | Thua | S | P | I | Héo | Tru (%) | Chữ bầy / lượt | Hạ bằng chữ (%) |
+|---|---|---|---|---|---|---|---|---|---|
+| Mới | 7 | 1/98 → 5/98 → 3/98 | 56,8 → 56,9 → 58,3 | 19,9 → 20,7 → 19,9 | 14,0 → 25,8 → 22,5 | 140 → 157 → 140 | 0 → 100 → 50 | 0,0 → 0,0 → 1,0 | 99 → 1 → 47 |
+| Mới | 9 | 4/93 → 3/87 → 1/93 | 63,1 → 65,6 → 60,8 | 25,3 → 24,2 → 23,7 | 17,7 → 28,5 → 24,6 | 151 → 134 → 133 | 0 → 100 → 52 | 0,0 → 0,1 → 1,0 | 96 → 9 → 62 |
+| Mới | 10 | 2/89 → 0/84 → 4/92 | 69,4 → 65,4 → 62,8 | 24,3 → 25,8 → 26,9 | 19,4 → 27,4 → 23,4 | 171 → 209 → 250 | 0 → 100 → 53 | 0,0 → 0,1 → 1,0 | 97 → 9 → 62 |
+| Chậm chắc | 7 | 1/116 → 0/116 → 0/116 | 58,1 → 55,7 → 58,2 | 21,0 → 21,0 → 21,0 | 15,9 → 27,7 → 24,5 | 150 → 160 → 153 | 0 → 99 → 53 | 0,0 → 0,0 → 1,0 | 100 → 1 → 46 |
+| Chậm chắc | 9 | 0/114 → 2/114 → 3/115 | 62,0 → 65,0 → 65,0 | 25,9 → 23,1 → 23,2 | 19,1 → 30,5 → 27,1 | 159 → 116 → 125 | 0 → 100 → 53 | 0,0 → 0,0 → 1,0 | 100 → 4 → 66 |
+| Chậm chắc | 10 | 1/114 → 0/112 → 3/112 | 67,9 → 61,9 → 61,5 | 23,8 → 27,3 → 28,4 | 23,6 → 28,4 → 25,7 | 169 → 269 → 286 | 0 → 100 → 54 | 0,0 → 0,1 → 1,0 | 100 → 7 → 68 |
+| Chuẩn | 7 | 4/114 → 6/114 → 3/114 | 54,3 → 55,1 → 54,2 | 25,1 → 24,8 → 24,2 | 18,3 → 29,3 → 26,9 | 191 → 204 → 182 | 0 → 99 → 58 | 0,0 → 0,0 → 1,0 | 100 → 1 → 52 |
+| Chuẩn | 9 | 3/109 → 2/107 → 3/107 | 57,7 → 60,3 → 60,4 | 26,8 → 27,2 → 25,4 | 20,6 → 29,9 → 28,2 | 165 → 165 → 139 | 0 → 98 → 57 | 0,0 → 0,1 → 1,0 | 99 → 3 → 65 |
+| Chuẩn | 10 | 2/106 → 5/105 → 1/104 | 63,5 → 54,9 → 53,8 | 23,8 → 28,9 → 29,0 | 26,5 → 29,4 → 25,8 | 158 → 300 → 299 | 0 → 100 → 58 | 0,0 → 0,0 → 1,0 | 99 → 3 → 67 |
+| Khá | 7 | 3/117 → 1/117 → 3/117 | 44,4 → 48,0 → 48,2 | 36,5 → 34,2 → 34,6 | 20,7 → 29,1 → 26,6 | 341 → 307 → 312 | 0 → 96 → 64 | 0,0 → 0,2 → 1,0 | 100 → 5 → 56 |
+| Khá | 9 | 2/93 → 4/106 → 10/105 | 52,0 → 50,5 → 52,0 | 25,3 → 30,1 → 31,1 | 36,0 → 39,1 → 35,6 | 135 → 151 → 168 | 0 → 98 → 60 | 0,0 → 0,1 → 1,0 | 99 → 3 → 66 |
+| **Khá** | **10** | **0/91 → 22/102 → 19/95** | 53,1 → 36,8 → 39,2 | 31,1 → 38,9 → 38,7 | 27,1 → 25,5 → 23,2 | **246 → 461 → 460** | 1 → 98 → 62 | 0,0 → 0,1 → 1,0 | 100 → 2 → 66 |
+| Ẩu | 7 | 4/103 → 3/103 → 2/103 | 59,5 → 59,9 → 59,5 | 23,7 → 22,6 → 23,8 | 15,5 → 24,6 → 20,5 | 159 → 153 → 158 | 0 → 97 → 55 | 0,0 → 0,1 → 1,2 | 96 → 6 → 52 |
+| Ẩu | 9 | 3/91 → 2/94 → 6/100 | 66,3 → 63,2 → 63,9 | 27,6 → 27,1 → 27,8 | 17,3 → 25,6 → 22,3 | 145 → 145 → 160 | 0 → 98 → 57 | 0,0 → 0,1 → 1,1 | 99 → 7 → 64 |
+| Ẩu | 10 | 0/88 → 6/92 → 1/94 | 71,0 → 65,3 → 65,6 | 23,5 → 26,0 → 25,4 | 20,9 → 24,8 → 23,2 | 140 → 219 → 193 | 1 → 97 → 60 | 0,0 → 0,2 → 1,1 | 94 → 9 → 63 |
+| Nhanh | 7 | 1/119 → 1/119 → 1/119 | 56,5 → 53,5 → 54,9 | 37,7 → 37,6 → 38,6 | 24,2 → 29,8 → 27,0 | 234 → 245 → 247 | 0 → 94 → 71 | 0,0 → 0,3 → 1,0 | 75 → 6 → 62 |
+| Nhanh | 9 | 1/118 → 2/118 → 1/117 | 55,0 → 56,3 → 59,0 | 34,9 → 31,8 → 30,5 | 36,7 → 44,0 → 43,2 | 184 → 143 → 128 | 0 → 96 → 65 | 0,0 → 0,2 → 1,0 | 99 → 5 → 67 |
+| Nhanh | 10 | 9/117 → 10/116 → 9/116 | 46,4 → 45,1 → 44,3 | 39,4 → 41,8 → 41,0 | 22,8 → 25,7 → 24,1 | 393 → 414 → 421 | 4 → 95 → 65 | 0,0 → 0,3 → 1,0 | 58 → 9 → 67 |
+| b25 | 7 | 3/109 → 0/109 → 1/109 | 61,1 → 62,5 → 62,2 | 20,9 → 18,6 → 19,5 | 16,4 → 28,1 → 24,8 | 133 → 115 → 118 | 0 → 99 → 53 | 0,0 → 0,0 → 1,0 | 100 → 2 → 44 |
+| b25 | 9 | 2/105 → 0/107 → 0/108 | 70,0 → 70,8 → 69,7 | 24,7 → 22,8 → 23,1 | 18,7 → 28,5 → 26,2 | 141 → 118 → 128 | 0 → 100 → 57 | 0,0 → 0,2 → 1,0 | 100 → 15 → 67 |
+| b25 | 10 | 0/103 → 0/107 → 0/108 | 73,8 → 69,8 → 69,5 | 23,5 → 25,4 → 25,5 | 22,0 → 27,0 → 25,4 | 165 → 222 → 216 | 0 → 100 → 60 | 0,0 → 0,2 → 1,0 | 99 → 19 → 69 |
+| b60 | 7 | 0/119 → 1/119 → 1/119 | 49,8 → 49,9 → 52,1 | 39,9 → 38,4 → 39,1 | 23,2 → 29,9 → 27,8 | 288 → 281 → 276 | 0 → 96 → 68 | 0,0 → 0,2 → 1,0 | 77 → 5 → 59 |
+| b60 | 9 | 3/117 → 6/117 → 2/115 | 50,7 → 54,2 → 56,3 | 35,9 → 34,0 → 32,0 | 37,2 → 43,0 → 41,5 | 207 → 173 → 150 | 0 → 98 → 65 | 0,0 → 0,1 → 1,0 | 100 → 3 → 66 |
+| b60 | 10 | 21/114 → 19/111 → 23/113 | 42,3 → 40,0 → 42,4 | 40,9 → 41,6 → 41,8 | 21,7 → 25,2 → 22,6 | 406 → 456 → 457 | 3 → 96 → 65 | 0,0 → 0,2 → 1,0 | 58 → 5 → 67 |
+| Chuẩn tắt nhịp | 7 | 0/103 → 1/103 → 0/103 | 60,3 → 62,7 → 62,0 | 20,6 → 19,1 → 19,5 | 22,9 → 33,5 → 30,8 | 132 → 127 → 117 | 0 → 99 → 59 | 0,0 → 0,0 → 1,0 | 100 → 1 → 49 |
+| Chuẩn tắt nhịp | 9 | 1/102 → 0/102 → 1/103 | 67,8 → 66,1 → 66,5 | 23,5 → 22,7 → 23,2 | 24,7 → 35,5 → 32,1 | 132 → 137 → 140 | 0 → 100 → 59 | 0,0 → 0,1 → 1,0 | 98 → 8 → 67 |
+| Chuẩn tắt nhịp | 10 | 0/101 → 6/102 → 4/102 | 70,8 → 59,9 → 60,2 | 23,9 → 27,7 → 28,2 | 25,5 → 29,9 → 26,9 | 161 → 290 → 281 | 0 → 100 → 64 | 0,0 → 0,1 → 1,0 | 99 → 12 → 69 |
+
+O vẫn 0 ở mọi bot và mọi đợt có sói. N đổi trong khoảng 0,00–0,44. Sói không làm Hỏa Long mất máu lần nào (cột Cắn của `wolf-waves-base-*.md` là 0 ở mọi bot, cả ở mốc lẫn ba bản).
+
+- **Bầy đi sát và tru kích được.** Ở mốc, tru gần như không bao giờ kích (0–4 %), như phát hiện 17. V1: 94–100 % thời gian sống của sói. V2: 50–71 %, vì Thiên Hỏa hạ một con lúc khoảng 1 s, và hai con còn lại không đủ 3 để tru.
+- **Ở V1, chữ bầy gần như không được gõ** (0,0–0,3 mỗi lượt; sói chết vì chữ 1–19 %). Nguyên nhân là Thiên Hỏa (`deaths-*.txt`: 20 seed, Chuẩn, Khá, Ẩu):
+  - Bot "fair" thả Thiên Hỏa khi có ≥ 3 quân trong 4 m, trong Vùng Chữ. Bầy 1,8 m đủ điều kiện ngay khi vào sân, nên Thiên Hỏa rơi lên bầy ở giây 0–1 của đợt 7, 9, 10 và hạ cả ba con (V1: sói chết vì Thiên Hỏa 2,6–3,0 con mỗi lượt).
+  - Ở mốc, lần thả đầu là ở giây 10–15, lên đỉnh 1.
+  - V2 sửa phần này: chữ bầy được gõ 1,0–1,2 lần mỗi lượt; sói chết vì chữ 44–69 %; Thiên Hỏa hạ 0,8–1,0 con mỗi lượt.
+- **Vực đợt 10 của Khá** (V1, V2): đây là chỗ B1 lệch thêm.
+  - Thiên Hỏa vẫn rơi lên bầy ở giây 0 (V2 cũng vậy) và hồi 24 s, nên đỉnh 1 (7–20 s) không có nó.
+  - Héo trong giây 10–25 của đợt 10, mỗi lượt: Khá 107 → 241 (V1) → 242 (V2); Chuẩn 46 → 115 → 97.
+  - Cả đợt 10: Khá thua 0/91 → 22/102 → 19/95, Héo 246 → 461 → 460; Chuẩn Héo 158 → 300 → 299; Chậm chắc 169 → 269 → 286; Chuẩn tắt nhịp thua 0 → 6 → 4.
+  - V0 cũng vậy: Khá thua ở đợt 9 2 → 11, ở đợt 10 0 → 18 (`wolf-waves-base-v0.md`).
+- **Đợt 7, 9 nhàn hơn.** Ở đợt 7, I tăng ở mọi bot: 5,6–11,8 điểm ở V1, 2,8–8,6 điểm ở V2 (Chuẩn: 18,3 → 29,3 → 26,9). Ở đợt 9, I tăng 3,1–11,4 điểm ở V1 và tới 8,0 điểm ở V2, trừ Khá ở V2 (36,0 → 35,6). Chuẩn tắt nhịp đợt 9: 24,7 → 35,5 → 32,1. Một chữ thay ba chữ, mà quãng lặng vẫn dài như cũ (V1, V2). Héo ở đợt 9 của V2 giảm ở 6/9 bot.
+
+### 5.6 Tải đỉnh
+
+- **Kế hoạch** (thước 6 / 8 / 10 s của 00 §4.4), mốc → V0 → V1, V2:
+  - Đợt 7: 1,10 / 1,09 / 1,08 → 1,10 / 1,08 / 1,07 → 1,10 / 1,08 / 1,07.
+  - Đợt 9: 1,10 / 1,09 / 1,08 → 1,10 / 1,10 / 1,08 → 1,10 / 1,10 / 1,08.
+  - Đợt 10: 1,39 / 1,38 / 1,38 ở cả ba.
+  - Trần 1,15 (đợt giữa) và 1,40 (đợt cuối) giữ. Một bầy riêng đọc 1,00, ba chữ sói cùng lúc đọc 1,59 (test).
+- **Đo trong trận** (lớn nhất qua mọi bot; bot Chuẩn; Chuẩn tắt nhịp):
+  - Đợt 7: mốc 1,35; 1,34; 1,11 → V2 1,35; 1,34; 1,10.
+  - Đợt 9: 1,35; 1,34; 1,11 → 1,34; 1,34; 1,10.
+  - Đợt 10: 1,40; 1,39; 1,39 → 1,39; 1,39; 1,39.
+  - G9 giữ 1,40.
+  - Đỉnh đo được ở đợt giữa trên 1,15 là do bộ điều nhịp co khoảng sinh, đã có ở mốc (phát hiện của (4), §3). Bước này không đổi phần đó; bot tắt nhịp giữ ≤ 1,11.
+
+### 5.7 Biến thể đã thử
+
+| Bản | Khác gì | Kết quả (Cân bằng, 120 seed) |
+|---|---|---|
+| V0 (`c586d5e`) | Bầy 3 con, chữ chung, tải một con sói; kế hoạch xếp theo tải (đợt 7, 9, 10 ngắn đi 5–6 s) | Khá 64,2 %, B1 7 ô; B4 120 seed 57,5 so với 58,2, 300 seed 57,2 so với 56,1; D23a 14,9 %; chữ bầy 0,0–0,3 mỗi lượt |
+| V1 (`54d92c5`) | Như V0, quãng lặng của bầy giữ độ dài cũ | **D23a 15,0 %**; Khá 66,7 %, B1 9 ô; B4 60,1 so với 55,2; chữ bầy 0,0–0,3 mỗi lượt |
+| V2 (`8348655`) | Như V1, đòn vùng lấy ≤ 60 % máu bầy; câu thẻ ra mắt | D23a 13,4 %; chữ bầy 1,0 mỗi lượt; B4 300 seed 58,4 so với 57,0; Khá 63,3 % (300 seed 66,3 %), B1 8 ô |
+
+Không thử thêm: đã dùng hết hai biến thể. Cả ba bản vấp cùng một chỗ.
+
+- Bầy mở đợt 7, 9, 10 và đi sát nhau, nên nó là mục tiêu tốt nhất cho Thiên Hỏa ngay giây đầu.
+- Thiên Hỏa hồi 24 s, nên đỉnh 1 của đợt không có nó. Người gõ nhanh (Khá, k 1,21) chịu nặng nhất ở đợt 10.
+- Trần 60 % của V2 giữ cho chữ bầy được gõ, nhưng không đổi lúc Thiên Hỏa rơi.
+- Có hai cách tránh Thiên Hỏa rơi sớm: dời bầy khỏi đầu đợt (đường cong đợt, việc của (4)), hoặc dạy bot giữ Thiên Hỏa cho đỉnh (đổi thước đo). Cả hai nằm ngoài hướng (3).
+
+### 5.8 Trình duyệt
+
+Vite riêng ở 127.0.0.1:4151 `--strictPort`, mã của đầu nhánh (`8348655`, V2), đã tắt sau khi chạy. Kịch bản tạm `wave7-v2.mjs` là `wave7.mjs` của lượt trước, thêm bước thả Thiên Hỏa lên bầy. Chạy qua `heavy.sh --gpu node scripts/visual/cdp-run.mjs`, 1280×720 rồi 1920×1080 trong cùng một lượt, 35 WPM.
+
+- Đợt 1–6 chạy nhanh trong trang. Ở đợt 7, kịch bản gõ mọi chữ trừ chữ của sói.
+- Thước che thân lấy cách đo của `dh-crowd`: phần diện tích hộp thân nằm dưới các thẻ đang hiện, lấy mẫu lưới 40 × 40. Kịch bản đạt khi mọi con dưới 30 %. Tôi không chạy chính `dh-crowd`, vì kịch bản đó chỉ đo đợt 3–4.
+- Kết quả (`browser-v2-run.json`): `ok`, 0 exception, 0 tài nguyên lỗi, mã băm phát lại khớp ở cả hai cỡ.
+
+Những gì thấy được:
+
+- **Chữ bầy hiện** 1,5 s sau khi đợt 7 bắt đầu, khi bầy cách bệ 22,7–24,6 m. Chỉ có **một thẻ**: "family ×3 · gia đình" (1280) và "room ×3 · phòng" (1920), có biểu tượng móng chân. Không có thẻ hay chấm nào khác trên sói. Ba con trong 1,8 m, cả ba đang tru. Thẻ che 0 % thân mỗi con; 2,2 s sau (bầy cách bệ 13–15 m) vẫn 0 %.
+- **Thiên Hỏa** thả trước con đầu 2,5 m. Máu bầy 330 → 132, đúng 60 % (hai số 110 và 88). Một con chết, hai con choáng. Vẫn một thẻ, nay là ×2; chữ bầy giữ nguyên. Thẻ che thân hai con 0 % (1280), 13,1 % và 3,6 % (1920).
+- **Gõ chữ bầy bằng phím thật**: cả hai con chết cùng lúc ("HOÀN HẢO 148" trên mỗi con). Sau đó không còn thẻ hay chấm trên sân.
+
+Ảnh đã xem:
+
+- `browser-v2/w7-pack-word-1920x1080.png`: thẻ "room ×3" trên bầy ở đầu cầu phía bắc. Thẻ ra mắt "QUÁI MỚI · Sói Mục" có câu mới, đọc rõ, không đè HUD.
+- `browser-v2/w7-pack-word-1280x720.png`: thẻ "family ×3" trên bầy, ba thân sói thấy rõ dưới thẻ.
+- `browser-v2/w7-pack-word-crop-1920x1080.png`: phóng quanh bầy. Thẻ đứng trên ba thân, ba thân không bị che.
+- `browser-v2/w7-pack-later-crop-1280x720.png`: bầy qua cầu, thẻ đi theo, ba thân thấy rõ.
+- `browser-v2/w7-pack-skyfire-1920x1080.png`: hai số 110 và 88 trên bầy, ô Thiên Hỏa đang hồi (23). Thẻ "room ×2" trên hai con còn lại sát bệ.
+- `browser-v2/w7-pack-skyfire-crop-1280x720.png` và `-1920x1080.png`: hai con còn lại thấy rõ dưới thẻ ×2.
+- `browser-v2/pack-frames-1280x720/f-02.jpg`: chữ "family ✓" ở thẻ học, "HOÀN HẢO 148" trên cả hai con ở sát bệ.
+
+Lượt trước đã chạy cùng kịch bản (không có bước Thiên Hỏa) với mã V1 (`browser/`, `browser-run.json`): `ok`, một thẻ, cả ba con tru, che 0 % (17,3 % một con ở 1920, khi bầy cách bệ 11 m). Thẻ ra mắt ở lượt đó còn câu cũ "gõ từng con sớm".
+
+### 5.9 Kết luận, chờ anh
+
+- **Không giữ.** Phần riêng của bước đạt ở V2:
+  - bầy đi sát trong 6 m, tru kích được;
+  - một chữ dài hơn chữ thường (5,6 so với 4,2–4,6 chữ cái ở 35 WPM), được gõ và trúng mọi con;
+  - tải tính một lần, trần đỉnh giữ;
+  - thẻ đọc thành một chữ cho cả bầy ở cả hai cỡ.
+- Nhưng **B1 xấu thêm ở cả ba bản**, quá độ nhiễu:
+  - Khá thắng 75,8 → 64,2 / 66,7 / 63,3 % (300 seed của V2: 75,7 → 66,3 %), S 47,5 → khoảng 25 %.
+  - V1 còn gãy D23a (Thiên Hỏa 15,0 % sát thương).
+  - B4 của V0 và V2 chỉ đạt sát ở 300 seed (biên 1,1 và 1,4 điểm, mốc 3,2).
+- Gốc của việc này: bầy mở đợt 7, 9, 10 và đi sát, nên Thiên Hỏa rơi lên nó ngay giây đầu, rồi hồi trong lúc đỉnh 1 tới. Ở đợt 10, người gõ nhanh mất đúng đòn vùng đã giữ họ qua cú dồn 15–20 s đầu đợt (§3).
+- Anh cần chọn một trong ba:
+  - (a) Giữ V2 và dời bầy khỏi đầu đợt, đặt vào quãng lặng sau đỉnh 1 của đợt 7, 9, 10, để Thiên Hỏa còn cho đỉnh 1. Việc dời là đường cong đợt, nên đo cùng (4).
+  - (b) Giữ V2 như hiện nay và nhận Khá thấp hơn (B1 thêm 2 ô). Rồi bù vực đợt 10 của người gõ nhanh bằng phần đợt 10 của (4).
+  - (c) Không dùng chữ chung. Sói đi hàng như nay, và chọn một trong hai cách còn lại của phát hiện 17: W thấp hơn, hoặc bỏ tru bầy ở M0.
