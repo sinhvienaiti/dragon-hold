@@ -90,8 +90,9 @@ interface FoeRec {
   lift: number;
   yaw: number;
   mode: MoveMode;
-  /** Seconds since death (−1: alive). */
+  /** Seconds since death (−1: alive), and how long its death takes. */
   dying: number;
+  deathS: number;
   seen: number;
   aura: boolean;
 }
@@ -108,6 +109,12 @@ interface OurRec {
 }
 
 const DEATH_SECONDS = 0.6;
+/**
+ * A general's death lasts longer and sinks into moss (02 §3.4 "thân tan thành
+ * rêu"; test pass 27/10: G01 vanished in 0.1 s like a grunt). fx.ts plays the
+ * moss and the flinch ring, banners.ts drops its banner.
+ */
+const GENERAL_DEATH_SECONDS = 1.5;
 const REACTION_SLOTS = 512;
 
 /** Statuses that tint, strongest first (05 §6.2: colour, shake, lean; never a clip). */
@@ -361,7 +368,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
             ox = spread[0];
             oz = spread[1];
           }
-          rec = { serial: foe.serial, slot: foe.slot, handle, look, cluster: look.gait === "swarm" ? foe.cluster : -1, ox, oz, px: x, pz: z, cx: x, cz: z, tick, x, y: 0, z, lift: 0, yaw: Math.atan2(-x, -z), mode: foe.mode, dying: -1, seen: stamp, aura: false };
+          rec = { serial: foe.serial, slot: foe.slot, handle, look, cluster: look.gait === "swarm" ? foe.cluster : -1, ox, oz, px: x, pz: z, cx: x, cz: z, tick, x, y: 0, z, lift: 0, yaw: Math.atan2(-x, -z), mode: foe.mode, dying: -1, deathS: foe.general ? GENERAL_DEATH_SECONDS : DEATH_SECONDS, seen: stamp, aura: false };
           foes.set(foe.serial, rec);
         } else if (rec.tick !== tick) {
           rec.px = rec.cx;
@@ -407,7 +414,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         if (rec.seen === stamp && rec.dying < 0) continue;
         if (rec.dying < 0) rec.dying = 0;
         rec.dying += info.dt;
-        if (rec.dying >= DEATH_SECONDS) {
+        if (rec.dying >= rec.deathS) {
           crowd.remove(rec.handle);
           foes.delete(rec.serial);
           statuses.delete(rec.serial);
@@ -418,11 +425,19 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         instance.y = heightAt(instance.x, rec.cz + rec.oz);
         instance.z = rec.cz + rec.oz;
         instance.yaw = rec.yaw;
-        // Flyers spiral down as they go (05 §6.2 "rơi xoáy").
-        instance.lift = rec.lift * (1 - rec.dying / DEATH_SECONDS);
+        // Flyers spiral down as they go (05 §6.2 "rơi xoáy"); a general slumps and sinks, tinted moss.
+        const t = rec.dying / rec.deathS;
+        instance.lift = rec.lift * (1 - t);
         instance.yaw += rec.lift > 0.5 ? rec.dying * 9 : 0;
-        instance.dissolve = Math.min(1, rec.dying / DEATH_SECONDS);
+        instance.dissolve = Math.min(1, rec.deathS > DEATH_SECONDS ? Math.max(0, t * 1.4 - 0.4) : t);
         instance.flash = Math.max(0, 1 - rec.dying * 8);
+        if (rec.deathS > DEATH_SECONDS) {
+          instance.y -= t * t * 0.9;
+          instance.squash = 1 - 0.25 * Math.min(1, t * 2);
+          // Moss green (crowd TINT "held" is the moss colour #7fbf5a).
+          instance.tint = TINT.held;
+          instance.tintMix = Math.min(0.9, t * 1.5);
+        }
         instance.stride = 0;
         crowd.set(rec.handle, instance);
       }

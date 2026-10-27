@@ -359,9 +359,10 @@ export class EventMapper {
   private hit(event: Extract<SimEvent, { type: "hit" }>, now: number, listener: Listener): void {
     const target = event.target;
     if (target.kind === "hero") {
-      // Héo lan (source "hero", every 2 s while foes stand near) is a soft reminder, not a blow.
+      // Héo lan (source "hero", every 2 s while foes stand near) is quieter than a blow but grows with the beat:
+      // in the last waves it takes 60–110 HP a beat and was nearly silent at 0.25 (test pass 27/10).
       const seep = event.source.kind === "hero";
-      this.push("dragon.hurt", { gain: seep ? 0.25 : Math.min(1, 0.55 + event.amount / 120) });
+      this.push("dragon.hurt", { gain: seep ? Math.min(0.85, 0.4 + event.amount / 150) : Math.min(1, 0.55 + event.amount / 120) });
       return;
     }
     if (target.kind === "unit" || target.kind === "trap" || target.kind === "house") {

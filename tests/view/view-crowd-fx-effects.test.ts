@@ -180,6 +180,58 @@ describe("view fx", () => {
     expect(tierForGrade("perfect")).toBe(3);
     expect(tierForGrade("ok")).toBe(1);
   });
+
+  it("flies a bolt to a far foe in the 0.2 s its hit takes (00 §4.2), not at 18 m/s", () => {
+    const core = new FxCore("high", { locator: fixed(0, 1, -20) });
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.launchBolt(new THREE.Vector3(0, 4, 0), { slot: 0, serial: 5, x: 0, y: 1, z: -20 }, false);
+    // 12 ticks later the hit comes: the bolt is already there and lands at once.
+    for (let k = 0; k < 12; k += 1) core.update(1 / 60, k / 60, eye, 600);
+    core.landBolt(5, 1, new THREE.Vector3(0, 1, -20));
+    core.update(1 / 60, 0.21, eye, 600);
+    expect(core.stats().bolts).toBe(0);
+    core.dispose();
+  });
+
+  it("sends a fire mote to the locked foe on each right key and grows the mouth glow (05 §4.3, T0)", () => {
+    const core = new FxCore("high");
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.keySpark(new THREE.Vector3(0, 4, 0), null, 0);
+    core.update(0.001, 0, eye, 600);
+    const mouthOnly = core.stats().glows;
+    core.keySpark(new THREE.Vector3(0, 4, 0), new THREE.Vector3(0, 1, -12), 0.5);
+    core.update(0.001, 0.001, eye, 600);
+    expect(core.stats().glows).toBeGreaterThan(mouthOnly + 1);
+    core.dispose();
+  });
+
+  it("draws Viêm Đế's beam down the struck foe's lane, once a lane a tick (01 §2.4)", () => {
+    const stage = fakeStage();
+    const fx = createFx(stage, { terrain: FLAT, locator: fixed(0, 1, -12), onShake: () => {} });
+    const lane = { index: 0, length: 30 * 60_000, sky: false, xs: [0, 0], zs: [-30 * 60_000, 0], cum: [0, 30 * 60_000] };
+    const world = { ...fakeWorld([{ slot: 0, serial: 3, alive: true, lane: 0 }]), lanes: [lane], combat: { infernoUntil: 600 } } as unknown as World;
+    fx.frame(world, info(0));
+    const hit = (by: string, serial = 3) => ev({ type: "hit", tick: 10, target: { kind: "enemy", slot: 0, serial }, source: { kind: "hero" }, amount: 40, damageType: "word", tier: 1, grade: "good", x: 0, z: -12, hpLeft: 5, by });
+    const puffs = () => (fx.core as unknown as { puffs: { live: number } }).puffs.live;
+    fx.onEvents([hit("word"), hit("inferno")], world);
+    fx.frame(world, info(16));
+    const one = puffs();
+    expect(one).toBeGreaterThanOrEqual(20);
+    fx.dispose();
+  });
+
+  it("shows Héo lan's seep: a stream from each waiting foe, a flash and a number at the Dragon", () => {
+    const stage = fakeStage();
+    const fx = createFx(stage, { terrain: FLAT, onShake: () => {} });
+    const world = { ...fakeWorld(), hero: { hpMax: 600 } } as unknown as World;
+    fx.frame(world, info(0));
+    const glows = fx.core.stats().glows;
+    fx.onEvents([ev({ type: "blight", amount: 66, from: [[0, -14], [-12, 1]] })], world);
+    fx.frame(world, info(16));
+    expect(fx.core.stats().glows).toBeGreaterThan(glows + 2);
+    expect(fx.numbers.live).toBe(1);
+    fx.dispose();
+  });
 });
 
 describe("view telegraphs", () => {

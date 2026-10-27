@@ -20,9 +20,12 @@ import * as THREE from "three";
 import { Debris, DRAGON, HitStop, NumberField, NumberSprites, STYLE, Trauma, tier as tierRow } from "../kit/feedback";
 import { LightTrail, ParticlePool, textures } from "../kit/three";
 import { HOUSES, TRAPS } from "../content/data/our-side";
-import { HERO_SKILLS, RINGS } from "../content/rules";
+import { GENERALS } from "../content/data/generals";
+import { DAMAGE, HERO_SKILLS, RINGS } from "../content/rules";
 import type { FeedbackTier, Grade, Material, SimEvent } from "../content/types";
 import type { World } from "../sim/world";
+import { pointAt } from "../sim/lanes";
+import { uToM } from "../sim/fixed";
 import type { FrameInfo, Presenter, Quality, ScreenPoint } from "../app/contracts";
 import type { FoeLocator } from "./actors";
 import type { Stage } from "./stage";
@@ -74,6 +77,20 @@ export const FX_BUDGET: Readonly<Record<Quality, { particles: number; numbers: n
 const TAU = Math.PI * 2;
 /** 05 §6.1: fireball speed. */
 const BOLT_SPEED = 18;
+/**
+ * A word's hit lands 0.2 s after its last key (00 §4.2, rules DAMAGE): a far
+ * bolt flies faster so it arrives with its hit. At 18 m/s a 15 m shot took
+ * 0.8 s, so the number and flash came while it was mid-bridge and it then
+ * jumped the rest (test pass 26/10).
+ */
+const BOLT_MAX_S = DAMAGE.strikeDelayTicks / 60;
+/** Viêm Đế's beam (01 §2.4: 2 × 22 m down the lane), how long it burns (s). */
+const BEAM_S = 0.45;
+/** Héo lan's stream from a waiting foe to the Dragon (s). */
+const SEEP_S = 0.7;
+/** Hắc Vụ's grey violet (00 D02), darker for a normal-blended body that reads on light ground. */
+const SEEP_COLOR = new THREE.Color("#5a4a7e");
+const SEEP_GLOW = new THREE.Color("#b58cff");
 /** A bolt whose hit came early lands within this (s). */
 const BOLT_CATCH_UP = 0.06;
 /** A bolt that arrived first waits this long for its hit (s), then fizzles. */
@@ -498,7 +515,7 @@ export class FxCore {
     this.where(bolt.target, bolt.to);
     const length = bolt.from.distanceTo(bolt.to);
     bolt.length = Math.max(1, length);
-    bolt.duration = Math.max(0.12, length / BOLT_SPEED);
+    bolt.duration = Math.min(BOLT_MAX_S, Math.max(0.12, length / BOLT_SPEED));
     bolt.arc = Math.min(2.2, length * 0.12);
     bolt.t = 0;
     bolt.strong = strong;
@@ -507,9 +524,10 @@ export class FxCore {
     bolt.dirX = bolt.to.x - from.x;
     bolt.dirZ = bolt.to.z - from.z;
     for (const point of bolt.trail.points) point.copy(from);
-    // Muzzle flash at the mouth (05 §6 "phát").
-    this.glow(from, strong ? FX_COLORS.teal : FX_COLORS.fireHot, 1.4 * this.k, 0.12);
-    for (let k = 0; k < 5; k += 1) this.spark(from, FX_COLORS.fire, 0.35 * this.k, 0.25, 3);
+    // Muzzle flash at the mouth (05 §6 "phát"): a hot puff with body, so it reads on the light dais.
+    this.glow(from, strong ? FX_COLORS.teal : FX_COLORS.fireHot, 2 * this.k, 0.14);
+    this.puffs.spawn(from.x, from.y, from.z, 0.9 * this.k, 0.16, FX_COLORS.fireDeep, 0.9, { fadeIn: 0.001, grow: 0.6, rot: this.random() * TAU });
+    for (let k = 0; k < 8; k += 1) this.spark(from, k % 2 === 0 ? FX_COLORS.fireHot : FX_COLORS.fire, 0.4 * this.k, 0.28, 4);
     return index;
   }
 
@@ -771,9 +789,91 @@ export class FxCore {
     this.glow(this.v.copy(at).setY(at.y + 1.2), FX_COLORS.gold, 0.9, 0.35, this.u.set(0, 1.5, 0), 0.4);
   }
 
-  /** T0: a right key, a few motes at the mouth (05 §5). */
-  keySpark(from: THREE.Vector3): void {
-    for (let k = 0; k < 3; k += 1) this.spark(from, FX_COLORS.fire, 0.22, 0.3, 1.6, 0.6, -1);
+  /**
+   * T0: a right key (05 §4.3 "một đốm lửa chạy từ mõm Hỏa Long tới quái", §5 T0): a few motes at the mouth, a
+   * fire mote that runs to the target, and a glow at the mouth that grows with the share of the word typed
+   * (`frac` 0–1). Test passes 26–27/10: three 0.22 m sparks at the mouth were not seen at the play camera.
+   */
+  keySpark(from: THREE.Vector3, to: THREE.Vector3 | null = null, frac = 0): void {
+    const s = this.k;
+    for (let k = 0; k < 3; k += 1) this.spark(from, FX_COLORS.fire, 0.3 * s, 0.3, 1.8, 0.6, -1);
+    this.glow(from, FX_COLORS.fireHot, (0.9 + 1.8 * Math.min(1, frac)) * s, 0.24, this.u.set(0, 0, 0), 0.2);
+    if (to === null) return;
+    const life = 0.16;
+    const velocity = this.u.set((to.x - from.x) / life, (to.y - from.y) / life, (to.z - from.z) / life);
+    // A body (normal blend, reads on light ground) under the light.
+    this.puffs.spawn(from.x, from.y, from.z, 0.5 * s, life, FX_COLORS.fireDeep, 0.95, { vx: velocity.x, vy: velocity.y, vz: velocity.z, drag: 0, fadeIn: 0.001 });
+    this.glows.spawn(from, velocity, FX_COLORS.fireHot, 1.05 * s, life, { drag: 0, grow: -0.2 });
+    this.sparks.spawn(from, velocity, FX_COLORS.fire, 0.5 * s, life, { drag: 0 });
+  }
+
+  /**
+   * Viêm Đế's beam (01 §2.4, 05 §6.1: "mỗi từ một tia xuyên 2 × 22 m dọc
+   * đường"): fire runs from the dais end of the lane outward along `points`
+   * (metres, nearest the dais first), a white-hot core, flames licking up, a
+   * burnt strip left behind. Test pass 27/10: foes lost HP with nothing drawn.
+   */
+  beam(points: readonly THREE.Vector3[], widthM = HERO_SKILLS.inferno.beamWidthMm / 1000): void {
+    const s = Math.sqrt(this.k);
+    points.forEach((at, index) => {
+      const delay = index / Math.max(1, points.length);
+      this.glow(at, FX_COLORS.white, 1.6 * s, 0.12 + delay * 0.12);
+      this.puffs.spawn(at.x, at.y + 0.2, at.z, widthM * 0.95 * s, BEAM_S + delay * 0.15, index % 2 === 0 ? FX_COLORS.fireDeep : FX_COLORS.blastHot, 0.9, { vy: this.rand(1.5, 3), grow: 0.8, spin: this.rand(-2, 2), fadeIn: 0.01 + delay * 0.12, rot: this.random() * TAU });
+      this.glow(at, FX_COLORS.fire, widthM * 1.4 * s, BEAM_S, this.u.set(0, this.rand(1, 2.5), 0), 0.8);
+      for (let k = 0; k < 3; k += 1) this.spark(at, k === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.35 * this.k, 0.5, 5, 1.4, 6);
+      if (index % 2 === 0) this.marks.spawn(at.x, this.heightAt(at.x, at.z) + 0.06, at.z, widthM * 1.3, 4, FX_COLORS.scorch, 0.5, { kind: 2, fadeIn: 0.2, drag: 0, rot: this.random() * TAU });
+    });
+  }
+
+  /**
+   * Héo lan's beat (BALANCE.md §5): a dark violet stream runs from each
+   * waiting foe at (x, z) to the Dragon at `to`, where a violet flash shows
+   * the seep land. Test pass 27/10: one faint 0.9 m mote, and the HP bar was
+   * the only sign of the main HP loss of the last waves.
+   */
+  seep(fromX: number, fromZ: number, to: THREE.Vector3): void {
+    const y = this.heightAt(fromX, fromZ) + 1.2;
+    const s = this.k;
+    for (let k = 0; k < 7; k += 1) {
+      const f = k / 7;
+      const life = SEEP_S * (1 - f * 0.5);
+      const x = fromX + (to.x - fromX) * f * 0.25;
+      const z = fromZ + (to.z - fromZ) * f * 0.25;
+      const yy = y + (to.y - y) * f * 0.25;
+      this.puffs.spawn(x, yy, z, (0.55 + 0.25 * (1 - f)) * s, life, SEEP_COLOR, 0.8, { vx: (to.x - x) / life, vy: (to.y - yy) / life, vz: (to.z - z) / life, drag: 0, grow: -0.3, spin: this.rand(-2, 2), fadeIn: 0.03 + f * 0.12 });
+    }
+    this.glows.spawn(this.v.set(fromX, y, fromZ), this.u.set((to.x - fromX) / SEEP_S, (to.y - y) / SEEP_S, (to.z - fromZ) / SEEP_S), SEEP_GLOW, 0.9 * s, SEEP_S, { drag: 0, grow: -0.2, alpha: 0.7 });
+  }
+
+  /** Where the seep lands: a violet flash and falling motes round the Dragon. */
+  seepHit(at: THREE.Vector3, strong: boolean): void {
+    const s = this.k;
+    this.glow(at, SEEP_GLOW, (strong ? 3.2 : 2.2) * s, 0.3);
+    for (let k = 0; k < (strong ? 14 : 8); k += 1) this.spark(at, k % 2 === 0 ? SEEP_GLOW : SEEP_COLOR, 0.35 * s, 0.6, 3, 0.2, 4);
+  }
+
+  /**
+   * A general falls (02 §3.4 G01: "cờ gãy đổ, thân tan thành rêu"; 02 §3.2
+   * "quân gần chùn 1 s"): the body breaks into moss that spreads on the
+   * ground, a withered-yellow ring runs out over the allies that flinch.
+   */
+  generalDeath(at: THREE.Vector3, flinchRadiusM: number): void {
+    const ground = this.heightAt(at.x, at.z);
+    const s = Math.sqrt(this.k);
+    // Dark moss and withered-yellow tufts (00 D02): the grass is green, so the moss is darker than it.
+    this.c.set("#c8d24a");
+    this.c2.set("#34482a");
+    for (let k = 0; k < 24; k += 1) {
+      const angle = (k / 24) * TAU + this.random() * 0.3;
+      const color = k % 3 === 0 ? this.c : this.c2;
+      this.puffs.spawn(at.x + Math.cos(angle) * 0.4, ground + this.rand(0.5, 2.2), at.z + Math.sin(angle) * 0.4, this.rand(0.9, 1.5) * s, this.rand(1.1, 1.8), color, 1, { vx: Math.cos(angle) * 2.6, vz: Math.sin(angle) * 2.6, vy: this.rand(-0.8, 0.3), grow: 1, drag: 1.5, spin: this.rand(-1, 1) });
+    }
+    for (let k = 0; k < 8; k += 1) this.glow(this.v.set(at.x + this.rand(-1, 1), ground + this.rand(0.5, 2), at.z + this.rand(-1, 1)), this.c, 1.4 * s, 0.9, this.u.set(0, this.rand(1, 2.5), 0), 0.4);
+    this.marks.spawn(at.x, ground + 0.07, at.z, 4.8, 6, this.c2, 0.85, { kind: 2, fadeIn: 0.4, drag: 0, rot: this.random() * TAU });
+    this.debris.burst(at.x, ground + 0.8, at.z, 0, 1, 14, 5, this.c, this.c2);
+    this.c.set("#c8d24a");
+    this.rings.spawn(at.x, ground + 0.14, at.z, 1.2, 0.9, this.c, 1, { grow: Math.max(1, flinchRadiusM * 2 / 1.2 - 1), kind: 1, thickness: 0.28, drag: 0 });
+    this.glow(this.v.set(at.x, ground + 1.6, at.z), this.c, 3.2, 0.5, this.u.set(0, 1.5, 0), 0.6);
   }
 
   private emit(kind: EmitterKind, target: FxTarget | null, x: number, y: number, z: number, seconds: number, radius: number, dx: number, dy: number, dz: number): Emitter | null {
@@ -889,10 +989,15 @@ export class FxCore {
       // Trail points sampled back along the bolt's own curve (≈ 2.5 m).
       const span = Math.min(bolt.t, 2.5 / bolt.length);
       for (let i = 0; i < bolt.trail.count; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (bolt.trail.count - 1), bolt.trail.points[i]!);
-      bolt.trail.update(cameraPos, (bolt.strong ? 0.6 : 0.5) * this.k, bolt.t < 1 ? 1 : Math.max(0, 1 - bolt.waited * 6), time);
+      bolt.trail.update(cameraPos, (bolt.strong ? 0.85 : 0.75) * this.k, bolt.t < 1 ? 1 : Math.max(0, 1 - bolt.waited * 6), time);
       if (bolt.t < 1) {
-        this.glows.spawn(head, this.u.set(0, 0, 0), bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, (bolt.strong ? 1.5 : 1.25) * this.k, 0.05, { drag: 0 });
-        if (this.random() < 30 * dt) this.sparks.spawn(head, this.u.set(this.rand(-1, 1), this.rand(0, 1.5), this.rand(-1, 1)), FX_COLORS.ember, 0.25, 0.3, { drag: 2, gravity: 3 });
+        // A fireball with a body (test passes 26–27/10: a pale see-through spot): a deep-orange core and a hot heart in
+        // normal blending under the glow, so it reads on the light path at 720p; a strong word keeps its teal glow.
+        this.puffs.spawn(head.x, head.y, head.z, 0.95 * this.k, 0.06, FX_COLORS.fireDeep, 0.95, { fadeIn: 0.001, spin: 5, rot: this.random() * TAU });
+        this.puffs.spawn(head.x, head.y, head.z, 0.55 * this.k, 0.05, FX_COLORS.blastHot, 0.95, { fadeIn: 0.001, spin: -4, rot: this.random() * TAU });
+        this.glows.spawn(head, this.u.set(0, 0, 0), bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, (bolt.strong ? 1.9 : 1.6) * this.k, 0.05, { drag: 0 });
+        if (this.random() < 70 * dt) this.sparks.spawn(head, this.u.set(this.rand(-1.5, 1.5), this.rand(0, 2), this.rand(-1.5, 1.5)), this.random() < 0.5 ? FX_COLORS.ember : FX_COLORS.fireHot, 0.32 * this.k, 0.32, { drag: 2, gravity: 3 });
+        if (this.random() < 25 * dt) this.puffs.spawn(head.x, head.y + 0.1, head.z, 0.5 * this.k, 0.35, FX_COLORS.smoke, 0.35, { vy: 0.6, grow: 1.2, spin: this.rand(-1, 1) });
         continue;
       }
       if (bolt.hitTier >= 0) {
@@ -1033,6 +1138,11 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const size = new THREE.Vector2();
   const camPos = new THREE.Vector3();
   let lastDeath: THREE.Vector3 | null = null;
+  /** Viêm Đế beams drawn this tick, by lane (a cluster word hits several foes at once). */
+  const beamsDrawn = new Set<string>();
+  const beamPoints: THREE.Vector3[] = Array.from({ length: 23 }, () => new THREE.Vector3());
+  const lanePoint = { x: 0, z: 0 };
+  const hero = new THREE.Vector3();
   const lastDeathAt = new THREE.Vector3();
   let nowMs = 0;
   let worldTime = 0;
@@ -1076,10 +1186,17 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     onEvents(events: readonly SimEvent[], world: World): void {
       const now = nowMs;
       lastDeath = null;
+      beamsDrawn.clear();
       for (const event of events) {
         switch (event.type) {
           case "word-progress":
-            if (event.key === "advance" || event.key === "lock" || event.key === "done") core.keySpark(mouthOf(mouth));
+            if (event.key === "advance" || event.key === "lock" || event.key === "done") {
+              // The bench and tests drive this with partial worlds.
+              const word = world.words?.live[event.word];
+              const target = word?.target;
+              const to = target && target.kind === "enemy" ? foePoint(target.slot, target.serial, 0, 0, at) : null;
+              core.keySpark(mouthOf(mouth), to, word ? event.typed / Math.max(1, word.text.length) : 0);
+            }
             break;
           case "word-complete": {
             const target = event.target;
@@ -1094,11 +1211,31 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             const dirX = event.x;
             const dirZ = event.z;
             if (target.kind === "enemy") {
+              // Viêm Đế: the word's strike also fires a beam down its foe's lane (01 §2.4); draw it once a lane a tick.
+              if (event.source.kind === "hero" && event.damageType === "word" && (event.by === "inferno" || (event.by === "word" && (world.combat?.infernoUntil ?? -1) >= event.tick))) {
+                const foe = world.enemies?.list[target.slot];
+                const lane = foe && foe.serial === target.serial ? world.lanes[foe.lane] : undefined;
+                const key = event.tick + ":" + (lane?.index ?? -1);
+                if (lane && !beamsDrawn.has(key)) {
+                  beamsDrawn.add(key);
+                  const step = 60_000;
+                  const reach = Math.min(beamPoints.length, Math.floor(HERO_SKILLS.inferno.beamLengthMm / 1000) + 1);
+                  const points: THREE.Vector3[] = [];
+                  for (let k = 0; k < reach; k += 1) {
+                    pointAt(lane, lane.length - k * step, 0, lanePoint);
+                    const x = uToM(lanePoint.x);
+                    const z = uToM(lanePoint.z);
+                    points.push(beamPoints[k]!.set(x, heightAt(x, z) + 0.7 + (lane.sky ? 3 : 0), z));
+                  }
+                  core.beam(points);
+                }
+              }
               const point = foePoint(target.slot, target.serial, event.x, event.z, at);
               if (event.source.kind === "hero" && event.damageType === "word") core.landBolt(target.serial, event.tier, point, dirX, dirZ);
               else if (event.tier >= 1) core.impact(point, Math.min(event.tier, 2), dirX, dirZ, false);
               const style = strongGrade(event.grade) ? STYLE.perfect : event.source.kind === "trap" || event.source.kind === "unit" ? STYLE.tick : event.tier >= 3 ? STYLE.crit : STYLE.normal;
-              number(target.serial, point, event.amount, event.tier, style);
+              // A finishing word shows its strength: lock protection or a trap may have left the foe at 1 HP (test pass 27/10: "HOÀN HẢO 1").
+              number(target.serial, point, event.damageType === "word" && event.source.kind === "hero" && event.power !== undefined ? event.power : event.amount, event.tier, style);
             } else if (target.kind === "hero" || target.kind === "guide") {
               addTrauma(0.12);
               if (!options.shake) trauma.kick(0, 1, 4);
@@ -1113,6 +1250,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             const point = foePoint(event.enemy.slot, event.enemy.serial, event.x, event.z, at, "base");
             const length = Math.hypot(event.x, event.z) || 1;
             core.death(point, event.material, event.tier, event.x / length, event.z / length);
+            if (event.foe in GENERALS) core.generalDeath(point, GENERALS[event.foe as keyof typeof GENERALS].onDeath.radiusMm / 1000);
             core.stop(event.enemy.serial);
             hitStop.kill(1, now);
             blow(event.tier, now);
@@ -1164,9 +1302,16 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             blow(1, now);
             break;
           }
-          case "blight":
-            for (const [x, z] of event.from) core.blightWisp(x, z);
+          case "blight": {
+            // Each waiting foe's seep runs to the Dragon; a flash and a small number land there (test pass 27/10).
+            mouthOf(hero);
+            hero.y -= 0.8;
+            for (const [x, z] of event.from) core.seep(x, z, hero);
+            const strong = event.amount * 20 >= (world.hero?.hpMax ?? Infinity);
+            core.seepHit(hero, strong);
+            number(-1, hero, event.amount, strong ? 2 : 1, STYLE.tick);
             break;
+          }
           case "heal": {
             // The Dragon hovers 2.5 m up; a unit's chest is about 1 m.
             core.healDrop(event.x, event.z, event.tx, event.tz, event.target.kind === "hero" ? 3 : 1);

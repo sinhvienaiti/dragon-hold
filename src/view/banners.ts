@@ -44,6 +44,8 @@ const NAME_W = 8.5;
 const NAME_LIFT = 1.4;
 const FALL_S = 0.55;
 const SINK_S = 0.6;
+/** A dead general's banner falls (02 §3.4 "cờ gãy đổ"), lies this long, then sinks (test pass 27/10: it vanished with the body). */
+const DEAD_LIE_S = 2;
 /** The carried banner rises this much while the general winds up (1 s, 02 §3.2). */
 const WINDUP_LIFT = 0.9;
 
@@ -247,6 +249,8 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
   const nameMat = new THREE.SpriteMaterial({ map: label.texture, depthTest: false, depthWrite: false, transparent: true });
   const carried = new Map<number, Carried>();
   const planted: Planted[] = [];
+  /** Banners of dead generals: falling, lying, then sinking. */
+  const fallen: { group: THREE.Group; age: number; y: number; tilt: number }[] = [];
   const at = new THREE.Vector3();
   const look = new THREE.Vector3();
   let stamp = 0;
@@ -349,6 +353,15 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
     },
     onEvents(events: readonly SimEvent[], world: World): void {
       for (const event of events) {
+        if (event.type === "death" && event.foe in GENERALS) {
+          const rec = carried.get(event.enemy.serial);
+          if (rec && rec.group.visible) {
+            carried.delete(event.enemy.serial);
+            // It falls away from the dais, the way the general was walking.
+            fallen.push({ group: rec.group, age: 0, y: rec.group.position.y, tilt: Math.cos(rec.yaw) >= 0 ? 1 : -1 });
+          }
+          continue;
+        }
         if (event.type !== "banner") {
           if (event.type === "phase" && (event.phase === "victory" || event.phase === "defeat")) for (const item of planted) takeDown(item.index, "sink");
           continue;
@@ -410,6 +423,19 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
         root.remove(rec.group);
         carried.delete(serial);
       }
+      // Dead generals' banners: fall over, lie, sink.
+      for (let k = fallen.length - 1; k >= 0; k -= 1) {
+        const item = fallen[k]!;
+        item.age += dt;
+        const fall = Math.min(1, item.age / FALL_S);
+        item.group.rotation.z = item.tilt * fall * fall * (Math.PI / 2.2);
+        const sink = Math.max(0, item.age - FALL_S - DEAD_LIE_S) / SINK_S;
+        item.group.position.y = item.y - sink * 3;
+        if (sink >= 1) {
+          root.remove(item.group);
+          fallen.splice(k, 1);
+        }
+      }
       // Planted banners: the pillar flares then settles, the name shows 1 s, then they go when taken down.
       for (let k = planted.length - 1; k >= 0; k -= 1) {
         const item = planted[k]!;
@@ -442,6 +468,8 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
     dispose(): void {
       for (const item of planted) drop(item);
       planted.length = 0;
+      for (const item of fallen) root.remove(item.group);
+      fallen.length = 0;
       carried.clear();
       root.removeFromParent();
       pole.dispose();

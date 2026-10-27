@@ -533,8 +533,11 @@ const CSS = `
 .dh-tag.is-locked { z-index: 5; }
 .dh-tag.is-locked .dh-tag__body { transform: scale(1.1); border-color: ${SEMANTIC_COLORS.typing}; box-shadow: 0 0 0 1px rgba(127, 245, 224, 0.35), 0 2px 0 rgba(0, 0, 0, 0.55); }
 .dh-tag.is-born .dh-tag__body { animation: dh-tag-pop 150ms ease-out; }
-.dh-tag.is-shake .dh-tag__body { animation: dh-tag-shake 120ms linear; }
-.dh-tag.is-done .dh-tag__body { animation: dh-tag-done 200ms ease-in forwards; }
+.dh-tag.is-shake .dh-tag__body { animation: dh-tag-shake 180ms linear; border-color: rgba(255, 140, 170, 0.95); }
+.dh-tag.is-tick .dh-tag__body { animation: dh-tag-tick 140ms ease-out; }
+.dh-tag.is-seep .dh-tag__body { border-color: #B58CFF; box-shadow: 0 0 0 2px rgba(150, 100, 220, 0.6), 0 0 12px rgba(150, 100, 220, 0.75), 0 2px 0 rgba(0, 0, 0, 0.55); }
+.dh-tag__word .j { display: inline-block; animation: dh-letter 170ms ease-out; }
+.dh-tag.is-done .dh-tag__body { animation: dh-tag-done 160ms ease-in forwards; }
 .dh-tag.is-fold .dh-tag__body { animation: dh-tag-fold 200ms ease-in forwards; }
 .dh-tag.is-chip .dh-tag__body { border-style: solid; border-color: rgba(255, 244, 214, 0.7); }
 .dh-tag__arrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border-left: 7px solid #FFF4D6; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
@@ -545,10 +548,12 @@ const CSS = `
 @media (prefers-reduced-motion: reduce) { .dh-spark.is-on { animation-duration: 1ms; } }
 .dh-dot { position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255, 244, 214, 0.45); }
 @keyframes dh-tag-pop { 0% { transform: scale(0.6); } 70% { transform: scale(1.06); } 100% { transform: scale(1); } }
-@keyframes dh-tag-shake { 0%, 100% { translate: 0 0; } 25% { translate: -3px 0; } 75% { translate: 3px 0; } }
-@keyframes dh-tag-done { to { opacity: 0; translate: 0 -14px; } }
+@keyframes dh-tag-shake { 0%, 100% { translate: 0 0; } 20% { translate: -5px 0; } 50% { translate: 5px 0; } 80% { translate: -3px 0; } }
+@keyframes dh-tag-tick { 0% { translate: 0 0; } 35% { translate: 0 -3px; } 100% { translate: 0 0; } }
+@keyframes dh-letter { 0% { transform: translateY(0) scale(1); } 35% { transform: translateY(-5px) scale(1.45); text-shadow: 0 0 8px rgba(127, 245, 224, 0.95), 0 0 2px #fff; } 100% { transform: none; } }
+@keyframes dh-tag-done { 0% { opacity: 1; } 45% { opacity: 0.3; } 100% { opacity: 0; translate: 0 -14px; } }
 @keyframes dh-tag-fold { to { opacity: 0; transform: scale(0.6, 0.2); } }
-@media (prefers-reduced-motion: reduce) { .dh-tag__body { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .dh-tag__body, .dh-tag__word .j { animation: none !important; } }
 `;
 
 /** Word font size at this viewport (01 §3.1: 20 px at 1080p, at least 16 px at 720p), times the player's 80–150 %. */
@@ -561,7 +566,12 @@ const DOTS = 40;
 /** Letter sparks a finished word throws out (05 §4.3, §6.1: 6–10 letters burst from the tag). */
 const SPARKS = 30;
 const SPARKS_PER_WORD = 8;
-const MS = { shake: 120, pink: 150, leave: 200, hold: 500 } as const;
+/**
+ * shake: a wrong key (05 §4.3 ±3 px 120 ms; ±5 px 180 ms with a pink frame since the 26/10 test pass: it read as
+ * nothing); pink: the next letter's pink lasts at least this, and until that letter is typed; tick: a right key's
+ * bump and letter pop; leave: a finished tag fades (160 ms: a fading tag hid the next foe up to 10 frames, 1080p).
+ */
+const MS = { shake: 180, pink: 150, tick: 170, leave: 160, hold: 500 } as const;
 
 interface Tag {
   readonly el: HTMLElement;
@@ -593,6 +603,13 @@ interface Tag {
   leaveAt: number;
   shakeUntil: number;
   pinkUntil: number;
+  /** The letter a wrong key landed on (pink until it is typed; −1 none). */
+  pinkAt: number;
+  /** A right key: when, and which letter popped. */
+  tickAt: number;
+  tickIndex: number;
+  /** Héo lan seeped from this tag's foe: the frame flashes until then. */
+  seepUntil: number;
   prev: Spot | undefined;
   movedAt: number;
   /** The spot it left at its last move, and when; when it last left a spot for a body (one such move per hold). */
@@ -659,7 +676,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
       el, body, icon: body.querySelector(".dh-tag__icon")!, word: body.querySelector(".dh-tag__word")!, badge: body.querySelector(".dh-tag__new")!,
       dots: body.querySelector(".dh-tag__dots")!, mean: body.querySelector(".dh-tag__mean")!, hp: body.querySelector(".dh-tag__hp")!,
       hpFill: body.querySelector(".dh-tag__hp i")!, arrow: el.querySelector(".dh-tag__arrow")!, line,
-      slot: -1, born: -1, bornAt: 0, key: "", w: 0, h: 0, sw: 0, sh: 0, x: 0, y: 0, ax: 0, ay: 0, leaving: "", leaveAt: 0, shakeUntil: 0, pinkUntil: 0, prev: undefined, movedAt: 0, back: undefined, backAt: -1e9, yieldAt: -1e9, ring: -1, seen: 0,
+      slot: -1, born: -1, bornAt: 0, key: "", w: 0, h: 0, sw: 0, sh: 0, x: 0, y: 0, ax: 0, ay: 0, leaving: "", leaveAt: 0, shakeUntil: 0, pinkUntil: 0, pinkAt: -1, tickAt: -1e9, tickIndex: -1, seepUntil: 0, prev: undefined, movedAt: 0, back: undefined, backAt: -1e9, yieldAt: -1e9, ring: -1, seen: 0,
     };
   });
   const dots: HTMLElement[] = Array.from({ length: DOTS }, () => {
@@ -853,15 +870,17 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
     const isNew = deckWord?.group === "new";
     const foe = targetFoe(world, word);
     const near = foe !== null && Math.hypot(uToM(foe.x), uToM(foe.z)) * 1000 <= RINGS.dangerMm;
-    const pink = now < tag.pinkUntil;
+    const pink = now < tag.pinkUntil || tag.pinkAt === word.typed;
+    const ticking = now - tag.tickAt < MS.tick;
     const seals = foe && foe.general ? upcomingSeals(world, foe) : null;
     const meaning = showMeaning && options.gloss ? shortMeaning(options.gloss(word.text)?.vi ?? "") : "";
-    const key = [word.text, word.typed, word.tier, word.kind, pink, isNew, meaning, seals?.join(), near].join("|");
+    const key = [word.text, word.typed, word.tier, word.kind, pink, isNew, meaning, seals?.join(), near, now < tag.seepUntil].join("|");
     if (key === tag.key) return;
     tag.key = key;
     let html = "";
     for (let k = 0; k < word.text.length; k += 1) {
-      const cls = (k < word.typed ? "t " : "") + (k < word.tier ? "f " : "") + (pink && k === word.typed ? "p " : "") + (word.errors >= 3 && k === word.typed ? "h" : "");
+      // "j": the letter just typed pops up and glows once (05 §4.3 "nảy"; test passes 26–27/10: only its colour changed).
+      const cls = (k < word.typed ? "t " : "") + (k < word.tier ? "f " : "") + (pink && k === word.typed ? "p " : "") + (word.errors >= 3 && k === word.typed ? "h " : "") + (ticking && k === tag.tickIndex ? "j" : "");
       html += cls === "" ? word.text[k] : '<span class="' + cls.trim() + '">' + word.text[k] + "</span>";
     }
     tag.word.innerHTML = html;
@@ -871,7 +890,8 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
     tag.dots.innerHTML = seals ? seals.map((seal) => (seal ? '<span class="s">◆</span>' : "●")).join("") : "";
     tag.mean.textContent = meaning;
     tag.el.className =
-      "dh-tag " + style.cls + (near ? " is-near" : "") + (world.words.lock === slot ? " is-locked" : "") + (now - tag.bornAt < 150 ? " is-born" : "") + (now < tag.shakeUntil ? " is-shake" : "");
+      "dh-tag " + style.cls + (near ? " is-near" : "") + (world.words.lock === slot ? " is-locked" : "") + (now - tag.bornAt < 150 ? " is-born" : "") + (now < tag.shakeUntil ? " is-shake" : "") +
+      (ticking ? " is-tick" : "") + (now < tag.seepUntil ? " is-seep" : "");
     tag.el.dataset.word = word.text;
     tag.el.dataset.kind = word.kind;
     // Both sizes measured once per change: the solver may shrink the frame (padding and border only).
@@ -903,9 +923,29 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
           if (tag) {
             tag.shakeUntil = now + MS.shake;
             tag.pinkUntil = now + MS.pink;
+            tag.pinkAt = event.typed;
             tag.el.classList.remove("is-shake");
             void tag.el.offsetWidth;
             tag.el.classList.add("is-shake");
+          }
+        } else if (event.type === "word-progress" && (event.key === "advance" || event.key === "lock" || event.key === "done")) {
+          const tag = bySlot.get(event.word);
+          if (tag) {
+            tag.tickAt = now;
+            tag.tickIndex = event.typed - 1;
+            tag.pinkAt = -1;
+            tag.el.classList.remove("is-tick");
+            void tag.el.offsetWidth;
+            tag.el.classList.add("is-tick");
+          }
+        } else if (event.type === "blight") {
+          // Héo lan seeps from these foes: their tags flash so the player sees which words cost HP (test pass 27/10).
+          for (const [x, z] of event.from) {
+            for (const [slot, tag] of bySlot) {
+              const live = world.words.live[slot];
+              const foe = live ? targetFoe(world, live) : null;
+              if (foe !== null && Math.abs(uToM(foe.x) - x) < 0.6 && Math.abs(uToM(foe.z) - z) < 0.6) tag.seepUntil = now + 520;
+            }
           }
         } else if (event.type === "word-assigned") {
           textOf.set(event.word, event.text);
@@ -962,6 +1002,10 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
           tag.prev = undefined;
           tag.back = undefined;
           tag.yieldAt = -1e9;
+          tag.pinkAt = -1;
+          tag.tickAt = -1e9;
+          tag.tickIndex = -1;
+          tag.seepUntil = 0;
           tag.el.className = "dh-tag is-born";
           tag.el.style.opacity = "1";
           bySlot.set(slot, tag);
