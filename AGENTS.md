@@ -47,6 +47,15 @@ Dev port 3005, host `dragon.typing-game.local`.
   speechSynthesis and have `ok`. Canon: D30–D32 are the lane's proposals
   waiting for the owner. Kit synced at parent `cfad21e1`. See
   `docs/changelog/2026-10-26-review-fix.md`.
+- State (27/10, Mac, level test pass): each right key pops its letter and
+  sends a fire mote, the word bolt has a body and lands with its hit, Viêm Đế
+  draws its beam, Héo lan's beat is seen and heard (stream, tag flash, edge,
+  number), debut cards, a 2.6 s victory hold, the defeat line names its cause
+  and offers one level easier after two defeats (00 §4.10), the pause menu's
+  speed card keeps the speed in use, `dh-ime`. Sim unchanged (a `hit` event
+  carries `power`; golden kept). Measured and not kept: the bomb suggestion
+  on the swarm lane (bots lose more), G01 planting in the word zone (B4
+  breaks). Owner decisions: `docs/changelog/2026-10-27-test-pass.md` §5.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
