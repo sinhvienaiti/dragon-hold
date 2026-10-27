@@ -725,6 +725,8 @@ export type SimEvent = { readonly tick: number } & (
       readonly hpLeft: number;
       /** Which attack of the source dealt it, on foes (a Phun Lửa burn is "breath"); the balance report splits damage by it. */
       readonly by?: KillSource;
+      /** On a finishing blow: its strength before it was cut to the HP left (numbers show a word's strength, not "1"). */
+      readonly power?: number;
     }
   | { readonly type: "death"; readonly enemy: EnemyRef; readonly foe: FoeId; readonly by: KillSource; readonly x: number; readonly z: number; readonly material: Material; readonly tier: FeedbackTier }
   | { readonly type: "trap-trigger"; readonly slot: number; readonly trap: TrapId; readonly x: number; readonly z: number; readonly count: number }

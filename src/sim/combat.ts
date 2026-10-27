@@ -169,6 +169,8 @@ export function hitEnemy(
   if (by !== "word" && dmg >= enemy.hp && isLockProtected(world, enemy)) dmg = enemy.hp - 1;
   if (dmg > maxRemove) dmg = maxRemove;
   if (dmg <= 0) return 0;
+  // The blow's strength before it is cut to the HP left (event only: a finishing word showed "HOÀN HẢO 1").
+  const power = dmg;
   if (dmg > enemy.hp) dmg = enemy.hp;
   enemy.hp -= dmg;
   const stats = world.stats;
@@ -179,7 +181,7 @@ export function hitEnemy(
   const x = uToM(enemy.x);
   const z = uToM(enemy.z);
   const target: EntityRef = { kind: "enemy", slot: enemy.slot, serial: enemy.serial };
-  emit(world, { type: "hit", target, source, amount: dmg, damageType: type, tier, grade, x, z, hpLeft: enemy.hp, by });
+  emit(world, { type: "hit", target, source, amount: dmg, damageType: type, tier, grade, x, z, hpLeft: enemy.hp, by, ...(power > dmg ? { power } : {}) });
   if (enemy.hp <= 0) {
     enemy.alive = false;
     enemy.killedBy = by;
