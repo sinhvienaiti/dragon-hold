@@ -954,7 +954,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         heroBuys: { ...world.shop.heroBuys },
         steps: loop?.steps ?? 0,
         commands: run!.log.length,
-        banners: { carried: run!.banners.carried, planted: run!.banners.planted, named: run!.banners.named },
+        banners: { carried: run!.banners.carried, carriedPlaceholders: run!.banners.carriedPlaceholders, planted: run!.banners.planted, named: run!.banners.named },
         layers: { actors: map.stage.layers.actors.children.length, fx: map.stage.layers.fx.children.length, overlay: overlay!.childElementCount },
       };
     },

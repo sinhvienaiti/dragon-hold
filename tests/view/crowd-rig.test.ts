@@ -1,7 +1,7 @@
 // M0b: rigs, weights, the bone-texture baker and clip choice for the owner's models (no WebGL needed).
 import { describe, expect, it } from "vitest";
 import { bakeRig, clipRow, rigOf, skinOnCpu, skinWeights, type BoneDef, type Rig } from "../../src/view/crowd-rig";
-import { MODEL_SPECS } from "../../src/view/model-specs";
+import { MODEL_SPECS, type QuadMarks } from "../../src/view/model-specs";
 import { Motion } from "../../src/view/motion";
 import type { CrowdInstance } from "../../src/view/crowd";
 
@@ -117,6 +117,31 @@ describe("M0b crowd rigs", () => {
       const sum = weight[v * 4]! + weight[v * 4 + 1]! + weight[v * 4 + 2]! + weight[v * 4 + 3]!;
       expect(sum).toBeCloseTo(1, 5);
     }
+  });
+
+  it("keeps paws and snout on the ground through the wolf's crouch and the boar's (judge 27/10), and lets a flyer be", () => {
+    for (const content of ["enemies/blight-wolf", "enemies/tusk-boar"]) {
+      const spec = MODEL_SPECS[content]!;
+      const marks = spec.marks as QuadMarks;
+      const rig = rigOf("quadruped", marks, false, content)!;
+      // Paws resting on the ground and the snout, as stand-in vertices.
+      const flat = (p: readonly number[]): number[] => [p[0]!, 0, p[2]!];
+      const points = [flat(marks.paw), flat([-marks.paw[0], 0, marks.paw[2]]), flat(marks.hindPaw), flat([-marks.hindPaw[0], 0, marks.hindPaw[2]]), [...marks.snout]].flat();
+      const { index, weight } = skinWeights(points, rig.bones);
+      const lowest = (baked: ReturnType<typeof bakeRig>, t: number): number => {
+        const out = skinOnCpu(baked, points, index, weight, clipRow(baked.clips[baked.index.attack!]!, t));
+        return Math.min(out[1]!, out[4]!, out[7]!, out[10]!, out[13]!);
+      };
+      const raw = bakeRig(rig);
+      const grounded = bakeRig(rig, { positions: points, index, weight });
+      // Without the check the crouch at 0.5 s tips paws under; with it nothing sinks in any frame.
+      expect(lowest(raw, 0.5), content).toBeLessThan(-0.01);
+      for (let t = 0; t <= 0.9; t += 0.05) expect(lowest(grounded, t), content + " @" + t.toFixed(2)).toBeGreaterThan(-1e-4);
+    }
+    const wasp = rigOf("flyer", MODEL_SPECS["enemies/thorn-wasp"]!.marks, false)!;
+    const points = [0, 0, 0.1];
+    const { index, weight } = skinWeights(points, wasp.bones);
+    expect([...bakeRig(wasp, { positions: points, index, weight }).data]).toEqual([...bakeRig(wasp).data]);
   });
 
   it("skins on the CPU like the shader: a pose with no motion leaves the mesh where it was", () => {

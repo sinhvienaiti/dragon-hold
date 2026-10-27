@@ -942,16 +942,76 @@ function worldMatrices(bones: readonly BoneDef[], poser: Poser, out: THREE.Matri
   }
 }
 
+/** The model's rest vertices (rig frame) and their skin weights, for the baker's ground check. */
+export interface GroundProbe {
+  readonly positions: ArrayLike<number>;
+  readonly index: ArrayLike<number>;
+  readonly weight: ArrayLike<number>;
+}
+
+/** Rigs that stand on the ground (a flyer hovers; a trap's spikes sink on purpose). */
+const GROUNDED: ReadonlySet<RigKind> = new Set<RigKind>(["biped", "quadruped", "hexapod"]);
+/** Most vertices the ground check skins per frame (a stride sample of the mesh). */
+const PROBE_MAX = 3000;
+/** Vertices led by these bones may go under: G01's banner breaks and drops into the moss. */
+const PROBE_SKIP: ReadonlySet<string> = new Set(["pole", "poleLow", "flag"]);
+
+/** A stride sample of the probe: xyz, then 4 bone indices and 4 weights per vertex. */
+function groundSample(bones: readonly BoneDef[], probe: GroundProbe): { xyz: Float32Array; index: Uint8Array; weight: Float32Array; count: number } {
+  const total = Math.floor(probe.positions.length / 3);
+  const stride = Math.max(1, Math.ceil(total / PROBE_MAX));
+  const cap = Math.ceil(total / stride);
+  const xyz = new Float32Array(cap * 3);
+  const index = new Uint8Array(cap * 4);
+  const weight = new Float32Array(cap * 4);
+  let count = 0;
+  for (let v = 0; v < total; v += stride) {
+    let lead = 0;
+    for (let k = 1; k < 4; k += 1) if (probe.weight[v * 4 + k]! > probe.weight[v * 4 + lead]!) lead = k;
+    if (PROBE_SKIP.has(bones[probe.index[v * 4 + lead]!]?.name ?? "")) continue;
+    for (let c = 0; c < 3; c += 1) xyz[count * 3 + c] = probe.positions[v * 3 + c]!;
+    for (let k = 0; k < 4; k += 1) {
+      index[count * 4 + k] = probe.index[v * 4 + k]!;
+      weight[count * 4 + k] = probe.weight[v * 4 + k]!;
+    }
+    count += 1;
+  }
+  return { xyz, index, weight, count };
+}
+
+/** How far the posed sample sinks under y = 0 (0: it stands on or above the ground). */
+function sinkOf(sample: ReturnType<typeof groundSample>, matrices: readonly THREE.Matrix4[]): number {
+  let low = 0;
+  for (let v = 0; v < sample.count; v += 1) {
+    const x = sample.xyz[v * 3]!;
+    const y = sample.xyz[v * 3 + 1]!;
+    const z = sample.xyz[v * 3 + 2]!;
+    let py = 0;
+    for (let k = 0; k < 4; k += 1) {
+      const w = sample.weight[v * 4 + k]!;
+      if (w === 0) continue;
+      const e = matrices[sample.index[v * 4 + k]!]!.elements;
+      py += w * (e[1]! * x + e[5]! * y + e[9]! * z + e[13]!);
+    }
+    if (py < low) low = py;
+  }
+  return -low;
+}
+
 /**
  * Samples every clip at its fps into a bone texture: row = frame, 3 texels
  * per bone (the matrix rows). Each clip holds frames + 1 rows: a loop's last
  * row equals its first, a one-shot's is its end pose, so the shader's
- * next-frame read never leaves the clip.
+ * next-frame read never leaves the clip. With the model's vertices
+ * (`ground`), a standing rig's frame is lifted by as much as its lowest
+ * vertex would sink: feet, paws and a crouching snout stay on the ground
+ * (the rigs have no ankles, so a step or a crouch tips the toes under).
  */
-export function bakeRig(rig: Rig): BakedRig {
+export function bakeRig(rig: Rig, ground?: GroundProbe): BakedRig {
   const bones = rig.bones;
   const poser = new Poser(bones);
   const matrices = bones.map(() => new THREE.Matrix4());
+  const sample = ground !== undefined && GROUNDED.has(rig.kind) ? groundSample(bones, ground) : null;
   const clips: CrowdClip[] = [];
   const index: Partial<Record<ClipName, number>> = {};
   const durations: Partial<Record<ClipName, number>> = {};
@@ -971,6 +1031,11 @@ export function bakeRig(rig: Rig): BakedRig {
       poser.reset();
       clip.pose(clip.loop && f === info.frames ? 0 : (f / info.frames) * clip.duration, poser);
       worldMatrices(bones, poser, matrices);
+      if (sample !== null) {
+        // Weights sum to 1, so raising every bone's translation raises each vertex by the same amount.
+        const lift = sinkOf(sample, matrices);
+        if (lift > 0) for (const m of matrices) m.elements[13] += lift;
+      }
       const row = info.start + f;
       for (let b = 0; b < bones.length; b += 1) {
         const e = matrices[b]!.elements;

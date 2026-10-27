@@ -85,7 +85,7 @@ async function main(): Promise<void> {
     const rig = rigOf(spec.rig, spec.marks, spec.ours, spec.manifest);
     if (!rig) throw new Error("no rig for " + content);
     const weights = skinWeights(positions, rig.bones);
-    const baked = bakeRig(rig);
+    const baked = bakeRig(rig, { positions, index: weights.index, weight: weights.weight });
     const colors: number[] = [];
     for (let v = 0; v < positions.length / 3; v += 1) {
       let r = 0;

@@ -133,7 +133,8 @@ export function buildModelLayer(spec: ModelSpec, root: THREE.Object3D): ModelLay
     const weights = skinWeights(position, rig.bones);
     geometry.setAttribute("aSkinI", new THREE.Float32BufferAttribute(weights.index, 4));
     geometry.setAttribute("aSkinW", new THREE.Float32BufferAttribute(weights.weight, 4));
-    baked = bakeRig(rig);
+    // The baker keeps feet and paws on the ground in every frame (its ground check skins these vertices).
+    baked = bakeRig(rig, { positions: position, index: weights.index, weight: weights.weight });
   }
   if (map !== null) map.colorSpace = THREE.SRGBColorSpace;
   const source: CrowdLayerSource = {

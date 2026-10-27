@@ -35,6 +35,11 @@ export type FoeAnchor = "base" | "center" | "top";
 /** Finds the drawn position of foe {slot, serial}, metres; false when it is not drawn. */
 export interface FoeLocator {
   locate(slot: number, serial: number, at: FoeAnchor, out: THREE.Vector3): boolean;
+  /**
+   * True while foe {slot, serial} is drawn as the owner's model with its clips (M0b), false while a primitive
+   * stands in. G01's model carries its own banner, so banners.ts hides the carried placeholder then.
+   */
+  drawsModel?(slot: number, serial: number): boolean;
 }
 
 /** The disc under our units (a flat pale-blue ellipse, one layer for all of them), as wide as the drawn unit. */
@@ -401,6 +406,11 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
       const h = rec.look.placeholder.sizeM[1] * rec.look.scale;
       out.set(rec.x, rec.y + (at === "base" ? 0 : rec.lift + (at === "center" ? h * 0.5 : h + 0.15)), rec.z);
       return true;
+    },
+
+    drawsModel(slot: number, serial: number): boolean {
+      const rec = foes.get(serial);
+      return rec !== undefined && rec.slot === slot && rec.motion !== null;
     },
 
     onEvents(events: readonly SimEvent[], world: World): void {
