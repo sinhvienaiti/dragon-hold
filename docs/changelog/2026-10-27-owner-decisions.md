@@ -147,3 +147,119 @@ Hai cách đọc luật Héo lan cho chữ hiện sớm nằm hai phía của d�
 - **Không giữ** theo luật cổng: G1 gãy ở cả hai bộ seed, B1 và B7 xấu hơn rõ (S của người gõ chậm vượt dải, Khá và Chuẩn thắng quá 90 %, Nhanh thua nhiều hơn ở đợt 10). Nhánh `s1-word-ring` giữ mã và golden để anh xem hay chạy lại.
 - Bỏ vòng 26 m làm đúng việc của nó (phần I do vòng gần như hết, người gõ chậm có chữ ngay đầu đợt), nhưng phần I còn lại của Chuẩn, Khá, Nhanh là T_a / k chứ không phải vòng; và với người gõ chậm, T_a dài hơn cả đường đi nên chữ hiện từ cổng, ván dễ hẳn.
 - Nếu anh vẫn muốn hướng này, cần thêm một thứ kéo độ khó lại cho người gõ chậm, đo cùng (i): ví dụ trần T_a theo đường (đòn bẩy (ii)), hay đo (i) chung với đường cong đợt D33 (4) hoặc với D31. Đó là quyết định của anh; lượt này không làm.
+
+## 2. D31: tách vùng hiện chữ khỏi vùng Héo lan — đã đo, **không giữ** (cùng D27 (i): gãy G1 và trần 90 %; bản trên `main`: Nhanh 92,3 % ở 300 seed)
+
+Hai nhánh, chưa gộp: `s2-d31` (`bef1b1b`, cắt từ `s1-word-ring`: D31 cùng D27 (i), đúng hướng anh chốt) và `s2-d31-alone` (`3ca89b7`, cắt từ `main`: D31 giữ vòng 26 m). Không kèm D30; `DIRECTOR_IDLE_SLACK` giữ 200 (bộ điều nhịp vẫn nhắm 30 %, không lấy phần 200 → 100 của bản thử 26/10). Bằng chứng: `tmp/mac-2026-10-27/owner/s2-d31/`.
+
+### 2.1 Đã làm gì
+
+- `src/sim/world.ts`: `PaceState.revealTicks` = T_a / min(k, 1) (`PACE.revealKMaxPm` 1000 trong `src/content/rules.ts`): người gõ nhanh hơn người chuẩn không thấy chữ muộn hơn người chuẩn. `approachTicks` (T_a / k) giữ nguyên.
+- `src/sim/words.ts`: `inRevealZone` (nơi chữ hiện) dùng `revealTicks`, không vòng 26 m trên `s2-d31` (từ bước 1), trong vòng 26 m trên `s2-d31-alone`; `inWordZone` (vòng 26 m và T_a / k, như cũ) vẫn là vùng của Héo lan, mục tiêu mặc định của Thiên Hỏa và hàng chờ của bộ điều nhịp.
+- Chỉ bot có k > 1 đổi (`pace.txt`): Khá k 1,21, T_a 7,85 → 9,48 s; b60 k 1,44, 6,23 → 9,00 s; Nhanh k 1,50, 6,00 → 9,00 s. Ẩu k 1,05, 14,40 → 15,05 s nhưng T_a của Ẩu đã dài hơn đường đi nên không đổi số nào (so JSON từng seed). Mọi bot k ≤ 1 (Mới, Chậm chắc, b25, Chuẩn và các biến thể, Trẻ em) chạy giống hệt: mọi số của báo cáo bot trùng từng chữ số.
+- Test: `revealTicks` theo k (`tests/sim/smoke.test.ts`); người gõ 70 WPM có chữ ở quái nằm giữa T_a / k và T_a / min(k, 1), người chuẩn thì không (`tests/typing-words.test.ts`); chữ hiện sớm không thấm ngoài vùng T_a / k (`tests/sim/balance-pressure.test.ts`; vào vùng rồi thì trên `s2-d31` chờ đủ một độ chờ, trên `s2-d31-alone` thấm ngay ở nhịp đầu vì độ chờ tính từ lúc chữ hiện). Golden cập nhật bằng `pnpm dh:golden:update` trên cả hai nhánh: các lượt golden ở k = 1 nên chỉ mã băm đổi (thêm trường `revealTicks`), nhật ký lệnh giữ nguyên. `pnpm check`: 408/408 (`s2-d31`), 407/407 (`s2-d31-alone`).
+
+### 2.2 Cùng D27 (i) (nhánh `s2-d31`): gãy G1 và trần 90 %
+
+Độ chờ Héo lan tính từ lúc quái vào vùng T_a / k (`seepFrom` của bước 1). Cân bằng, 120 seed (`v0-all.json`, `cmp-base-v0.txt`); Thắng / S / P / I / O / N / Q (%, N là số lần):
+
+| Bot | Mốc `83da970` | Bước 1 (`s1-word-ring`) | `s2-d31` |
+|---|---|---|---|
+| Khá | 75,8 / 47,5 / 23,7 / 26,6 / 0 / 0,78 / 37,6 | 93,3 / 49,3 / 23,4 / 25,8 / 0 / 0,55 / 31,3 | **100** / **72,1** / 16,5 / 20,4 / 0 / 0,05 / 26,7 |
+| Nhanh | 90,0 / 44,5 / 30,3 / 30,7 / 0 / 0,72 / 48,4 | 73,3 / 32,1 / 29,4 / 30,4 / 0 / 0,80 / 48,4 | **100** / **71,7** / 16,1 / 19,5 / 0 / 0,02 / 29,7 |
+| b60 | 77,5 / 36,1 / 31,3 / 29,5 / 0 / 0,76 / 48,4 | 68,3 / 34,8 / 29,9 / 28,4 / 0 / 0,74 / 47,9 | **100** / 67,8 / 18,0 / 19,0 / 0 / 0,03 / 29,4 |
+
+Mọi bot khác giống bước 1 từng số (Chuẩn 92,5 / 63,3 / 20,5 / 19,1 / 0 / 0,33 / 31,3; bảng đủ ở mục 1.2). Cổng: **G1 gãy** như bước 1 (86,7 → 92,5 %); Khá, Nhanh, b60 thắng 120/120, **quá trần 90 %**; B1 theo dải D27 từ 6 lên 11 ô lệch (Khá, Nhanh thêm thắng cao và S cao; I của Nhanh 19,5 % nay trong dải); B4 đạt (S 85 so với 65); B7 như bước 1 (bot tắt nhịp có k = 1). Chữ hiện sớm mà chờ ngoài vùng không mất gì, nên người gõ nhanh gần như không bị Héo lan: Nhanh đợt 10 thua 9 → 0 lượt, Héo 393 → 249 máu mỗi lượt (`pw-base-v0.md`).
+
+### 2.3 Biến thể đã thử (hai, trong hướng D31)
+
+| Biến thể | Khác gì | Kết quả (Cân bằng, 120 seed) |
+|---|---|---|
+| V1, cùng D27 (i) | Như `s2-d31`, nhưng độ chờ Héo lan tính từ lúc chữ hiện, khi quái đã vào vòng 26 m (cách đọc của bản thử r3 26/10): vào vùng T_a / k là thấm ngay nếu chữ đã chờ quá độ chờ | **G1 gãy** (92,5 %, từ bước 1); **Nhanh 100 %, b60 99,2 %** quá trần; Khá 89,2 / 60,4 / 18,7 / 22,4 / 0 / 0,43 / 25,9; Nhanh 100 / 64,8 / 18,0 / 21,1 / 0 / 0,05 / 28,6; b60 99,2 / 60,9 / 18,9 / 21,6 / 0 / 0,08 / 27,5 (`cmp-base-v1.txt`) |
+| V2, không kèm D27 (i) (nhánh `s2-d31-alone`) | D31 trên `main`: chữ hiện trong vòng 26 m và T_a / min(k, 1); Héo lan thấm trong vòng 26 m và T_a / k, độ chờ tính từ lúc chữ hiện (đúng chữ của 00 §4.10: "từ của nó đã hiện lâu hơn độ chờ") | Ở 120 seed qua mọi cổng, xem 2.4. **Ở 300 seed Nhanh thắng 92,3 %**, quá trần 90 % (mốc 90,3 %), xem 2.5 |
+
+Không thử biến thể thứ ba. G1 gãy ở mọi bản cùng D27 (i) vì bot Chuẩn có k = 1, D31 không chạm nó; muốn D31 cùng (i) thì phải có thứ kéo (i) lại trước (mục 1.7).
+
+### 2.4 V2 (D31 trên `main`): cả ải, Cân bằng, 120 seed (trước → sau)
+
+`v2-all.json`, `v2-all.md` (cả ba chế độ, 2 × 60 seed), `cmp-base-v2.txt`. Mã của nhánh chạy giống hệt cây đo (so JSON từng seed của Khá, Nhanh).
+
+| Bot | Thắng | S | P | I | O | N | Q | Hạ quái (s) |
+|---|---|---|---|---|---|---|---|---|
+| Khá | 75,8 → 85,8 | 47,5 → 62,9 | 23,7 → 19,1 | 26,6 → 23,4 | 0 → 0 | 0,78 → 0,39 | 37,6 → 38,9 | 3,9 → 3,5 |
+| Nhanh | 90,0 → 88,3 | 44,5 → 47,6 | 30,3 → 20,9 | 30,7 → 24,0 | 0 → 0 | 0,72 → 0,29 | 48,4 → 37,4 | 3,5 → 3,3 |
+| b60 | 77,5 → 87,5 | 36,1 → 46,0 | 31,3 → 22,0 | 29,5 → 24,2 | 0 → 0 | 0,76 → 0,45 | 48,4 → 38,2 | 3,6 → 3,4 |
+| Mọi bot khác (b25, Chuẩn, Mới, Chậm chắc, Ẩu, Chuẩn tốt, Chuẩn kém, Chuẩn tắt nhịp, Chỉ gõ, Không gõ, Trẻ em) | không đổi | | | | | | | |
+
+Thư giãn: mọi bot vẫn thắng 100 %. Thử thách: Khá 69,2 → 79,2 %, Nhanh 94,2 → 90,8 %, b60 85,0 → 84,2 %.
+
+Cổng (trước → sau): G1 86,7 → 86,7 %, G3 85,8 → 85,8 %, G5 0 → 0 %, G6 120/120 thua ở đợt 1 → như cũ, G8 30,3 → 30,3 %, G9 1,40 → 1,40, G9b, G10, G11, G13, G13b, G15 đạt như cũ, G16 171,5 s trượt như cũ (cổng từ ải 15). B2, B3 (Mới 73 %, Trẻ em Thư giãn 91 %), B4, B5, B6, B8 đạt, số giống hệt. B1 theo dải D27 vẫn lệch đúng 6 ô như mốc (Mới thắng thấp, Chậm chắc thắng cao, Chuẩn I cao, Khá I cao, Ẩu thắng thấp, Nhanh I cao), không thêm ô nào; I của Khá, Nhanh xuống 3,2 và 6,7 điểm nhưng vẫn trên 20 %. B7 giống hệt (bot tắt nhịp có k = 1). Hai bộ seed cho cùng kết quả từng cổng. Theo từng bộ: Khá 51/60 và 52/60, Nhanh 55/60 (91,7 %, mốc cũng 55/60) và 51/60, b60 51/60 và 54/60.
+
+Nhàn I tách theo nguyên nhân, % thời gian đợt (`pw-base-v2.md`; "ngoài T_a" là ngoài vùng hiện chữ):
+
+| Bot | I | Đầu đợt: chỉ vòng chặn | Đầu đợt: ngoài T_a | Sau chữ đầu: chỉ vòng chặn | Sau chữ đầu: ngoài T_a | Trong vùng, chưa có chữ |
+|---|---|---|---|---|---|---|
+| Khá | 26,8 → 23,4 | 2,8 → 2,9 | 3,9 → 2,4 | 2,7 → 4,2 | 12,3 → 8,1 | 4,0 → 4,3 |
+| Nhanh | 30,7 → 24,0 | 1,2 → 3,4 | 7,9 → 3,0 | 1,5 → 5,4 | 15,3 → 7,0 | 4,3 → 4,4 |
+| b60 | 29,5 → 24,3 | 1,7 → 3,3 | 7,1 → 3,0 | 1,5 → 5,2 | 14,7 → 7,6 | 4,0 → 4,2 |
+
+Phần I do T_a / k giảm một nửa, nhưng một phần chuyển sang vòng 26 m: với người gõ nhanh, nay vòng chặn trước (Nhanh: T_a 23,2 → 10,0 điểm, vòng 2,7 → 8,8).
+
+Theo đợt, Cân bằng (trước → sau; Thua: số lượt thua ở đợt; Chữ đầu: giây từ lúc đợt bắt đầu tới chữ đầu; Héo: máu mất do Héo lan mỗi lượt vào đợt):
+
+| Bot | Đợt | Thua | S | P | I | O | N | Q | Chữ đầu (s) | I 15 s đầu | Héo |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Khá | 1 | 0 → 0 | 96,6 → 98,9 | 8,7 → 2,8 | 35,6 → 33,1 | 0 → 0 | 0 → 0 | 48,5 → 48,5 | 5,5 → 3,3 | 43,2 → 34,2 | 20 → 9 |
+| Khá | 3 | 0 → 0 | 72,4 → 77,8 | 22,6 → 18,4 | 26,0 → 21,1 | 0 → 0 | 0,02 → 0 | 51,8 → 42,3 | 8,6 → 5,5 | 58,0 → 41,5 | 140 → 114 |
+| Khá | 8 | 21 → 9 | 41,6 → 53,4 | 41,7 → 33,4 | 21,3 → 18,8 | 0 → 0 | 0,28 → 0,13 | 21,8 → 21,4 | 2,0 → 2,0 | 37,8 → 25,6 | 304 → 188 |
+| Khá | 10 | 0 → 0 | 53,1 → 65,0 | 31,1 → 27,6 | 27,1 → 23,0 | 0 → 0 | 0,13 → 0,07 | 31,6 → 31,2 | 1,6 → 1,6 | 40,4 → 32,6 | 246 → 187 |
+| Nhanh | 1 | 0 → 0 | 96,7 → 98,0 | 15,9 → 4,4 | 43,8 → 32,3 | 0 → 0 | 0 → 0 | 53,1 → 45,0 | 7,5 → 3,8 | 54,6 → 42,3 | 22 → 12 |
+| Nhanh | 2 | 0 → 0 | 82,9 → 93,7 | 31,6 → 8,5 | 30,5 → 21,2 | 0 → 0 | 0 → 0 | 62,6 → 42,6 | 6,6 → 3,5 | 49,6 → 28,4 | 93 → 37 |
+| Nhanh | 3 | 0 → 0 | 65,5 → 82,6 | 34,7 → 17,3 | 33,3 → 20,1 | 0 → 0 | 0 → 0 | 53,4 → 42,0 | 10,6 → 4,7 | 70,5 → 32,0 | 175 → 96 |
+| Nhanh | 4 | 0 → 1 | 56,6 → 69,7 | 24,9 → 18,1 | 26,7 → 18,8 | 0 → 0 | 0,04 → 0,01 | 63,3 → 40,2 | 2,6 → 2,6 | 42,9 → 25,2 | 225 → 158 |
+| Nhanh | 10 | 9 → 11 | 46,4 → 51,7 | 39,4 → 36,9 | 22,8 → 19,6 | 0 → 0 | 0,36 → 0,20 | 46,7 → 37,3 | 1,6 → 1,6 | 44,0 → 40,1 | 393 → 403 |
+| b60 | 1 | 0 → 0 | 96,1 → 97,4 | 20,4 → 5,9 | 40,6 → 30,6 | 0 → 0 | 0 → 0 | 52,1 → 48,2 | 7,5 → 3,8 | 52,6 → 39,2 | 34 → 15 |
+| b60 | 3 | 0 → 0 | 64,6 → 79,9 | 34,8 → 18,7 | 32,0 → 23,6 | 0 → 0 | 0 → 0 | 53,4 → 39,0 | 10,6 → 5,4 | 70,9 → 37,2 | 191 → 112 |
+| b60 | 10 | 21 → 9 | 42,3 → 49,8 | 40,9 → 38,4 | 21,7 → 19,1 | 0 → 0 | 0,30 → 0,19 | 46,8 → 39,3 | 1,7 → 1,6 | 43,3 → 41,4 | 406 → 393 |
+
+- Đợt 1–3: chữ đầu của người gõ nhanh sớm hơn 1,6–5,9 s (từ 4,6–10,6 s còn 3,0–5,5 s); I 15 s đầu giảm 9–39 điểm (Nhanh đợt 3: 70,5 → 32,0). Từ đợt 4 chữ đầu không đổi (2,6 s): ở đó vòng 26 m chặn trước.
+- Đợt 10 vẫn là vực của Nhanh (thua 9 → 11 lượt, Héo 393 → 403); Khá thua ít đi ở đợt 8 (21 → 9), b60 ở đợt 10 (21 → 9).
+- Q của Nhanh, b60 xuống 10–11 điểm (48 → 37–38 %), ngang các bot khác, xa thêm đích 55–70 % của BALANCE §9.1.
+
+### 2.5 300 seed (Khá, Nhanh, b60; Cân bằng, 2 × 150 seed)
+
+Ở 120 seed Nhanh 88,3 % chỉ cách trần 1,7 điểm, nhỏ hơn độ nhiễu, nên chạy thêm 300 seed cho cả mốc và V2 (`fast300-base.*`, `fast300-v2.*`):
+
+| Bot | Mốc `83da970` | V2 |
+|---|---|---|
+| Khá | 75,7 / 50,4 / 23,7 / 26,7 / 0 / 0,74 / 38,2 | 86,0 / 64,3 / 19,2 / 23,4 / 0 / 0,32 / 38,8 |
+| Nhanh | 90,3 / 43,2 / 30,2 / 30,7 / 0 / 0,71 / 48,6 | **92,3** / 50,6 / 20,8 / 24,0 / 0 / 0,29 / 37,3 |
+| b60 | 79,3 / 37,9 / 31,1 / 29,6 / 0 / 0,80 / 48,4 | 88,3 / 49,8 / 21,7 / 24,2 / 0 / 0,40 / 38,7 |
+
+B4 ở 300 seed (Chậm chắc, Ẩu, Mới, Chuẩn; `b4-v2-300.md`): giống hệt mốc của đợt test (S 64 so với 61, hạ quái 4,29 so với 5,31 s), vì bốn bot này không đổi.
+
+**Nhanh 92,3 % quá trần 90 % mà anh đặt cho D31.** Mốc cũng đã 90,3 % ở 300 seed, nên D31 đẩy Nhanh lên khoảng 2 điểm, trong độ nhiễu (120 seed: −1,7; 300 seed: +2,0). Theo điều kiện của anh, bước này **không giữ**.
+
+### 2.6 Trình duyệt (Apple M4, Vite riêng 127.0.0.1:4151)
+
+Kịch bản tạm của bước `reveal-fast.mjs` (thư mục bằng chứng) chạy qua `scripts/visual/cdp-run.mjs` trên mã của nhánh `s2-d31-alone`, 70 WPM. Ở trình duyệt, hồ sơ 70 WPM không có độ chính xác nên lấy 95 %, CV 0,25: k 1,449, T_a / k 6,9 s, vùng hiện chữ 10,0 s. Kết quả `ok` ở cả 1280×720 và 1920×1080: 0 exception, 0 tài nguyên lỗi, mã băm phát lại khớp.
+
+| Cỡ | Đợt | Chữ đầu sau khi đợt bắt đầu | Quái cách bệ | Quái còn tới chỗ dừng |
+|---|---|---|---|---|
+| 1280×720 | 1 | 2,9 s ("place") | 25,1 m | 9,8 s |
+| 1280×720 | 2 | 2,4 s ("money") | 25,5 m | 9,9 s |
+| 1920×1080 | 1 | 2,7 s ("small") | 25,4 m | 10,0 s |
+| 1920×1080 | 2 | 2,4 s ("good") | 25,6 m | 9,9 s |
+
+Chữ đầu hiện ngay khi quái vào vòng 26 m, lúc nó còn khoảng 10 s đường; theo luật cũ (T_a / k) chữ chỉ hiện khi còn 6,9 s. Cùng kịch bản trên `main` (`cb9931f`, trước D31; `browser-main/`, cũng `ok`, 0 exception, 0 tài nguyên lỗi, mã băm khớp): chữ đầu đợt 1 hiện sau 6,8 s ở cả hai cỡ, đợt 2 sau 5,6 s (1280) và 5,4 s (1920); quái Lính có chữ ở 19,3–19,6 m, còn 6,7–6,9 s đường (một lần là bầy Kiến Gai ở 25,1 m, đi nhanh nên còn 6,8 s). Tức D31 cho người gõ 70 WPM chữ đầu sớm hơn khoảng 3–4 s mỗi đợt. Ảnh `browser-main/w1-first-1280x720.png`: 6,8 s sau khi đợt bắt đầu mới có "happy" trên bầy Kiến Gai bên kia cầu, Lính ở chỗ lội nước phía tây chưa có chữ; `w1-first-1920x1080.png`: "small" trên Lính đã qua chỗ lội nước, "idea" trên bầy Kiến Gai.
+
+Ảnh đã xem (`browser-alone/`):
+- `w1-first-1280x720.png`, `w1-first-1920x1080.png`: thẻ "place" / "small" kèm nghĩa trên Yêu Rêu Lính ở chỗ lội nước của đường phía tây; thẻ rõ, nằm trong màn, không đè HUD.
+- `w2-first-1280x720.png`: "money" trên hai quái của đường phía bắc, bên kia cầu.
+- `w2-first+1.5s-1920x1080.png`: 1,5 s sau, "problem" và "good" trên hai quái đi sát nhau sau cây cầu; hai thẻ không che nhau.
+
+### 2.7 Kết luận, chờ anh
+
+- **Không giữ.** Cùng D27 (i) (đúng hướng anh chốt): G1 gãy từ bước 1, và Khá, Nhanh, b60 thắng 100 % (cách đọc độ chờ tính từ lúc vào vùng) hay Nhanh 100 %, b60 99,2 % (tính từ lúc chữ hiện). Không kèm (i) (V2): qua mọi cổng ở 120 seed, mọi bot k ≤ 1 không đổi, B4 không đổi, nhưng Nhanh 92,3 % ở 300 seed, quá trần 90 %.
+- V2 làm đúng việc của D31: người gõ nhanh có chữ sớm hơn 1,6–5,9 s ở đợt 1–3, I của Khá, Nhanh, b60 giảm 3–7 điểm, P giảm 5–9 điểm, S tăng 3–15 điểm; không bot nào k ≤ 1 bị chạm. Nhưng I của họ vẫn 23–24 % (dải D27 ≤ 20 %): phần còn lại là vòng 26 m.
+- Anh cần chọn một trong hai: (a) giữ V2 (nhánh `s2-d31-alone`, cắt từ `cb9931f`, chỉ đổi mã, test và golden nên gộp không xung đột), coi trần 90 % là "không cao hơn mốc quá độ nhiễu" vì mốc Nhanh đã 90,3 %; hoặc (b) chờ D33 (4) (đường cong đợt) rồi đo lại D31 cùng nó. Lưu ý D33 (4) có phần "đợt 10 không còn là vực của người gõ nhanh", phần đó làm Nhanh dễ thêm, nên cần một thứ kéo Nhanh xuống đi kèm.
