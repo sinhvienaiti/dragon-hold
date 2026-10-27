@@ -447,3 +447,137 @@ Theo kế hoạch của mốc, chữ Heo này hiện lúc 19,65 s, khi chữ c�
   - (c) Ghi ngoại lệ đỉnh của bộ điều nhịp vào 00 §4.4 thay cho trần 1,15. Đây là cách người test đợt 7–8 nêu thứ hai.
 - Đợt 10: phần √k chỉ khoảng 9 % Héo. Muốn hết vực cần chạm cú dồn đầu đợt 10: hàng Sói 2,2 s, đỉnh 1 tải 1,40 (ngoại lệ M0). Việc này ngoài hướng anh chọn cho bước này.
 - Phát hiện 40 (Đường Cầu 58,2 % ở đợt 7) chưa sửa, vì không đi kèm việc dời Heo.
+
+## 4. D33 (2): G01 đi giữa toán ở đợt 5 — đã đo, **không giữ** (mục tiêu chưa đạt; bản toán hộ tống đúng 02 §5.2 gãy G9)
+
+Hướng (2) của D33: G01 đi giữa một toán ở đợt 5 (02, bảng trình bày G01 "Đi giữa toán"). Luật cắm cờ giữ như nay: G01 cắm khi có ≥ 2 quân trong 5 m, hoặc khi tới điểm dừng 8 m; sớm nhất 4 s sau khi sinh, hồi 16 s. Mục tiêu của bước: cờ được cắm và từ cờ được gõ ở đợt 5; đợt 5 bớt nhàn (P lên, I xuống); không gãy B4 (bản cắm cờ khi vào Vùng Chữ đã gãy B4: 59 < 60 ở 300 seed, `2026-10-27-test-pass.md` mục 2.2).
+
+Nhánh `s4-g01-squad` (chưa gộp), hai commit trên `3733bd8`: `aaed85a` (V0) và `35ae539` (V1). V2 chỉ là cây tạm, không commit: bản này đọc 1,71 ở đỉnh ngắn của kế hoạch, vượt trần 1,15 của đợt giữa (00 §4.4) mà test kế hoạch giữ, và gãy G9. Bằng chứng: `tmp/mac-2026-10-27/owner/s4-g01-squad/`.
+
+Lượt trước của bước này bị cắt vì hết hạn mức, để lại sửa chưa commit trên nhánh. Lượt này đọc lại từng file: giữ phần toán hộ tống (mã toán, chỗ đứng 2 m quanh tướng) và trường `gatherMs`; bỏ phần "đỉnh riêng của toán" trong `layOut` (phần này cho một toán 1 s quanh tướng, đọc 1,71, lọt qua trần `fit100`); phần đó chỉ còn ở cây V2.
+
+### 4.1 Đã làm gì
+
+- **Toán hộ tống trong sim** (`src/sim/spawn.ts`, `movement.ts`, `world.ts`, `waves.ts`; `rules.ts` `BATTLE.squadGapMm` = 2000). Các con của một toán hộ tống (02 §5.2) chung một mã toán. Khi tướng còn đi tự do trên đường, mỗi lính giữ chỗ của mình: con đi trước giữ 2 m trước tướng, con đi sau giữ 2 m sau, không vượt chỗ đó, nên chờ tướng rồi đi theo nhịp tướng. Khi tướng bị chặn, đang đánh, tới điểm dừng hay chết, lính đi tiếp một mình. Lính đi nhanh hơn tướng (2,0 m/s, thêm 15 % trong hào quang Xung Phong, so với 1,8 m/s), nên luôn bắt kịp chỗ của mình.
+- **Toán gom** (`SpawnGroupDef.escort.gatherMs`; `src/content/data/waves.ts`, `src/sim/waves.ts` `groupMembers` và `scripts/balance/load.ts` xếp giống nhau): lính rời cổng trước, cách nhau `gatherMs`, rồi mới tới tướng; lính chờ tướng trên đường rồi vây quanh nó.
+- **V0** (`aaed85a`): đợt 5, G01 giữa 2 Yêu Rêu Lính, gom cách nhau đúng một thời gian từ của người gõ tham chiếu (2643 ms). Đỉnh ngắn của kế hoạch giữ 1,00 (G01 một mình cũng 1,00). Con Lính cuối của đỉnh 3 chuyển sang Đường Cầu để đường chính giữ dải 02 §5.5 (Đường Suối 73,3 → 70,4 %). Đợt 5 dài 72 → 75 s, tải 0,90 → 0,93, W_gõ 24,4 → 26,4.
+- **V1** (`35ae539`, biến thể 1 trên V0): 2 W của toán thành sức ép (D33 (4): "đợt 5–6 thêm sức ép từ (2)"). `rate` của đợt 5 100 → 104: đợt giữ 73 s, tải 0,90 → 0,96, đỉnh kế hoạch 1,00 → 1,06 (trần `fit100`), dưới trần 1,15.
+- **V2** (cây tạm `v2-src`, biến thể 2): toán đúng chữ của 02 §5.2, "lính trước và sau 1 s" (lính trước, tướng sau 1 s, lính sau sau 2 s), `rate` 100. Đỉnh kế hoạch 1,71 / 1,54 / 1,43 ở cửa sổ 6 / 8 / 10 s.
+- Test mới: toán đi và cắm cờ (`tests/sim/battle-auras.test.ts`: lính rời cổng trước, giữ 2 m trước và sau, G01 cắm cờ khi đủ 4 s, lính đi tiếp khi G01 chết); toán của đợt 5 (`battle-waves.test.ts`; V1 thêm: đợt 5 ≤ 73 s, tải ≥ 0,95); tải của toán gom (`bot-load.test.ts`). Golden cập nhật bằng `pnpm dh:golden:update` ở cả hai commit: `EnemyState` có thêm trường toán nên mã băm đổi từ con quái đầu; nhật ký `sloppy-hard-off-seed3` 623 → 610 lệnh (V0), giữ 610 (V1). `pnpm check` 407/407 ở cả hai.
+
+### 4.2 Vì sao toán gom, không phải toán 1 s
+
+Thước đỉnh ngắn của 00 §4.4 tính việc gõ từ lúc quái rời cổng. G01 có 6 W, người gõ tham chiếu cần 16 s, nên G01 một mình đã đọc 1,00 ở mọi cửa sổ. Một con Lính còn sống cạnh G01 là việc gõ chồng lên chuỗi của nó (`squadpeak.ts`):
+
+| Cách xếp (giây so với lúc G01 rời cổng) | Đỉnh 6 / 8 / 10 s |
+|---|---|
+| G01 một mình | 1,00 / 1,00 / 1,00 |
+| 02 §5.2: Lính −1 s và +1 s | **1,71** / 1,54 / 1,43 |
+| Một Lính +1 s (đi sau) | 1,44 / 1,33 / 1,26 |
+| Một Lính −1,5 s | 1,19 / 1,14 / 1,11 |
+| Hai Lính −1,5 / −3 s | 1,38 / 1,29 / 1,23 |
+| Hai Lính gom −2,64 / −5,29 s (V0, V1) | 1,01 / 1,00 / 1,00 |
+
+Trong trận, bộ điều nhịp co khoảng sinh nên đỉnh đo được cao hơn kế hoạch khoảng 0,3: đợt 5 của mốc đọc 1,34, kế hoạch 1,00. Vậy chỉ toán gom giữ được trần 1,15 của kế hoạch và G9 (≤ 1,40) trong trận. Nhưng với toán gom, người gõ tham chiếu có đủ thời gian gõ từng con Lính trước khi con sau tới, nên hai Lính thường đã chết trước khi G01 được 4 s. Chữ của Lính hiện khi nó còn đứng chờ tướng trong vòng 26 m: ở trình duyệt, lúc G01 vừa rời cổng, con Lính cách cổng 9,0 m đã có chữ.
+
+### 4.3 Cả ải, Cân bằng, 120 seed
+
+Mỗi ô ghi Thắng / S / P / I / O / N / Q (%, N là số lần). `v0-all.json`, `v1-all.json` (cả ba chế độ, 2 × 60 seed), `v2-bal.json` (Cân bằng); `table-all.md`, `cmp-base-v0-all.txt`, `cmp-base-v1.txt`, `cmp-base-v2.txt`.
+
+| Bot | Mốc `83da970` | V0 (`aaed85a`) | V1 (`35ae539`) | V2 (cây tạm) | Hạ quái (s) |
+|---|---|---|---|---|---|
+| b25 | 85,8 / 70,6 / 20,3 / 18,5 / 0 / 0,42 / 40,9 | 80,8 / 68,6 / 20,7 / 18,4 / 0 / 0,46 / 40,9 | 84,2 / 65,9 / 20,6 / 18,4 / 0 / 0,47 / 40,7 | 80,8 / 64,7 / 20,5 / 19,0 / 0 / 0,46 / 41,0 | 5,3 → 5,4 → 5,4 → 5,4 |
+| Chuẩn (b35) | 86,7 / 60,1 / 21,3 / 20,8 / 0 / 0,48 / 38,4 | 85,8 / 63,1 / 21,1 / 20,8 / 0 / 0,42 / 38,4 | 85,0 / 62,6 / 20,9 / 20,8 / 0 / 0,41 / 38,4 | 85,8 / 60,5 / 21,0 / 20,9 / 0 / 0,44 / 38,6 | 4,2 ở cả bốn |
+| b60 | 77,5 / 36,1 / 31,3 / 29,5 / 0 / 0,76 / 48,4 | 75,8 / 35,4 / 31,0 / 29,5 / 0 / 0,78 / 48,4 | 79,2 / 38,8 / 31,0 / 29,7 / 0 / 0,76 / 48,4 | 88,3 / 39,4 / 30,7 / 30,6 / 0 / 0,72 / 48,4 | 3,6 ở cả bốn |
+| Mới | 72,5 / 61,2 / 23,9 / 16,4 / 0 / 0,85 / 42,7 | 74,2 / 56,4 / 23,9 / 16,7 / 0 / 0,85 / 42,2 | 75,0 / 61,4 / 23,9 / 16,4 / 0 / 0,75 / 42,6 | 74,2 / 61,1 / 23,7 / 16,9 / 0 / 0,88 / 42,7 | 6,1 → 6,0 → 6,1 → 6,1 |
+| Chậm chắc | 94,2 / 63,5 / 19,9 / 18,8 / 0 / 0,29 / 40,0 | 88,3 / 66,2 / 20,0 / 18,7 / 0 / 0,37 / 40,2 | 89,2 / 62,4 / 20,2 / 18,6 / 0 / 0,38 / 40,2 | 90,0 / 61,7 / 20,2 / 18,9 / 0 / 0,42 / 40,0 | 4,9 → 5,0 → 5,0 → 5,0 |
+| Khá | 75,8 / 47,5 / 23,7 / 26,6 / 0 / 0,78 / 37,6 | 75,8 / 43,4 / 23,9 / 26,5 / 0 / 0,78 / 37,8 | 71,7 / 49,8 / 23,8 / 26,5 / 0 / 0,62 / 37,6 | 74,2 / 50,2 / 23,6 / 27,4 / 0 / 0,73 / 37,5 | 3,9 → 3,9 → 4,0 → 3,9 |
+| Ẩu | 73,3 / 61,2 / 23,8 / 16,2 / 0,2 / 0,65 / 37,7 | 74,2 / 60,8 / 24,2 / 16,2 / 0,2 / 0,61 / 37,4 | 72,5 / 61,5 / 24,2 / 16,3 / 0,2 / 0,79 / 37,6 | 69,2 / 61,0 / 24,1 / 16,4 / 0,2 / 0,68 / 37,8 | 5,3 ở cả bốn |
+| Nhanh | 90,0 / 44,5 / 30,3 / 30,7 / 0 / 0,72 / 48,4 | 86,7 / 48,3 / 29,7 / 31,2 / 0 / 0,41 / 48,7 | 90,0 / 45,6 / 29,7 / 31,3 / 0 / 0,50 / 48,4 | 84,2 / 44,9 / 30,1 / 31,7 / 0 / 0,64 / 48,6 | 3,5 → 3,4 → 3,4 → 3,4 |
+| Chuẩn tốt | 85,8 / 61,1 / 19,1 / 20,5 / 0 / 0,38 / 40,4 | 88,3 / 65,1 / 18,9 / 20,9 / 0 / 0,41 / 39,8 | 90,8 / 66,7 / 19,0 / 20,7 / 0 / 0,33 / 40,3 | 85,8 / 67,0 / 18,7 / 21,8 / 0 / 0,28 / 40,2 | 4,1 ở cả bốn |
+| Chuẩn kém | 40,8 / 0 / 22,1 / 18,8 / 0 / 2,39 / 48,4 | 39,2 / 0 / 21,9 / 19,1 / 0 / 2,43 / 48,8 | 43,3 / 0 / 22,1 / 18,9 / 0 / 2,50 / 49,2 | 37,5 / 0 / 21,9 / 19,5 / 0 / 2,35 / 48,4 | 4,6 ở cả bốn |
+| Chuẩn tắt nhịp (B7) | 84,2 / 67,4 / 20,5 / 22,2 / 0 / 0,26 / 38,1 | 76,7 / 64,0 / 20,8 / 22,1 / 0 / 0,28 / 38,5 | 82,5 / 65,9 / 20,7 / 22,2 / 0 / 0,28 / 38,2 | 80,8 / 64,0 / 20,8 / 22,4 / 0 / 0,24 / 38,3 | 4,2 → 4,3 → 4,2 → 4,3 |
+| Chỉ gõ | 0 / 0 / 24,8 / 17,7 / 0 / 0,53 / 47,7 | 0 / 0 / 25,0 / 17,8 / 0 / 0,47 / 47,8 | 0 / 0 / 25,1 / 17,7 / 0 / 0,48 / 47,9 | 0 / 0 / 25,0 / 17,9 / 0 / 0,51 / 47,7 | 5,1 ở cả bốn |
+| Không gõ | 0 / 0 / 70,2 / 4,5 / 0 / 0 / 76,2 | không đổi | không đổi | không đổi | 9,2 |
+| Trẻ em | 9,2 / 0 / 38,8 / 7,8 / 0 / 1,62 / 88,1 | 3,3 / 0 / 38,6 / 7,8 / 0 / 1,42 / 88,1 | 2,5 / 0 / 38,7 / 7,7 / 0 / 1,46 / 88,1 | 2,5 / 0 / 38,6 / 7,8 / 0 / 1,40 / 88,1 | 9,5 → 9,6 → 9,6 → 9,6 |
+
+- Thư giãn (V0, V1): mọi bot gõ vẫn thắng 100 %, Trẻ em 90,8 %.
+- Thử thách, mốc → V0 → V1: Chuẩn 60,0 → 55,8 → 63,3 %; Chậm chắc 81,7 → 72,5 → 71,7 %; Ẩu 53,3 → 46,7 → 55,0 %; Khá 69,2 → 70,0 → 76,7 %; Chuẩn tốt / kém 78,3 / 25,0 → 76,7 / 21,7 → 76,7 / 25,8 %.
+- 300 seed (2 × 150; Chậm chắc, Ẩu, Mới, Chuẩn; `b4-v1-300.json`, `b4-v2-300.json`), mốc → V1 → V2: S Chậm chắc so với Ẩu 64,3 / 61,1 → 63,8 / 60,9 → 61,7 / 59,4; hạ quái Chuẩn so với Ẩu 4,29 / 5,31 → 4,29 / 5,31 → 4,29 / 5,33 s; Chuẩn thắng 81,7 → 81,3 → 82,7 %; Mới thắng 80,0 → 76,3 → 74,0 %. Mốc 300 seed lấy từ `s2-d31/b4-v2-300.json`, nơi bốn bot này trùng mốc từng số.
+- Số thua ở đợt 4 cũng đổi (ví dụ Mới 17 → 14) dù đợt 1–4 không đổi: vàng mỗi lần hạ quái chia theo tổng đe dọa của ải (`stageThreat10`), nay có thêm 2 Lính, nên mỗi lần hạ ở đợt 1–4 được ít vàng hơn một chút và bot mua khác từ đầu ải.
+
+### 4.4 Cổng (mốc → V0 → V1 → V2)
+
+| Cổng | Mốc | V0 | V1 | V2 | |
+|---|---|---|---|---|---|
+| G1 (b35 thắng 75–90 %) | 86,7 % | 85,8 % | 85,0 % | 85,8 % | đạt |
+| G3 (b25 ≥ 70 %) | 85,8 % | 80,8 % | 84,2 % | 80,8 % | đạt |
+| G5 (chỉ gõ ≤ 40 %) | 0 % | 0 % | 0 % | 0 % | đạt |
+| G6 (không gõ thua trước đợt 3) | 120/120 ở đợt 1 | như cũ | như cũ | như cũ | đạt |
+| G8 (phe ta 20–35 %) / G8b | 30,3 / 69,7 % | 30,2 / 69,8 % | 30,0 / 70,0 % | 30,1 / 69,9 % | đạt |
+| **G9** (tải đỉnh ≤ 1,40) | 1,40 (đợt 10) | 1,40 | 1,40 | **1,73** (đợt 5) | **V2 gãy** |
+| G9b, G10, G11, G13, G13b, G15 | đạt | đạt | đạt | đạt | G11 1,2 → 1,3 → 1,1 → 1,0 %; G13 1325 ± 15 %: 1328 / 1321 / 1319 vàng |
+| G16 (cổng từ ải 15) | 171,5 s | 167,0 s | 168,7 s | 167,2 s | trượt như cũ |
+| B2 | đạt | đạt | đạt | đạt | |
+| B3 | Mới 73 %, Trẻ em Thư giãn 91 % | 74 % / 91 % | 75 % / 91 % | 74 % / (chưa chạy Thư giãn) | đạt |
+| B4 | S 64 so với 61; hạ quái 4,21 so với 5,25 s | 66 so với 61; 4,23 so với 5,28 s | 120 seed: 62,4 so với 61,5; **300 seed: 63,8 so với 60,9** | 120 seed: 61,7 so với 61,0; 300 seed: 61,7 so với 59,4 | đạt (V1, V2 sát nên chạy 300 seed) |
+| B5, B8 | đạt | đạt | đạt | B8 đạt; B5: Không gõ thua 100 % ở Cân bằng (chưa chạy hai chế độ kia) | |
+| B6 | Tốt / Kém 86 / 41 % (Cân bằng), 78 / 25 % (Thử thách) | 88 / 39 %, 77 / 22 % | 91 / 43 %, 77 / 26 % | 86 / 38 % (Cân bằng) | đạt |
+| B7, phần bộ điều nhịp | đạt | đạt | đạt | đạt | |
+| B1 theo dải D27 | 6 ô lệch | 6 ô | 5 ô | 6 ô | không xấu thêm |
+| B7 theo dải D27 (bot tắt nhịp) | 2 ô (S cao, I cao) | 1 ô (I cao) | 2 ô | 1 ô | không xấu thêm |
+
+B1 theo dải D27, bot lệch: mốc như các bước trước (Mới thắng thấp, Chậm chắc thắng cao, Chuẩn I cao, Khá I cao, Ẩu thắng thấp, Nhanh I cao). V0: Chậm chắc đổi từ thắng cao sang S cao (66,2 %), còn lại như mốc. V1: Mới và Chậm chắc vào dải; Khá thêm thắng thấp (71,7 %). V2: như mốc, trừ Chậm chắc vào dải và Khá thêm thắng thấp. Hai bộ seed cho cùng kết quả từng cổng. Đỉnh ngắn đo được ở đợt 5 (lớn nhất qua mọi lượt; bot Chuẩn; Chuẩn tắt nhịp): mốc 1,34; 1,33; 1,00 → V0 1,32; 1,27; 1,01 → V1 1,32; 1,28; 1,06 → V2 **1,72**; 1,71; 1,71.
+
+### 4.5 Đợt 5 (mục tiêu của bước)
+
+Cân bằng, 2 × 60 seed (`perwave.ts`, nay đếm thêm sự kiện cờ theo đợt; `w5-all.md`). Thua: số lượt thua ở đợt 5 trên số lượt vào đợt. Héo: máu mất do Héo lan mỗi lượt. Cắm: số lần cắm mỗi lượt và phần lượt có ít nhất một lần cắm. Cờ gõ: từ cờ gõ được mỗi lượt. Mốc → V0 → V1 → V2:
+
+| Bot | Thua | S | P | I | Héo | Cắm / lượt (lượt có cắm) | Cờ gõ / lượt |
+|---|---|---|---|---|---|---|---|
+| Mới | 1 → 8 → 8 → 7 /105 | 49,3 → 48,8 → 48,0 → 46,9 | 14,6 → 17,0 → 17,4 → 16,8 | 17,1 → 15,5 → 14,6 → 18,6 | 153 → 184 → 185 → 203 | 0,02 → 0,22 → 0,23 → 0,89 (2 → 21 → 23 → 81 %) | 0,01 → 0,15 → 0,15 → 0,71 |
+| Chậm chắc | 1 → 3 → 4 → 1 /117 | 55,7 → 54,3 → 53,5 → 53,6 | 11,0 → 11,9 → 12,1 → 12,3 | 19,9 → 18,9 → 18,3 → 21,9 | 117 → 139 → 137 → 156 | 0,01 → 0,07 → 0,08 → 0,66 (1 → 7 → 7 → 63 %) | 0,00 → 0,05 → 0,06 → 0,62 |
+| Chuẩn | 1 → 1 → 1 → 1 /115 | 54,1 → 53,6 → 51,6 → 52,1 | 10,5 → 11,1 → 11,7 → 11,5 | 23,6 → 24,7 → 23,9 → 26,2 | 104 → 124 → 133 → 149 | 0,00 → 0,03 → 0,04 → 0,74 (0 → 3 → 4 → 74 %) | 0,00 → 0,03 → 0,04 → 0,71 |
+| Khá | 0 /117 ở cả bốn | 58,8 → 57,7 → 57,9 → 60,1 | 18,5 → 17,8 → 18,5 → 15,2 | 29,6 → 30,0 → 29,0 → 37,0 | 175 → 181 → 191 → 151 | 0,00 → 0,50 → 0,47 → 0,25 (0 → 50 → 47 → 25 %) | 0,00 → 0,50 → 0,47 → 0,25 |
+| Ẩu | 1 → 2 → 3 → 5 /104 | 54,8 → 51,1 → 50,0 → 48,7 | 13,0 → 15,4 → 17,0 → 16,8 | 15,7 → 16,5 → 15,4 → 16,1 | 118 → 166 → 183 → 200 | 0,00 → 0,16 → 0,19 → 0,85 (0 → 16 → 19 → 82 %) | 0,00 → 0,15 → 0,18 → 0,80 |
+| Nhanh | 1 → 5 → 4 → 3 /120 | 56,6 → 59,8 → 58,5 → 58,6 | 23,1 → 21,3 → 21,5 → 21,0 | 32,6 → 35,8 → 35,5 → 40,1 | 172 → 146 → 144 → 164 | 0,22 → 0,15 → 0,12 → 0,33 (22 → 15 → 12 → 32 %) | 0,22 → 0,15 → 0,12 → 0,33 |
+| b25 | 0 → 5 → 3 → 6 /107 | 55,8 → 55,3 → 53,6 → 52,7 | 10,7 → 12,2 → 12,4 → 12,8 | 19,3 → 18,3 → 17,5 → 22,5 | 111 → 139 → 141 → 160 | 0,01 → 0,11 → 0,08 → 0,80 (1 → 9 → 7 → 76 %) | 0,01 → 0,08 → 0,07 → 0,71 |
+| b60 | 0 → 7 → 5 → 4 /119 | 56,2 → 59,8 → 57,4 → 58,9 | 23,3 → 22,3 → 22,6 → 20,8 | 32,6 → 33,5 → 33,1 → 40,2 | 171 → 166 → 171 → 156 | 0,07 → 0,32 → 0,33 → 0,11 (7 → 32 → 33 → 10 %) | 0,07 → 0,32 → 0,33 → 0,10 |
+| Chuẩn tắt nhịp | 0 → 5 → 2 → 5 /104 | 56,4 → 50,8 → 51,6 → 50,3 | 10,0 → 11,8 → 11,5 → 12,3 | 24,0 → 25,0 → 24,1 → 25,7 | 95 → 137 → 129 → 156 | 0,00 → 0,01 → 0,02 → 0,73 (0 → 1 → 2 → 73 %) | 0,00 → 0,01 → 0,02 → 0,71 |
+
+O vẫn 0 ở mọi bot; N 0,01–0,27 như mốc; Q giảm 0–6 điểm. Cờ bị ngắt khi đang cắm 0–0,02 lần mỗi lượt.
+
+- **Cờ được cắm và gõ**: V0, V1 chỉ đạt với người tụt sau nhịp tham chiếu hoặc người nhắm tướng trước (Khá 47–50 % lượt, b60 32–33 %, Mới 21–23 %). Với Chuẩn chỉ 3–4 % lượt, Chậm chắc 7 %. V2 đạt ở mọi bot gõ chậm và vừa (63–82 % lượt), mỗi lần cắm gần như đều có từ cờ được gõ.
+- **Đợt 5 bớt nhàn**: không đạt ở bản nào. V1 là bản tốt nhất: P lên 1–4 điểm ở 6 bot, I xuống 1,6–2,5 điểm ở Mới, Chậm chắc, b25. Nhưng I của Chuẩn 23,6 → 23,9, của Nhanh 32,6 → 35,5. V2 làm I lên ở 8/9 bot (Chuẩn +2,6, Khá +7,4, Nhanh +7,5, b60 +7,6): toán tới cùng lúc rồi để lại quãng lặng dài hơn, vì các đỉnh sau dời muộn thêm 5,3 s.
+- Nhàn của Chuẩn ở đợt 5 không nằm ở chỗ toán đi (`idle5-all.md`, phần trăm thời gian đợt, mốc → V1): chờ vòng 26 m sau chữ đầu 3,8 → 4,9; mọi quái ngoài cả vòng lẫn T_a 6,6 → 6,8; trong vùng nhưng chưa có chữ 4,6 → 4,3; sân trống 3,4 → 2,5.
+- **Bậc khó mới ở đợt 5**: thua ở đợt 5 tăng ở mọi bản (Mới 1 → 7–8, b60 0 → 4–7, Chuẩn tắt nhịp 0 → 2–5), Héo của người gõ chậm tăng 20–50 máu mỗi lượt (Ẩu 118 → 166–200). Cả ải thì không lệch ngoài độ nhiễu, vì một phần lượt thua dời từ đợt sau lên đợt 5.
+
+### 4.6 Biến thể đã thử
+
+| Bản | Khác gì | Kết quả (Cân bằng, 120 seed) |
+|---|---|---|
+| V0 (`aaed85a`) | Toán gom 2 Lính, một thời gian từ; `rate` 100; đợt 75 s | Mọi cổng đạt, B1 6 ô, B4 66 so với 61. Cắm cờ ở Chuẩn 3 % lượt; đợt 5 I của Chuẩn 23,6 → 24,7 |
+| V1 (`35ae539`) | Như V0, `rate` 104: đợt 73 s, tải 0,96 | Mọi cổng đạt, B1 5 ô, B4 300 seed 63,8 so với 60,9. Cắm cờ ở Chuẩn 4 % lượt; đợt 5 I của Chuẩn 23,9 |
+| V2 (cây tạm) | Toán 02 §5.2: Lính trước và sau 1 s | **G9 1,73**, đỉnh kế hoạch 1,71 vượt trần 1,15. Cắm cờ ở Chuẩn 74 % lượt; đợt 5 I của Chuẩn 26,2 |
+
+Không thử thêm. Với luật cắm cờ như nay, cắm được cần ≥ 2 quân còn sống trong 5 m khi G01 đã được 4 s. Với người gõ tham chiếu, đó là việc gõ chưa xong chồng lên chuỗi 6 W của G01: đỉnh kế hoạch ≥ 1,44 nếu có một con đi sau, 1,71 nếu theo đúng 02 §5.2, cộng thêm khoảng 0,3 do bộ điều nhịp co trong trận. Vậy mọi toán cắm được cờ trước mặt bot Chuẩn đều vượt trần 1,15 của đợt giữa và gãy G9. Toán nào giữ được hai trần đó thì người gõ tham chiếu đã gõ hết lính trước khi G01 cắm. Có một cách làm đỉnh đọc thấp: cho lính rời cổng sớm nhưng đứng chờ ở cổng, ngoài Vùng Chữ. Tôi không dùng, vì như vậy chỉ đánh lừa thước đo: chữ của cả toán vẫn hiện gần như cùng lúc như toán 1 s.
+
+### 4.7 Trình duyệt
+
+Vite riêng ở 127.0.0.1:4151 `--strictPort`, mã của V1 (cây làm việc, đúng mã của `35ae539`), đã tắt sau khi chạy. Kịch bản tạm `wave5.mjs` (thư mục bằng chứng) chạy qua `heavy.sh --gpu node scripts/visual/cdp-run.mjs`, 1280×720 rồi 1920×1080 trong cùng một lượt, 35 WPM. Đợt 1–4 chạy nhanh trong trang. Ở đợt 5, kịch bản gõ mọi chữ trừ chữ của toán và từ cờ, để toán còn nguyên quanh G01. Chuỗi của G01 gõ bằng phím thật; lúc gõ phím cuối, kịch bản chụp 16 khung liền nhau. Kết quả (`browser-run.json`): `ok`, 0 exception, 0 tài nguyên lỗi, mã băm phát lại khớp ở cả hai cỡ.
+
+- Lúc G01 rời cổng (22,6 s sau khi đợt 5 bắt đầu), hai Lính đứng chờ trên đường, cách cổng 5,0 m và 9,0 m. Khi G01 được 5,8 s, cờ đã cắm cách bệ 23,7 m. Lúc gõ phím cuối của G01, một Lính cách nó 2,0 m phía trước và một Lính 2,0 m phía sau; khi G01 chết, cả hai đi tiếp.
+- `w5-squad-walk-1920x1080.png`: thẻ ra mắt "TƯỚNG ĐỊCH MỚI · Yêu Rêu Cầm Cờ" có vương miện, ở góc phải trên, đọc rõ. Trên sân, nhãn "Cắm Cờ", từ cờ "team" có biểu tượng cờ, chữ "write" trong chuỗi của G01, chữ của hai Lính "city" và "home"; bốn thẻ không che nhau, không che HUD.
+- `death-frames-1280x720/f-00.jpg`: thẻ ra mắt của G01 đọc rõ, toán ở giữa đường phía tây, không bị thẻ che.
+- `death-frames-*/crops.jpg` (cắt và phóng quanh toán): ở f00, G01 sáng cam (đang khóa) giữa hai Lính; f01 chớp trúng đòn (số 60); f02–f05 thân đổi màu rêu và chìm; f06–f07 tan thành rêu; từ f08 thân hết. Hai Lính đứng hai bên, không che thân đang chết. Thẻ "need", "listen" ("city", "home" ở 1920) của Lính và từ cờ "play" ("team") nằm trên, không đè chỗ G01 chết. Cái chết 1,5 s đọc được khi có toán quanh nó, ở cả hai cỡ.
+- Thẻ ra mắt hiện muộn trong kịch bản: lúc G01 rời cổng, góc phải còn thẻ "QUÁI MỚI · Ong Gai" (1280) hay "Kiến Gai" (1920), dồn lại từ lúc chạy nhanh đợt 1–4. Thẻ G01 lên sau đó: ở 1920 đã lên khi G01 được 5,8 s; ở 1280 chưa lên lúc 5,8 s, đã lên lúc 8,6 s. Mã thẻ ra mắt không đổi trong bước này, và thẻ của Lính đã ra ở đợt 1. Đây là chỗ hở của kịch bản, không phải của toán.
+
+### 4.8 Kết luận, chờ anh
+
+- **Không giữ.** Hai bản giữ cổng (V0, V1) không đạt mục tiêu của bước. Cờ chỉ được cắm khi người chơi tụt sau nhịp tham chiếu hay nhắm tướng trước (Chuẩn 3–4 % lượt), và đợt 5 không bớt nhàn với Chuẩn và người gõ nhanh. Bản đạt phần cắm cờ (V2, toán đúng 02 §5.2, Chuẩn 74 % lượt) gãy G9 (1,40 → 1,73) và vượt trần đỉnh 1,15 của đợt giữa (kế hoạch 1,71). Nó cũng làm đợt 5 nhàn hơn. B4 đạt ở cả ba bản (300 seed: 63,8 so với 60,9 ở V1; 61,7 so với 59,4 ở V2).
+- Gốc của việc này: thước đỉnh ngắn của 00 §4.4 đã coi G01 một mình là 1,00 trong 16 s. Luật cắm cờ cần quân sống cạnh nó sau 4 s. Hai điều đó chỉ gặp nhau khi người chơi gõ chậm hơn nhịp tham chiếu.
+- Anh cần chọn một trong ba:
+  - (a) Giữ V1 như một bước nhỏ: toán có mặt và cắm cờ khi người chơi tụt nhịp. Mọi cổng như mốc hay tốt hơn (B1 6 → 5 ô), nhưng mục tiêu "cờ hiện, đợt 5 bớt nhàn" chưa đạt với Chuẩn.
+  - (b) Ghi ngoại lệ cho toán của tướng vào 00 §4.4 và G9 (ví dụ "toán hộ tống tướng tính đỉnh riêng"), rồi giữ V2. Khi đó cờ hiện ở 63–82 % lượt; đổi lại đỉnh đợt 5 là 1,72 trong trận, và đợt 5 cần được kéo ngắn lại để không nhàn hơn.
+  - (c) Đổi luật cắm cờ (ví dụ cắm cả khi chỉ có 1 quân trong 5 m, hoặc sớm nhất 2 s thay cho 4 s), rồi đo lại cùng V1. Hướng này ngoài chữ "luật cờ giữ như nay" của bước này.
+- Bậc khó mới ở đợt 5 (thua ở đợt 5: Mới 1 → 8, b60 0 → 5–7) đi kèm mọi bản có toán. Nếu giữ bản nào thì cần xem lại cùng hướng (4).
