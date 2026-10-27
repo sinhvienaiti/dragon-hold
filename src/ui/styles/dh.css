@@ -1323,18 +1323,26 @@ body {
 .dh-slotchip__pips {
   position: absolute;
   left: 50%;
-  bottom: calc(-8px * var(--ui));
+  bottom: calc(-11px * var(--ui));
   translate: -50% 0;
   display: flex;
   gap: calc(2px * var(--ui));
+  /* A dark pill: the lit pips must read over the pale blue house below. */
+  padding: calc(2px * var(--ui)) calc(3px * var(--ui));
+  border-radius: calc(5px * var(--ui));
+  background: rgba(20, 15, 11, 0.85);
+}
+
+.dh-slotchip__pips:empty {
+  display: none;
 }
 
 .dh-slotchip__pips i {
   width: calc(6px * var(--ui));
   height: calc(6px * var(--ui));
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.65);
-  box-shadow: inset 0 0 0 1px var(--dh-house);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(159, 209, 232, 0.6);
 }
 
 .dh-slotchip__pips i.is-on {
