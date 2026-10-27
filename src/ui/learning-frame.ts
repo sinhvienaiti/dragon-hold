@@ -34,7 +34,17 @@ export function wordLevel(word: { readonly group: string; readonly recalls: numb
 export function shortMeaning(vi: string): string {
   const first = (vi.split(";")[0] ?? "").replace(/\s*\([^)]*\)/g, "").trim();
   const max = LEARNING.meaningMaxChars;
-  return first.length <= max ? first : first.slice(0, max - 1).trimEnd() + "…";
+  if (first.length <= max) return first;
+  // Whole senses up to the first comma that no longer fits: "yêu, thương, yêu thương" → "yêu, thương"
+  // (test pass 26/10: the tag read "yêu, thương, yêu thươ…").
+  const senses = first.split(",").map((part) => part.trim()).filter((part) => part !== "");
+  let kept = "";
+  for (const sense of senses) {
+    const next = kept === "" ? sense : kept + ", " + sense;
+    if (next.length > max) break;
+    kept = next;
+  }
+  return kept !== "" ? kept : first.slice(0, max - 1).trimEnd() + "…";
 }
 
 export interface FrameWord {
@@ -320,7 +330,9 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
         }
       }
       // "small (nhỏ) · big (to, lớn)": HTML collapses runs of spaces, so entries need a visible separator.
-      const recentNext = q.recent.map((item) => item.text + " (" + shortMeaning(item.vi) + ")").join(" · ");
+      // At 720p the line holds two words whole; the third was cut to "city (…" (test pass 26/10).
+      const room = (el.ownerDocument.defaultView?.innerHeight ?? 1080) < 820 ? 2 : LEARNING.recentNewWords;
+      const recentNext = q.recent.slice(0, room).map((item) => item.text + " (" + shortMeaning(item.vi) + ")").join(" · ");
       if (recentNext !== recentKey) {
         recentKey = recentNext;
         recent.textContent = recentNext === "" ? "" : "Vừa học: " + recentNext;

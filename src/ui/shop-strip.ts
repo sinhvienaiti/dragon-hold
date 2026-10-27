@@ -165,7 +165,8 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
   let world: World | null = null;
   let cells: StripCell[] = [];
   let hover: string | null = null;
-  let flash: { text: string; until: number } | null = null;
+  /** A notice in the info line; `html` is trusted markup built here (key chips). */
+  let flash: { text: string; until: number; html?: string } | null = null;
   let now = 0;
 
   const strip = el(doc, "section", "dh-panel dh-strip");
@@ -209,7 +210,12 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
     }
     if (viaKey && (armed === null || armed.id !== cell.id || now > armed.until)) {
       armed = { id: cell.id, until: now + CONFIRM_MS };
-      flash = { text: "Bấm " + cell.key + " lần nữa để mua " + cell.nameVi + " (" + (cell.price ?? 0) + " vàng)", until: armed.until };
+      // "Bấm 6 lần nữa" read as "press six more times" (test pass 26/10): the key goes in a chip, pressed once again.
+      flash = {
+        text: "Bấm lại phím " + cell.key + " để mua " + cell.nameVi + " (" + (cell.price ?? 0) + " vàng)",
+        html: `Bấm lại <span class="dh-key">${cell.key}</span> để mua ${cell.nameVi} (${cell.price ?? 0} vàng)`,
+        until: armed.until,
+      };
       nodes.get(cell.id)?.button.classList.add("is-armed");
       return;
     }
@@ -282,12 +288,12 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
     }
     // Info line: a notice, the hovered cell, or the keys.
     let html: string;
-    if (flash && now < flash.until) html = `<b>${flash.text}</b>`;
+    if (flash && now < flash.until) html = `<b>${flash.html ?? flash.text}</b>`;
     else {
       const cell = hover ? cells.find((entry) => entry.id === hover) : undefined;
       html = cell
         ? `<b>${cell.nameVi}</b> · ${cell.effect}` + (cell.reason ? ` · <b>${cell.reason}</b>` : "")
-        : `Phím <b>1–${Math.min(9, cells.length)}</b> chọn món · <b>\`</b> sửa món đã đặt`;
+        : `Phím <b>1–${Math.min(9, cells.length)}</b> chọn món · <span class="dh-key">\`</span> sửa món đã đặt`;
     }
     if (info.innerHTML !== html) info.innerHTML = html;
   };

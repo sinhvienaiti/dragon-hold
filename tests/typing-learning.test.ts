@@ -240,6 +240,8 @@ describe("learning frame (01 §6.3)", () => {
     expect(q.recent.map((item) => item.text)).toEqual(["fig", "egg", "dog"]);
     expect(shortMeaning("tốt; hay")).toBe("tốt");
     expect(shortMeaning("một cái tên rất dài hơn hai mươi hai ký tự")).toHaveLength(LEARNING.meaningMaxChars);
+    // Whole senses, never a cut word (test pass 26/10: "yêu, thương, yêu thươ…").
+    expect(shortMeaning("yêu, thương, yêu thương")).toBe("yêu, thương");
   });
 
   it("speaks on one channel: ≥ 2.5 s apart, drops what waited 2 s, new words first", () => {

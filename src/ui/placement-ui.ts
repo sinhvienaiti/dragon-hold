@@ -526,9 +526,12 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
       const info = placeableInfo(slot.item);
       children.push(el(doc, "span", "dh-title", info.nameVi + " · cấp " + slot.level));
       const cost = upgradeCost(slot.item, slot.level);
-      const up = uiButton(doc, cost === null || cost > w.economy.gold ? "is-poor" : "", () => pressEdit("upgrade", menuSlot, true));
+      const short = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
+      const up = uiButton(doc, cost === null || short > 0 ? "is-poor" + (short > 0 ? " is-short" : "") : "", () => pressEdit("upgrade", menuSlot, true));
       up.innerHTML = `<span class="dh-key">=</span>`;
-      up.append(el(doc, "span", "", menuArmed?.action === "upgrade" ? "Bấm lần nữa để nâng" : cost === null ? "Cấp tối đa" : "Nâng cấp " + (slot.level + 1)), el(doc, "span", "", cost === null ? "" : String(cost)));
+      // Short of gold: the whole row dims and says by how much, like the carry strip (test pass 27/10).
+      const upLabel = menuArmed?.action === "upgrade" ? "Bấm lần nữa để nâng" : cost === null ? "Cấp tối đa" : "Nâng cấp " + (slot.level + 1) + (short > 0 ? " · thiếu " + short + " vàng" : "");
+      up.append(el(doc, "span", "", upLabel), el(doc, "span", "", cost === null ? "" : String(cost)));
       if (cost === null) up.disabled = true;
       const sell = uiButton(doc, "", () => pressEdit("sell", menuSlot, true));
       sell.innerHTML = `<span class="dh-key">-</span>`;
@@ -641,8 +644,9 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         const info = placeableInfo(cursorSlot.item);
         titleText = info.nameVi + " · cấp " + cursorSlot.level;
         const cost = upgradeCost(cursorSlot.item, cursorSlot.level);
+        const lack = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
         lines.push({
-          html: cost === null ? "Cấp tối đa" : `<span class="dh-key">=</span> nâng cấp ${cursorSlot.level + 1}: <span class="dh-money">${cost} vàng</span>`,
+          html: cost === null ? "Cấp tối đa" : `<span class="dh-key">=</span> nâng cấp ${cursorSlot.level + 1}: <span class="dh-money">${cost} vàng</span>` + (lack > 0 ? ` · <b>thiếu ${lack} vàng</b>` : ""),
         });
         lines.push({ html: `<span class="dh-key">-</span> bán: <span class="dh-money">+${sellRefund(w, cursor)} vàng</span>` });
         if (armed && armed.slot === cursor) {

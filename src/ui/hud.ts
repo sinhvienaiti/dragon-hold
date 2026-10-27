@@ -199,6 +199,8 @@ export interface HudOptions {
   onPause?(): void;
   /** Camera back to the default view (Alt + 0); the button shows only when given. */
   onCameraReset?(): void;
+  /** The learning panel holding the break clock (00 §4.5), or null. */
+  heldBy?(): string | null;
 }
 
 export interface Hud extends Presenter, ActionHandler {
@@ -420,9 +422,14 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     if (phase === "prep") line = `Bày binh · <b>${keyLabel("enter")}</b> để bắt đầu`;
     else if (phase === "warning") line = `Đợt ${upcomingWave(w)} tới sau <b>${clockSeconds(left ?? 0)} s</b>`;
     else if (phase === "break") {
+      const held = options.heldBy?.() ?? null;
+      // No gold left in the stage's call-early pool: the line says only the call (test pass 27/10: "+0 vàng" in gold).
+      const bonus = left === null ? 0 : callEarlyBonus(left, callEarlyRoom(w));
       line = left === null
         ? `Nghỉ · <b>${keyLabel("enter")}</b> để vào đợt ${upcomingWave(w)}`
-        : `Nghỉ <b>${clockSeconds(left)} s</b> · ${keyLabel("call-early")} gọi sớm <span class="dh-bonus">+${callEarlyBonus(left, callEarlyRoom(w))} vàng</span>`;
+        : held !== null
+          ? `Nghỉ <b>${clockSeconds(left)} s</b> · đứng chờ khi mở ${held}`
+          : `Nghỉ <b>${clockSeconds(left)} s</b> · ${keyLabel("call-early")} gọi sớm` + (bonus > 0 ? ` <span class="dh-bonus">+${bonus} vàng</span>` : "");
     } else if (phase === "wave") line = `Đang giữ ải · đợt <b>${w.wave}</b>`;
     else if (phase === "victory") line = "Giữ ải thành công";
     else line = "Bệ Rồng thất thủ";
@@ -473,6 +480,8 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
       setVar(nodes.cool, "--cool", has ? slot.cool.frac.toFixed(3) : "0");
       setText(nodes.time, has && slot.cool.leftS > 0 ? String(slot.cool.leftS) : "");
       if (nodes.count) setText(nodes.count, has ? String(slot.count) : "");
+      // Low HP in a wave and this slot can heal now: it pulses (test pass 27/10: potions stayed unused at 30 % HP).
+      setClass(nodes.button, "is-hint", has && slot.cool.leftS === 0 && phase === "wave" && hpFrac * 100 < URGENT.heroHpPct && hero.hp > 0);
       const name = slot.item ? CONSUMABLES[slot.item].nameVi : "Ô trống";
       nodes.button.title = name + " (" + keyLabel(slot.action) + ")";
     });

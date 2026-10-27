@@ -73,9 +73,14 @@ function foeInfo(foe: FoeId): Omit<FoeTally, "count" | "elite"> {
   };
 }
 
-/** A foe's short name on the card: "Yêu Rêu Lính" → "Lính", "Sói Mục" → "Sói"; a general is "Tướng". */
+/**
+ * A foe's short name on the card: "Yêu Rêu Cung" → "Cung", "Sói Mục" → "Sói";
+ * "Yêu Rêu Lính" stays "Yêu Rêu" (test pass 26/10: "Lính" is our Vệ Binh's
+ * word, "Lính chặn 2 quái"); a general is "Tướng".
+ */
 export function shortFoeName(tally: Pick<FoeTally, "nameVi" | "general">): string {
   if (tally.general) return "Tướng";
+  if (tally.nameVi === "Yêu Rêu Lính") return "Yêu Rêu";
   const words = tally.nameVi.split(" ");
   return tally.nameVi.startsWith("Yêu Rêu ") ? words.slice(2).join(" ") : words[0] ?? tally.nameVi;
 }
@@ -120,10 +125,10 @@ export function summarizeWave(stage: StageDef, map: MapDef, n: number): WaveSumm
   return { n, waves: stage.waves.length, lanes, total, flyers, generals, durationMs: wave.durationMs, peaks: wave.peaks, beats, breather: wave.breather === true };
 }
 
-/** The wave-start banner line (05 §4.6): "Đợt 7 · 2 đường · có tướng địch". */
+/** The wave-start banner line (05 §4.6): "Đợt 7 · 2 đường · có tướng địch"; the last wave is "Đợt cuối" (test pass 27/10). */
 export function bannerText(summary: WaveSummary): string {
   const ground = summary.lanes.filter((lane) => !lane.sky && lane.count > 0).length;
-  const parts = ["Đợt " + summary.n];
+  const parts = [summary.n === summary.waves && summary.waves > 1 ? "Đợt cuối" : "Đợt " + summary.n];
   if (ground > 0) parts.push(ground + " đường");
   if (summary.flyers > 0) parts.push("có quái bay");
   if (summary.generals.length > 0) parts.push("có tướng địch");
@@ -351,10 +356,10 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
     if (startButton.innerHTML !== startHtml) startButton.innerHTML = startHtml;
     setShown(callButton, phase === "break" && !easyBreak);
     if (phase === "break" && left !== null) {
-      const callHtml =
-        `<span class="dh-key">${keyLabel("call-early")}</span>Gọi sớm ` +
-        `<span class="dh-bonus">+${callEarlyBonus(left, callEarlyRoom(w))} vàng</span>` +
-        (w.stage.unlocks.rage ? ` · +${RAGE.callEarlyX10 / 10} Long Nộ` : "");
+      // The stage's call-early gold can run out (00 §4.9's 15 % pool): then only the rage is offered (test pass 27/10).
+      const bonus = callEarlyBonus(left, callEarlyRoom(w));
+      const gains = [...(bonus > 0 ? [`<span class="dh-bonus">+${bonus} vàng</span>`] : []), ...(w.stage.unlocks.rage ? [`+${RAGE.callEarlyX10 / 10} Long Nộ`] : [])];
+      const callHtml = `<span class="dh-key">${keyLabel("call-early")}</span>Gọi sớm` + (gains.length > 0 ? " " + gains.join(" · ") : "");
       if (callButton.innerHTML !== callHtml) callButton.innerHTML = callHtml;
     }
     const hintText = phase === "warning" ? "Quái sắp vào từ các đường sáng" : phase === "prep" ? "Đặt bẫy, lính, nhà trước" : "";
@@ -369,6 +374,9 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       if (event.type !== "wave-start") continue;
       const summary = summarizeWave(w.stage, w.map, event.wave);
       setText(bannerTitle, summary ? bannerText(summary) : "Đợt " + event.wave);
+      // The last wave's banner is larger and stays twice as long.
+      const final = event.wave === w.stage.waves.length && w.stage.waves.length > 1;
+      setClass(banner, "is-final", final);
       setShown(banner, true);
       placeBanner();
       banner.classList.remove("is-on");
@@ -377,7 +385,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       const view = doc.defaultView;
       if (view) {
         view.clearTimeout(bannerTimer);
-        bannerTimer = view.setTimeout(() => setShown(banner, false), 1200);
+        bannerTimer = view.setTimeout(() => setShown(banner, false), final ? 2400 : 1200);
       }
     }
   };

@@ -61,7 +61,7 @@ describe("ui wave card summary (02 §5.6)", () => {
     expect(summary.lanes[2]!.foes[0]).toMatchObject({ foe: "thorn-wasp", flyer: true, gait: "flyer" });
     expect(summary.flyers).toBe(3);
     expect(summary.generals).toEqual(["moss-banner"]);
-    expect(bannerText(summary)).toBe("Đợt 2 · 2 đường · có quái bay · có tướng địch");
+    expect(bannerText(summary)).toBe("Đợt cuối · 2 đường · có quái bay · có tướng địch");
   });
 
   it("returns null past the last wave and still crowns generals of a wave without groups", () => {
