@@ -536,7 +536,7 @@ const CSS = `
 .dh-tag.is-shake .dh-tag__body { animation: dh-tag-shake 180ms linear; border-color: rgba(255, 140, 170, 0.95); }
 .dh-tag.is-tick .dh-tag__body { animation: dh-tag-tick 140ms ease-out; }
 .dh-tag.is-seep .dh-tag__body { border-color: #B58CFF; box-shadow: 0 0 0 2px rgba(150, 100, 220, 0.6), 0 0 12px rgba(150, 100, 220, 0.75), 0 2px 0 rgba(0, 0, 0, 0.55); }
-.dh-tag__word .j { display: inline-block; animation: dh-letter 170ms ease-out; }
+.dh-tag__word .j { display: inline-block; animation: dh-letter 170ms ease-out; animation-delay: var(--dh-letter-delay, 0ms); }
 .dh-tag.is-done .dh-tag__body { animation: dh-tag-done 160ms ease-in forwards; }
 .dh-tag.is-fold .dh-tag__body { animation: dh-tag-fold 200ms ease-in forwards; }
 .dh-tag.is-chip .dh-tag__body { border-style: solid; border-color: rgba(255, 244, 214, 0.7); }
@@ -880,8 +880,11 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
     let html = "";
     for (let k = 0; k < word.text.length; k += 1) {
       // "j": the letter just typed pops up and glows once (05 §4.3 "nảy"; test passes 26–27/10: only its colour changed).
-      const cls = (k < word.typed ? "t " : "") + (k < word.tier ? "f " : "") + (pink && k === word.typed ? "p " : "") + (word.errors >= 3 && k === word.typed ? "h " : "") + (ticking && k === tag.tickIndex ? "j" : "");
-      html += cls === "" ? word.text[k] : '<span class="' + cls.trim() + '">' + word.text[k] + "</span>";
+      const popping = ticking && k === tag.tickIndex;
+      const cls = (k < word.typed ? "t " : "") + (k < word.tier ? "f " : "") + (pink && k === word.typed ? "p " : "") + (word.errors >= 3 && k === word.typed ? "h " : "") + (popping ? "j" : "");
+      // A pink/meaning change replaces the span: resume the same pop at its elapsed time.
+      const delay = popping ? ' style="--dh-letter-delay:' + (-Math.max(0, now - tag.tickAt)).toFixed(1) + 'ms"' : "";
+      html += cls === "" ? word.text[k] : '<span class="' + cls.trim() + '"' + delay + ">" + word.text[k] + "</span>";
     }
     tag.word.innerHTML = html;
     tag.icon.innerHTML = svgIcon(style.icon);
