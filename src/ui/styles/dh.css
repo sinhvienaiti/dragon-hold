@@ -397,6 +397,13 @@ body {
   white-space: nowrap;
 }
 
+/* At 720p the column is ~39 px: "dẫn đường" (~54 px) ran under the ⌥1 slot; the tooltip keeps the full line. */
+@media (max-height: 820px) {
+  .dh-guide > span:last-child {
+    display: none;
+  }
+}
+
 .dh-guide .dh-icon {
   width: calc(24px * var(--ui));
   height: calc(24px * var(--ui));
