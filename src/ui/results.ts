@@ -15,6 +15,14 @@ import { el, icon, keyLabel, setClass, setShown, setText, uiButton } from "./ski
 
 export interface ResultsActions {
   retry(): void;
+  /**
+   * 00 §4.10: after two defeats in a row on a stage the screen offers one
+   * level easier, never forcing it. Returns the easier level's name, or null
+   * when there is no offer now (already Dễ, or not two defeats yet).
+   */
+  easierOffer?(): string | null;
+  /** Replays the stage one level easier (⇧↵ on the screen). */
+  easier?(): void;
   /** Says a word (kit/speech); the listen buttons show only when given. */
   listen?(text: string): void;
   /** Meaning and IPA for the list (the app's LearningClient.gloss). */
@@ -41,17 +49,23 @@ export interface WordRecord {
   best: Grade | null;
 }
 
-export type WordStatus = "new" | "miss" | "review" | "good";
+export type WordStatus = "new" | "fresh" | "miss" | "review" | "good";
 
-/** Status in Sổ Từ Ải (01 §6.5: mới học, gõ sai, cần ôn). */
+/**
+ * Status in Sổ Từ Ải (01 §6.5: mới học, gõ sai, cần ôn). A new word is "mới
+ * học" only once it was typed with no wrong key (the summary's "Từ mới đã
+ * học" counts the same); a new word met but never typed clean is "fresh"
+ * (test pass 27/10: the defeat screen called words never typed "Mới học").
+ */
 export function wordStatus(record: WordRecord): WordStatus {
-  if (record.group === "new") return "new";
+  if (record.group === "new" && record.clean > 0) return "new";
   if (record.errors > 0) return "miss";
+  if (record.group === "new") return "fresh";
   if (record.sloppy > 0 || record.hints > 0 || record.done === 0) return "review";
   return "good";
 }
 
-const STATUS_RANK: Readonly<Record<WordStatus, number>> = { new: 0, miss: 1, review: 2, good: 3 };
+const STATUS_RANK: Readonly<Record<WordStatus, number>> = { new: 0, fresh: 1, miss: 2, review: 3, good: 4 };
 
 /** Every word dealt in the run, from `word-assigned` and `word-complete`. */
 export class WordLog {
@@ -113,9 +127,30 @@ export interface ResultsSummary {
   readonly newLearned: number;
   readonly newMet: number;
   readonly mistyped: number;
+  /** Letter keys typed in the run. */
+  readonly keys: number;
+  /** HP the Fire Dragon lost to Héo lan's seep and to foes' blows (the defeat line names the bigger one). */
+  readonly hurt: HurtTally;
 }
 
-export function summarizeRun(world: World, log: WordLog, outcome: "victory" | "defeat", stars: 0 | 1 | 2 | 3, wave: number): ResultsSummary {
+/** HP lost by cause, read from `hit` events on the Fire Dragon: Héo lan comes from the hero itself (combat stepBlight). */
+export interface HurtTally {
+  blight: number;
+  blows: number;
+}
+
+export const emptyHurt = (): HurtTally => ({ blight: 0, blows: 0 });
+
+/** Adds the Fire Dragon's losses in `events` to `tally`. */
+export function tallyHurt(tally: HurtTally, events: readonly SimEvent[]): void {
+  for (const event of events) {
+    if (event.type !== "hit" || event.target.kind !== "hero" || event.amount <= 0) continue;
+    if (event.source.kind === "hero") tally.blight += event.amount;
+    else tally.blows += event.amount;
+  }
+}
+
+export function summarizeRun(world: World, log: WordLog, outcome: "victory" | "defeat", stars: 0 | 1 | 2 | 3, wave: number, hurt: HurtTally = emptyHurt()): ResultsSummary {
   const records = [...log.words.values()];
   const fresh = records.filter((record) => record.group === "new");
   const keys = world.stats.keys;
@@ -133,12 +168,36 @@ export function summarizeRun(world: World, log: WordLog, outcome: "victory" | "d
     newLearned: fresh.filter((record) => record.clean > 0).length,
     newMet: fresh.length,
     mistyped: records.filter((record) => record.errors > 0).length,
+    keys,
+    hurt: { ...hurt },
   };
+}
+
+/** Fewer letter keys than this in a lost run: the player hardly typed. */
+const FEW_KEYS = 10;
+
+/**
+ * Why the run was lost, for the line under the title: hardly any typing, Héo
+ * lan (words left waiting in the word zone), or foes' blows at the dais.
+ * Test pass 27/10: the screen always advised blockers and traps, while
+ * 99 % of the Dragon's losses in waves 5–10 were Héo lan and a run with no
+ * key at all got the same advice.
+ */
+export function defeatCause(summary: Pick<ResultsSummary, "keys" | "hurt">): "typing" | "blight" | "blows" {
+  if (summary.keys < FEW_KEYS) return "typing";
+  return summary.hurt.blight >= summary.hurt.blows ? "blight" : "blows";
 }
 
 /** The line under the stars (06 §6: "Giữ máu Hỏa Long để có 3 sao"). */
 export function starHint(summary: ResultsSummary): string {
-  if (summary.outcome === "defeat") return "Hỏa Long gục ở đợt " + summary.wave + ". Đặt lính chặn và bẫy ở đường đông quái hơn.";
+  if (summary.outcome === "defeat") {
+    const at = "Hỏa Long gục ở đợt " + summary.wave;
+    const cause = defeatCause(summary);
+    if (cause === "typing") return at + ". Gõ chữ trên đầu quái để Hỏa Long phun lửa hạ chúng.";
+    if (cause === "blight")
+      return at + ", phần lớn vì Héo lan: quái mang chữ đứng trong Vùng Chữ mà chưa bị gõ thì rút máu Hỏa Long. Gõ quái gần bệ trước, dùng " + keyLabel("skill-1") + " Phun Lửa khi quái dồn.";
+    return at + " vì quái đánh tới bệ. Đặt lính chặn và bẫy ở đường đông quái hơn.";
+  }
   if (summary.stars >= 3) return "Hỏa Long còn " + summary.hpPct + " % máu: trọn ba sao.";
   const need = summary.stars === 2 ? STARS.threeStarHpPct : STARS.twoStarHpPct;
   return "Hỏa Long còn " + summary.hpPct + " % máu. Giữ từ " + need + " % để có " + (summary.stars + 1) + " sao.";
@@ -146,11 +205,20 @@ export function starHint(summary: ResultsSummary): string {
 
 // ── The screen ──────────────────────────────────────────────────────────────
 
-const STATUS_VI: Readonly<Record<WordStatus, string>> = { new: "Mới học", miss: "Gõ sai", review: "Cần ôn", good: "Gõ tốt" };
+const STATUS_VI: Readonly<Record<WordStatus, string>> = { new: "Mới học", fresh: "Từ mới", miss: "Gõ sai", review: "Cần ôn", good: "Gõ tốt" };
+
+/**
+ * A won stage holds this long before the panel (05 §6.1 Victory, §6.7 C1):
+ * the Dragon's victory clip, the camera's slow turn and the title over the
+ * dais come first; Enter or Esc shows the panel at once. Test pass 27/10:
+ * the panel covered the dais 0.7 s after the last word.
+ */
+export const VICTORY_HOLD_MS = 2600;
 
 export function createResults(root: HTMLElement, actions: ResultsActions): Presenter & ActionHandler {
   const doc = root.ownerDocument;
   const log = new WordLog();
+  let hurt = emptyHurt();
   let world: World | null = null;
   let summary: ResultsSummary | null = null;
   let list: WordRecord[] = [];
@@ -182,12 +250,27 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   book.append(bookHead, bookList);
   const foot = el(doc, "div", "dh-results__foot");
   const retryButton = uiButton(doc, "dh-retry", () => actions.retry());
+  const easierButton = uiButton(doc, "dh-retry dh-retry--easier", () => actions.easier?.());
+  setShown(easierButton, false);
   const keys = el(doc, "span", "dh-results__keys");
-  foot.append(retryButton, keys);
+  foot.append(retryButton, easierButton, keys);
   panel.append(titleBox, starsBox, tiles, book, foot);
   screen.append(panel);
   setShown(screen, false);
   root.append(screen);
+  // The title over the field while a won stage holds (VICTORY_HOLD_MS).
+  const cheer = el(doc, "div", "dh-victory");
+  cheer.dataset.ui = "victory";
+  const cheerTitle = el(doc, "div", "dh-victory__title", "Giữ Ải thành công");
+  const cheerKeys = el(doc, "div", "dh-victory__keys");
+  cheerKeys.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span> xem kết quả`;
+  cheer.append(cheerTitle, cheerKeys);
+  setShown(cheer, false);
+  root.append(cheer);
+  /** The defeat screen offers one level easier (⇧↵). */
+  let offerEasier = false;
+  /** A won stage waiting for its panel: stars, wave, and when (−1: set at the next frame). */
+  let pending: { stars: 0 | 1 | 2 | 3; wave: number; at: number } | null = null;
 
   const tile = (value: string, label: string, money = false): HTMLElement => {
     const node = el(doc, "div", "dh-tile" + (money ? " is-money" : ""));
@@ -205,7 +288,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
 
   const show = (outcome: "victory" | "defeat", starCount: 0 | 1 | 2 | 3, wave: number): void => {
     if (!world) return;
-    summary = summarizeRun(world, log, outcome, starCount, wave);
+    summary = summarizeRun(world, log, outcome, starCount, wave, hurt);
     const s = summary;
     setText(title, s.outcome === "victory" ? "Giữ Ải thành công" : "Bệ Rồng thất thủ");
     setText(sub, world.stage.nameVi + " · " + (s.outcome === "victory" ? s.waves + "/" + s.waves + " đợt" : "thua ở đợt " + s.wave + "/" + s.waves));
@@ -247,6 +330,10 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     );
     if (list.length === 0) bookList.append(el(doc, "li", "dh-book__empty", "Chưa gõ từ nào trong ải này."));
     retryButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>` + (s.outcome === "victory" ? "Chơi lại ải" : "Thử lại");
+    const easier = s.outcome === "defeat" ? (actions.easierOffer?.() ?? null) : null;
+    offerEasier = easier !== null;
+    setShown(easierButton, offerEasier);
+    if (easier !== null) easierButton.innerHTML = `<span class="dh-key">${keyLabel("call-early")}</span>Thua 2 lần: chơi lại mức ${easier}`;
     keys.innerHTML =
       `<span class="dh-key">↑</span><span class="dh-key">↓</span> chọn từ` + (actions.listen ? ` · <span class="dh-key">Tab</span> nghe` : "");
     setShown(screen, true);
@@ -255,34 +342,59 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
 
   const hide = (): void => {
     summary = null;
+    pending = null;
+    setShown(cheer, false);
     setShown(screen, false);
+  };
+
+  const showPending = (): void => {
+    if (!pending) return;
+    const { stars: count, wave } = pending;
+    pending = null;
+    setShown(cheer, false);
+    show("victory", count, wave);
   };
 
   const onEvents = (events: readonly SimEvent[], w: World): void => {
     if (w !== world) {
       // A new run: start a fresh log.
       log.reset();
+      hurt = emptyHurt();
       hide();
     }
     world = w;
     log.onEvents(events);
+    tallyHurt(hurt, events);
     for (const event of events) {
-      if (event.type === "victory") show("victory", event.stars, w.wave);
-      else if (event.type === "defeat") show("defeat", 0, event.wave);
+      if (event.type === "victory") {
+        pending = { stars: event.stars, wave: w.wave, at: -1 };
+        setShown(cheer, true);
+      } else if (event.type === "defeat") show("defeat", 0, event.wave);
     }
   };
 
-  const frame = (w: World, _info: FrameInfo): void => {
+  const frame = (w: World, info: FrameInfo): void => {
     if (w !== world) {
       log.reset();
+      hurt = emptyHurt();
       hide();
       world = w;
+    }
+    if (pending) {
+      if (pending.at < 0) pending.at = info.now + VICTORY_HOLD_MS;
+      else if (info.now >= pending.at) showPending();
     }
   };
 
   const handleAction = (action: string): boolean => {
+    if (pending) {
+      // The hold takes every key; Enter or Esc skips to the panel.
+      if (action === "enter" || action === "escape") showPending();
+      return true;
+    }
     if (!summary) return false;
     if (action === "enter") actions.retry();
+    else if (action === "call-early" && offerEasier) actions.easier?.();
     else if (action === "tilt-up") select(selected - 1);
     else if (action === "tilt-down") select(selected + 1);
     else if (action === "replay") {
@@ -299,6 +411,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     handleAction,
     dispose(): void {
       screen.remove();
+      cheer.remove();
     },
   };
 }

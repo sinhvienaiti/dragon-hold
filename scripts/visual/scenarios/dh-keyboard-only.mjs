@@ -168,7 +168,9 @@ export default async function (page) {
       tabs += 1;
     }
   }
-  await page.sleep(1500);
+  // A won stage holds 2.6 s before its panel (ui/results.ts VICTORY_HOLD_MS); a lost one shows it at once.
+  for (let k = 0; k < 30 && !(await page.eval("(() => { const r = document.querySelector('.dh-results'); return !!r && !r.hidden; })()")); k += 1) await page.sleep(200);
+  await page.sleep(300);
   const end = await state(page);
   await shot("07-results");
   // Results by keys: ↓ to a word, Tab to hear it.

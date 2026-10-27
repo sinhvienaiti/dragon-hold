@@ -64,7 +64,8 @@ export default async function (page) {
         await page.click('.dh-marker[data-slot="14"]');
       }
       if (scene === "placing") await key(page, "ArrowLeft", "ArrowLeft");
-      await page.sleep(scene === "victory" || scene === "defeat" ? 900 : 380);
+      // A won stage shows its panel after the 2.6 s victory moment (ui/results.ts VICTORY_HOLD_MS).
+      await page.sleep(scene === "victory" ? 3200 : scene === "defeat" ? 900 : 380);
       const file = `${out}/${w}x${h}-${scene}.png`;
       await page.shot(file);
       report.screens[`${w}x${h}-${scene}`] = await page.eval(OVERLAPS);
