@@ -7,6 +7,10 @@
  * ≤ 150 draw calls). The dh-bench CDP scenario imports this module and reads
  * window.__dhBench. The bench builds its own stage (renderer, flat painted
  * ground, lanes), so it does not wait for view/stage.ts.
+ * M0b `bones` mode: the owner's models through view/models.ts (bones layers,
+ * clips from view/motion.ts: walk at the drawn speed, attacks at the ring,
+ * hits, deaths), the scatter and bridge GLB props on the painted ground: the
+ * M0 perf gate (220 crowd foes with bones, every gait).
  * Source adapted: games/space-typing/scripts/visual/scenarios/defense-bench.mjs (the page side).
  * Owner: view-crowd-fx (LANES.md).
  */
@@ -27,6 +31,10 @@ import type { SimEvent } from "../content/types";
 import type { World } from "../sim/world";
 import { HP_BAR, HpBarBatch } from "./hpbars";
 import { createMapStage, type Stage } from "./stage";
+import { strikeSeconds } from "./actors";
+import { MODEL_SPECS, type ModelSpec } from "./model-specs";
+import { loadCrowdModels, type CrowdModels } from "./models";
+import { Motion } from "./motion";
 
 export interface BenchOptions {
   readonly count: number;
@@ -38,6 +46,8 @@ export interface BenchOptions {
   readonly warmup?: number;
   /** "flat": the bench's own plain ground (default); "painted": view-terrain's diorama (createMapStage) with its shadows and post. */
   readonly ground?: "flat" | "painted";
+  /** M0b: the owner's models with bones and clips (and GLB props on the painted ground); default primitives. */
+  readonly bones?: boolean;
 }
 
 export interface BenchResult {
@@ -71,6 +81,11 @@ export interface BenchResult {
   readonly instances: number;
   readonly bars: number;
   readonly gaits: Readonly<Record<Gait, number>>;
+  /** Bones mode: models loaded, skinned layers drawing, scatter triangles (one drawing) and GLB prop instances. */
+  readonly bones: boolean;
+  readonly models: number;
+  readonly skinnedLayers: number;
+  readonly sceneTriangles?: { scatter: number; props: number };
 }
 
 declare global {
@@ -279,6 +294,11 @@ interface BenchFoe {
   id: EnemyId;
   handle: number;
   gait: Gait;
+  /** Bones mode: the model, its clips, and the next attack at the ring. */
+  spec: ModelSpec | null;
+  layer: string | undefined;
+  motion: Motion | null;
+  attackIn: number;
   /** Drawn placeholder and scale (view/foe-look.ts, as in the game). */
   placeholder: PlaceholderDef;
   scale: number;
@@ -331,9 +351,10 @@ export class BenchCrowd implements FoeLocator {
   readonly hits: number[][] = [];
   readonly deaths: number[][] = [];
 
-  constructor(readonly stage: Stage, count: number, readonly random: () => number, map: MapDef = MAP_L2_CAU, readonly heightAt: (x: number, z: number) => number = () => 0) {
+  constructor(readonly stage: Stage, count: number, readonly random: () => number, map: MapDef = MAP_L2_CAU, readonly heightAt: (x: number, z: number) => number = () => 0, readonly models: CrowdModels | null = null) {
     this.crowd = createCrowd(Math.max(64, count + 40));
     stage.layers.actors.add(this.crowd.group);
+    models?.attach(this.crowd);
     stage.layers.fx.add(this.bars.mesh);
     this.lanes = {
       ground: map.lanes.map((lane) => lanePath(lane.points, lane.widthM)),
@@ -369,12 +390,18 @@ export class BenchCrowd implements FoeLocator {
     const lanes = sky ? this.lanes.sky : this.lanes.ground;
     const lane = lanes[Math.floor(this.random() * lanes.length)]!;
     const look = foeDrawLook(id);
-    const handle = this.crowd.add(look.placeholder, def.gait, look.placeholder.shape, { foe: true, scale: look.scale });
+    const spec = this.models === null ? null : (MODEL_SPECS[look.model] ?? null);
+    const layer = spec === null ? undefined : this.models?.layerKey(look.model);
+    const handle = this.crowd.add(look.placeholder, def.gait, layer ?? look.placeholder.shape, { foe: true, scale: look.scale, wash: spec?.wash ?? 0 });
     if (handle < 0) return;
     this.foes.push({
       id,
       handle,
       gait: def.gait,
+      spec,
+      layer,
+      motion: null,
+      attackIn: 1 + this.random() * 2,
       placeholder: look.placeholder,
       scale: look.scale,
       lane,
@@ -464,9 +491,11 @@ export class BenchCrowd implements FoeLocator {
       const tier = 1 + Math.floor(this.random() * 3);
       foe.hp -= 0.12 + this.random() * 0.25;
       this.reactions.hit(index % 512, foe.serial, tier, foe.x, foe.z, now);
+      foe.motion?.hit();
       this.hits.push([foe.x, foe.y + foe.placeholder.sizeM[1] * foe.scale * 0.6 + (foe.gait === "flyer" ? foe.lane.altitude : 0), foe.z, tier]);
       if (foe.hp <= 0) {
         foe.dying = 0;
+        foe.motion?.die();
         this.deaths.push([foe.x, foe.y, foe.z, tier]);
       }
     }
@@ -479,9 +508,19 @@ export class BenchCrowd implements FoeLocator {
       inst.tint = 0;
       inst.tintMix = 0;
       inst.scale = 1;
+      inst.clip = undefined;
+      inst.clipTime = undefined;
+      inst.clipB = undefined;
+      inst.blend = 0;
+      if (foe.motion === null && foe.spec !== null && foe.layer !== undefined && this.crowd.isSkinned(foe.layer)) {
+        const baked = this.models?.layer(foe.spec.content)?.baked;
+        if (baked) foe.motion = new Motion(baked, { strideM: foe.spec.strideH * foe.placeholder.sizeM[1] * foe.scale, cadence: foe.spec.cadence, strikeS: strikeSeconds(foe.spec), phase: this.random() });
+      }
+      // A model's death clip plays before its dissolve.
+      const deathS = foe.motion !== null ? foe.motion.deathSeconds + 0.4 : 0.6;
       if (foe.dying >= 0) {
         foe.dying += dt;
-        if (foe.dying >= 0.6) {
+        if (foe.dying >= deathS) {
           // Back at the gate.
           foe.dying = -1;
           foe.hp = 1;
@@ -489,17 +528,37 @@ export class BenchCrowd implements FoeLocator {
           foe.standing = 0;
           foe.radius = 0;
           foe.serial = this.serial++;
+          if (foe.motion !== null && foe.spec !== null) foe.motion = null;
           continue;
         }
-        inst.dissolve = foe.dying / 0.6;
+        inst.dissolve = foe.motion !== null ? Math.max(0, (foe.dying - (deathS - 0.4)) / 0.4) : foe.dying / 0.6;
         inst.flash = Math.max(0, 1 - foe.dying * 8);
         inst.squash = 1;
         inst.stride = 0;
+        if (foe.motion !== null) {
+          foe.motion.update(dt, 0);
+          foe.motion.write(inst);
+        }
       } else {
+        const px = foe.x;
+        const pz = foe.z;
         const walking = this.move(foe, dt);
         if (foe.standing > (foe.gait === "flyer" ? 7 : 5)) {
           foe.dying = 0;
+          foe.motion?.die();
           this.deaths.push([foe.x, foe.y, foe.z, 1]);
+        }
+        if (foe.motion !== null) {
+          // At the ring a foe winds up and strikes now and then (the 0.5 s red warning, then the blow).
+          if (!walking || foe.gait === "flyer") {
+            foe.attackIn -= dt;
+            if (foe.attackIn <= 0) {
+              foe.attackIn = 1.6 + this.random() * 1.6;
+              foe.motion.attack("windup");
+            } else if (foe.attackIn < 1.0 && foe.attackIn + dt >= 1.0) foe.motion.attack("strike");
+          }
+          foe.motion.update(dt, dt > 0 ? Math.hypot(foe.x - px, foe.z - pz) / dt : 0);
+          foe.motion.write(inst);
         }
         this.reactions.sample(index % 512, foe.serial, now, this.sample);
         inst.flash = this.sample[0]!;
@@ -696,8 +755,14 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   const painted = options.ground === "painted" ? createMapStage(host, MAP_L2_CAU, options.quality) : null;
   const stage: Stage = painted?.stage ?? createBenchStage(host, options.quality);
   if (painted === null) stage.layers.ground.add(benchGround(MAP_L2_CAU));
+  // Bones mode: every model loaded before the crowd spawns (the game streams them in; the bench measures the end state).
+  const models = options.bones ? loadCrowdModels(options.quality) : null;
+  if (models !== null) {
+    painted?.useModels(models);
+    await models.ready;
+  }
   const random = benchRandom(20_261_023);
-  const crowd = new BenchCrowd(stage, options.count, random, MAP_L2_CAU, painted?.heightAt ?? (() => 0));
+  const crowd = new BenchCrowd(stage, options.count, random, MAP_L2_CAU, painted?.heightAt ?? (() => 0), models);
   const fxOn = options.fx !== false;
   const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77)) : null;
   const gpu = new GpuTimer(stage.renderer.getContext() as WebGL2RenderingContext);
@@ -778,6 +843,10 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
         instances: crowd.crowd.size,
         bars: crowd.bars.size,
         gaits: crowd.gaits,
+        bones: models !== null,
+        models: models?.loaded.length ?? 0,
+        skinnedLayers: crowd.foes.reduce((set, foe) => (foe.layer !== undefined && crowd.crowd.isSkinned(foe.layer) ? set.add(foe.layer) : set), new Set<string>()).size,
+        ...(painted !== null ? { sceneTriangles: { scatter: painted.scatter.stats().triangles, props: painted.scatter.stats().props } } : {}),
       };
       window.__dhBench = result;
       resolveDone(result);
@@ -789,6 +858,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
     window.removeEventListener("resize", onResize);
     fx?.dispose();
     crowd.dispose();
+    models?.dispose();
     if (painted !== null) painted.dispose();
     else stage.dispose();
   };
