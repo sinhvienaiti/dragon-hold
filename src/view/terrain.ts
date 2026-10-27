@@ -12,7 +12,7 @@ import * as THREE from "three";
 import type { Quality } from "../app/contracts";
 import type { MapDef, Vec2 } from "../content/types";
 import { buildLayout, type MapLayout } from "./layout";
-import { buildGroundPaint, type GroundPaint } from "./paint";
+import { buildGroundPaint, spikeSwitch, type GroundPaint } from "./paint";
 
 // ── Noise and seeded random (view only: deterministic per map, not sim) ─────
 
@@ -1144,11 +1144,13 @@ export function buildTerrain(map: MapDef, quality: Quality): PaintedTerrain {
   group.name = "dh-terrain";
   // Map spike: the L7 paint (mask, tiles, decals) replaces the procedural-only ground paint.
   const groundPaint: GroundPaint = buildGroundPaint(field, field.layout, quality);
+  // Spike perf split: ?paint=m0b draws the M0b procedural ground paint instead.
+  const m0bPaint = spikeSwitch("paint") === "m0b";
   const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff" }), look, {
-    key: "ground-spike",
-    fragmentPars: GROUND_PARS + groundPaint.pars,
-    paint: groundPaint.paint,
-    uniforms: { ...colorUniforms(PINE_RIVER_GROUND), ...groundPaint.uniforms },
+    key: m0bPaint ? "ground" : "ground-spike",
+    fragmentPars: m0bPaint ? GROUND_PARS : GROUND_PARS + groundPaint.pars,
+    paint: m0bPaint ? GROUND_PAINT_M0B : groundPaint.paint,
+    uniforms: m0bPaint ? colorUniforms(PINE_RIVER_GROUND) : { ...colorUniforms(PINE_RIVER_GROUND), ...groundPaint.uniforms },
     mask: true,
   });
   const ground = new THREE.Mesh(groundGeometry(field), material);

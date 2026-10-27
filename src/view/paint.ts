@@ -214,15 +214,25 @@ export function bakePaintMask(field: HeightField, layout: MapLayout): { texture:
   return { texture, size, origin: [ox, oz] };
 }
 
+/** Spike-only switches read from the page URL for the perf split (paint=m0b, decals=0, tiles=0); null outside a page. */
+export function spikeSwitch(name: string): string | null {
+  try {
+    return new URLSearchParams(globalThis.location?.search ?? "").get(name);
+  } catch {
+    return null;
+  }
+}
+
 export function buildGroundPaint(field: HeightField, layout: MapLayout, quality: Quality): GroundPaint {
   const t0 = performance.now();
   const mask = bakePaintMask(field, layout);
   const bakeMs = performance.now() - t0;
+  const tilesOn = quality !== "low" && spikeSwitch("tiles") !== "0";
   const uniforms: Record<string, { value: unknown }> = {
     uPaintMask: { value: mask.texture },
     uMaskRect: { value: new THREE.Vector4(mask.origin[0], mask.origin[1], PAINT_MASK.halfM * 2, PAINT_MASK.halfM * 2) },
-    uDetail: { value: quality === "low" ? 0 : 0.8 },
-    uDecalOn: { value: quality === "low" ? 0 : 1 },
+    uDetail: { value: tilesOn ? 0.8 : 0 },
+    uDecalOn: { value: quality === "low" || spikeSwitch("decals") === "0" ? 0 : 1 },
   };
   const disposables: THREE.Texture[] = [mask.texture];
   const loader = new THREE.TextureLoader();
@@ -233,7 +243,7 @@ export function buildGroundPaint(field: HeightField, layout: MapLayout, quality:
     uniforms[name] = { value: fallback };
     uniforms[name.replace("uT", "uM")] = { value: new THREE.Vector3(tile.mean[0], tile.mean[1], tile.mean[2]) };
     disposables.push(fallback);
-    if (quality === "low") continue;
+    if (!tilesOn) continue;
     jobs.push(
       loader
         .loadAsync(ART_BASE + tile.file)
@@ -356,21 +366,43 @@ float mid = dhFbm(p * 0.17 + 3.7);
 vec2 q = mat2(0.8, -0.6, 0.6, 0.8) * p;
 float stroke = dhNoise(q * vec2(0.85, 0.2)) * 0.6 + dhNoise(q * vec2(2.4, 0.55) + 9.0) * 0.4;
 vec4 pm = dhMaskAt(p);
+// Perf: each tile is sampled only where its layer can show (coherent branches); explicit gradients
+// (taken before any branch) keep the sampling defined inside them.
+float edge0 = vDhMask.z;
+float laneR = vDhMask.x / max(vDhMask.y, 0.1);
+float rr = length(p - uDhCentre);
+float shadeGuess = max(vDhMask.w, pm.a);
+mat2 turn = mat2(0.6, 0.8, -0.8, 0.6);
+vec2 rp = turn * p;
+vec2 rdx = turn * dpx;
+vec2 rdy = turn * dpy;
+vec3 wdx = dFdx(vDhWorld);
+vec3 wdy = dFdy(vDhWorld);
 // Tiles, world-space (metres per repeat in the divisor); grass A twice (two scales, turned) against repetition.
-vec2 rp = mat2(0.6, 0.8, -0.8, 0.6) * p;
-vec3 tGrass = mix(texture2D(uTGrassA, p / 7.0).rgb / max(uMGrassA, vec3(0.004)), texture2D(uTGrassA, rp / 10.5).rgb / max(uMGrassA, vec3(0.004)), 0.45);
-tGrass = mix(tGrass, texture2D(uTGrassB, p / 8.5 + 0.37).rgb / max(uMGrassB, vec3(0.004)), smoothstep(0.42, 0.62, big + (mid - 0.5) * 0.3));
+vec3 tGrass = mix(textureGrad(uTGrassA, p / 7.0, dpx / 7.0, dpy / 7.0).rgb, textureGrad(uTGrassA, rp / 10.5, rdx / 10.5, rdy / 10.5).rgb, 0.45) / max(uMGrassA, vec3(0.004));
+float grassB = smoothstep(0.42, 0.62, big + (mid - 0.5) * 0.3);
+if (grassB > 0.0) tGrass = mix(tGrass, textureGrad(uTGrassB, p / 8.5 + 0.37, dpx / 8.5, dpy / 8.5).rgb / max(uMGrassB, vec3(0.004)), grassB);
 vec3 dGrass = mix(vec3(1.0), clamp(tGrass, 0.0, 2.6), uDetail);
-vec3 dMoss = dhDetail(texture2D(uTMoss, p / 6.0).rgb, uMMoss);
-vec3 dLitter = dhDetail(texture2D(uTLitter, rp / 6.0).rgb, uMLitter);
-vec3 dPath = dhDetail(texture2D(uTPath, p / 6.5).rgb, uMPath);
-vec3 dEarth = dhDetail(texture2D(uTEarth, rp / 5.5).rgb, uMEarth);
-vec3 dSand = dhDetail(texture2D(uTSand, p / 6.0).rgb, uMSand);
-vec3 bw = abs(nW);
-bw = bw * bw * bw * bw;
-bw /= max(bw.x + bw.y + bw.z, 1e-4);
-vec3 tRock = texture2D(uTRock, vDhWorld.zy / 4.5).rgb * bw.x + texture2D(uTRock, p / 4.5).rgb * bw.y + texture2D(uTRock, vDhWorld.xy / 4.5).rgb * bw.z;
-vec3 dRock = dhDetail(tRock, uMRock);
+vec3 dMoss = vec3(1.0);
+vec3 dLitter = vec3(1.0);
+if (shadeGuess > 0.2) {
+  dMoss = dhDetail(textureGrad(uTMoss, p / 6.0, dpx / 6.0, dpy / 6.0).rgb, uMMoss);
+  dLitter = dhDetail(textureGrad(uTLitter, rp / 6.0, rdx / 6.0, rdy / 6.0).rgb, uMLitter);
+}
+vec3 dPath = vec3(1.0);
+if (pm.r > 0.3 || pm.g > 0.3 || laneR < 1.3 || rr < 9.0) dPath = dhDetail(textureGrad(uTPath, p / 6.5, dpx / 6.5, dpy / 6.5).rgb, uMPath);
+vec3 dEarth = vec3(1.0);
+if (pm.r > 0.6 || edge0 < 0.2) dEarth = dhDetail(textureGrad(uTEarth, rp / 5.5, rdx / 5.5, rdy / 5.5).rgb, uMEarth);
+vec3 dSand = vec3(1.0);
+if (edge0 < 1.8 || rr < 9.0) dSand = dhDetail(textureGrad(uTSand, p / 6.0, dpx / 6.0, dpy / 6.0).rgb, uMSand);
+vec3 dRock = vec3(1.0);
+if (slope > 0.15 || edge0 < 0.6) {
+  vec3 bw = abs(nW);
+  bw = bw * bw * bw * bw;
+  bw /= max(bw.x + bw.y + bw.z, 1e-4);
+  vec3 tRock = textureGrad(uTRock, vDhWorld.zy / 4.5, wdx.zy / 4.5, wdy.zy / 4.5).rgb * bw.x + textureGrad(uTRock, p / 4.5, dpx / 4.5, dpy / 4.5).rgb * bw.y + textureGrad(uTRock, vDhWorld.xy / 4.5, wdx.xy / 4.5, wdy.xy / 4.5).rgb * bw.z;
+  dRock = dhDetail(tRock, uMRock);
+}
 // Meadow: three painted tones, tile brush on top.
 float pat = big * 0.62 + mid * 0.22 + stroke * 0.26 - 0.05;
 float band = smoothstep(0.40, 0.45, pat) + smoothstep(0.56, 0.61, pat);
@@ -413,7 +445,7 @@ c = mix(c, mix(c, uRock * dRock, 0.55), margin * 0.7);
 c = mix(c, uSand * dSand * (0.9 + 0.15 * mid), sand * 0.85);
 c = mix(c, uMud * dEarth, 1.0 - smoothstep(-0.6, 0.0, edge));
 // Dirt patches (canopy dirt, junctions, lane scuffs, plaza, cliff scree): crisp painted edge, darker heart.
-float r = length(p - uDhCentre);
+float r = rr;
 float dn = (mid - 0.5) * 0.42 + (stroke - 0.5) * 0.22;
 float level = 1.0 - smoothstep(0.22, 0.38, slope);
 float dirtA = smoothstep(0.46, 0.54, pm.r + dn) * level;
@@ -441,21 +473,31 @@ c = mix(c, mix(c, uGrassLight * dGrass, 0.45), shoulder * 0.7);
 c = mix(c, laneC, dirt);
 // Decals (D1–D4), bombed; their density lives in the mask, so lanes and water never get one.
 // Decals lie flat: none on slopes (they would stretch down a face).
-if (uDecalOn > 0.5 && slope < 0.18) {
+// Perf: a bomb layer runs only where the mask blurred to about 2 m (mip 3) can hold one of its decals.
+vec4 pmBlur = inside > 0.5 ? textureLod(uPaintMask, muv, 3.0) : vec4(0.0);
+if (uDecalOn > 0.5 && slope < 0.18 && dot(pmBlur, vec4(1.0)) > 0.01) {
   // D2 flowers on the open meadow (all four quarters).
-  vec4 dF = dhBomb(uDFlowers, p, dpx, dpy, 2.1, 3.1, vec2(0.7, 1.25), vec4(1.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.15, 1.1, 2.0, 3.0));
-  c = c * (1.0 - dF.a) + dF.rgb;
+  if (pmBlur.b > 0.05) {
+    vec4 dF = dhBomb(uDFlowers, p, dpx, dpy, 2.1, 3.1, vec2(0.7, 1.25), vec4(1.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.15, 1.1, 2.0, 3.0));
+    c = c * (1.0 - dF.a) + dF.rgb;
+  }
   // D4 moss clumps (two moss quarters) at canopy rims and the meadow.
-  vec4 dM = dhBomb(uDMoss, p, dpx, dpy, 2.7, 7.9, vec2(1.0, 1.7), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.35, 0.9), vec4(0.18, 0.5, 0.75, 1.0));
-  c = c * (1.0 - dM.a * 0.85) + dM.rgb * 0.85;
+  if (pmBlur.b * 0.35 + pmBlur.a * 0.9 > 0.08) {
+    vec4 dM = dhBomb(uDMoss, p, dpx, dpy, 2.7, 7.9, vec2(1.0, 1.7), vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 0.35, 0.9), vec4(0.18, 0.5, 0.75, 1.0));
+    c = c * (1.0 - dM.a * 0.85) + dM.rgb * 0.85;
+  }
   // D1 dirt patches round trodden edges.
   // Recoloured to the kit dirt (the sheet is a little red-orange, art 015 D1), at most every other cell.
-  vec4 dD = dhBomb(uDDirt, p, dpx, dpy, 3.2, 12.7, vec2(1.1, 1.9), vec4(1.0), vec4(0.5, 0.0, 0.0, 0.0), vec4(0.1, 0.24, 0.32, 0.45));
-  float dDl = dot(dD.rgb, vec3(0.3, 0.59, 0.11)) / max(dD.a, 1e-3);
-  c = c * (1.0 - dD.a * 0.6) + mix(uDirt, uDirtLight, 0.5) * dDl * 2.6 * dD.a * 0.6;
+  if (pmBlur.r > 0.03) {
+    vec4 dD = dhBomb(uDDirt, p, dpx, dpy, 3.2, 12.7, vec2(1.1, 1.9), vec4(1.0), vec4(0.5, 0.0, 0.0, 0.0), vec4(0.1, 0.24, 0.32, 0.45));
+    float dDl = dot(dD.rgb, vec3(0.3, 0.59, 0.11)) / max(dD.a, 1e-3);
+    c = c * (1.0 - dD.a * 0.6) + mix(uDirt, uDirtLight, 0.5) * dDl * 2.6 * dD.a * 0.6;
+  }
   // D3 litter (pebbles, needles and cones, sticks; never the orange leaves) on dirt under trees.
-  vec4 dL = dhBomb(uDLitter, p, dpx, dpy, 1.8, 17.3, vec2(0.7, 1.2), vec4(1.0, 0.0, 1.0, 1.0), vec4(0.6, 0.0, 0.0, 0.7), vec4(0.45, 0.85, 2.0, 3.0));
-  c = c * (1.0 - dL.a) + dL.rgb;
+  if (pmBlur.r * 0.6 + pmBlur.a * 0.7 > 0.3) {
+    vec4 dL = dhBomb(uDLitter, p, dpx, dpy, 1.8, 17.3, vec2(0.7, 1.2), vec4(1.0, 0.0, 1.0, 1.0), vec4(0.6, 0.0, 0.0, 0.7), vec4(0.45, 0.85, 2.0, 3.0));
+    c = c * (1.0 - dL.a) + dL.rgb;
+  }
 }
 diffuseColor.rgb = c;
 `;

@@ -22,6 +22,7 @@ import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
 import type { PropModel } from "./models";
 import type { LayoutItem } from "./layout";
 import { bakeImpostors, farRing, type FarItem, type ImpostorAtlas } from "./impostor";
+import { spikeSwitch } from "./paint";
 import { hash2, Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
 
 export interface ScatterView {
@@ -46,8 +47,12 @@ export const PROP_NEAR_SKIRT_M = 6;
  * tried and dropped: the Tripo meshes split at UV seams and fell apart.
  */
 export const EDGE_IN_M = 2;
-/** Trees past this radius draw as impostors (one atlas, one draw call); bushes there are left out. */
-export const FAR_FROM_M = 46;
+/**
+ * Trees past this radius draw as impostors (one atlas, one draw call); bushes and the even
+ * scatter's rocks there are left out (only layout rocks, such as the cliff's, stay full models).
+ * 46 m measured 677 k prop triangles; 42 m keeps the map under the 0.55 M High budget (MAP_FACTORY 4.2).
+ */
+export const FAR_FROM_M = 42;
 
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
@@ -124,6 +129,8 @@ const pick = <T>(list: readonly T[], random: () => number): T => list[Math.floor
 
 /** Seeded placement for the map's scatter; pure apart from the field queries. */
 export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
+  // Spike perf split: ?decor=0 is the empty ground (no trees, bushes, rocks anywhere).
+  if (spikeSwitch("decor") === "0") return { pines: [], crowns: [], bushes: [], rocks: [] };
   const map = field.map;
   const [cx, cz] = map.dais.center;
   const play = map.terrain.playRadiusM;
@@ -391,6 +398,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         if (pick === undefined) return;
         taken[kind].add(index);
         const r = Math.hypot(item.x - cx, item.z - cz);
+        if (renderer && r > FAR_FROM_M && kind === "rock" && item.proto === undefined) return;
         if (renderer && r > FAR_FROM_M && kind !== "rock") {
           // Far ring: an impostor quad (trees), nothing for bushes (lost in the mist).
           if (kind === "bush") return;
