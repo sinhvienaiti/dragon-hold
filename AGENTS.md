@@ -61,8 +61,12 @@ Dev port 3005, host `dragon.typing-game.local`.
   `scripts/models/presets/dragon-hold-m0b.json`); rigs and clips are ours
   (`view/crowd-rig.ts`, `view/motion.ts`), skinned in the crowd shader from
   bone textures; Bạch Long is recoloured pearl. Gate: 220 foes with bones,
-  High 1080p, 5.93 ms mean, 7.8 ms p95, 70 draw calls. Sheets for the owner:
-  `dh-models.mjs`. See `docs/changelog/2026-10-27-m0b-models.md`.
+  High 1080p, 5.93 ms mean, 7.8 ms p95, 70 draw calls (round 2 with the CPU
+  held: 6.28 / 7.9 ms; on a busy shared Mac 8.16 ms). Sheets for the owner:
+  `dh-models.mjs`. Round 2: over the G01 model the placeholder carried
+  banner is not drawn (`FoeLocator.drawsModel`; the planted banner stays),
+  and the baker lifts standing rigs so feet and paws never sink. See
+  `docs/changelog/2026-10-27-m0b-models.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
