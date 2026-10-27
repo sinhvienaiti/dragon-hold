@@ -76,11 +76,17 @@ export const LAYOUT_RULES = {
     iterations: 10,
     /** Edge anchors sit this far past the play radius. */
     edgeOutM: 6,
+    /**
+     * Each route bows off its chord: a quadratic Bézier whose control point is
+     * the chord midpoint moved along the chord normal by bend × length (signed:
+     * + to the left of from→to). Small wobble rides on top.
+     */
     routes: [
-      { id: "fp-pond", from: { dais: "pond" }, to: { pond: true } },
-      { id: "fp-south", from: { path: "fp-pond", at: 0.5 }, to: { edge: 200 } },
-      { id: "fp-east", from: { pond: 90 }, to: { edge: 112 } },
-      { id: "fp-west", from: { path: "fp-pond", at: 0.38 }, to: { river: 238 } },
+      { id: "fp-pond", from: { dais: "pond" }, to: { pond: true }, bend: 0.1 },
+      { id: "fp-west", from: { path: "fp-pond", at: 0.45 }, to: { river: 236 }, bend: -0.14 },
+      { id: "fp-south", from: { pond: 218 }, to: { edge: 196 }, bend: 0.16 },
+      { id: "fp-east", from: { pond: 84 }, to: { edge: 116 }, bend: -0.18 },
+      { id: "fp-north", from: { edge: 324 }, to: { edge: 283 }, bend: 0.3 },
     ] as readonly FootpathRoute[],
   },
   /** L6: groves (cluster centres, then trees inside), replacing the even scatter inside the play area. */
@@ -132,6 +138,9 @@ export const LAYOUT_RULES = {
     lane: { stepM: 2.0, runChance: 0.34, runM: [2, 5] as const, offsetM: [0.7, 1.3] as const, clearSlotM: 4, clearDaisM: 9, k: [0.35, 0.6] as const },
     pond: { count: 10, k: [0.6, 1.35] as const },
     cliffFoot: { stepM: 2.0, chance: 0.8, k: [1.0, 2.6] as const },
+    /** Big boulders half sunk in the face (offset s from the face foot) and slabs along the top lip: the face reads as piled rock. */
+    cliffFace: { stepM: 2.4, chance: 0.85, s: [-0.2, 1.0] as const, k: [2.6, 4.4] as const },
+    cliffLip: { stepM: 3.1, chance: 0.7, s: [2.4, 3.6] as const, k: [1.8, 3.0] as const },
   },
   /** L7 paint stamps (potential discs: 1 at the centre, 0.5 at radius, 0 at radius + falloff). */
   paint: {
@@ -161,6 +170,8 @@ export interface FootpathRoute {
   readonly id: string;
   readonly from: FootpathAnchor;
   readonly to: FootpathAnchor;
+  /** Bow of the route as a share of its chord length (+ left of from→to). */
+  readonly bend: number;
 }
 
 // ── Output ─────────────────────────────────────────────────────────────────
@@ -509,12 +520,19 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, seed: number): Footp
     const to = resolve(route.to, fromFirst?.p ?? null);
     const from = fromFirst ?? (to ? resolve(route.from, to.p) : null);
     if (!from || !to) return;
+    // A free end (edge, pond, river) never lands near a slot (05 §2: no footpath leads to a slot).
+    for (const end of [from, to]) {
+      if (end.kind !== "plaza" && end.kind !== "junction" && f.slotDist(end.p[0], end.p[1]) < F.endClearSlotM) return;
+    }
     const [ax, az] = from.p;
     const [bx, bz] = to.p;
     const length = Math.hypot(bx - ax, bz - az);
     const n = Math.max(2, Math.ceil(length / F.stepM));
     const nx = -(bz - az) / length;
     const nz = (bx - ax) / length;
+    // Bézier control point: chord midpoint pushed along the normal by bend × length.
+    const kx = (ax + bx) / 2 + nx * route.bend * length;
+    const kz = (az + bz) / 2 + nz * route.bend * length;
     const xs: number[] = [];
     const zs: number[] = [];
     for (let i = 0; i <= n; i += 1) {
@@ -522,8 +540,9 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, seed: number): Footp
       const s = t * length;
       const taper = Math.min(1, s / 6, (length - s) / 6);
       const wobble = (valueNoise(s / F.wobbleWaveM, routeIndex * 3.7, seed + RULE.path) - 0.5) * 2 * F.wobbleM * taper;
-      xs.push(ax + (bx - ax) * t + nx * wobble);
-      zs.push(az + (bz - az) * t + nz * wobble);
+      const u = 1 - t;
+      xs.push(u * u * ax + 2 * u * t * kx + t * t * bx + nx * wobble);
+      zs.push(u * u * az + 2 * u * t * kz + t * t * bz + nz * wobble);
     }
     // Push interior points out of every clearance they break, then relax.
     const deficit = (x: number, z: number): number => {
@@ -844,6 +863,34 @@ export function buildLayout(map: MapDef): MapLayout {
       const roll = h(RULE.rockCliff, index, 3, seed);
       const k = lerp(R.cliffFoot.k[0], R.cliffFoot.k[1], roll);
       rocks.push({ id: "rock:cliff:" + index, proto: roll < 0.55 ? "props/pine-river-rock-boulder" : "props/pine-river-rock-slab", x, z, k, yaw: roll * 6.283, tint: [1, 1, 1], radius: k * 0.5 });
+    }
+    // Face boulders and lip slabs: points at a signed offset s from the face line (+ away from the dais).
+    for (const [rule, R2, proto0, proto1, salt] of [
+      ["face", R.cliffFace, "props/pine-river-rock-boulder", "props/pine-river-rock-slab", 21],
+      ["lip", R.cliffLip, "props/pine-river-rock-slab", "props/pine-river-rock-boulder", 31],
+    ] as const) {
+      let k2 = 0;
+      for (let s = C.capM * 0.6; s < cliff.line.length - C.capM * 0.6; s += R2.stepM, k2 += 1) {
+        if (h(RULE.rockCliff, k2, salt, seed) > R2.chance) continue;
+        cliff.line.pointAt(s + (h(RULE.rockCliff, k2, salt + 1, seed) - 0.5) * R2.stepM * 0.6, point);
+        let nx = -point.dz;
+        let nz = point.dx;
+        if (nx * (f.cx - point.x) + nz * (f.cz - point.z) > 0) {
+          nx = -nx;
+          nz = -nz;
+        }
+        // nx, nz now point away from the dais; the ragged edge is folded in by sampling offset() at the spot.
+        const want = lerp(R2.s[0], R2.s[1], h(RULE.rockCliff, k2, salt + 2, seed));
+        let x = point.x + nx * want;
+        let z = point.z + nz * want;
+        const off = cliff.offset(x, z).s;
+        x += nx * (want - off);
+        z += nz * (want - off);
+        const roll = h(RULE.rockCliff, k2, salt + 3, seed);
+        const k = lerp(R2.k[0], R2.k[1], h(RULE.rockCliff, k2, salt + 4, seed)) * smooth(0, C.capM, s) * smooth(cliff.line.length, cliff.line.length - C.capM, s);
+        if (k < 1) continue;
+        rocks.push({ id: "rock:cliff-" + rule + ":" + k2, proto: roll < 0.65 ? proto0 : proto1, x, z, k, yaw: roll * 6.283, tint: [0.98 + roll * 0.06, 0.97 + roll * 0.05, 0.95], radius: k * 0.5 });
+      }
     }
   }
 

@@ -395,8 +395,16 @@ c = mix(c, c * uVioletShade, woods * smoothstep(0.35, 0.65, stroke + big * 0.3) 
 // Rocky slopes and the cliff face (triplanar slate), not the river banks.
 float edge = vDhMask.z;
 float rock = smoothstep(0.26, 0.42, slope + (mid - 0.5) * 0.18) * smoothstep(0.6, 2.2, edge);
-vec3 slate = vec3(0.47, 0.5, 0.56);
-c = mix(c, slate * mix(vec3(1.0), dRock, 1.25) * (0.88 + 0.22 * stroke), rock);
+// Warm pale stone (the reference's cliff), stepped in strata: dark seams every ~1.6 m of height,
+// sun-facing tops of each step lighter, so a smooth face reads as stacked ledges.
+// The face looks away from the sun (cliff in the north-west skirt), so the base is warm enough to
+// cancel the violet sky fill and still read as pale stone.
+vec3 slate = vec3(0.78, 0.66, 0.54);
+float sy = vDhWorld.y * 0.55 + (mid - 0.5) * 1.1 + (stroke - 0.5) * 0.3;
+float seam = smoothstep(0.28, 0.42, abs(fract(sy) - 0.5));
+float stepTop = smoothstep(0.1, 0.4, fract(sy));
+vec3 stone = slate * mix(vec3(1.0), dRock, 1.1) * (0.84 + 0.24 * stroke) * mix(0.5, 1.0, 1.0 - seam) * mix(1.12, 0.88, stepTop);
+c = mix(c, stone, rock);
 // Banks: patchy sand, a pebbly margin, wet mud at the waterline.
 float bankPatch = smoothstep(0.42, 0.62, dhNoise(p * 0.22 + 11.0));
 float sand = (1.0 - smoothstep(0.0, 0.9, edge + (mid - 0.5) * 1.3 + (stroke - 0.5) * 0.6)) * bankPatch;
@@ -407,15 +415,15 @@ c = mix(c, uMud * dEarth, 1.0 - smoothstep(-0.6, 0.0, edge));
 // Dirt patches (canopy dirt, junctions, lane scuffs, plaza, cliff scree): crisp painted edge, darker heart.
 float r = length(p - uDhCentre);
 float dn = (mid - 0.5) * 0.42 + (stroke - 0.5) * 0.22;
-float flat = 1.0 - smoothstep(0.22, 0.38, slope);
-float dirtA = smoothstep(0.46, 0.54, pm.r + dn) * flat;
+float level = 1.0 - smoothstep(0.22, 0.38, slope);
+float dirtA = smoothstep(0.46, 0.54, pm.r + dn) * level;
 vec3 dirtC = mix(uDirt, uDirtLight, smoothstep(0.42, 0.72, stroke + mid * 0.2)) * dPath;
 dirtC = mix(dirtC, uDirtDark * dEarth * 1.6, smoothstep(0.7, 0.95, pm.r + dn * 0.5) * 0.35);
 float plaza = 1.0 - smoothstep(6.0, 8.5, r);
 dirtC = mix(dirtC, mix(uDirt, uSand, 0.5) * dSand * (0.88 + 0.2 * stroke), plaza * 0.8);
 c = mix(c, dirtC, dirtA * (1.0 - plaza * smoothstep(0.6, 0.9, dhNoise(p * 1.7 + 4.0)) * smoothstep(4.6, 7.0, r) * 0.45));
 // Footpaths: narrower and paler than lanes, grass breaking through the middle.
-float pathA = smoothstep(0.47, 0.55, pm.g + (mid - 0.5) * 0.24 + (stroke - 0.5) * 0.16) * flat * 0.9;
+float pathA = smoothstep(0.47, 0.55, pm.g + (mid - 0.5) * 0.24 + (stroke - 0.5) * 0.16) * level * 0.9;
 float crown = smoothstep(0.7, 0.92, pm.g) * smoothstep(0.45, 0.7, dhNoise(p * vec2(1.1, 2.3) + 5.0)) * 0.7;
 vec3 pathC = mix(mix(uDirtLight, uDirt, 0.25), uGrassLight, 0.22) * dPath * (0.96 + 0.1 * stroke);
 c = mix(c, mix(pathC, c, crown), pathA);

@@ -113,6 +113,8 @@ const CROWN_NEAR = ["#6f9a4f", "#5a8a5c", "#82a656", "#4f7f60"] as const;
 const CROWN_FAR = ["#8e7cc3", "#6c8fd1", "#7d7fb8", "#8a82b4"] as const;
 /** Props too small to cast a useful shadow (MAP_FACTORY 4.2: clutter casts none). */
 const SMALL_PROPS = new Set(["props/pine-river-river-stones", "props/pine-river-stump", "props/pine-river-log", "props/pine-river-rock-slab"]);
+/** Map spike: share of forest-ring crowns (≥ 9 m off a lane edge) that turn violet (M0b 0.4; the reference keeps accents near 5–10 % of crowns). */
+const FAR_CROWN_SHARE = 0.18;
 /** Far crown colours the GLB violet crown (K04) takes over. */
 const FAR_COLORS = CROWN_FAR;
 const BUSH = ["#5d8f4f", "#6f9d55", "#4d7f5a", "#7aa35e"] as const;
@@ -189,7 +191,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const yaw = random() * Math.PI * 2;
     if (random() < (inside ? 0.45 : 0.2)) {
       const size = inside ? 1.3 + random() * 0.9 : 1.8 + random() * 1.3;
-      const color = far && random() < 0.4 ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
+      const color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
       crowns.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color });
     } else {
       const size = inside ? 3.4 + random() * 2.2 : 4.6 + random() * 4.6;
