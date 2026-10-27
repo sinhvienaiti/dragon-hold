@@ -304,6 +304,8 @@ export interface TrapDef {
   readonly area: { readonly shape: "strip" | "circle"; readonly radiusMm: number; readonly lengthMm?: number };
   /** Auto trigger: needs this many foes in the area (03 §7.2). */
   readonly triggerMin: number;
+  /** Also fires on a single foe in the area that a blocker holds (00 D33 (1): Bom Hạt Thông). */
+  readonly triggerHeld?: boolean;
   /** Has the optional trigger word (Từ Kích, 03 §10.3); off for M0 (00 D13). */
   readonly wordTrigger: boolean;
   readonly hits: { readonly ground: boolean; readonly lowAir: boolean };
@@ -327,8 +329,10 @@ export interface HouseDef {
   readonly hp: number;
   readonly radiusMm: number;
   readonly effect: HouseEffect;
-  /** Fires when its energy reaches the rules' charge (03 §10.2). */
+  /** Fires when its energy reaches `energyMax` (03 §10.2). */
   readonly pulse: HousePulse;
+  /** Word kills in the area that fire the pulse; default OUR_SIDE.houseEnergyMax (5). Lều Thuốc Nam: 3 (00 D33 (1)). */
+  readonly energyMax?: number;
   /** Max per run; undefined: no limit. */
   readonly limit?: number;
   readonly upgrade: UpgradeDef;

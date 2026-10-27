@@ -19,6 +19,7 @@ import type { World } from "../sim/world";
 import { upcomingWave } from "./hud";
 import { publishZones } from "./screen-zones";
 import { el, icon, keyLabel, setClass, setShown, setText, uiButton } from "./skin";
+import { slotBadges, slotRuleLine, slotStateLine } from "./slot-state";
 import { summarizeWave } from "./wave-card";
 
 // ── Pure helpers (tests/ui/placement.test.ts) ──────────────────────────────
@@ -500,7 +501,8 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
       closeMenu();
       return;
     }
-    const key = [menuSlot, slot.item, slot.level, w.economy.gold, menuArmed?.action ?? "", w.phase].join("|");
+    const badge = slot.item !== null ? slotBadges(w).find((entry) => entry.slot === menuSlot) : undefined;
+    const key = [menuSlot, slot.item, slot.level, w.economy.gold, menuArmed?.action ?? "", w.phase, badge ? slotStateLine(badge) : ""].join("|");
     if (key === lastMenuKey) {
       placeNear(menu, at.x, at.y, "below");
       return;
@@ -518,13 +520,17 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         button.title = reason ?? info.nameVi;
         const keyIndex = w.stage.carry.indexOf(id) + 1;
         button.innerHTML = `<span class="dh-key">${keyIndex}</span><span class="dh-icon">${icon(info.icon)}</span>`;
-        button.append(el(doc, "span", "", info.nameVi), el(doc, "span", "", String(info.cost)));
+        button.append(el(doc, "span", "", id === "net-launcher" ? info.nameVi + " · " + slotRuleLine(id) : info.nameVi), el(doc, "span", "", String(info.cost)));
         children.push(button);
       }
       if (items.length === 0) children.push(el(doc, "span", "dh-place-card__line", "Bộ Mang Theo không có món cho ô này"));
     } else {
       const info = placeableInfo(slot.item);
       children.push(el(doc, "span", "dh-title", info.nameVi + " · cấp " + slot.level));
+      // When it fires and its state now (00 D33 (1): ready, recharging, energy toward the pulse).
+      const rule = slotRuleLine(slot.item);
+      if (rule) children.push(el(doc, "span", "dh-place-card__line", rule));
+      if (badge) children.push(el(doc, "span", "dh-place-card__line dh-place-menu__state", slotStateLine(badge)));
       const cost = upgradeCost(slot.item, slot.level);
       const short = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
       const up = uiButton(doc, cost === null || short > 0 ? "is-poor" + (short > 0 ? " is-short" : "") : "", () => pressEdit("upgrade", menuSlot, true));
@@ -634,7 +640,10 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         titleText = info.nameVi;
         const reason = placeReason(rules.canPlace(w, item, cursor), w.economy.gold, info.cost);
         lines.push({ html: `<span class="dh-money">${info.cost} vàng</span> · ${slotName(w, cursor)}` });
-        if (cursorSlot.def.lane) {
+        if (item === "net-launcher") {
+          const summary = summarizeWave(w.stage, w.map, upcomingWave(w));
+          lines.push({ html: `<b>${slotRuleLine(item)}</b> · đợt kế: <b>${summary?.flyers ?? 0}</b> quái bay` });
+        } else if (cursorSlot.def.lane) {
           const summary = summarizeWave(w.stage, w.map, upcomingWave(w));
           const count = summary?.lanes.find((lane) => lane.id === cursorSlot.def.lane)?.count ?? 0;
           lines.push({ html: `Đợt kế: <b>${count}</b> quái qua đường này` });
@@ -643,6 +652,8 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
       } else if (mode === "edit" && cursorSlot.item) {
         const info = placeableInfo(cursorSlot.item);
         titleText = info.nameVi + " · cấp " + cursorSlot.level;
+        const badge = slotBadges(w).find((entry) => entry.slot === cursor);
+        if (badge) lines.push({ html: slotStateLine(badge) });
         const cost = upgradeCost(cursorSlot.item, cursorSlot.level);
         const lack = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
         lines.push({

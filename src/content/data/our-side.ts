@@ -69,11 +69,15 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
     cost: 90,
     rechargeMs: 22_000,
     area: { shape: "circle", radiusMm: 3000 },
-    // Tự (≥ 3 foes); the Chữ mode with a trigger word stays off until C4 (00 D13).
-    triggerMin: 3,
+    // Tự: ≥ 2 foes in 3 m, or one a blocker holds (00 D33 (1); 03 had ≥ 3, foes came one by one and it
+    // almost never fired). The Chữ mode with a trigger word stays off until C4 (00 D13).
+    triggerMin: 2,
+    triggerHeld: true,
     wordTrigger: false,
     hits: { ground: true, lowAir: false },
-    effect: { kind: "bomb", damage: 120, damageType: "physical", pushMm: 2000 },
+    // 03 §7.2 gave 120 VL at ≥ 3 foes (2–3 blasts a run). With D33 (1)'s trigger it fires 6–13 times a run, and at 120
+    // every bot won 2–18 points more (G1 91.7 %, B4 broke); 30 keeps its share of the damage near the old one.
+    effect: { kind: "bomb", damage: 30, damageType: "physical", pushMm: 2000 },
     upgrade: TRAP_UPGRADE,
     footprint: { slot: "trap", radiusMm: 1200 },
     counters: ["blast"],
@@ -124,6 +128,8 @@ export const HOUSES: Readonly<Record<HouseId, HouseDef>> = {
     // (BALANCE.md §9.1: the Dragon's HP is the margin S now). 0.3 % a second, ~18 % a wave, near 00 §4.5's 20 % heal cap.
     effect: { kind: "heal-aura", healPmPerS: 3, targets: "allies" },
     pulse: { kind: "heal-burst", healPct: 10 },
+    // 3 word kills in 7 m fire the pulse (00 D33 (1); the 5 of 03 §10.2 came about once a run).
+    energyMax: 3,
     upgrade: { costPct: [70, 100], mainPct: [45, 35], hpPct: 40 },
     footprint: { slot: "house", radiusMm: 2000 },
     counters: [],

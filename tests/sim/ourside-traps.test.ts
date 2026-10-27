@@ -5,6 +5,7 @@ import { slotIndex } from "../../src/sim/placement";
 import { place, upgrade } from "../../src/sim/shop";
 import { hasStatus, slowCapFor, slowPct, stanceNow } from "../../src/sim/status";
 import { delayTrap, rechargeTicks, resonate, trapMainPm } from "../../src/sim/traps";
+import { blockerFor } from "../../src/sim/units";
 import type { World } from "../../src/sim/world";
 import { eventsOf, foeAt, foeHits, makeWorld, placeOnLane, stepOurSide } from "./ourside-fixture";
 
@@ -56,20 +57,22 @@ describe("traps (03 §7)", () => {
     expect(slowPct(grunt.statuses, world.tick, slowCapFor(grunt))).toBe(0);
   });
 
-  it("Bom Hạt Thông waits for 3 ground foes, blasts them all, pushes survivors 2 m and recharges 22 s", () => {
+  it("Bom Hạt Thông waits for 2 ground foes (00 D33 (1)), blasts them all, pushes survivors 2 m and recharges 22 s", () => {
     const world = armed([["pine-bomb", "cau-t2"]]);
-    // G0 wolves with HP to spare, so all three survive the blast.
-    const boars = [foeAt(world, "blight-wolf", "cau", 9.5, { hp: 5000 }), foeAt(world, "blight-wolf", "cau", 10.5, { lateralM: 0.5, hp: 5000 })];
+    expect(TRAPS["pine-bomb"].triggerMin).toBe(2);
+    // G0 wolves with HP to spare, so both survive the blast; one free foe alone does not fire it.
+    const boars = [foeAt(world, "blight-wolf", "cau", 9.5, { hp: 5000 })];
     stepOurSide(world, 5);
     expect(foeHits(world, "trap")).toEqual([]);
-    boars.push(foeAt(world, "blight-wolf", "cau", 11, { hp: 5000 }));
+    boars.push(foeAt(world, "blight-wolf", "cau", 10.5, { lateralM: 0.5, hp: 5000 }));
     const before = boars.map((boar) => boar.along);
     stepOurSide(world, 1);
     const events = world.events.drain();
-    expect(events.filter((event) => event.type === "hit").map((event) => (event.type === "hit" ? event.amount : 0))).toEqual([122, 122, 122]);
+    // 30 × g(c) (00 D33 (1): 03's 120 cut to a quarter as it fires 3–5 times as often).
+    expect(events.filter((event) => event.type === "hit").map((event) => (event.type === "hit" ? event.amount : 0))).toEqual([31, 31]);
     // Small foes slide the full 2 m back along the lane.
-    expect(boars.map((boar, k) => before[k]! - boar.along)).toEqual([120_000, 120_000, 120_000]);
-    expect(events.filter((event) => event.type === "trap-trigger")).toMatchObject([{ trap: "pine-bomb", count: 3 }]);
+    expect(boars.map((boar, k) => before[k]! - boar.along)).toEqual([120_000, 120_000]);
+    expect(events.filter((event) => event.type === "trap-trigger")).toMatchObject([{ trap: "pine-bomb", count: 2 }]);
     const bomb = world.traps.list[0]!;
     expect(bomb.readyAt).toBe(5 + 1320);
     // Still recharging: three more foes do nothing.
@@ -81,7 +84,19 @@ describe("traps (03 §7)", () => {
     expect(foeHits(world, "trap")).toEqual([]);
   });
 
-  it("Bom Hạt Thông at level 3 hits for 120 × 1.958 × g(c)", () => {
+  it("Bom Hạt Thông also blasts one foe a blocker holds in its area (00 D33 (1))", () => {
+    const world = armed([["pine-bomb", "cau-t2"], ["moss-warden", "cau-b1"]]);
+    const grunt = foeAt(world, "moss-grunt", "cau", 9.5, { hp: 5000 });
+    // One free foe in the 3 m blast does nothing.
+    stepOurSide(world, 3);
+    expect(foeHits(world, "trap")).toEqual([]);
+    // Movement asks the warden (it stands by), which takes hold: the bomb fires that tick.
+    expect(blockerFor(world, grunt)).toBe(0);
+    stepOurSide(world, 1);
+    expect(eventsOf(world, "trap-trigger")).toMatchObject([{ trap: "pine-bomb", count: 1 }]);
+  });
+
+  it("Bom Hạt Thông at level 3 hits for 30 × 1.958 × g(c)", () => {
     const world = makeWorld({ phase: "break", gold: 5000 });
     place(world, "pine-bomb", "suoi-t2");
     upgrade(world, "suoi-t2");
@@ -90,7 +105,7 @@ describe("traps (03 §7)", () => {
     for (const at of [15, 15.5, 16]) foeAt(world, "blight-wolf", "suoi", at, { hp: 5000 });
     world.events.drain();
     stepOurSide(world, 1);
-    expect(foeHits(world, "trap").map(([, , amount]) => amount)).toEqual([240, 240, 240]);
+    expect(foeHits(world, "trap").map(([, , amount]) => amount)).toEqual([60, 60, 60]);
   });
 
   it("Lưới Phóng grounds the nearest low flyer within 10 m for 3 s and ignores ground foes", () => {

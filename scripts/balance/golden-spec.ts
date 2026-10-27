@@ -41,7 +41,8 @@ export const GOLDEN_CASES: readonly GoldenCase[] = [
   { name: "idle", bot: null, seed: STAGE_M0.seed, ticks: 600, every: 60 },
   { name: "b35-seed1", bot: "b35", seed: 1, ticks: 3 * 60 * 60, every: 300 },
   { name: "noTyping-seed2", bot: "noTyping", seed: 2, ticks: 3 * 60 * 60, every: 300 },
-  { name: "sloppy-hard-off-seed3", bot: "sloppy", seed: 3, ticks: 7 * 60 * 60, every: 600, difficulty: "hard", director: false },
+  // 8 min (was 7): with D33 (1)'s bomb the first 7 min held 2 Esc releases; the test asks for ≥ 3 (8 min: 4).
+  { name: "sloppy-hard-off-seed3", bot: "sloppy", seed: 3, ticks: 8 * 60 * 60, every: 600, difficulty: "hard", director: false },
 ];
 
 export type LogEntry = readonly [tick: number, command: SimCommand];

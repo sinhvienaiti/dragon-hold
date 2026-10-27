@@ -3,9 +3,9 @@
  * air; one shot then recharge, except continuous Gai Chông; auto trigger by
  * foes in the area (M0 has no trigger words, 00 D13). Resonance: word hits on
  * foes inside a recharging trap cut its recharge (03 §10.2).
- * M0: Gai Chông (strip 4 m: slow 25 %, 8 VL/s), Bom Hạt Thông (3 m, ≥ 3 foes:
- * 120 VL, push 2 m, 22 s), Lưới Phóng (post, 10 m: grounds the nearest low
- * flyer 3 s, 15 s). Levels 2–3: main effect +45 % then +35 %, recharge −15 %
+ * M0: Gai Chông (strip 4 m: slow 25 %, 8 VL/s), Bom Hạt Thông (3 m, ≥ 2 foes
+ * or one held by a blocker, 00 D33 (1): 120 VL, push 2 m, 22 s), Lưới Phóng
+ * (post, 10 m: grounds the nearest low flyer 3 s, 15 s). Levels 2–3: main effect +45 % then +35 %, recharge −15 %
  * at 3 (03 §7.3); chain 20+ recharges 10 % faster (03 §10.4).
  * Owner: sim-ourside (LANES.md).
  */
@@ -120,6 +120,9 @@ function fired(world: World, trap: TrapState, def: TrapDef, count: number): void
 
 const scratch: EnemyState[] = [];
 
+/** A blocker holds one of `foes` (movement set `blockedBy` this tick). */
+const heldIn = (foes: readonly EnemyState[]): boolean => foes.some((enemy) => enemy.alive && enemy.blockedBy >= 0);
+
 /** Continuous effects, triggers, recharges; emits `trap-trigger`. */
 export function stepTraps(world: World): void {
   const tick = world.tick;
@@ -143,7 +146,7 @@ export function stepTraps(world: World): void {
       continue;
     }
 
-    if (tick < trap.readyAt || scratch.length < def.triggerMin) continue;
+    if (tick < trap.readyAt || (scratch.length < def.triggerMin && !(def.triggerHeld === true && heldIn(scratch)))) continue;
 
     if (effect.kind === "bomb") {
       // One blast for the whole cluster, then push the survivors back along the lane.

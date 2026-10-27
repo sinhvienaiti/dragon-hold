@@ -12,6 +12,7 @@ import type { ActionHandler, CommandSink, FrameInfo, Presenter } from "../app/co
 import { CONSUMABLES, HERO_UPGRADES, HOUSES, TRAPS, UNITS } from "../content/data/our-side";
 import { OUR_SIDE } from "../content/rules";
 import type { ConsumableId, HeroUpgradeId, PlaceableId, SimEvent } from "../content/types";
+import { houseEnergyMax } from "../sim/houses";
 import type { World } from "../sim/world";
 import { CONFIRM_MS, buildPhase, isPlaceable, placeableInfo, SIM_PLACEMENT_RULES, type PlacementControl, type PlacementRules } from "./placement-ui";
 import { el, icon, setClass, setShown, setText, uiButton, viNumber } from "./skin";
@@ -58,12 +59,16 @@ export function effectLine(id: PlaceableId | ConsumableId | HeroUpgradeId): stri
     const trap = TRAPS[id as keyof typeof TRAPS];
     const e = trap.effect;
     if (e.kind === "spikes") return `Chậm ${e.slowPct} %, ${e.dps} sát thương mỗi giây trên đường`;
-    if (e.kind === "bomb") return `Nổ ${e.damage} sát thương khi ≥ ${trap.triggerMin} quái, đẩy lùi ${metres(e.pushMm)}; nạp ${sec(trap.rechargeMs)}`;
-    return `Kéo ${e.targets > 1 ? e.targets : "một"} quái bay thấp xuống đất trong ${sec(e.groundMs)}, tầm ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
+    if (e.kind === "bomb") {
+      const when = `≥ ${trap.triggerMin} quái trong ${metres(trap.area.radiusMm)}` + (trap.triggerHeld ? " hoặc quái bị lính chặn" : "");
+      return `Nổ ${e.damage} sát thương khi ${when}, đẩy lùi ${metres(e.pushMm)}; nạp ${sec(trap.rechargeMs)}`;
+    }
+    // Says first that it only shoots flyers (00 D33 (1)): ground foes walk past it.
+    return `Chỉ bắn quái bay: kéo ${e.targets > 1 ? e.targets : "một"} con xuống đất ${sec(e.groundMs)}, tầm ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
   }
   if (id in HOUSES) {
     const house = HOUSES[id as keyof typeof HOUSES];
-    return `Hồi ${viNumber(house.effect.healPmPerS / 10)} % máu mỗi giây cho phe ta trong ${metres(house.radiusMm)}; đủ 5 lần gõ hạ quái gần nhà: hồi ${house.pulse.healPct} %`;
+    return `Hồi ${viNumber(house.effect.healPmPerS / 10)} % máu mỗi giây cho phe ta trong ${metres(house.radiusMm)}; đủ ${houseEnergyMax(house)} lần gõ hạ quái gần nhà: hồi ${house.pulse.healPct} %`;
   }
   if (id in UNITS) {
     const unit = UNITS[id as keyof typeof UNITS];
