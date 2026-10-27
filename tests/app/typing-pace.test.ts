@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PACE_PICK_KEY, PACE_PRESETS, PaceMeter, clampWpm, measuredHeader, paceOptions, readPaceMemory, recordStage, rememberPick, type PaceStorage } from "../../src/app/typing-pace";
+import { PACE_CURRENT_KEY, PACE_PICK_KEY, PACE_PRESETS, PaceMeter, clampWpm, measuredHeader, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceStorage } from "../../src/app/typing-pace";
 import type { SimEvent, WordGroup } from "../../src/content/types";
 
 /** A storage over a Map, as kit/platform's SafeStorage answers. */
@@ -83,7 +83,23 @@ describe("typing pace", () => {
     expect(options).toHaveLength(PACE_PRESETS.length + 1);
   });
 
-  it("keeps the presets on keys 1–7 before and after a measured stage; the measured row is key 0", () => {
+  it("from the pause menu preselects the speed in use, a row of its own when no preset has it (test pass 27/10)", () => {
+    const storage = memoryStorage();
+    const url35 = paceOptions(readPaceMemory(storage), { typistWpm: 35, source: "url" });
+    expect(url35.options[url35.selected]!.header).toEqual({ typistWpm: 35, source: "pick" });
+    expect(sameSpeed(url35.options[url35.selected]!.header, { typistWpm: 35, source: "url" })).toBe(true);
+    const url70 = paceOptions(readPaceMemory(storage), { typistWpm: 70, source: "url" });
+    const row = url70.options[url70.selected]!;
+    expect(row.key).toBe(PACE_CURRENT_KEY);
+    expect(row.header).toEqual({ typistWpm: 70, source: "url" });
+    expect(row.label).toBe("Đang dùng: 70 WPM");
+    expect(url70.options).toHaveLength(PACE_PRESETS.length + 1);
+    expect(paceLabel({ typistWpm: 70, source: "url" })).toBe("70 WPM (cổng game đặt)");
+    // A 75 WPM row for fast typists (test pass 26/10).
+    expect(PACE_PRESETS.map((preset) => preset.wpm)).toContain(75);
+  });
+
+  it("keeps the presets on keys 1–8 before and after a measured stage; the measured row is key 0", () => {
     const storage = memoryStorage();
     const presetKeys = PACE_PRESETS.map((_, index) => index + 1);
     const before = paceOptions(readPaceMemory(storage)).options;

@@ -7,12 +7,12 @@
  * Owner: integrator (LANES.md).
  */
 import { el, setShown, uiButton } from "../ui/skin";
-import type { PaceHeader, PaceOption } from "./typing-pace";
+import { PACE_CURRENT_KEY, type PaceHeader, type PaceOption } from "./typing-pace";
 
 export interface PaceCard {
   readonly isOpen: boolean;
   /** Shows the rows; `onPick` gets the chosen header, `onBack` (if given) makes Esc close the card. */
-  open(options: readonly PaceOption[], selected: number, onPick: (header: PaceHeader) => void, onBack?: () => void, current?: PaceHeader): void;
+  open(options: readonly PaceOption[], selected: number, onPick: (header: PaceHeader) => void, onBack?: () => void, current?: PaceHeader, note?: string): void;
   /** Keyboard actions (rules.ts KEYS names); true when the card took it. */
   handleAction(action: string | null): boolean;
   close(): void;
@@ -29,7 +29,8 @@ export function createPaceCard(root: HTMLElement): PaceCard {
   const lead = el(doc, "div", "dh-pacecard__lead", "Quái đến dày hay thưa, từ dài hay ngắn theo tốc độ này. Chưa biết: gõ mười ngón không nhìn phím thì chọn 35, còn nhìn phím thì chọn 20–25. Hết ải, game đo tốc độ thật của bạn cho lần sau.");
   const list = el(doc, "div", "dh-pacecard__list");
   const keys = el(doc, "div", "dh-pacecard__keys", "");
-  card.append(title, lead, list, keys);
+  const noteNode = el(doc, "div", "dh-pacecard__note", "");
+  card.append(title, lead, list, noteNode, keys);
   setShown(card, false);
   root.append(card);
 
@@ -65,7 +66,7 @@ export function createPaceCard(root: HTMLElement): PaceCard {
     get isOpen() {
       return open;
     },
-    open(options, selected, onPick, onBack, current) {
+    open(options, selected, onPick, onBack, current, note) {
       items = options;
       pick = onPick;
       back = onBack ?? null;
@@ -73,17 +74,20 @@ export function createPaceCard(root: HTMLElement): PaceCard {
         const row = uiButton(doc, "dh-pacecard__row", () => choose(k));
         row.dataset.wpm = String(option.header.typistWpm);
         row.dataset.source = option.header.source;
-        const now = current !== undefined && current.typistWpm === option.header.typistWpm && current.source === option.header.source;
+        // The speed in use, whatever row or source it came from (a ?wpm= 35 is the 35 row).
+        const now = current !== undefined && current.typistWpm === option.header.typistWpm;
         row.dataset.key = String(option.key);
         row.append(
           el(doc, "span", "dh-key", String(option.key)),
           el(doc, "span", "dh-pacecard__wpm", option.label),
-          el(doc, "span", "dh-pacecard__hint", option.hint + (now ? " · đang dùng" : "")),
+          el(doc, "span", "dh-pacecard__hint", option.hint + (now && option.key !== PACE_CURRENT_KEY ? " · đang dùng" : "")),
         );
         row.addEventListener("pointerenter", () => select(k));
         return row;
       });
       list.replaceChildren(...rows);
+      noteNode.textContent = note ?? "";
+      setShown(noteNode, Boolean(note));
       const digits = options.map((option) => option.key);
       keys.textContent = "Phím " + Math.min(...digits) + "–" + Math.max(...digits) + " chọn · ↑ ↓ rồi Enter" + (back ? " · Esc quay lại" : "");
       open = true;

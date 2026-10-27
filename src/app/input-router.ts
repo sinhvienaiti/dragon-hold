@@ -16,6 +16,12 @@ export interface KeyPanel {
   readonly isOpen: boolean;
   handleLetter(letter: string): boolean;
   handleAction(action: string): boolean;
+  /**
+   * Another action came while the panel is open: true when the panel stepped
+   * aside (closed) and the action should go on (Thẻ Ôn and ⇧↵ Gọi sớm, test
+   * pass 27/10: the key did nothing while the HUD still offered it).
+   */
+  passOn?(action: string): boolean;
 }
 
 export interface RouterOptions {
@@ -79,7 +85,7 @@ export function createInputRouter(target: Window, sink: CommandSink, options: Ro
     const panel = options.panel?.() ?? null;
     if (panel?.isOpen) {
       if (PANEL_ACTIONS.has(action)) return panel.handleAction(action) || true;
-      if (!CAMERA.has(action)) return true;
+      if (!CAMERA.has(action) && panel.passOn?.(action) !== true) return true;
     }
     if (action === "escape" && options.locked?.()) {
       sink({ type: "release" });

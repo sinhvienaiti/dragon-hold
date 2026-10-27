@@ -4,7 +4,7 @@
 // 3. Pause menu → Tốc độ gõ shows the card with "đang dùng"; Esc goes back unchanged.
 // 4. Pause menu → Tốc độ gõ → 35: the stage restarts at 35, with the toast "Chơi lại ải với tốc độ 35 WPM".
 // 5. A stored measured profile (27 WPM, 93 %, CV 0.30) comes first on key 0 and preselected; Enter builds the
-//    world with E, a and CV. The presets keep keys 1–7: from the menu, key 5 is still 35 and key 0 the measured row.
+//    world with E, a and CV. The presets keep keys 1–8: from the menu, key 5 is still 35 and key 0 the measured row.
 // 6. ?wpm=25 skips the card. Every world replays to its hash; 0 console errors.
 // 7. A finished stage updates the measured profile (25 WPM wall times → E ≈ 25).
 // Toasts (review 2 minor 3): a MutationObserver records every toast as it turns
@@ -222,6 +222,20 @@ export default async function (page) {
   await waitFor(page, "window.__dh && window.__dh.ready === true");
   await page.sleep(400);
   out.steps.url = { card: await page.eval("window.__dh.state().paceCard"), pace: await pace(page) };
+  // 6b. With ?wpm=25, the menu's card preselects 25 ("đang dùng") and Enter goes back to the game, no replay (test pass 27/10).
+  const tickBefore = await page.eval("window.__dh.state().tick");
+  await press(page, "Escape");
+  await page.sleep(250);
+  if (await page.eval("window.__dh.state().menuOpen")) {
+    await press(page, "ArrowDown");
+    await press(page, "ArrowDown");
+    await press(page, "Enter");
+  }
+  await page.sleep(300);
+  const urlCard = await cardState(page);
+  await press(page, "Enter");
+  await page.sleep(400);
+  out.steps.urlKeep = { selected: urlCard?.rows.find((r) => r.on)?.text ?? null, pace: await pace(page), tickBefore, tickAfter: await page.eval("window.__dh.state().tick"), card: await page.eval("window.__dh.state().paceCard") };
 
   // 7. A finished stage is measured: 12 words with wall times of a 25 WPM typist (12000 / (25 d) ms a key),
   // then nobody types and the stage runs out; the profile now holds E ≈ 25 (world stepped in the page).
@@ -239,7 +253,7 @@ export default async function (page) {
     out.steps.cardShown === true &&
     out.steps.first.ready === false &&
     /35\*/.test(out.steps.first.rows ?? "") &&
-    out.steps.first.keys === "1234567" &&
+    out.steps.first.keys === "12345678" &&
     out.steps.first.inView === true &&
     out.steps.picked?.typistWpm === 25 &&
     out.steps.picked?.source === "pick" &&
@@ -256,7 +270,7 @@ export default async function (page) {
     out.steps.measured.pace?.accuracyPm === 930 &&
     out.steps.measured.pace?.cvPm === 300 &&
     out.steps.measured.replay?.same === true &&
-    /^0:27m 1:15 2:20 3:25 4:30 5:35 6:45 7:60$/.test(out.steps.measuredCard.keys ?? "") &&
+    /^0:27m 1:15 2:20 3:25 4:30 5:35 6:45 7:60 8:75$/.test(out.steps.measuredCard.keys ?? "") &&
     out.steps.key5.pace?.typistWpm === 35 &&
     out.steps.key5.pace?.source === "pick" &&
     out.steps.key5.replay === true &&
@@ -269,6 +283,10 @@ export default async function (page) {
     out.steps.url.card === false &&
     out.steps.url.pace?.typistWpm === 25 &&
     out.steps.url.pace?.source === "url" &&
+    /25 WPM/.test(out.steps.urlKeep.selected ?? "") &&
+    out.steps.urlKeep.pace?.source === "url" &&
+    out.steps.urlKeep.card === false &&
+    out.steps.urlKeep.tickAfter >= out.steps.urlKeep.tickBefore &&
     out.steps.profile !== null &&
     out.steps.profile.n >= 8 &&
     Math.abs(out.steps.profile.e - 25) <= 3 &&

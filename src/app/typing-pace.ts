@@ -34,7 +34,11 @@ export interface PaceHeader {
 }
 
 export interface PaceOption {
-  /** The digit that picks the row: 0 for the measured speed, 1–7 for the presets, the same with or without a measurement. */
+  /**
+   * The digit that picks the row: 0 for the measured speed, 1–8 for the
+   * presets, the same with or without a measurement; 9 for the speed in use
+   * when no other row has it (a ?wpm= the presets lack).
+   */
   readonly key: number;
   readonly label: string;
   readonly hint: string;
@@ -50,7 +54,12 @@ export const PACE_PRESETS: readonly { readonly wpm: number; readonly hint: strin
   { wpm: TEMPO.refWpm, hint: "Vừa, người chơi chuẩn" },
   { wpm: 45, hint: "Khá nhanh" },
   { wpm: 60, hint: "Nhanh" },
+  // Test pass 26/10: a 70 WPM typist had no row and played the first stage at 60.
+  { wpm: 75, hint: "Rất nhanh" },
 ];
+
+/** The key of the "in use" row (pause menu, a speed no other row has). */
+export const PACE_CURRENT_KEY = 9;
 
 /** A whole WPM inside [WPM_MIN, WPM_MAX]; undefined for a value that is not a number. */
 export function clampWpm(value: number | undefined): number | undefined {
@@ -113,10 +122,13 @@ const percent = (value: number): string => String(Math.round(value * 100));
 
 /**
  * The card's rows (the measured speed first when there is one, on key 0) and
- * the row to preselect. Presets keep keys 1–7 either way, so "35 is key 5"
+ * the row to preselect. Presets keep keys 1–8 either way, so "35 is key 5"
  * holds before and after the first measured stage (review 2 minor 4).
+ * From the pause menu `current` is the speed in use: its row is preselected
+ * (a row of its own, key 9, when no other row has that WPM), so Enter on the
+ * card keeps the game going (test pass 27/10: Enter replayed the stage).
  */
-export function paceOptions(memory: PaceMemory): { options: PaceOption[]; selected: number } {
+export function paceOptions(memory: PaceMemory, current?: PaceHeader): { options: PaceOption[]; selected: number } {
   const options: PaceOption[] = [];
   if (memory.measured !== null) {
     const header = measuredHeader(memory.measured);
@@ -130,6 +142,13 @@ export function paceOptions(memory: PaceMemory): { options: PaceOption[]; select
   }
   PACE_PRESETS.forEach((preset, index) => options.push({ key: index + 1, label: preset.wpm + " WPM", hint: preset.hint, header: { typistWpm: preset.wpm, source: "pick" } }));
   let selected = 0;
+  if (current !== undefined) {
+    const same = options.findIndex((option) => option.header.typistWpm === current.typistWpm && option.header.source === current.source);
+    const wpm = same >= 0 ? same : options.findIndex((option) => option.header.typistWpm === current.typistWpm);
+    if (wpm >= 0) return { options, selected: wpm };
+    options.push({ key: PACE_CURRENT_KEY, label: "Đang dùng: " + current.typistWpm + " WPM", hint: paceSourceVi(current), header: current });
+    return { options, selected: options.length - 1 };
+  }
   if (memory.measured === null) {
     const want = memory.lastPick ?? TEMPO.refWpm;
     let best = Infinity;
@@ -149,11 +168,18 @@ export function rememberPick(storage: PaceStorage, header: PaceHeader): void {
   storage.setItem(PACE_PICK_KEY, JSON.stringify({ wpm: header.typistWpm, source: header.source }));
 }
 
+/** Where a speed came from, for players: the URL is the portal's link (test pass 27/10: "theo đường dẫn" read as jargon). */
+export function paceSourceVi(header: PaceHeader): string {
+  return header.source === "measured" ? "theo số đo" : header.source === "url" ? "cổng game đặt" : "đã chọn";
+}
+
 /** Short text for menus and logs: "35 WPM (đã chọn)". */
 export function paceLabel(header: PaceHeader): string {
-  const from = header.source === "measured" ? "theo số đo" : header.source === "url" ? "theo đường dẫn" : "đã chọn";
-  return header.typistWpm + " WPM (" + from + ")";
+  return header.typistWpm + " WPM (" + paceSourceVi(header) + ")";
 }
+
+/** The menu's speed card keeps the game going on the speed in use: only another WPM replays the stage. */
+export const sameSpeed = (a: PaceHeader, b: PaceHeader): boolean => a.typistWpm === b.typistWpm;
 
 /** Fewer finished words than this: a stage tells nothing about speed (the kit also asks for 8). */
 const MIN_WORDS = 8;

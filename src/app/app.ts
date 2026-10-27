@@ -20,7 +20,7 @@ import { Vector3, type Object3D } from "three";
 import { createAudio, type GameAudio } from "../audio";
 import { MAPS } from "../content/data/maps";
 import { STAGE_M0 } from "../content/data/stages";
-import { RINGS } from "../content/rules";
+import { RINGS, URGENT } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
 import { createLearningBridge } from "../kit/learning";
 import { safeLocalStorage } from "../kit/platform";
@@ -31,9 +31,10 @@ import { newWordsOf } from "../typing/deck";
 import { createHud, type Hud } from "../ui/hud";
 import { createLearningFrame, createPrelearn, createReviewCard, type LearningFramePresenter, type LearningPanel, type PanelWord } from "../ui/learning-frame";
 import { createPlacementUi, type PlacementUi } from "../ui/placement-ui";
-import { createResults } from "../ui/results";
+import { VICTORY_HOLD_MS, createResults } from "../ui/results";
 import { createShopStrip } from "../ui/shop-strip";
-import { el, installSkin, setShown, uiButton } from "../ui/skin";
+import { createDebutCard } from "../ui/debut-card";
+import { el, installSkin, keyLabel, setShown, uiButton } from "../ui/skin";
 import { createTags } from "../ui/tags";
 import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
@@ -50,7 +51,7 @@ import { createInputRouter, type InputRouter, type KeyPanel } from "./input-rout
 import { createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
-import { PaceMeter, clampWpm, measuredHeader, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, type PaceHeader } from "./typing-pace";
+import { PaceMeter, clampWpm, measuredHeader, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
 
 export interface App {
   dispose(): void;
@@ -73,6 +74,9 @@ export interface AppOptions {
 
 const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
 const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
+/** One level easier (00 §4.10), and the levels' names (00 §4.10 table). */
+const EASIER: Readonly<Record<Difficulty, Difficulty | null>> = { hard: "normal", normal: "easy", easy: null };
+const DIFFICULTY_VI: Readonly<Record<Difficulty, string>> = { easy: "Dễ", normal: "Thường", hard: "Khó" };
 /** Countdown after a pause in a wave (06 §2 rule 4). */
 const COUNTDOWN_MS = 3000;
 /** How often the UI rectangles damage numbers keep off are read (fx.numbers.protected). */
@@ -185,6 +189,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   /** The typing speed of the next run: from ?wpm=, else unset until the speed card is answered. */
   const urlWpm = clampWpm(options.typistWpm);
   let header: PaceHeader | null = urlWpm === undefined ? null : { typistWpm: urlWpm, source: "url" };
+  /** The stage's level (00 §4.10): from ?difficulty=, one lower after two defeats in a row when the player takes the offer. */
+  let difficulty: Difficulty = options.difficulty ?? "normal";
+  /** Defeats in a row on this stage (00 §4.10: two → offer one level easier). */
+  let lossStreak = 0;
   let speed = options.speed ?? 1;
 
   installSkin(doc);
@@ -220,6 +228,14 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   // App-level layers.
   const hurt = el(doc, "div", "dh-hurt");
+  /** Héo lan's seep: a violet edge each beat, stronger when a beat takes ≥ 5 % of max HP (test pass 27/10). */
+  const seep = el(doc, "div", "dh-seep");
+  /** Low HP (< 35 %): a slow red pulse at the edge (test pass 27/10). */
+  const lowEdge = el(doc, "div", "dh-lowhp");
+  /** A notice over the learning frame, where the eyes are: a Vietnamese IME, low HP with a potion in the bag. */
+  const notice2 = el(doc, "div", "dh-notice");
+  notice2.setAttribute("role", "status");
+  setShown(notice2, false);
   const ffBadge = el(doc, "div", "dh-ff", "×2");
   setShown(ffBadge, false);
   /** Pause menu and 3-2-1: a plain dim layer, words and the learning frame hidden (01 §3.9 "Tạm dừng che chữ"). */
@@ -240,7 +256,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const menuTitle = el(doc, "div", "dh-pausemenu__title", "Tạm dừng");
   const menuKeys = el(doc, "div", "dh-pausemenu__keys", "↑ ↓ chọn · Enter chọn · Esc tiếp tục");
   setShown(menu, false);
-  overlay.append(hurt, ffBadge);
+  overlay.append(hurt, seep, lowEdge, notice2, ffBadge);
 
   let run: Run | null = null;
   let deck: WordDeck | null = null;
@@ -254,6 +270,14 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   let countdownUntil = 0;
   let fastForward = false;
   let hurtUntil = 0;
+  let seepUntil = 0;
+  let seepStrong = false;
+  /** The IME notice stays until a letter reaches the game (or 8 s). */
+  let imeUntil = 0;
+  /** A won stage turns the camera slowly while the results wait (results.ts VICTORY_HOLD_MS). */
+  let victoryTurn: { yawDeg: number; zoom: number; at: number } | null = null;
+  /** A tag appeared: read the keep-out rectangles again next frame, not 250 ms later (numbers under a fresh tag). */
+  let keepOutSoon = false;
   let protectAt = 0;
   let audioPaused = false;
   let prelearnShown = false;
@@ -283,11 +307,18 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         return panel.handleLetter(letter);
       },
       handleAction: (action) => panel.handleAction(action),
+      // ⇧↵ in a break closes Thẻ Ôn and calls the next wave (its answers are not required).
+      passOn: (action) => {
+        if (action !== "call-early" || panel !== run?.review || run.world.phase !== "break") return false;
+        panel.handleAction("escape");
+        return true;
+      },
     };
   };
 
   // ── Commands: straight into the world, logged with their tick ──
-  const sink = (command: SimCommand): void => {
+  /** `at`: when the key was pressed (the router's last letter, or now for a command sent by the debug handle). */
+  const sinkAt = (command: SimCommand, at?: number): void => {
     if (!run) return;
     const world = run.world;
     if (world.phase === "victory" || world.phase === "defeat") return;
@@ -295,9 +326,11 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     run.log.push({ tick: world.tick, command });
     if (command.type === "key") {
       keysToSim += 1;
-      pendingKeyTimes.push(router?.stats.lastLetterAt ?? view.performance.now());
+      imeUntil = 0;
+      pendingKeyTimes.push(at ?? router?.stats.lastLetterAt ?? view.performance.now());
     }
   };
+  const sink = (command: SimCommand): void => sinkAt(command);
 
   // ── Pause menu ──
   const menuActions: { label: string; run(): void }[] = [
@@ -332,15 +365,26 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   }
 
   // ── Typing speed (typing-pace.ts) ──
-  /** Shows the speed card; `back`: Esc returns to the game (from the menu). */
+  /**
+   * Shows the speed card; `back`: Esc returns to the game (from the menu).
+   * From the menu the speed in use is preselected (its own row when no
+   * preset has it), so Enter on the card goes back to the game.
+   */
   function askPace(onPick: (picked: PaceHeader) => void, back?: () => void): void {
-    const { options: rows, selected } = paceOptions(readPaceMemory(safeLocalStorage));
+    const current = back ? run?.header : undefined;
+    const { options: rows, selected } = paceOptions(readPaceMemory(safeLocalStorage), current);
+    const note = current ? "Chọn tốc độ khác thì ải chơi lại từ đầu." : undefined;
     paceCard.open(rows, selected, (picked) => {
-      rememberPick(safeLocalStorage, picked);
+      // Keeping the speed in use keeps its source: a ?wpm= stays the portal's.
+      if (!(current && sameSpeed(picked, current))) rememberPick(safeLocalStorage, picked);
       onPick(picked);
-    }, back, run?.header);
+    }, back, run?.header, note);
   }
-  /** Pause menu → speed card: a new speed replays the stage with it; the same one goes back to the game. */
+  /**
+   * Pause menu → speed card: another WPM replays the stage with it; the same
+   * WPM, from any row or source, goes back to the game (test pass 27/10: a
+   * ?wpm=35 game replayed the stage on Enter at the 35 row).
+   */
   function openPaceFromMenu(): void {
     if (!run) return;
     menuOpen = false;
@@ -348,7 +392,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const current = run.header;
     askPace(
       (picked) => {
-        if (picked.typistWpm === current.typistWpm && picked.source === current.source && picked.accuracyPm === current.accuracyPm && picked.cvPm === current.cvPm) {
+        if (sameSpeed(picked, current)) {
           startCountdownIfWave();
           return;
         }
@@ -456,7 +500,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     typistWpm: pace.typistWpm,
     ...(pace.accuracyPm === undefined ? {} : { accuracyPm: pace.accuracyPm }),
     ...(pace.cvPm === undefined ? {} : { cvPm: pace.cvPm }),
-    difficulty: options.difficulty,
+    difficulty,
   });
 
   function buildRun(): Run {
@@ -480,12 +524,31 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     });
     const frame = createLearningFrame(overlay!, learning.gloss, { speak: learning.speak });
     const placement = createPlacementUi(overlay!, map.stage.project, sink, { onSlots: (visible, highlight) => map.paths.showSlots(visible, highlight) });
-    const hud = createHud(overlay!, sink, { onPause: openMenu, onCameraReset: () => map.rig.reset() });
+    const hud = createHud(overlay!, sink, {
+      onPause: openMenu,
+      onCameraReset: () => map.rig.reset(),
+      // The break clock stands still while a learning panel is open (00 §4.5): the HUD says so.
+      heldBy: () => (run?.review.isOpen ? "Thẻ Ôn" : run?.prelearn.isOpen ? "Học trước" : null),
+    });
     const waveCard = createWaveCard(overlay!, sink);
     // The card's "Quái sắp vào từ các đường sáng": the coming wave's lanes light on the map (26/10 review).
     const laneCue = createLaneCue(map.paths);
     const strip = createShopStrip(overlay!, sink, { placement });
-    const results = createResults(overlay!, { retry: restart, listen: (text) => learning.speak(text), gloss: learning.gloss });
+    const debut = createDebutCard(overlay!);
+    const results = createResults(overlay!, {
+      retry: restart,
+      listen: (text) => learning.speak(text),
+      gloss: learning.gloss,
+      easierOffer: () => (lossStreak >= 2 && EASIER[difficulty] !== null ? DIFFICULTY_VI[EASIER[difficulty]!] : null),
+      easier: () => {
+        const next = EASIER[difficulty];
+        if (next === null) return;
+        difficulty = next;
+        lossStreak = 0;
+        restart();
+        run?.hud.toast("Chơi lại ải ở mức " + DIFFICULTY_VI[next]);
+      },
+    });
     const hooks = {
       speak: (text: string) => learning.speak(text),
       recall: (text: string, correct: boolean, ms: number, answer: string) => {
@@ -510,7 +573,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       meter: new PaceMeter(),
       log: [],
       // actors first: the others read the positions it computes each frame.
-      presenters: [actors, heroes, telegraphs, banners, hpbars, fx, tags, frame, placement, hud, waveCard, laneCue, strip, results, audio],
+      presenters: [actors, heroes, telegraphs, banners, hpbars, fx, tags, frame, placement, hud, waveCard, laneCue, strip, debut, results, audio],
       scene: { presenters: [actors, telegraphs, banners, hpbars, fx], roots: onStage().filter((root) => !before.has(root)) },
       handlers: [results, placement, strip, waveCard, hud, replay, map.rig],
       actors,
@@ -561,6 +624,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     audio.resetRun();
     fastForward = false;
     countdownUntil = 0;
+    if (victoryTurn !== null) map.rig.reset();
+    victoryTurn = null;
+    imeUntil = 0;
     const old = run;
     run = buildRun();
     disposeRun(old, true);
@@ -596,6 +662,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
           break;
         case "victory":
         case "defeat":
+          if (event.type === "victory") victoryTurn = { yawDeg: map.rig.yawDeg, zoom: map.rig.zoom, at: now };
+          lossStreak = event.type === "defeat" ? lossStreak + 1 : 0;
           learning.flush();
           measureStage(run.world, event.type === "victory");
           run.placement.cancel();
@@ -605,8 +673,16 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
           fastForward = false;
           break;
         case "hit":
-          // A foe's blow darkens the edge; Héo lan's quiet seep (source "hero") does not.
+          // A foe's blow darkens the edge (05 §5); Héo lan's seep (source "hero") tints it violet, so a beat that
+          // takes HP is seen where the eyes are (test pass 27/10: only the HP bar moved).
           if (event.target.kind === "hero" && event.source.kind !== "hero") hurtUntil = now + 120;
+          else if (event.target.kind === "hero" && event.amount > 0) {
+            seepUntil = now + 420;
+            seepStrong = event.amount * 20 >= run.world.hero.hpMax;
+          }
+          break;
+        case "word-assigned":
+          keepOutSoon = true;
           break;
         default:
           break;
@@ -623,6 +699,13 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     return !world.enemies.list.some((enemy) => enemy.alive && enemy.x * enemy.x + enemy.z * enemy.z <= r * r);
   }
 
+  /** Why Alt + → is refused now, in the player's terms (test pass 27/10: the old line named words only). */
+  function fastForwardRefusal(world: World): string {
+    if (world.phase !== "wave" && world.phase !== "warning") return "Tua nhanh chỉ dùng trong đợt và lúc nghỉ";
+    if (world.words.live.some((word) => word !== null)) return "Còn chữ trên quái: gõ hết rồi mới tua nhanh";
+    return "Quái đã vào Vùng Chữ, chữ sắp hiện: chưa tua nhanh được";
+  }
+
   const fallback = (action: string): boolean => {
     if (!run) return false;
     if (action === "escape") {
@@ -631,7 +714,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     }
     if (action === "fast-forward") {
       if (!fastForward && !fastForwardAllowed(run.world)) {
-        run.hud.toast("Tua nhanh chỉ khi nghỉ hoặc không còn chữ trên quái");
+        run.hud.toast(fastForwardRefusal(run.world));
         return true;
       }
       fastForward = !fastForward;
@@ -688,8 +771,17 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       }
     }
     learning.onEvents(events);
+    if (keepOutSoon) {
+      protectAt = 0;
+      keepOutSoon = false;
+    }
     followEvents(events, now);
     for (const presenter of run.presenters) presenter.onEvents(events, world);
+    if (victoryTurn !== null) {
+      // 05 §6.7 C1: the camera turns slowly round the dais and comes a little closer while the results wait.
+      const t = Math.min(1, (now - victoryTurn.at) / VICTORY_HOLD_MS);
+      if (t < 1) map.rig.setView({ yawDeg: victoryTurn.yawDeg + 28 * t, zoom: victoryTurn.zoom * (1 - 0.16 * t) });
+    }
     map.update(info.dt);
     refreshKeepOut(now);
     for (const presenter of run.presenters) presenter.frame(world, info);
@@ -725,6 +817,16 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     if (fastForward && !fastForwardAllowed(world)) fastForward = false;
     setShown(ffBadge, fastForward);
     hurt.classList.toggle("is-on", now < hurtUntil);
+    seep.classList.toggle("is-on", now < seepUntil);
+    seep.classList.toggle("is-strong", now < seepUntil && seepStrong);
+    const lowHp = world.phase === "wave" && world.hero.hp > 0 && world.hero.hp * 100 < world.hero.hpMax * URGENT.heroHpPct;
+    lowEdge.classList.toggle("is-on", lowHp);
+    // The notice over the learning frame: the IME first, then low HP with a potion ready.
+    const potion = Object.values(world.shop.held).some((count) => count > 0) && world.tick >= world.shop.consumableReadyAt;
+    const noticeText = now < imeUntil ? "Hãy tắt bộ gõ tiếng Việt (Unikey, Telex) để gõ từ tiếng Anh" : lowHp && potion ? "Máu Hỏa Long thấp: " + keyLabel("consumable-1") + " uống Bình Máu" : "";
+    setShown(notice2, noticeText !== "" && !menuOpen && !paceCard.isOpen);
+    if (notice2.textContent !== noticeText) notice2.textContent = noticeText;
+    notice2.classList.toggle("is-ime", now < imeUntil);
     const left = countdownUntil - now;
     setShown(countdownNode, left > 0);
     if (left > 0) countdownNode.textContent = String(Math.ceil(left / 1000));
@@ -789,7 +891,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       panel: activePanel,
       locked: () => (run ? run.world.words.lock >= 0 : false),
       fallback,
-      onImeSign: () => (run ? run.hud.toast("Hãy tắt bộ gõ tiếng Việt để gõ từ tiếng Anh") : undefined),
+      // A notice over the learning frame, held until a letter reaches the game (test pass 27/10: an 11 px toast in a corner).
+      onImeSign: () => {
+        if (run) imeUntil = view.performance.now() + 8000;
+      },
       now: () => view.performance.now(),
     });
     if (header !== null) begin();
@@ -813,6 +918,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         pace: { ...run!.header, kPm: world.pace.kPm, marginPm: world.pace.marginPm, graceTicks: world.pace.graceTicks },
         paceCard: paceCard.isOpen,
         phase: world.phase,
+        difficulty: world.difficulty,
+        lossStreak,
         wave: world.wave,
         tick: world.tick,
         phaseEndsAt: world.phaseEndsAt,
@@ -927,7 +1034,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     setSpeed: (value) => {
       if (dev) speed = Math.min(16, Math.max(0.25, value));
     },
-    send: (command) => sink(command),
+    // Keys sent here were pressed now: key latency counts from this call (test pass 27/10: it counted from the last real key).
+    send: (command) => sinkAt(command, view.performance.now()),
     action: (name) => router?.dispatch(name) ?? false,
     restart,
     panel: () => (run?.prelearn.isOpen ? "prelearn" : run?.review.isOpen ? "review" : menuOpen ? "menu" : null),

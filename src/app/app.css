@@ -163,6 +163,11 @@
   color: var(--dh-parchment);
 }
 
+.dh-pacecard__note {
+  font: 700 calc(14px * var(--ui)) / 1.3 var(--dh-font);
+  color: var(--dh-cream);
+}
+
 .dh-pacecard__keys {
   font: 500 calc(14px * var(--ui)) / 1.3 var(--dh-font);
   color: var(--dh-muted);
@@ -182,6 +187,74 @@
 .dh-hurt.is-on {
   opacity: 1;
   transition: none;
+}
+
+/* Héo lan's seep (BALANCE.md §5): a violet edge each beat; ≥ 5 % of max HP in one beat reads stronger (test pass 27/10). */
+.dh-seep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse 78% 72% at 50% 50%, transparent 60%, rgba(74, 52, 112, 0.5) 100%);
+  transition: opacity 360ms ease-out;
+  z-index: 5;
+}
+
+.dh-seep.is-on {
+  opacity: 0.85;
+  transition: opacity 60ms ease-in;
+}
+
+.dh-seep.is-strong {
+  opacity: 1;
+  background: radial-gradient(ellipse 72% 66% at 50% 50%, transparent 52%, rgba(92, 58, 138, 0.68) 100%);
+}
+
+/* Low HP (< 35 %): a slow red pulse at the edge, never over the centre. */
+.dh-lowhp {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 66%, rgba(150, 24, 16, 0.42) 100%);
+  z-index: 4;
+}
+
+.dh-lowhp.is-on {
+  animation: dh-lowhp 1.6s ease-in-out infinite;
+}
+
+@keyframes dh-lowhp {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dh-lowhp.is-on { animation: none; opacity: 0.7; }
+}
+
+/* Over the learning frame (bottom centre), where the eyes are: IME and low-HP notices. */
+.dh-notice {
+  position: absolute;
+  left: 50%;
+  bottom: calc(150px * var(--ui));
+  translate: -50% 0;
+  max-width: min(calc(720px * var(--ui)), calc(100vw - 32px));
+  width: max-content;
+  text-wrap: balance;
+  padding: calc(6px * var(--ui)) calc(14px * var(--ui));
+  border-radius: calc(8px * var(--ui));
+  background: rgba(27, 20, 15, 0.94);
+  box-shadow: inset 0 0 0 calc(2px * var(--ui)) var(--kit-urgent, #ffb020), 0 calc(3px * var(--ui)) calc(10px * var(--ui)) rgba(0, 0, 0, 0.5);
+  font: 700 max(16px, calc(17px * var(--ui))) / 1.3 var(--dh-font);
+  color: var(--dh-cream);
+  text-align: center;
+  pointer-events: none;
+  z-index: 46;
+}
+
+.dh-notice.is-ime {
+  box-shadow: inset 0 0 0 calc(2px * var(--ui)) var(--kit-typing, #7ff5e0), 0 calc(3px * var(--ui)) calc(10px * var(--ui)) rgba(0, 0, 0, 0.5);
 }
 
 .dh-ff {
