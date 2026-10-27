@@ -7,10 +7,10 @@
  */
 import { ENEMIES } from "../content/data/enemies";
 import { GENERALS } from "../content/data/generals";
-import { HOUSES, OUR_SIDE_TUNING, PLACEABLES, TRAPS, UNITS } from "../content/data/our-side";
+import { HOUSES, OUR_SIDE_TUNING, PLACEABLES, UNITS } from "../content/data/our-side";
 import { BLOCK, ECONOMY, ELITE_PM, OUR_SIDE } from "../content/rules";
 import type { FoeId, PlaceableId, SlotDef, SlotKind } from "../content/types";
-import { dist2, mToU, mmToU, msToTicks } from "./fixed";
+import { dist2, mToU, msToTicks } from "./fixed";
 import type { WorldInit, World } from "./world";
 
 export interface SlotState {
@@ -186,41 +186,9 @@ function busiestGroundLane(world: World): number {
   return best;
 }
 
-/** The ground lane the next wave sends most swarm clusters down (ties and none: `fallback`). */
-function swarmLane(world: World, fallback: number): number {
-  const wave = world.stage.waves[world.phase === "wave" || world.phase === "warning" ? world.wave - 1 : world.wave];
-  if (!wave) return fallback;
-  const count = world.lanes.map(() => 0);
-  for (const group of wave.groups) {
-    if (group.shape !== "cluster") continue;
-    const lane = world.lanes.findIndex((item) => item.id === group.lane);
-    if (lane >= 0 && !world.lanes[lane]!.sky) count[lane]! += 1;
-  }
-  let best = fallback;
-  for (const lane of world.lanes) if (count[lane.index]! > (best >= 0 ? count[best]! : 0)) best = lane.index;
-  return best;
-}
-
 /** Lower is a better first suggestion for `item` in slot `index`. */
 function suggestionScore(world: World, item: PlaceableId, index: number, busiest: number): number {
   const slot = world.slots[index]!;
-  if (item === "pine-bomb") {
-    // A bomb needs ≥ 3 foes within its 3 m (03 §7.2), and foes come one by one: it goes where they bunch, just
-    // before a Vệ Binh's hold point on its lane, else where the next wave's swarm clusters walk into the word zone
-    // (the outermost trap slot of their lane). Test pass 27/10: the suggestion was the busiest lane's slot nearest
-    // the dais, behind the warden, and bombs blew 0–0.6 times a wave.
-    const radius = mmToU(TRAPS["pine-bomb"].area.radiusMm);
-    let gap = Number.MAX_SAFE_INTEGER;
-    for (const other of world.slots) {
-      if (other.item !== "moss-warden" || other.lane < 0 || other.lane !== slot.lane) continue;
-      const hold = other.along - mmToU(OUR_SIDE_TUNING.contactMm);
-      const d = slot.along > hold ? slot.along - hold : hold - slot.along;
-      if (d <= radius && d < gap) gap = d;
-    }
-    if (gap !== Number.MAX_SAFE_INTEGER) return gap;
-    const onSwarm = slot.lane === swarmLane(world, busiest) ? 0 : 1;
-    return 1e12 + onSwarm * 1e15 + slot.along;
-  }
   if (item === "net-launcher") {
     // Nets reach the flyers' ring: the trap slot nearest a sky lane's end.
     let best = Number.MAX_SAFE_INTEGER;
