@@ -84,8 +84,10 @@ contracts, the event list and how to ask for a shared type change.
   `node scripts/sync-game-kit.mjs --target games/dragon-hold` (run in the
   parent repo) and sha256-checked by `src/kit/verify-kit.mjs`.
 - No destructive git (`reset --hard`, `checkout -- .`, `clean -f`, bare
-  `stash`, force push). Never push. Never run `sudo`, `scripts/setup-nginx.sh`
-  or `pnpm media:push/pull`.
+  `stash`, force push). Pushing is allowed (owner, 27/10/2026): push your
+  commits to `origin main` over SSH, never with `--force`, and never with a
+  media file in them. Never run `sudo`, `scripts/setup-nginx.sh` or
+  `pnpm media:push/pull`.
 - TypeScript strict. Code comments in English, short. Docs and changelogs in
   Vietnamese with full diacritics; each update adds
   `docs/changelog/<date>-<topic>.md`.
