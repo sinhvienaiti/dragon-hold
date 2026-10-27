@@ -423,8 +423,9 @@ float plaza = 1.0 - smoothstep(6.0, 8.5, r);
 dirtC = mix(dirtC, mix(uDirt, uSand, 0.5) * dSand * (0.88 + 0.2 * stroke), plaza * 0.8);
 c = mix(c, dirtC, dirtA * (1.0 - plaza * smoothstep(0.6, 0.9, dhNoise(p * 1.7 + 4.0)) * smoothstep(4.6, 7.0, r) * 0.45));
 // Footpaths: narrower and paler than lanes, grass breaking through the middle.
-float pathA = smoothstep(0.47, 0.55, pm.g + (mid - 0.5) * 0.24 + (stroke - 0.5) * 0.16) * level * 0.9;
-float crown = smoothstep(0.7, 0.92, pm.g) * smoothstep(0.45, 0.7, dhNoise(p * vec2(1.1, 2.3) + 5.0)) * 0.7;
+// Footpaths stay a step weaker than lanes at a squint: 0.78 cover, a grass crown down the middle.
+float pathA = smoothstep(0.47, 0.55, pm.g + (mid - 0.5) * 0.24 + (stroke - 0.5) * 0.16) * level * 0.78;
+float crown = smoothstep(0.66, 0.9, pm.g) * smoothstep(0.4, 0.65, dhNoise(p * vec2(1.1, 2.3) + 5.0)) * 0.8;
 vec3 pathC = mix(mix(uDirtLight, uDirt, 0.25), uGrassLight, 0.22) * dPath * (0.96 + 0.1 * stroke);
 c = mix(c, mix(pathC, c, crown), pathA);
 // Dirt lanes: worn edge, two ruts, one step brighter than the ground.

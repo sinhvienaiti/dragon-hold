@@ -62,7 +62,10 @@ export const LAYOUT_RULES = {
   },
   /** L4: decorative footpaths, narrower and paler than any lane. */
   footpaths: {
-    widthM: 1.15,
+    widthM: 1.05,
+    /** At a plaza end the path starts at this share of its width and reaches full width plazaTaperM out, so no footpath reads as a lane spoke at the dais. */
+    plazaTaper: 0.4,
+    plazaTaperM: 5,
     /** Width at an `edge` end (into the forest) as a share. */
     edgeTaper: 0.6,
     stepM: 3,
@@ -579,7 +582,8 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, seed: number): Footp
       const s = line.cum[i]!;
       // Narrow toward an edge end; a little wider at a junction.
       const toEdge = to.kind === "edge" ? lerp(F.edgeTaper, 1, smooth(line.length, line.length - 8, s)) : 1;
-      halves[i] = half * toEdge * (0.92 + 0.16 * valueNoise(s / 4, routeIndex + 0.5, seed + RULE.path + 1));
+      const fromPlaza = from.kind === "plaza" ? lerp(F.plazaTaper, 1, smooth(0, F.plazaTaperM, s)) : 1;
+      halves[i] = half * toEdge * fromPlaza * (0.92 + 0.16 * valueNoise(s / 4, routeIndex + 0.5, seed + RULE.path + 1));
     }
     paths.push({ id: route.id, line, halves });
   });
