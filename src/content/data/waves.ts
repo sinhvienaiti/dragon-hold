@@ -270,7 +270,7 @@ const PLANS: readonly Plan[] = [
     ],
   },
   {
-    // First Ong Gai; grunt pairs hold the lulls (no heavy foe yet: our side is two items strong).
+    // First Ong Gai and first Yêu Rêu Cung (alone in the third lull); grunt pairs hold the other lulls (no heavy foe yet: our side is two items strong).
     n: 2, rate: 90, peak100: 115, fit100: 100,
     segments: [
       L(grunts("cau")),
@@ -282,7 +282,7 @@ const PLANS: readonly Plan[] = [
     ],
   },
   {
-    // First Heo Nanh Đá, alone in a lull; first Yêu Rêu Cung (stops 12 m out and shoots the Dragon while it lives).
+    // First Heo Nanh Đá, alone in a lull; the first Yêu Rêu Cung in a peak (it stops 12 m out and shoots the Dragon while it lives).
     n: 3, rate: 90, peak100: 115, fit100: 100,
     segments: [
       L(grunts("cau")),

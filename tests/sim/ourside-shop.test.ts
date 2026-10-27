@@ -199,6 +199,12 @@ describe("placement and shop (03 §0.1, §0.2, §4)", () => {
     // The net goes first to the trap slot nearest the flyers' ring.
     expect(world.slots[suggestedSlots(world, "net-launcher")[0]!]!.def.id).toBe("cau-t4");
     expect(world.slots[suggestedSlots(world, "herb-hut")[0]!]!.def.ring).toBe("inner");
+    // A bomb goes where foes bunch (test pass 27/10): the outermost slot of the next wave's swarm lane, or just
+    // before a Vệ Binh's hold point once one stands.
+    expect(world.slots[suggestedSlots(world, "pine-bomb")[0]!]!.def.id).toBe("cau-t1");
+    place(world, "moss-warden", "cau-b2");
+    expect(world.slots[suggestedSlots(world, "pine-bomb")[0]!]!.def.id).toBe("cau-t3");
+    sell(world, "cau-b2");
     place(world, "spikes", world.slots[traps[0]!]!.def.id);
     expect(visibleSlots(world, "spikes")).toHaveLength(6);
     expect(editableSlots(world)).toEqual([traps[0]]);
