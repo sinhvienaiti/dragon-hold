@@ -17,6 +17,12 @@
  * none, so its white hide went dull lavender and the red wings and dark
  * greaves won at 60 px. Its materials now get that environment (only its
  * own, the scene keeps none), and it turns to face the default camera.
+ * M0b (test pass item 35: both Dragons read red at 60 px): Bạch Long's own
+ * materials recolour at runtime (no new media): red, orange and yellow turn
+ * pearl white with a cool silver-blue shade, near-black greaves lift to
+ * slate, the red glow turns moon white, and a cream feather rim lights its
+ * edge (05 §2.2 "kem trắng, lông vũ"). Never cyan (the typing colour).
+ * Hỏa Long (v2) keeps its warm peach-red.
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
@@ -61,6 +67,34 @@ const GUIDE_SIZE_M = 4.0;
 const GUIDE_ENV_INTENSITY = 1.15;
 /** Bạch Long faces the default camera (south, +z), turned this far toward the dais. */
 const GUIDE_TURN_RAD = 0.22;
+
+/**
+ * Bạch Long's pearl recolour (M0b), on its base colour (linear): warm texels (hue red to yellow, saturated) become
+ * pearl white shaded silver-blue by their brightness; near black lifts to slate. Exported for tests.
+ */
+export const GUIDE_PEARL_GLSL = /* glsl */ `
+{
+  vec3 dhC = diffuseColor.rgb;
+  float dhMax = max(dhC.r, max(dhC.g, dhC.b));
+  float dhMin = min(dhC.r, min(dhC.g, dhC.b));
+  float dhSat = (dhMax - dhMin) / max(dhMax, 1e-4);
+  float dhWarm = smoothstep(0.1, 0.32, dhSat) * smoothstep(-0.02, 0.03, dhC.r - dhC.g) * smoothstep(-0.02, 0.03, dhC.g - dhC.b);
+  float dhLum = dot(dhC, vec3(0.2126, 0.7152, 0.0722));
+  vec3 dhPearl = mix(vec3(0.46, 0.52, 0.66), vec3(0.95, 0.96, 1.0), smoothstep(0.03, 0.42, dhLum + dhMax * 0.35));
+  dhC = mix(dhC, dhPearl, dhWarm);
+  dhC = mix(dhC, vec3(0.24, 0.27, 0.35), (1.0 - smoothstep(0.015, 0.07, dhMax)) * 0.65);
+  diffuseColor.rgb = dhC;
+}
+`;
+/** Its glow moon white, and a cream rim on its feathered edge. */
+export const GUIDE_GLOW_GLSL = /* glsl */ `
+{
+  float dhE = max(totalEmissiveRadiance.r, max(totalEmissiveRadiance.g, totalEmissiveRadiance.b));
+  totalEmissiveRadiance = vec3(0.82, 0.88, 1.0) * dhE * 0.9;
+  float dhRim = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.5);
+  totalEmissiveRadiance += vec3(1.0, 0.95, 0.82) * dhRim * 0.22;
+}
+`;
 /** Placeholder colours: peach fire, cream feathers (05 §2.2). */
 const FIRE_COLOR = "#d9643a";
 const GUIDE_COLOR = "#efe6d2";
@@ -219,6 +253,13 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
           if (!standard.isMeshStandardMaterial) continue;
           standard.envMap = guideEnv;
           standard.envMapIntensity = GUIDE_ENV_INTENSITY;
+          // Pearl, not red: told apart from Hỏa Long at 60 px (M0b).
+          standard.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader
+              .replace("#include <map_fragment>", "#include <map_fragment>\n" + GUIDE_PEARL_GLSL)
+              .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n" + GUIDE_GLOW_GLSL);
+          };
+          standard.customProgramCacheKey = () => "dh-guide-pearl-v1";
           standard.needsUpdate = true;
         }
       });

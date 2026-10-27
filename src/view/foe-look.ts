@@ -59,6 +59,8 @@ export interface FoeLook {
   readonly tier: DrawTier;
   /** Drawn scale (FOE_DRAW_SCALE of its tier). */
   readonly scale: number;
+  /** Content model key (show.model): the owner's GLB that replaces the placeholder (M0b, view/model-specs.ts). */
+  readonly model: string;
 }
 
 const FALLBACK: FoeLook = {
@@ -67,6 +69,7 @@ const FALLBACK: FoeLook = {
   family: "stone",
   tier: "small",
   scale: FOE_DRAW_SCALE.small,
+  model: "",
 };
 
 const cache = new Map<FoeId, FoeLook>();
@@ -85,6 +88,7 @@ export function foeDrawLook(foe: FoeId): FoeLook {
       family: enemy.family,
       tier: enemy.tier,
       scale: FOE_DRAW_SCALE[enemy.tier],
+      model: enemy.show.model,
     };
   } else if (general !== undefined) {
     look = {
@@ -93,6 +97,7 @@ export function foeDrawLook(foe: FoeId): FoeLook {
       family: general.family,
       tier: "general",
       scale: FOE_DRAW_SCALE.general,
+      model: general.show.model,
     };
   }
   cache.set(foe, look);

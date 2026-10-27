@@ -6,17 +6,46 @@
  * Five instanced meshes (cones, trunks, round crowns, bushes, rocks): a
  * seeded plan from the terrain's forest density, sparse clumps inside the
  * play area, a dense ring in the skirt that sinks into the mist.
+ * M0b: once the owner's pine-river kit loads (view/models.ts), every item
+ * inside the play area and the near skirt becomes one of its GLB props
+ * (K01–K11, one instanced mesh per prop, painted like the rest: ramp light,
+ * wind sway on trees and bushes, 35 % dither where they hide a lane, rim,
+ * mist); the far ring keeps its primitive cones in the mist. Colour fixes of
+ * the provisional props are paint here (K03 trunk, K04 violet and cream,
+ * K07 moss), never a new texture.
  * Owner: view-terrain (LANES.md).
  */
 import * as THREE from "three";
 import type { Quality } from "../app/contracts";
 import type { MapDef } from "../content/types";
-import { Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
+import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
+import type { PropModel } from "./models";
+import { hash2, Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
 
 export interface ScatterView {
   readonly group: THREE.Group;
+  /** Swaps the near items for the owner's GLB props (M0b); a prop that did not load keeps its primitives. Once. */
+  useProps(prop: (manifest: string) => PropModel | null): void;
+  /** Triangles of one drawing of the scatter (no shadow pass), and how many items are GLB props. */
+  stats(): { triangles: number; props: number; primitives: number };
   dispose(): void;
 }
+
+/** GLB props reach this far past the play radius (the near skirt); the far ring stays primitive in the mist. */
+export const PROP_NEAR_SKIRT_M = 6;
+
+/** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
+const PROP_PAINT: Readonly<Record<string, string>> = {
+  // K03: a warm brown trunk instead of near black.
+  "props/pine-river-pine-young":
+    "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhTrunk = 1.0 - smoothstep(0.16, 0.26, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.3, 0.2) * (0.6 + dhL * 1.6), dhTrunk * 0.75);",
+  // K04: the indigo half of the crown toward #8E7CC3, the grey trunk cream.
+  "props/pine-river-tree-violet":
+    "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhTrunk = 1.0 - smoothstep(0.3, 0.42, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.276, 0.204, 0.555) * (dhL / 0.264) * 1.1, 0.85 * (1.0 - dhTrunk)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76) * (0.45 + dhL), dhTrunk * 0.6);",
+  // K07: moss close to the withered #C8D24A painted dark olive.
+  "props/pine-river-rock-boulder":
+    "float dhMoss = smoothstep(0.04, 0.14, diffuseColor.g - diffuseColor.b) * smoothstep(-0.03, 0.05, diffuseColor.g - diffuseColor.r); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.36, 0.18) * (0.7 + dot(diffuseColor.rgb, vec3(0.33))), dhMoss * 0.7);",
+};
 
 /** A placed placeholder, metres. `size`: height for pines, crown radius for round trees and bushes, rock radius. */
 export interface ScatterItem {
@@ -63,6 +92,8 @@ const PINE_GREENS = ["#3f6e5c", "#4a7b5e", "#35605a", "#557f57"] as const;
 const PINE_FAR = ["#4d6b7d", "#57648a", "#4a6a77"] as const;
 const CROWN_NEAR = ["#6f9a4f", "#5a8a5c", "#82a656", "#4f7f60"] as const;
 const CROWN_FAR = ["#8e7cc3", "#6c8fd1", "#7d7fb8", "#8a82b4"] as const;
+/** Far crown colours the GLB violet crown (K04) takes over. */
+const FAR_COLORS = CROWN_FAR;
 const BUSH = ["#5d8f4f", "#6f9d55", "#4d7f5a", "#7aa35e"] as const;
 const ROCK = ["#9a95a8", "#8b8698", "#a7a2ad"] as const;
 
@@ -203,6 +234,8 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
   const rockMaterial = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", flatShading: true }), look, { key: "rock", paint: ROCK_PAINT, rim: 0.06 });
 
   const trees = plan.pines.length + plan.crowns.length;
+  /** Items that became GLB props (per kind, by plan index): their primitives are hidden. */
+  const taken: Record<ScatterKind, Set<number>> = { pine: new Set(), crown: new Set(), bush: new Set(), rock: new Set() };
   const cones = instanced(cone, coneMaterial, plan.pines.length, "dh-pines", shadows);
   const trunks = instanced(trunk, trunkMaterial, trees, "dh-trunks", shadows);
   const rounds = instanced(sphere, crownMaterial, plan.crowns.length, "dh-crowns", shadows);
@@ -223,39 +256,132 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     mesh.setColorAt(index, color.set(hex));
   };
 
-  let trunkIndex = 0;
-  plan.pines.forEach((pine, index) => {
-    const height = pine.size;
-    const radius = height * 0.27;
-    set(cones, index, pine.x, pine.y + height * 0.14, pine.z, radius, height * 0.86, radius, pine.yaw, pine.color);
-    set(trunks, trunkIndex++, pine.x, pine.y, pine.z, height * 0.035, height * 0.3, height * 0.035, pine.yaw, "#5b4a3f");
-  });
-  plan.crowns.forEach((crown, index) => {
-    const radius = crown.size;
-    const trunkHeight = radius * 1.05;
-    set(rounds, index, crown.x, crown.y + trunkHeight + radius * 0.75, crown.z, radius, radius * 0.88, radius, crown.yaw, crown.color);
-    set(trunks, trunkIndex++, crown.x, crown.y, crown.z, radius * 0.1, trunkHeight + radius * 0.5, radius * 0.1, crown.yaw, "#64513f");
-  });
-  plan.bushes.forEach((bush, index) => {
-    set(shrubs, index, bush.x, bush.y + bush.size * 0.38, bush.z, bush.size * 1.15, bush.size * 0.72, bush.size, bush.yaw, bush.color);
-  });
-  plan.rocks.forEach((stone, index) => {
-    set(stones, index, stone.x, stone.y, stone.z, stone.size * 1.25, stone.size * 0.7, stone.size, stone.yaw, stone.color, (stone.size % 0.1) * 3);
-  });
-  for (const mesh of [cones, trunks, rounds, shrubs, stones]) {
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    if (mesh.count > 0) group.add(mesh);
-  }
+  /** Writes every primitive; an item taken by a GLB prop gets a zero scale (hidden, same draw call). */
+  const fillPrimitives = (): void => {
+    let trunkIndex = 0;
+    plan.pines.forEach((pine, index) => {
+      const k = taken.pine.has(index) ? 0 : 1;
+      const height = pine.size;
+      const radius = height * 0.27;
+      set(cones, index, pine.x, pine.y + height * 0.14, pine.z, radius * k, height * 0.86 * k, radius * k, pine.yaw, pine.color);
+      set(trunks, trunkIndex++, pine.x, pine.y, pine.z, height * 0.035 * k, height * 0.3 * k, height * 0.035 * k, pine.yaw, "#5b4a3f");
+    });
+    plan.crowns.forEach((crown, index) => {
+      const k = taken.crown.has(index) ? 0 : 1;
+      const radius = crown.size;
+      const trunkHeight = radius * 1.05;
+      set(rounds, index, crown.x, crown.y + trunkHeight + radius * 0.75, crown.z, radius * k, radius * 0.88 * k, radius * k, crown.yaw, crown.color);
+      set(trunks, trunkIndex++, crown.x, crown.y, crown.z, radius * 0.1 * k, (trunkHeight + radius * 0.5) * k, radius * 0.1 * k, crown.yaw, "#64513f");
+    });
+    plan.bushes.forEach((bush, index) => {
+      const k = taken.bush.has(index) ? 0 : 1;
+      set(shrubs, index, bush.x, bush.y + bush.size * 0.38, bush.z, bush.size * 1.15 * k, bush.size * 0.72 * k, bush.size * k, bush.yaw, bush.color);
+    });
+    plan.rocks.forEach((stone, index) => {
+      const k = taken.rock.has(index) ? 0 : 1;
+      set(stones, index, stone.x, stone.y, stone.z, stone.size * 1.25 * k, stone.size * 0.7 * k, stone.size * k, stone.yaw, stone.color, (stone.size % 0.1) * 3);
+    });
+    for (const mesh of [cones, trunks, rounds, shrubs, stones]) {
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
+  };
+  fillPrimitives();
+  for (const mesh of [cones, trunks, rounds, shrubs, stones]) if (mesh.count > 0) group.add(mesh);
 
   const geometries = [cone, trunk, sphere, bushSphere, rock];
-  const materials = [coneMaterial, crownMaterial, trunkMaterial, rockMaterial];
+  const materials: THREE.Material[] = [coneMaterial, crownMaterial, trunkMaterial, rockMaterial];
   const meshes = [cones, trunks, rounds, shrubs, stones];
+  /** GLB prop meshes (their geometry belongs to view/models.ts). */
+  const propMeshes: THREE.InstancedMesh[] = [];
+  let used = false;
+  const field = terrain.field;
+  const near = map.terrain.playRadiusM + PROP_NEAR_SKIRT_M;
+  const [cx, cz] = map.dais.center;
+
+  const useProps = (prop: (manifest: string) => PropModel | null): void => {
+    if (used) return;
+    used = true;
+    const loaded = PROP_SPECS.map((spec) => ({ spec, model: prop(spec.manifest) })).filter((entry): entry is { spec: PropSpec; model: PropModel } => entry.model !== null);
+    if (loaded.length === 0) return;
+    const lists: Record<ScatterKind, readonly ScatterItem[]> = { pine: plan.pines, crown: plan.crowns, bush: plan.bushes, rock: plan.rocks };
+    const placed = new Map<string, ScatterItem[]>();
+    for (const kind of ["pine", "crown", "bush", "rock"] as const) {
+      const all = loaded.filter((entry) => entry.spec.kind === kind);
+      // A prop kept off the paths (the violet crown, 05 §2.2) stands exactly where the plan put a far colour.
+      const far = all.find((entry) => entry.spec.laneGapMin > 0);
+      const variants = all.filter((entry) => entry.spec.laneGapMin === 0);
+      if (variants.length === 0 && far === undefined) continue;
+      const total = variants.reduce((sum, entry) => sum + entry.spec.share, 0);
+      lists[kind].forEach((item, index) => {
+        if (Math.hypot(item.x - cx, item.z - cz) > near) return;
+        let pick: (typeof all)[number] | undefined;
+        if (far !== undefined && (FAR_COLORS as readonly string[]).includes(item.color)) pick = far;
+        else {
+          // A stable pick by position.
+          let roll = hash2(Math.round(item.x * 7), Math.round(item.z * 7), 0x51ce) * total;
+          pick = variants[variants.length - 1];
+          for (const entry of variants) {
+            roll -= entry.spec.share;
+            if (roll <= 0) {
+              pick = entry;
+              break;
+            }
+          }
+        }
+        if (pick === undefined) return;
+        taken[kind].add(index);
+        const list = placed.get(pick.spec.manifest) ?? [];
+        list.push(item);
+        placed.set(pick.spec.manifest, list);
+      });
+    }
+    fillPrimitives();
+    const tint = new THREE.Color();
+    for (const { spec, model } of loaded) {
+      const items = placed.get(spec.manifest) ?? [];
+      if (items.length === 0) continue;
+      const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
+        key: "prop-" + spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1),
+        ...(PROP_PAINT[spec.manifest] ? { paint: PROP_PAINT[spec.manifest] } : {}),
+        rim: spec.kind === "rock" ? 0.06 : 0.12,
+        ...(spec.wind > 0 ? { wind: spec.wind } : {}),
+        dither: spec.kind !== "rock",
+      });
+      const mesh = instanced(model.geometry, material, items.length, "dh-prop-" + spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1), shadows);
+      items.forEach((item, index) => {
+        const k = item.size * spec.perSize;
+        // Rocks and logs sink a little; trees stand on their roots.
+        const sink = spec.kind === "rock" ? k * model.size.y * 0.12 : 0;
+        euler.set(0, item.yaw, 0, "YXZ");
+        quaternion.setFromEuler(euler);
+        matrix.compose(position.set(item.x, item.y - sink, item.z), quaternion, scale.set(k, k, k));
+        mesh.setMatrixAt(index, matrix);
+        // A little brightness spread so a grove never looks stamped.
+        mesh.setColorAt(index, tint.setScalar(0.9 + hash2(index, items.length, 7) * 0.16));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      group.add(mesh);
+      propMeshes.push(mesh);
+      materials.push(material);
+    }
+  };
+
   return {
     group,
+    useProps,
+    stats() {
+      // Hidden primitives (zero scale) still go through the vertex stage: they count.
+      let triangles = 0;
+      for (const mesh of [...meshes, ...propMeshes]) triangles += ((mesh.geometry.getIndex()?.count ?? mesh.geometry.getAttribute("position").count) / 3) * mesh.count;
+      const props = propMeshes.reduce((sum, mesh) => sum + mesh.count, 0);
+      const primitives = plan.pines.length + plan.crowns.length + plan.bushes.length + plan.rocks.length - (taken.pine.size + taken.crown.size + taken.bush.size + taken.rock.size);
+      return { triangles, props, primitives };
+    },
     dispose(): void {
       group.removeFromParent();
-      for (const item of [...geometries, ...materials, ...meshes]) item.dispose();
+      for (const item of [...geometries, ...materials, ...meshes, ...propMeshes]) item.dispose();
     },
   };
 }
