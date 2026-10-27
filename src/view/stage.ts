@@ -23,8 +23,8 @@ import { MAP_L2_CAU } from "../content/data/maps";
 import { KEYS } from "../content/rules";
 import type { MapDef } from "../content/types";
 import { CAMERA_ACTIONS, createCameraRig, type CameraRig } from "./camera";
-import { BRIDGE_MODEL } from "./model-specs";
-import type { CrowdModels } from "./models";
+import { BRIDGE_MODEL, PROP_SPECS } from "./model-specs";
+import { loadCrowdModels, type CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
 import { buildScatter, type ScatterView } from "./scatter";
 import { buildTerrain, SUN_DIRECTION, type PaintedTerrain } from "./terrain";
@@ -381,7 +381,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
     useModels(models: CrowdModels): void {
       void models.ready.then(() => {
         if (disposed) return;
-        scatter.useProps((key) => models.prop(key));
+        scatter.useProps((key) => models.prop(key), stage.renderer);
         paths.useBridge(models.prop(BRIDGE_MODEL.manifest));
       });
     },
@@ -439,6 +439,16 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
   const quality: Quality = asked && QUALITIES.includes(asked) ? asked : "high";
   const host = doc.getElementById("dh-canvas") ?? doc.body;
   const world = createMapStage(host, map, quality);
+  // Map spike: the preview loads the kit props too (scatter, bridge), so captures show the real map.
+  const models = params.get("props") === "0" ? null : loadCrowdModels(quality, { only: [...PROP_SPECS.map((prop) => prop.manifest), BRIDGE_MODEL.manifest] });
+  let propsSettled = models === null;
+  if (models !== null) {
+    world.useModels(models);
+    void models.ready.then(() => {
+      // useModels swaps on the same promise; one more tick lets that run first.
+      setTimeout(() => (propsSettled = true), 0);
+    });
+  }
 
   let label: HTMLElement | null = null;
   if (params.get("hud") !== "0") {
@@ -483,7 +493,7 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
 
   view.__dhTerrain = {
     info: () => ({
-      ready: frames > 2,
+      ready: frames > 2 && propsSettled,
       frames,
       frameMs,
       ...world.stage.stats(),
@@ -505,6 +515,7 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
       label?.remove();
       delete view.__dhTerrain;
       world.dispose();
+      models?.dispose();
     },
   };
 }

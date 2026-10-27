@@ -20,12 +20,14 @@ import type { Quality } from "../app/contracts";
 import type { MapDef } from "../content/types";
 import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
 import type { PropModel } from "./models";
+import type { LayoutItem } from "./layout";
+import { bakeImpostors, farRing, type FarItem, type ImpostorAtlas } from "./impostor";
 import { hash2, Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
 
 export interface ScatterView {
   readonly group: THREE.Group;
   /** Swaps the near items for the owner's GLB props (M0b); a prop that did not load keeps its primitives. Once. */
-  useProps(prop: (manifest: string) => PropModel | null): void;
+  useProps(prop: (manifest: string) => PropModel | null, renderer?: THREE.WebGLRenderer): void;
   /** Triangles of one drawing of the scatter (no shadow pass), and how many items are GLB props. */
   stats(): { triangles: number; props: number; primitives: number };
   dispose(): void;
@@ -33,6 +35,19 @@ export interface ScatterView {
 
 /** GLB props reach this far past the play radius (the near skirt); the far ring stays primitive in the mist. */
 export const PROP_NEAR_SKIRT_M = 6;
+
+/**
+ * Map spike bands: inside the play area only the layout's groves, lone trees,
+ * rim clutter and rock lines stand (view/layout.ts); the even scatter starts
+ * at the forest edge (EDGE_IN metres inside the play radius). Every item is a
+ * kit prop: near band (to the near skirt) full model with shadows, mid band
+ * full model without shadows, far band (past FAR_FROM) impostor quads
+ * (view/impostor.ts). A runtime SimplifyModifier copy for the mid band was
+ * tried and dropped: the Tripo meshes split at UV seams and fell apart.
+ */
+export const EDGE_IN_M = 2;
+/** Trees past this radius draw as impostors (one atlas, one draw call); bushes there are left out. */
+export const FAR_FROM_M = 46;
 
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
@@ -55,6 +70,10 @@ export interface ScatterItem {
   readonly size: number;
   readonly yaw: number;
   readonly color: string;
+  /** Map spike: the kit prop this item draws as (layout items), else picked by kind and share. */
+  readonly proto?: string;
+  /** Map spike: instance tint multiplied into the texture. */
+  readonly tint?: readonly [number, number, number];
 }
 
 export interface ScatterPlan {
@@ -92,6 +111,8 @@ const PINE_GREENS = ["#3f6e5c", "#4a7b5e", "#35605a", "#557f57"] as const;
 const PINE_FAR = ["#4d6b7d", "#57648a", "#4a6a77"] as const;
 const CROWN_NEAR = ["#6f9a4f", "#5a8a5c", "#82a656", "#4f7f60"] as const;
 const CROWN_FAR = ["#8e7cc3", "#6c8fd1", "#7d7fb8", "#8a82b4"] as const;
+/** Props too small to cast a useful shadow (MAP_FACTORY 4.2: clutter casts none). */
+const SMALL_PROPS = new Set(["props/pine-river-river-stones", "props/pine-river-stump", "props/pine-river-log", "props/pine-river-rock-slab"]);
 /** Far crown colours the GLB violet crown (K04) takes over. */
 const FAR_COLORS = CROWN_FAR;
 const BUSH = ["#5d8f4f", "#6f9d55", "#4d7f5a", "#7aa35e"] as const;
@@ -141,11 +162,21 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     }
   };
 
-  // Trees: pines and round crowns by forest density.
+  const layout = field.layout;
+  const edgeIn = play - EDGE_IN_M;
+  const onCliffFace = (x: number, z: number): boolean => {
+    if (!layout.cliff) return false;
+    const { s, cap } = layout.cliff.offset(x, z);
+    return cap > 0.2 && s > -2.5 && s < 6;
+  };
+
+  // Trees: pines and round crowns by forest density, from the forest edge out (the layout owns the inside).
   visit(cells.tree, (x, z, r) => {
     const roll = random();
     const density = field.forest(x, z);
     if (roll > density) return;
+    if (r < edgeIn + (hash2(Math.round(x * 3), Math.round(z * 3), 0x1ed6) - 0.5) * 3) return;
+    if (onCliffFace(x, z) || layout.pathGap(x, z) < 1.2) return;
     const inside = r < play + 2;
     const lane = field.laneAt(x, z);
     const laneGap = lane.dist - lane.half;
@@ -172,6 +203,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const density = field.forest(x, z);
     const chance = 0.06 + density * 0.4 * (1 - density * 0.6);
     if (random() > chance) return;
+    if (r < edgeIn || onCliffFace(x, z) || layout.pathGap(x, z) < 0.6) return;
     const lane = field.laneAt(x, z);
     if (lane.dist - lane.half < SCATTER_CLEAR.bushLane) return;
     if (field.riverEdge(x, z) < SCATTER_CLEAR.bushWater) return;
@@ -186,6 +218,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const edge = field.riverEdge(x, z);
     const bank = edge > -0.3 && edge < 2.6 ? 0.55 : 0;
     if (random() > 0.1 + bank) return;
+    if (r < play + PROP_NEAR_SKIRT_M) return;
     const lane = field.laneAt(x, z);
     if (lane.dist - lane.half < SCATTER_CLEAR.rockLane) return;
     if (edge < -0.3) return;
@@ -194,6 +227,27 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const size = 0.25 + random() * (bank > 0 ? 0.55 : 0.75);
     rocks.push({ x, z, y: sinkY(x, z, size * 0.25), size, yaw: random() * Math.PI * 2, color: pick(ROCK, random) });
   });
+
+  // The layout's items (groves, lone trees, rim bushes, clutter, rock lines), each with its prop and tint.
+  const add = (item: LayoutItem): void => {
+    const spec = PROP_SPECS.find((entry) => entry.manifest === item.proto);
+    if (!spec) return;
+    const sink = spec.kind === "rock" ? 0.05 : spec.kind === "bush" ? 0.05 : 0.1;
+    const entry: ScatterItem = {
+      x: item.x,
+      z: item.z,
+      y: sinkY(item.x, item.z, sink),
+      size: item.k / spec.perSize,
+      yaw: item.yaw,
+      color: spec.kind === "pine" ? PINE_GREENS[0] : spec.kind === "crown" ? CROWN_NEAR[0] : spec.kind === "bush" ? BUSH[0] : ROCK[0],
+      proto: item.proto,
+      tint: item.tint,
+    };
+    ({ pine: pines, crown: crowns, bush: bushes, rock: rocks })[spec.kind].push(entry);
+  };
+  for (const item of layout.trees) add(item);
+  for (const item of layout.bushes) add(item);
+  for (const item of layout.rocks) add(item);
 
   return { pines, crowns, bushes, rocks };
 }
@@ -299,13 +353,16 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
   const near = map.terrain.playRadiusM + PROP_NEAR_SKIRT_M;
   const [cx, cz] = map.dais.center;
 
-  const useProps = (prop: (manifest: string) => PropModel | null): void => {
+  let atlas: ImpostorAtlas | null = null;
+  const useProps = (prop: (manifest: string) => PropModel | null, renderer?: THREE.WebGLRenderer): void => {
     if (used) return;
     used = true;
     const loaded = PROP_SPECS.map((spec) => ({ spec, model: prop(spec.manifest) })).filter((entry): entry is { spec: PropSpec; model: PropModel } => entry.model !== null);
     if (loaded.length === 0) return;
     const lists: Record<ScatterKind, readonly ScatterItem[]> = { pine: plan.pines, crown: plan.crowns, bush: plan.bushes, rock: plan.rocks };
-    const placed = new Map<string, ScatterItem[]>();
+    /** Items per prop and band ("near" inside the near skirt, "mid" past it). */
+    const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; items: ScatterItem[] }>();
+    const farItems: FarItem[] = [];
     for (const kind of ["pine", "crown", "bush", "rock"] as const) {
       const all = loaded.filter((entry) => entry.spec.kind === kind);
       // A prop kept off the paths (the violet crown, 05 §2.2) stands exactly where the plan put a far colour.
@@ -314,9 +371,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       if (variants.length === 0 && far === undefined) continue;
       const total = variants.reduce((sum, entry) => sum + entry.spec.share, 0);
       lists[kind].forEach((item, index) => {
-        if (Math.hypot(item.x - cx, item.z - cz) > near) return;
         let pick: (typeof all)[number] | undefined;
-        if (far !== undefined && (FAR_COLORS as readonly string[]).includes(item.color)) pick = far;
+        if (item.proto !== undefined) pick = loaded.find((entry) => entry.spec.manifest === item.proto);
+        else if (far !== undefined && (FAR_COLORS as readonly string[]).includes(item.color)) pick = far;
         else {
           // A stable pick by position.
           let roll = hash2(Math.round(item.x * 7), Math.round(item.z * 7), 0x51ce) * total;
@@ -331,24 +388,49 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         }
         if (pick === undefined) return;
         taken[kind].add(index);
-        const list = placed.get(pick.spec.manifest) ?? [];
-        list.push(item);
-        placed.set(pick.spec.manifest, list);
+        const r = Math.hypot(item.x - cx, item.z - cz);
+        if (renderer && r > FAR_FROM_M && kind !== "rock") {
+          // Far ring: an impostor quad (trees), nothing for bushes (lost in the mist).
+          if (kind === "bush") return;
+          const k = item.size * pick.spec.perSize;
+          const spread = 0.86 + hash2(Math.round(item.x * 5), Math.round(item.z * 5), 0xfa7) * 0.2;
+          farItems.push({ manifest: pick.spec.manifest, x: item.x, y: item.y, z: item.z, k, mirror: hash2(Math.round(item.x * 3), Math.round(item.z * 3), 0x31) < 0.5, tint: item.tint ?? [spread, spread, spread] });
+          return;
+        }
+        const band = r <= near ? "near" : "mid";
+        const key = pick.spec.manifest + "|" + band;
+        const group = placed.get(key) ?? { spec: pick.spec, model: pick.model, band, items: [] };
+        group.items.push(item);
+        placed.set(key, group);
       });
     }
     fillPrimitives();
+    // Primitive meshes whose every item became a prop leave the scene (no hidden instances in the vertex stage).
+    const hide = (mesh: THREE.InstancedMesh, kind: ScatterKind | ScatterKind[]): void => {
+      const kinds = Array.isArray(kind) ? kind : [kind];
+      if (kinds.every((k) => taken[k].size === lists[k].length)) mesh.visible = false;
+    };
+    hide(cones, "pine");
+    hide(trunks, ["pine", "crown"]);
+    hide(rounds, "crown");
+    hide(shrubs, "bush");
+    hide(stones, "rock");
     const tint = new THREE.Color();
-    for (const { spec, model } of loaded) {
-      const items = placed.get(spec.manifest) ?? [];
+    for (const { spec, model, band, items } of placed.values()) {
       if (items.length === 0) continue;
+      const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1);
       const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
-        key: "prop-" + spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1),
+        key: "prop-" + name + (band === "mid" ? "-mid" : ""),
         ...(PROP_PAINT[spec.manifest] ? { paint: PROP_PAINT[spec.manifest] } : {}),
         rim: spec.kind === "rock" ? 0.06 : 0.12,
         ...(spec.wind > 0 ? { wind: spec.wind } : {}),
         dither: spec.kind !== "rock",
       });
-      const mesh = instanced(model.geometry, material, items.length, "dh-prop-" + spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1), shadows);
+      const geometry = model.geometry;
+      // Small clutter and the far ring cast no shadow (MAP_FACTORY 4.2).
+      const casts = shadows && band === "near" && !SMALL_PROPS.has(spec.manifest);
+      const mesh = instanced(geometry, material, items.length, "dh-prop-" + name + (band === "mid" ? "-mid" : ""), casts);
+      mesh.receiveShadow = shadows && band === "near";
       items.forEach((item, index) => {
         const k = item.size * spec.perSize;
         // Rocks and logs sink a little; trees stand on their roots.
@@ -357,14 +439,25 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         quaternion.setFromEuler(euler);
         matrix.compose(position.set(item.x, item.y - sink, item.z), quaternion, scale.set(k, k, k));
         mesh.setMatrixAt(index, matrix);
-        // A little brightness spread so a grove never looks stamped.
-        mesh.setColorAt(index, tint.setScalar(0.9 + hash2(index, items.length, 7) * 0.16));
+        // A little brightness spread so a grove never looks stamped; layout items carry their own tint.
+        const spread = 0.9 + hash2(index, items.length, 7) * 0.16;
+        if (item.tint) tint.setRGB(item.tint[0], item.tint[1], item.tint[2]);
+        else tint.setScalar(spread);
+        mesh.setColorAt(index, tint);
       });
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       group.add(mesh);
       propMeshes.push(mesh);
       materials.push(material);
+    }
+    if (renderer && farItems.length > 0) {
+      const used = [...new Set(farItems.map((item) => item.manifest))];
+      atlas = bakeImpostors(renderer, used.map((key) => loaded.find((entry) => entry.spec.manifest === key)!.model));
+      const ring = farRing(atlas, farItems, look);
+      group.add(ring);
+      propMeshes.push(ring);
+      materials.push(ring.material as THREE.Material);
     }
   };
 
@@ -374,7 +467,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     stats() {
       // Hidden primitives (zero scale) still go through the vertex stage: they count.
       let triangles = 0;
-      for (const mesh of [...meshes, ...propMeshes]) triangles += ((mesh.geometry.getIndex()?.count ?? mesh.geometry.getAttribute("position").count) / 3) * mesh.count;
+      for (const mesh of [...meshes, ...propMeshes]) if (mesh.visible) triangles += ((mesh.geometry.getIndex()?.count ?? mesh.geometry.getAttribute("position").count) / 3) * mesh.count;
       const props = propMeshes.reduce((sum, mesh) => sum + mesh.count, 0);
       const primitives = plan.pines.length + plan.crowns.length + plan.bushes.length + plan.rocks.length - (taken.pine.size + taken.crown.size + taken.bush.size + taken.rock.size);
       return { triangles, props, primitives };
@@ -382,6 +475,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     dispose(): void {
       group.removeFromParent();
       for (const item of [...geometries, ...materials, ...meshes, ...propMeshes]) item.dispose();
+      atlas?.dispose();
     },
   };
 }
