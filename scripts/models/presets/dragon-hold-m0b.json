@@ -1,0 +1,523 @@
+{
+ "version": 1,
+ "contracts": "src/kit/three/model-contracts.ts",
+ "kinds": [
+  "enemies",
+  "units",
+  "props"
+ ],
+ "models": {
+  "enemies/moss-grunt": {
+   "source": "enemies/moss-grunt.glb",
+   "triangles": 2400,
+   "reviewed": true,
+   "note": "E09 sample 1, biped",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1.56
+    },
+    "pivot": "feet",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "enemies/blight-wolf": {
+   "source": "enemies/blight-wolf.glb",
+   "triangles": 2400,
+   "reviewed": true,
+   "note": "E18 sample 2, quadruped",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 0.7
+    },
+    "pivot": "base",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "enemies/moss-banner": {
+   "source": "generals/moss-banner.glb",
+   "triangles": 3600,
+   "reviewed": true,
+   "note": "G01 sample 3, general (kit kind enemies)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 2.4
+    },
+    "pivot": "feet",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "enemies/moss-archer": {
+   "source": "enemies/moss-archer.glb",
+   "triangles": 2400,
+   "reviewed": true,
+   "note": "E11 biped archer",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1.68
+    },
+    "pivot": "feet",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "enemies/tusk-boar": {
+   "source": "enemies/tusk-boar.glb",
+   "triangles": 2400,
+   "reviewed": true,
+   "note": "E19 quadruped charger",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 0.9
+    },
+    "pivot": "base",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "enemies/thorn-wasp": {
+   "source": "enemies/thorn-wasp.glb",
+   "triangles": 2000,
+   "reviewed": true,
+   "note": "E01 flyer; wings in a V (provisional 7.5)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 0.56
+    },
+    "pivot": "base",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "enemies/thorn-ant": {
+   "source": "enemies/thorn-ant.glb",
+   "triangles": 1200,
+   "reviewed": true,
+   "note": "E25 swarm crawler",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 0.36
+    },
+    "pivot": "base",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "units/moss-warden": {
+   "source": "units/moss-warden.glb",
+   "triangles": 2400,
+   "reviewed": true,
+   "note": "U1 blocker; doubled club and two-faced shield in a V (Multiview seam): cut keeps the forward halves (processed frame, metres; m0b-strip.mjs)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1.6
+    },
+    "pivot": "feet",
+    "sockets": {
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     },
+     "FX_HEAD": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   },
+   "cut": [
+    [
+     0.52,
+     0.0,
+     0.02,
+     0.9,
+     0.47,
+     0.5
+    ],
+    [
+     -0.9,
+     0.12,
+     0.06,
+     -0.56,
+     0.95,
+     0.5
+    ]
+   ]
+  },
+  "props/herb-hut": {
+   "source": "houses/herb-hut.glb",
+   "triangles": 4000,
+   "reviewed": true,
+   "note": "H1 house on a 2.2 m slot",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 2.2
+    },
+    "pivot": "footprint",
+    "sockets": {
+     "FX_TOP": {
+      "ray": "-y"
+     },
+     "FX_CORE": {
+      "frac": [
+       0,
+       0,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "props/spikes": {
+   "source": "traps/spikes.glb",
+   "triangles": 1600,
+   "reviewed": true,
+   "note": "TR1 continuous trap; long side along Z (the lane)",
+   "static": {
+    "yaw": 0,
+    "size": {
+     "measure": "depth",
+     "metres": 3.6
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-bomb": {
+   "source": "traps/pine-bomb.glb",
+   "triangles": 1600,
+   "reviewed": true,
+   "note": "TR2 explosive trap",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1.2
+    },
+    "pivot": "base",
+    "sockets": {
+     "FX_TOP": {
+      "frac": [
+       0,
+       1,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "props/net-launcher": {
+   "source": "traps/net-launcher.glb",
+   "triangles": 2000,
+   "reviewed": true,
+   "note": "TR3 capture trap",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1.8
+    },
+    "pivot": "base",
+    "sockets": {
+     "FX_MUZZLE": {
+      "frac": [
+       0,
+       0.85,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "props/pine-river-pine-tall": {
+   "source": "props/pine-river/pine-tall.glb",
+   "triangles": 900,
+   "reviewed": true,
+   "note": "K01; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-pine-round": {
+   "source": "props/pine-river/pine-round.glb",
+   "triangles": 1500,
+   "reviewed": true,
+   "note": "K02; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-pine-young": {
+   "source": "props/pine-river/pine-young.glb",
+   "triangles": 700,
+   "reviewed": true,
+   "note": "K03 (provisional 8.5); scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-tree-violet": {
+   "source": "props/pine-river/tree-violet.glb",
+   "triangles": 1600,
+   "reviewed": true,
+   "note": "K04 (provisional 8.5); scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-bush-moss": {
+   "source": "props/pine-river/bush-moss.glb",
+   "triangles": 700,
+   "reviewed": true,
+   "note": "K05; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-bush-blossom": {
+   "source": "props/pine-river/bush-blossom.glb",
+   "triangles": 800,
+   "reviewed": true,
+   "note": "K06; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-rock-boulder": {
+   "source": "props/pine-river/rock-boulder.glb",
+   "triangles": 500,
+   "reviewed": true,
+   "note": "K07 (provisional 8.5); scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-rock-slab": {
+   "source": "props/pine-river/rock-slab.glb",
+   "triangles": 450,
+   "reviewed": true,
+   "note": "K08; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-river-stones": {
+   "source": "props/pine-river/river-stones.glb",
+   "triangles": 450,
+   "reviewed": true,
+   "note": "K09; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-stump": {
+   "source": "props/pine-river/stump.glb",
+   "triangles": 600,
+   "reviewed": true,
+   "note": "K10; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-log": {
+   "source": "props/pine-river/log.glb",
+   "triangles": 500,
+   "reviewed": true,
+   "note": "K11; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-bridge-old": {
+   "source": "props/pine-river/bridge-old.glb",
+   "triangles": 4000,
+   "reviewed": true,
+   "note": "K12 bridge; span along Z",
+   "static": {
+    "yaw": 0,
+    "size": {
+     "measure": "depth",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  }
+ }
+}
