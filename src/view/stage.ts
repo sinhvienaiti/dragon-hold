@@ -503,7 +503,7 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
     label = doc.createElement("div");
     label.className = "dh-terrain-preview";
     label.style.cssText = "position:fixed;left:12px;bottom:10px;padding:6px 10px;border-radius:6px;background:rgba(32,26,20,.62);color:#f3ead6;font:500 13px/1.4 system-ui,sans-serif;pointer-events:none;z-index:5";
-    label.textContent = "Xem đất · " + map.nameVi + " · chuột phải xoay, lăn chuột thu phóng, chuột giữa kéo · ← → ↑ ↓ · Alt + ↑/↓ · Alt + 0";
+    label.textContent = "Terrain · " + map.nameVi + " · right drag rotate, scroll zoom, middle drag pan · ← → ↑ ↓ · Alt + ↑/↓ · Alt + 0";
     doc.body.append(label);
   }
 

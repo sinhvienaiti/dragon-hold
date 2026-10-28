@@ -53,15 +53,15 @@ export interface PaceOption {
 
 /** Presets on the card (WPM, hint). 35 is 00 §4.3's reference player. */
 export const PACE_PRESETS: readonly { readonly wpm: number; readonly hint: string }[] = [
-  { wpm: 15, hint: "Mới tập gõ" },
-  { wpm: 20, hint: "Còn nhìn phím" },
-  { wpm: 25, hint: "Gõ chậm" },
-  { wpm: 30, hint: "Hơi chậm" },
-  { wpm: TEMPO.refWpm, hint: "Vừa, người chơi chuẩn" },
-  { wpm: 45, hint: "Khá nhanh" },
-  { wpm: 60, hint: "Nhanh" },
+  { wpm: 15, hint: "Beginner" },
+  { wpm: 20, hint: "Eyes on keys" },
+  { wpm: 25, hint: "Slow" },
+  { wpm: 30, hint: "A bit slow" },
+  { wpm: TEMPO.refWpm, hint: "Average" },
+  { wpm: 45, hint: "Brisk" },
+  { wpm: 60, hint: "Fast" },
   // Test pass 26/10: a 70 WPM typist had no row and played the first stage at 60.
-  { wpm: 75, hint: "Rất nhanh" },
+  { wpm: 75, hint: "Very fast" },
 ];
 
 /** The key of the "in use" row (pause menu, a speed no other row has). */
@@ -141,8 +141,8 @@ export function paceOptions(memory: PaceMemory, current?: PaceHeader): { options
     const stages = memory.measured.stages;
     options.push({
       key: 0,
-      label: "Số đo: " + header.typistWpm + " WPM",
-      hint: "Đúng " + percent(memory.measured.a) + " % phím" + (stages > 0 ? ", đo qua " + stages + " ải" : ""),
+      label: "Measured: " + header.typistWpm + " WPM",
+      hint: percent(memory.measured.a) + "% keys right" + (stages > 0 ? ", over " + stages + (stages === 1 ? " stage" : " stages") : ""),
       header,
     });
   }
@@ -152,7 +152,7 @@ export function paceOptions(memory: PaceMemory, current?: PaceHeader): { options
     const same = options.findIndex((option) => option.header.typistWpm === current.typistWpm && option.header.source === current.source);
     const wpm = same >= 0 ? same : options.findIndex((option) => option.header.typistWpm === current.typistWpm);
     if (wpm >= 0) return { options, selected: wpm };
-    options.push({ key: PACE_CURRENT_KEY, label: "Đang dùng: " + current.typistWpm + " WPM", hint: paceSourceVi(current), header: current });
+    options.push({ key: PACE_CURRENT_KEY, label: "In use: " + current.typistWpm + " WPM", hint: paceSourceVi(current), header: current });
     return { options, selected: options.length - 1 };
   }
   if (memory.measured === null) {
@@ -176,7 +176,7 @@ export function rememberPick(storage: PaceStorage, header: PaceHeader): void {
 
 /** Where a speed came from, for players: the URL is the portal's link (test pass 27/10: "theo đường dẫn" read as jargon). */
 export function paceSourceVi(header: PaceHeader): string {
-  return header.source === "measured" ? "theo số đo" : header.source === "url" ? "cổng game đặt" : "đã chọn";
+  return header.source === "measured" ? "measured" : header.source === "url" ? "portal preset" : "picked";
 }
 
 /** Short text for menus and logs: "35 WPM (đã chọn)". */

@@ -17,7 +17,7 @@
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
-import { Debris, DRAGON, HitStop, NumberField, NumberSprites, STYLE, Trauma, tier as tierRow } from "../kit/feedback";
+import { Debris, DRAGON, HitStop, NumberField, NumberSprites, STYLE, Trauma, tier as tierRow, type FeedbackProfile } from "../kit/feedback";
 import { LightTrail, ParticlePool, textures } from "../kit/three";
 import { HOUSES, TRAPS } from "../content/data/our-side";
 import { GENERALS } from "../content/data/generals";
@@ -65,6 +65,9 @@ export const MATERIAL_COLORS: Readonly<Record<Material, readonly [string, string
   mud: ["#5a4a35", "#7a6448"],
   crystal: ["#c8d24a", "#e8f0a0"],
 };
+
+/** The kit's dragon profile with the Perfect label in English (the kit copy still carries the Vietnamese one). */
+export const NUMBER_FEEL: FeedbackProfile = { ...DRAGON, numbers: { ...DRAGON.numbers, label: "PERFECT" } };
 
 /** Budgets per quality (05 §8): combat particles, numbers, debris. */
 export const FX_BUDGET: Readonly<Record<Quality, { particles: number; numbers: number; debris: number }>> = {
@@ -1129,7 +1132,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const hitStop = new HitStop(DRAGON);
   const trauma = new Trauma(DRAGON, options.random);
   // The kit field: its box is the drawn digits and label, settle() runs until none touch (round 3 kit drift, fixed in the kit).
-  const numbers = new NumberField(DRAGON);
+  const numbers = new NumberField(NUMBER_FEEL);
   numbers.limit = FX_BUDGET[stage.quality].numbers;
   let sprites: NumberSprites | null = null;
   const screen: ScreenPoint = { x: 0, y: 0, visible: false };
@@ -1348,7 +1351,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
 
     renderOverlay(): void {
       if (numbers.live === 0) return;
-      sprites ??= new NumberSprites(DRAGON);
+      sprites ??= new NumberSprites(NUMBER_FEEL);
       stage.renderer.getSize(size);
       sprites.write(numbers, size.x, size.y);
       sprites.render(stage.renderer);

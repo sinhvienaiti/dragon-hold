@@ -192,21 +192,21 @@ export function defeatCause(summary: Pick<ResultsSummary, "keys" | "hurt">): "ty
 /** The line under the stars (06 §6: "Giữ máu Hỏa Long để có 3 sao"). */
 export function starHint(summary: ResultsSummary): string {
   if (summary.outcome === "defeat") {
-    const at = "Hỏa Long gục ở đợt " + summary.wave;
+    const at = "Hoa Long fell on wave " + summary.wave;
     const cause = defeatCause(summary);
-    if (cause === "typing") return at + ". Gõ chữ trên đầu quái để Hỏa Long phun lửa vào chúng.";
+    if (cause === "typing") return at + ". Type foes' words to make Hoa Long breathe fire at them.";
     if (cause === "blight")
-      return at + ", phần lớn vì Héo lan: quái mang chữ đứng trong Vùng Chữ mà chưa bị gõ thì rút máu Hỏa Long. Gõ quái gần bệ trước, dùng " + keyLabel("skill-1") + " Fire Breath khi quái dồn.";
-    return at + " vì quái đánh tới bệ. Đặt lính chặn và bẫy ở đường đông quái hơn.";
+      return at + ", mainly from Blight: untyped foes in the Word Zone drain Hoa Long's HP. Type foes nearest the platform first; use " + keyLabel("skill-1") + " Fire Breath when foes crowd in.";
+    return at + " as foes reached the platform. Place blockers and traps on busier lanes.";
   }
-  if (summary.stars >= 3) return "Hỏa Long còn " + summary.hpPct + " % máu: trọn ba sao.";
+  if (summary.stars >= 3) return "Hoa Long has " + summary.hpPct + "% HP: all three stars.";
   const need = summary.stars === 2 ? STARS.threeStarHpPct : STARS.twoStarHpPct;
-  return "Hỏa Long còn " + summary.hpPct + " % máu. Giữ từ " + need + " % để có " + (summary.stars + 1) + " sao.";
+  return "Hoa Long has " + summary.hpPct + "% HP. Keep at least " + need + "% for " + (summary.stars + 1) + " stars.";
 }
 
 // ── The screen ──────────────────────────────────────────────────────────────
 
-const STATUS_VI: Readonly<Record<WordStatus, string>> = { new: "Mới học", fresh: "Từ mới", miss: "Gõ sai", review: "Cần ôn", good: "Gõ tốt" };
+const STATUS_VI: Readonly<Record<WordStatus, string>> = { new: "Learned", fresh: "New", miss: "Mistyped", review: "Review", good: "Good" };
 
 /**
  * A won stage holds this long before the panel (05 §6.1 Victory, §6.7 C1):
@@ -246,7 +246,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   const book = el(doc, "div", "dh-book");
   const bookHead = el(doc, "div", "dh-book__head");
   const bookCount = el(doc, "span");
-  bookHead.append(el(doc, "span", "dh-title", "Sổ Từ Ải"), bookCount);
+  bookHead.append(el(doc, "span", "dh-title", "Wordbook"), bookCount);
   const bookList = el(doc, "ul", "dh-book__list");
   book.append(bookHead, bookList);
   const foot = el(doc, "div", "dh-results__foot");
@@ -257,7 +257,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   portalButton.target = "_top";
   portalButton.tabIndex = -1;
   portalButton.addEventListener("mousedown", (event) => event.preventDefault());
-  portalButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>Về cổng game`;
+  portalButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>Back to portal`;
   // Keep focus in the window key router, as uiButton does elsewhere.
   const resultButtons = [retryButton, portalButton] as const;
   let focusedAction = 0;
@@ -281,9 +281,9 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   // The title over the field while a won stage holds (VICTORY_HOLD_MS).
   const cheer = el(doc, "div", "dh-victory");
   cheer.dataset.ui = "victory";
-  const cheerTitle = el(doc, "div", "dh-victory__title", "Giữ Ải thành công");
+  const cheerTitle = el(doc, "div", "dh-victory__title", "Stage cleared");
   const cheerKeys = el(doc, "div", "dh-victory__keys");
-  cheerKeys.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span> xem kết quả`;
+  cheerKeys.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span> see results`;
   cheer.append(cheerTitle, cheerKeys);
   setShown(cheer, false);
   root.append(cheer);
@@ -310,20 +310,20 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     if (!world) return;
     summary = summarizeRun(world, log, outcome, starCount, wave, hurt);
     const s = summary;
-    setText(title, s.outcome === "victory" ? "Giữ Ải thành công" : "Dragon Platform thất thủ");
-    setText(sub, world.stage.nameVi + " · " + (s.outcome === "victory" ? s.waves + "/" + s.waves + " đợt" : "thua ở đợt " + s.wave + "/" + s.waves));
+    setText(title, s.outcome === "victory" ? "Stage cleared" : "Dragon Platform lost");
+    setText(sub, world.stage.nameVi + " · " + (s.outcome === "victory" ? s.waves + "/" + s.waves + " waves" : "lost at wave " + s.wave + "/" + s.waves));
     starNodes.forEach((node, index) => setClass(node, "is-on", index < s.stars));
     setShown(stars, s.outcome === "victory");
     setText(hint, starHint(s));
     tiles.replaceChildren(
-      tile(String(s.goldLeft), "Gold còn", true),
-      tile(String(s.goldEarned), "Gold kiếm được", true),
-      tile(s.accuracyPct === null ? "—" : s.accuracyPct + " %", "Độ chuẩn"),
-      tile(s.newLearned + "/" + s.newMet, "Từ mới đã học"),
-      tile(String(s.met), "Từ đã gặp"),
+      tile(String(s.goldLeft), "Gold left", true),
+      tile(String(s.goldEarned), "Gold earned", true),
+      tile(s.accuracyPct === null ? "—" : s.accuracyPct + "%", "Accuracy"),
+      tile(s.newLearned + "/" + s.newMet, "New learned"),
+      tile(String(s.met), "Words seen"),
     );
     list = log.list();
-    setText(bookCount, list.length + " từ · " + s.mistyped + " từ gõ sai");
+    setText(bookCount, list.length + " words · " + s.mistyped + " mistyped");
     bookList.replaceChildren(
       ...list.map((record, index) => {
         const row = el(doc, "li", "dh-word");
@@ -333,14 +333,14 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
           el(doc, "span", "dh-word__text", record.text),
           el(doc, "span", "dh-word__ipa", g?.ipa ?? ""),
           el(doc, "span", "dh-word__vi", g?.vi ?? ""),
-          el(doc, "span", "dh-wstatus is-" + status, STATUS_VI[status] + (record.errors > 0 ? " · " + record.errors + " lỗi" : "")),
+          el(doc, "span", "dh-wstatus is-" + status, STATUS_VI[status] + (record.errors > 0 ? " · " + record.errors + " errors" : "")),
         );
         if (actions.listen) {
           const listen = uiButton(doc, "dh-listen", () => {
             select(index);
             actions.listen?.(record.text);
           });
-          listen.title = "Nghe " + record.text;
+          listen.title = "Listen: " + record.text;
           listen.innerHTML = icon("speaker");
           row.append(listen);
         } else row.append(el(doc, "span"));
@@ -348,16 +348,16 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
         return row;
       }),
     );
-    if (list.length === 0) bookList.append(el(doc, "li", "dh-book__empty", "Chưa gõ từ nào trong ải này."));
-    retryButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>` + (s.outcome === "victory" ? "Chơi lại ải" : "Thử lại");
+    if (list.length === 0) bookList.append(el(doc, "li", "dh-book__empty", "No words typed this stage."));
+    retryButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>` + (s.outcome === "victory" ? "Replay" : "Retry");
     const easier = s.outcome === "defeat" ? (actions.easierOffer?.() ?? null) : null;
     offerEasier = easier !== null;
     setShown(easierButton, offerEasier);
-    if (easier !== null) easierButton.innerHTML = `<span class="dh-key">${keyLabel("call-early")}</span>Thua 2 lần: chơi lại mức ${easier}`;
+    if (easier !== null) easierButton.innerHTML = `<span class="dh-key">${keyLabel("call-early")}</span>Lost twice: retry on ${easier}`;
     keys.innerHTML =
-      `<span class="dh-key">${keyLabel("rotate-left")}</span><span class="dh-key">${keyLabel("rotate-right")}</span> chọn nút · ` +
-      `<span class="dh-key">${keyLabel("tilt-up")}</span><span class="dh-key">${keyLabel("tilt-down")}</span> chọn từ` +
-      (actions.listen ? ` · <span class="dh-key">${keyLabel("replay")}</span> nghe` : "");
+      `<span class="dh-key">${keyLabel("rotate-left")}</span><span class="dh-key">${keyLabel("rotate-right")}</span> buttons · ` +
+      `<span class="dh-key">${keyLabel("tilt-up")}</span><span class="dh-key">${keyLabel("tilt-down")}</span> words` +
+      (actions.listen ? ` · <span class="dh-key">${keyLabel("replay")}</span> listen` : "");
     focusAction(0);
     setShown(screen, true);
     select(0);

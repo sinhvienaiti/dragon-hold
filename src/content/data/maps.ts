@@ -32,13 +32,13 @@ const pad = (id: string, ring: "inner" | "outer", pos: Vec2): SlotDef => ({ id, 
 
 export const MAP_L2_CAU: MapDef = {
   id: "L2-cau",
-  nameVi: "Cầu và Suối",
+  nameVi: "Bridge and Brook",
   // Bạch Long stands at the south-west edge of the dais, clear of Hỏa Long's wings (05 §6.1).
   dais: { center: [0, 0], radiusM: 4, heroHoverM: 2.5, guideAt: [-2.6, 2.0] },
   lanes: [
     {
       id: "cau",
-      nameVi: "Đường Cầu",
+      nameVi: "Bridge Lane",
       points: CAU,
       widthM: 3,
       // Water spans 11.0–17.9 m along the lane; the deck overhangs 0.5 m.
@@ -46,7 +46,7 @@ export const MAP_L2_CAU: MapDef = {
     },
     {
       id: "suoi",
-      nameVi: "Đường Suối",
+      nameVi: "Brook Lane",
       points: SUOI,
       widthM: 2.6,
       features: [{ kind: "ford", fromM: 6.9, toM: 14, slowPct: 30, wetMs: 4000 }],
@@ -55,7 +55,7 @@ export const MAP_L2_CAU: MapDef = {
   sky: [
     {
       id: "troi",
-      nameVi: "Đường Trời",
+      nameVi: "Sky Lane",
       points: [
         [30.5, -8.5],
         [20, -7],

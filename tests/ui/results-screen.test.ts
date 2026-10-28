@@ -88,7 +88,7 @@ describe("results portal action (105b, DH-24 / G5)", () => {
     expect(portal.classList.contains("dh-btn")).toBe(true);
     expect(portal.href).toBe(portalHome(origins));
     expect(portal.target).toBe("_top");
-    expect(portal.innerHTML).toBe(`<span class="dh-key">${keyLabel("enter")}</span>Về cổng game`);
+    expect(portal.innerHTML).toBe(`<span class="dh-key">${keyLabel("enter")}</span>Back to portal`);
     // A pointer click must keep the anchor's native navigation.
     expect(portal.fire("click").preventDefault).not.toHaveBeenCalled();
   });
@@ -171,7 +171,7 @@ describe("results portal action (105b, DH-24 / G5)", () => {
 
   it("preserves the optional easier replay shortcut alongside the two actions", () => {
     const f = fixture();
-    f.actions.easierOffer.mockReturnValue("Dễ");
+    f.actions.easierOffer.mockReturnValue("Easy");
     f.open("defeat");
     expect(f.node("dh-retry--easier").hidden).toBe(false);
     f.key("ArrowRight");

@@ -256,7 +256,7 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   });
-  const label = nameTexture("Cắm Cờ");
+  const label = nameTexture("Banner");
   const nameMat = new THREE.SpriteMaterial({ map: label.texture, depthTest: false, depthWrite: false, transparent: true });
   const carried = new Map<number, Carried>();
   const planted: Planted[] = [];

@@ -18,13 +18,13 @@ import { el, foeIcon, icon, keyLabel, setShown, setText } from "./skin";
 
 /** What each M0 species does and what beats it, in one line each (02 §2, §3; 03 for our side). */
 export const DEBUT_LINES: Readonly<Partial<Record<FoeId, { readonly does: string; readonly counter: string }>>> = {
-  "moss-grunt": { does: "(lính rêu) Đi bộ tới bệ rồi chém Hỏa Long.", counter: "Gõ chữ trên đầu nó; Grove Warden chặn được." },
-  "thorn-ant": { does: "(kiến gai) Cả bầy mang một chữ: gõ một lần là trúng cả bầy.", counter: "Pine Bomb, Fire Breath." },
-  "thorn-wasp": { does: "(ong bắp cày gai) Bay trên Đường Trời, dừng cách bệ 10 m rồi bắn; bẫy sàn không trúng.", counter: "Net Launcher kéo nó xuống đất." },
-  "moss-archer": { does: "(cung thủ rêu) Dừng cách bệ 12 m và bắn Hỏa Long tới khi bị hạ.", counter: "Gõ nó trước; Sky Fire trúng cả nhóm." },
-  "tusk-boar": { does: "(heo rừng nanh lớn) Báo vạch đỏ rồi húc thẳng vào bệ.", counter: "Grove Warden chặn, Spikes làm chậm." },
-  "blight-wolf": { does: "(sói héo mục) Chạy nhanh theo bầy, vồ qua lính chặn.", counter: "Spikes làm chậm; gõ từng con sớm." },
-  "moss-banner": { does: "(lính rêu cầm cờ) Tướng địch: cắm cờ, quân trong 5 m quanh Banner đánh mạnh hơn 25 %.", counter: "Gõ chữ trên Banner để nhổ cờ; chuỗi từ làm nó mất hào quang." },
+  "moss-grunt": { does: "Walks to the platform and slashes Hoa Long.", counter: "Type its word; Grove Warden can block it." },
+  "thorn-ant": { does: "The swarm shares one word: type it to hit them all.", counter: "Pine Bomb, Fire Breath." },
+  "thorn-wasp": { does: "Flies along Sky Lane and fires from 10 m away; ground traps cannot hit it.", counter: "Net Launcher grounds it." },
+  "moss-archer": { does: "Stops 12 m away and fires at Hoa Long until defeated.", counter: "Type it first; Sky Fire hits the group." },
+  "tusk-boar": { does: "Marks a red line, then charges the platform.", counter: "Grove Warden blocks it; Spikes slow it." },
+  "blight-wolf": { does: "Runs in fast packs and leaps past blockers.", counter: "Spikes slow them; type each wolf early." },
+  "moss-banner": { does: "A general that plants a Banner: foes within 5 m deal 25% more damage.", counter: "Type the Banner word to remove it; word chains strip the aura." },
 };
 
 /** A card stays this long (02 §1.5: 3 s). */
@@ -114,11 +114,11 @@ export function createDebutCard(root: HTMLElement): Presenter {
     showing = foe;
     until = now + DEBUT_MS;
     mark.innerHTML = general ? icon("crown") : foeIcon(def.gait, def.show.placeholder.color);
-    setText(kicker, general ? "Tướng địch mới" : "Quái mới");
+    setText(kicker, general ? "New general" : "New foe");
     setText(name, def.nameVi);
     setText(does, lines.does);
     // Skill keys are named the way the HUD shows them (⌥1 on a Mac).
-    setText(counter, "Khắc chế: " + lines.counter.replace("Fire Breath", "Fire Breath (" + keyLabel("skill-1") + ")").replace("Sky Fire", "Sky Fire (" + keyLabel("skill-2") + ")"));
+    setText(counter, "Counter: " + lines.counter.replace("Fire Breath", "Fire Breath (" + keyLabel("skill-1") + ")").replace("Sky Fire", "Sky Fire (" + keyLabel("skill-2") + ")"));
     card.classList.toggle("is-general", general);
     card.classList.remove("is-on");
     void card.offsetWidth;

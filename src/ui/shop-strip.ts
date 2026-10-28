@@ -44,10 +44,10 @@ export interface StripCell {
 const isConsumable = (id: string): id is ConsumableId => id in CONSUMABLES;
 
 const SHORT: Readonly<Record<string, string>> = {
-  "Chỉ đặt lúc nghỉ": "Lúc nghỉ",
-  "Mua lúc nghỉ": "Lúc nghỉ",
-  "Hết ô trống": "Hết ô",
-  "Túi đã đầy": "Túi đầy",
+  "Place in breaks": "Break",
+  "Buy in breaks": "Break",
+  "No free slots": "Full",
+  "Bag full": "Full",
 };
 const sec = (ms: number): string => viNumber(ms / 1000) + " s";
 const metres = (mm: number): string => viNumber(mm / 1000) + " m";
@@ -57,31 +57,31 @@ export function effectLine(id: PlaceableId | ConsumableId | HeroUpgradeId): stri
   if (id in TRAPS) {
     const trap = TRAPS[id as keyof typeof TRAPS];
     const e = trap.effect;
-    if (e.kind === "spikes") return `(chông nhọn) Chậm ${e.slowPct} %, ${e.dps} sát thương mỗi giây trên đường`;
-    if (e.kind === "bomb") return `(bom quả thông) Nổ ${e.damage} sát thương khi ≥ ${trap.triggerMin} quái, đẩy lùi ${metres(e.pushMm)}; nạp ${sec(trap.rechargeMs)}`;
-    return `(máy phóng lưới) Kéo ${e.targets > 1 ? e.targets : "một"} quái bay thấp xuống đất trong ${sec(e.groundMs)}, tầm ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
+    if (e.kind === "spikes") return `Slows ${e.slowPct}%, ${e.dps} damage per second on its lane`;
+    if (e.kind === "bomb") return `Blast: ${e.damage} damage at ≥ ${trap.triggerMin} foes, knockback ${metres(e.pushMm)}; recharge ${sec(trap.rechargeMs)}`;
+    return `Grounds ${e.targets > 1 ? e.targets + " low flyers" : "one low flyer"} for ${sec(e.groundMs)}, range ${metres(trap.area.radiusMm)}; recharge ${sec(trap.rechargeMs)}`;
   }
   if (id in HOUSES) {
     const house = HOUSES[id as keyof typeof HOUSES];
-    return `(lều thảo dược) Hồi ${viNumber(house.effect.healPmPerS / 10)} % máu mỗi giây cho phe ta trong ${metres(house.radiusMm)}; đủ 5 lần gõ hạ quái gần nhà: hồi ${house.pulse.healPct} %`;
+    return `Heals allies ${viNumber(house.effect.healPmPerS / 10)}% HP per second within ${metres(house.radiusMm)}; 5 typed kills nearby: heal ${house.pulse.healPct}%`;
   }
   if (id in UNITS) {
     const unit = UNITS[id as keyof typeof UNITS];
-    return `(vệ binh rêu) Lính chặn ${unit.blockSlots} quái, ${unit.hp} máu, đánh ${unit.attack.damage} mỗi ${sec(unit.attack.periodMs)}`;
+    return `Blocks ${unit.blockSlots} foes, ${unit.hp} HP, deals ${unit.attack.damage} every ${sec(unit.attack.periodMs)}`;
   }
   if (isConsumable(id)) {
     const item = CONSUMABLES[id];
-    return `(bình hồi máu nhỏ) Hồi ${item.effect.healPct} % máu Hỏa Long trong ${sec(item.effect.durationMs)}; dùng trong đợt`;
+    return `Restores ${item.effect.healPct}% of Hoa Long's HP over ${sec(item.effect.durationMs)}; use during waves`;
   }
   const buy = HERO_UPGRADES[id as HeroUpgradeId];
-  return buy.effect.kind === "max-hp" ? `(tim rồng) +${buy.effect.pct} % máu tối đa Hỏa Long, hồi luôn phần tăng` : `(vảy cứng) +${buy.effect.amount} ${buy.effect.kind === "armour" ? "Giáp" : "Kháng phép"} Hỏa Long`;
+  return buy.effect.kind === "max-hp" ? `+${buy.effect.pct}% max HP for Hoa Long; heals the added HP` : `+${buy.effect.amount} ${buy.effect.kind === "armour" ? "Armor" : "Magic resist"} for Hoa Long`;
 }
 
 /** The strip's cells now: carry items (keys 1…), then the stage's in-run buys (03 §6.2). */
 export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_RULES): StripCell[] {
   const gold = world.economy.gold;
   const building = buildPhase(world.phase);
-  const lack = (price: number): string => "Thiếu " + (price - gold) + " Gold";
+  const lack = (price: number): string => "Need " + (price - gold) + " Gold";
   const shortOf = (reason: string | null): string | null => (reason === null ? null : SHORT[reason] ?? reason.replace(/ Gold$/, ""));
   const cells: StripCell[] = [];
   let key = 1;
@@ -92,13 +92,13 @@ export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_R
     if (isPlaceable(id)) {
       const info = placeableInfo(id);
       let reason: string | null = null;
-      if (!building) reason = "Chỉ đặt lúc nghỉ";
+      if (!building) reason = "Place in breaks";
       else if (gold < info.cost) reason = lack(info.cost);
-      else if (rules.suggestedSlots(world, id).length === 0) reason = "Hết ô trống";
+      else if (rules.suggestedSlots(world, id).length === 0) reason = "No free slots";
       const built = world.slots.filter((slot) => slot.item === id).length;
       cells.push({
         id, kind: "place", key: k, nameVi: info.nameVi, icon: info.icon, price: info.cost, enabled: reason === null, reason, short: shortOf(reason),
-        note: built > 0 ? "Đã đặt " + built : null, badge: built > 0 ? String(built) : null, effect: effectLine(id),
+        note: built > 0 ? "Placed " + built : null, badge: built > 0 ? String(built) : null, effect: effectLine(id),
       });
     } else if (isConsumable(id)) {
       const def = CONSUMABLES[id];
@@ -106,12 +106,12 @@ export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_R
       const room = OUR_SIDE.consumableSlots * def.stackMax;
       const mine = world.shop.held[id] ?? 0;
       let reason: string | null = null;
-      if (!building) reason = "Mua lúc nghỉ";
-      else if (held >= room) reason = "Túi đã đầy";
+      if (!building) reason = "Buy in breaks";
+      else if (held >= room) reason = "Bag full";
       else if (gold < def.cost) reason = lack(def.cost);
       cells.push({
         id, kind: "consumable", key: k, nameVi: def.nameVi, icon: id, price: def.cost, enabled: reason === null, reason, short: shortOf(reason),
-        note: mine > 0 ? "Có " + mine : null, badge: mine > 0 ? String(mine) : null, effect: effectLine(id),
+        note: mine > 0 ? "Held " + mine : null, badge: mine > 0 ? String(mine) : null, effect: effectLine(id),
       });
     }
   }
@@ -120,8 +120,8 @@ export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_R
     const bought = world.shop.heroBuys[id] ?? 0;
     const price = bought < def.maxPerRun ? def.costs[bought] ?? null : null;
     let reason: string | null = null;
-    if (price === null) reason = "Đủ " + def.maxPerRun + " lần";
-    else if (!building) reason = "Mua lúc nghỉ";
+    if (price === null) reason = "Max " + def.maxPerRun + " buys";
+    else if (!building) reason = "Buy in breaks";
     else if (gold < price) reason = lack(price);
     cells.push({
       id,
@@ -133,7 +133,7 @@ export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_R
       enabled: reason === null,
       reason,
       short: shortOf(reason),
-      note: bought > 0 ? "Đã mua " + bought + "/" + def.maxPerRun : null,
+      note: bought > 0 ? "Bought " + bought + "/" + def.maxPerRun : null,
       badge: bought > 0 ? bought + "/" + def.maxPerRun : null,
       effect: effectLine(id),
     });
@@ -173,7 +173,7 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
   strip.dataset.ui = "shop-strip";
   strip.dataset.keepout = "";
   const head = el(doc, "div", "dh-strip__head");
-  const title = el(doc, "span", "dh-title", "Bộ Mang Theo");
+  const title = el(doc, "span", "dh-title", "Loadout");
   const info = el(doc, "span", "dh-strip__info");
   head.append(title, info);
   const rows = el(doc, "div", "dh-strip__rows");
@@ -205,15 +205,15 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
     }
     if (!cell.enabled) {
       bump(false);
-      flash = { text: cell.nameVi + ": " + (cell.reason ?? "chưa mua được"), until: now + 1800 };
+      flash = { text: cell.nameVi + ": " + (cell.reason ?? "cannot buy yet"), until: now + 1800 };
       return;
     }
     if (viaKey && (armed === null || armed.id !== cell.id || now > armed.until)) {
       armed = { id: cell.id, until: now + CONFIRM_MS };
       // "Bấm 6 lần nữa" read as "press six more times" (test pass 26/10): the key goes in a chip, pressed once again.
       flash = {
-        text: "Bấm lại phím " + cell.key + " để mua " + cell.nameVi + " (" + (cell.price ?? 0) + " Gold)",
-        html: `Bấm lại <span class="dh-key">${cell.key}</span> để mua ${cell.nameVi} (${cell.price ?? 0} Gold)`,
+        text: "Press " + cell.key + " again to buy " + cell.nameVi + " (" + (cell.price ?? 0) + " Gold)",
+        html: `Press <span class="dh-key">${cell.key}</span> again to buy ${cell.nameVi} (${cell.price ?? 0} Gold)`,
         until: armed.until,
       };
       nodes.get(cell.id)?.button.classList.add("is-armed");
@@ -278,12 +278,12 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
       setShown(n.reason, cell.short !== null);
       setText(n.badge, cell.badge ?? "");
       setShown(n.badge, cell.badge !== null);
-      const poor = cell.reason !== null && cell.reason.startsWith("Thiếu");
+      const poor = cell.reason !== null && cell.reason.startsWith("Need");
       setClass(n.button, "is-poor", poor);
       setClass(n.button, "is-blocked", !cell.enabled && !poor);
       setClass(n.button, "is-on", options.placement?.item === cell.id && options.placement.mode === "place");
       setClass(n.button, "is-armed", armed !== null && armed.id === cell.id && now <= armed.until);
-      const keyText = cell.key === null ? "" : " (phím " + cell.key + ")";
+      const keyText = cell.key === null ? "" : " (key " + cell.key + ")";
       n.button.title = cell.nameVi + keyText + ": " + cell.effect + (cell.note ? " · " + cell.note : "") + (cell.reason ? " · " + cell.reason : "");
     }
     // Info line: a notice, the hovered cell, or the keys.
@@ -293,7 +293,7 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
       const cell = hover ? cells.find((entry) => entry.id === hover) : undefined;
       html = cell
         ? `<b>${cell.nameVi}</b> · ${cell.effect}` + (cell.reason ? ` · <b>${cell.reason}</b>` : "")
-        : `Phím <b>1–${Math.min(9, cells.length)}</b> chọn món · <span class="dh-key">\`</span> sửa món đã đặt`;
+        : `Keys <b>1–${Math.min(9, cells.length)}</b> pick item · <span class="dh-key">\`</span> edit placed items`;
     }
     if (info.innerHTML !== html) info.innerHTML = html;
   };

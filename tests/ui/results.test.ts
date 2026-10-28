@@ -64,10 +64,10 @@ describe("ui results and Sổ Từ Ải (01 §5, §6.5)", () => {
     expect(defeatCause({ keys: 400, hurt: { blight: 10, blows: 300 } })).toBe("blows");
     const world = fakeWorld({ wave: 8 });
     world.stats.keys = 400;
-    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 8, hurt))).toContain("Héo lan");
-    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 8, { blight: 0, blows: 200 }))).toContain("lính chặn");
+    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 8, hurt))).toContain("Blight");
+    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 8, { blight: 0, blows: 200 }))).toContain("blockers");
     world.stats.keys = 0;
-    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 1, hurt))).toContain("Hỏa Long phun lửa vào chúng.");
+    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 1, hurt))).toContain("Hoa Long breathe fire at them.");
   });
 
   it("sums the run: stars only on victory, accuracy from keys, new words learned clean", () => {
@@ -82,10 +82,10 @@ describe("ui results and Sổ Từ Ải (01 §5, §6.5)", () => {
     log.onEvents([assigned(0, "honey", "new"), complete(0, "honey", "ok", 1), assigned(1, "valley", "new"), complete(1, "valley", "perfect", 0), assigned(2, "thunder", "new")]);
     const win = summarizeRun(world, log, "victory", 2, 10);
     expect(win).toMatchObject({ stars: 2, hpPct: 73, goldLeft: 312, goldEarned: 1340, accuracyPct: 94, newLearned: 1, newMet: 3, met: 3, mistyped: 1 });
-    expect(starHint(win)).toBe("Hỏa Long còn 73 % máu. Giữ từ 80 % để có 3 sao.");
+    expect(starHint(win)).toBe("Hoa Long has 73% HP. Keep at least 80% for 3 stars.");
     const loss = summarizeRun(world, log, "defeat", 3, 7);
     expect(loss.stars).toBe(0);
-    expect(starHint(loss)).toContain("đợt 7");
+    expect(starHint(loss)).toContain("wave 7");
     world.stats.keys = 0;
     expect(summarizeRun(world, log, "victory", 3, 10).accuracyPct).toBeNull();
   });
