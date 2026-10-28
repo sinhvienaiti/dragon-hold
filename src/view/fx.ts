@@ -389,12 +389,15 @@ const FLARE_VERTEX = /* glsl */ `
 attribute vec3 iPos;
 attribute vec4 iColor;
 attribute float iSize;
+attribute float iLift;
 varying vec2 vUv;
 varying vec4 vColor;
 void main() {
   vUv = uv;
   vColor = iColor;
   vec4 view = modelViewMatrix * vec4(iPos, 1.0);
+  // Lifted toward the eye: the plane sits in front of what is just behind the flare (Hỏa Long's head).
+  view.z += iLift;
   view.xy += position.xy * iSize;
   gl_Position = projectionMatrix * view;
 }`;
@@ -424,7 +427,8 @@ class FlarePool {
   private readonly iPos: Float32Array;
   private readonly iColor: Float32Array;
   private readonly iSize: Float32Array;
-  /** Timed flares: x y z, size, grow, r g b, alpha, age, life, hold. */
+  private readonly iLift: Float32Array;
+  /** Timed flares: x y z, size, grow, r g b, alpha, age, life, hold, lift. */
   private readonly timed: Float32Array;
   private readonly timedCount: number;
   private cursor = 0;
@@ -434,10 +438,11 @@ class FlarePool {
 
   constructor(readonly capacity: number) {
     this.timedCount = Math.floor(capacity / 2);
-    this.timed = new Float32Array(this.timedCount * 12);
+    this.timed = new Float32Array(this.timedCount * 13);
     this.iPos = new Float32Array(capacity * 3);
     this.iColor = new Float32Array(capacity * 4);
     this.iSize = new Float32Array(capacity);
+    this.iLift = new Float32Array(capacity);
     const base = new THREE.PlaneGeometry(1, 1);
     const geometry = new THREE.InstancedBufferGeometry();
     geometry.index = base.index;
@@ -446,22 +451,24 @@ class FlarePool {
     geometry.setAttribute("iPos", new THREE.InstancedBufferAttribute(this.iPos, 3).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.iColor, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iSize", new THREE.InstancedBufferAttribute(this.iSize, 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("iLift", new THREE.InstancedBufferAttribute(this.iLift, 1).setUsage(THREE.DynamicDrawUsage));
     geometry.instanceCount = 0;
     const material = new THREE.ShaderMaterial({ vertexShader: FLARE_VERTEX, fragmentShader: FLARE_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 6;
-    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 12 + 10] = 0;
+    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 13 + 10] = 0;
   }
 
   /**
    * A flare at `at`, `size` metres across (growing by `grow` × over its life), `color` × `intensity` (HDR),
-   * full bright for `hold` seconds from the frame it is born, then falling to nothing at `life`.
+   * full bright for `hold` seconds from the frame it is born, then falling to nothing at `life`; drawn `lift` m
+   * nearer the eye than `at` (depth only).
    */
-  flare(at: THREE.Vector3, size: number, color: THREE.Color, intensity: number, life: number, hold: number, grow = 0, alpha = 1): void {
-    const o = this.cursor * 12;
+  flare(at: THREE.Vector3, size: number, color: THREE.Color, intensity: number, life: number, hold: number, grow = 0, alpha = 1, lift = 0): void {
+    const o = this.cursor * 13;
     this.cursor = (this.cursor + 1) % this.timedCount;
-    this.timed.set([at.x, at.y, at.z, size, grow, color.r * intensity, color.g * intensity, color.b * intensity, alpha, 0, Math.max(0.001, life), Math.max(0, hold)], o);
+    this.timed.set([at.x, at.y, at.z, size, grow, color.r * intensity, color.g * intensity, color.b * intensity, alpha, 0, Math.max(0.001, life), Math.max(0, hold), lift], o);
   }
 
   /** A sprite for this frame only (call before update). */
@@ -469,10 +476,11 @@ class FlarePool {
     if (this.drawn >= this.capacity - this.timedCount) return;
     const n = this.timedCount + this.drawn;
     this.drawn += 1;
-    this.write(n, at.x, at.y, at.z, size, color.r * intensity, color.g * intensity, color.b * intensity, alpha);
+    this.write(n, at.x, at.y, at.z, size, color.r * intensity, color.g * intensity, color.b * intensity, alpha, 0);
   }
 
-  private write(slot: number, x: number, y: number, z: number, size: number, r: number, g: number, b: number, a: number): void {
+  private write(slot: number, x: number, y: number, z: number, size: number, r: number, g: number, b: number, a: number, lift: number): void {
+    this.iLift[slot] = lift;
     this.iPos[slot * 3] = x;
     this.iPos[slot * 3 + 1] = y;
     this.iPos[slot * 3 + 2] = z;
@@ -488,7 +496,7 @@ class FlarePool {
     this.now += dt;
     let live = 0;
     for (let i = 0; i < this.timedCount; i += 1) {
-      const o = i * 12;
+      const o = i * 13;
       const life = this.timed[o + 10]!;
       const age = this.timed[o + 9]!;
       if (life <= 0 || age >= life) {
@@ -502,7 +510,7 @@ class FlarePool {
       // It grows only once its hold is over: frame 0 is the peak in size as in brightness (28/10 capture: grown
       // from frame 0, frame 1 drew 2–6 % brighter round the centre).
       const size = this.timed[o + 3]! * (1 + this.timed[o + 4]! * Math.max(0, (age - hold) / Math.max(1e-6, life - hold)));
-      this.write(i, this.timed[o]!, this.timed[o + 1]!, this.timed[o + 2]!, size, this.timed[o + 5]!, this.timed[o + 6]!, this.timed[o + 7]!, this.timed[o + 8]! * k);
+      this.write(i, this.timed[o]!, this.timed[o + 1]!, this.timed[o + 2]!, size, this.timed[o + 5]!, this.timed[o + 6]!, this.timed[o + 7]!, this.timed[o + 8]! * k, this.timed[o + 12]!);
       this.timed[o + 9] = age + dt;
     }
     this.live = live + this.drawn;
@@ -511,11 +519,12 @@ class FlarePool {
     geometry.getAttribute("iPos").needsUpdate = true;
     geometry.getAttribute("iColor").needsUpdate = true;
     geometry.getAttribute("iSize").needsUpdate = true;
+    geometry.getAttribute("iLift").needsUpdate = true;
     this.drawn = 0;
   }
 
   clear(): void {
-    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 12 + 10] = 0;
+    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 13 + 10] = 0;
     this.drawn = 0;
   }
 
@@ -709,6 +718,8 @@ const WORD_FX = {
   flashS: 3 / 60,
   /** Its body: full on frames 0–1, out by frame 7. */
   flashBodyS: 7 / 60,
+  /** How far the release flares are drawn nearer the eye than their point (m, × the play camera's scale k). */
+  flashLiftM: 1,
   /** Mouth light: full on frames 0–1, out by frame 5 (4–6 frames). */
   lightHoldS: 2 / 60,
   lightS: 5 / 60,
@@ -917,14 +928,17 @@ export class FxCore {
     // It holds while the flash does: a dark layer that faded under a held flash would brighten frame 1 over frame 0.
     this.puffs.spawn(at.x, at.y - 0.05, at.z, 2.1 * s * big, WORD_FX.flashBodyS, FX_COLORS.fireDark, 0.9, { fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.25, rot: this.random() * TAU });
     // The flash: a small white-hot core in a hot gold (teal on a strong word) flare, in an ember-orange body.
-    this.flares.flare(at, 1.1 * s * big, FX_COLORS.flashCore, 3 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2);
-    this.flares.flare(at, 2.2 * s * big, hot, 3.4 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.25);
-    this.flares.flare(at, 3.2 * s * big, FX_COLORS.ember, 1.1 * soft, WORD_FX.flashBodyS, WORD_FX.flashHoldS, 0.4);
+    // Lifted 1 m × k toward the eye: the head and neck just behind the snout do not cut into the flash (28/10 close-up:
+    // the head covered part of it on frame 0 and swung clear on frame 1, which read brighter).
+    const lift = WORD_FX.flashLiftM * s;
+    this.flares.flare(at, 1.1 * s * big, FX_COLORS.flashCore, 3 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
+    this.flares.flare(at, 2.2 * s * big, hot, 3.4 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.25, 1, lift);
+    this.flares.flare(at, 3.2 * s * big, FX_COLORS.ember, 1.1 * soft, WORD_FX.flashBodyS, WORD_FX.flashHoldS, 0.4, 1, lift);
     // The streak: flares stepping out along the shot, smaller and redder the further out (a muzzle cone, 2–3 frames).
     for (let k = 0; k < 3; k += 1) {
       const d = (0.95 + k * 0.7) * s;
       this.u.set(at.x + ux * d, at.y + 0.08 * k, at.z + uz * d);
-      this.flares.flare(this.u, (1.55 - k * 0.32) * s * big, k === 0 ? hot : FX_COLORS.ember, (2.6 - k * 0.45) * soft, WORD_FX.flashS + k / 60, WORD_FX.flashHoldS, 0.2);
+      this.flares.flare(this.u, (1.55 - k * 0.32) * s * big, k === 0 ? hot : FX_COLORS.ember, (2.6 - k * 0.45) * soft, WORD_FX.flashS + k / 60, WORD_FX.flashHoldS, 0.2, 1, lift);
     }
     // The burst: fire bodies (normal blend) stepping out along the shot, full on frame 0, born near full size (grow
     // 0.25), so the release is at its biggest on frame 0; deep orange and red, they read on the beige dais.
