@@ -331,15 +331,15 @@ export function washOf(spec: ModelSpec, family: Family | null, colors: Readonly<
   return spec.ours || family === null ? null : colors[family];
 }
 
-/** Scatter kinds the GLB props stand in for (view/scatter.ts plan lists). */
-export type ScatterKind = "pine" | "crown" | "bush" | "rock";
+/** Scatter kinds the GLB props stand in for (view/scatter.ts plan lists); "dress" (lanterns, fences, the jetty) has no primitive. */
+export type ScatterKind = "pine" | "crown" | "bush" | "rock" | "dress";
 
 export interface PropSpec {
   readonly manifest: string;
   readonly kind: ScatterKind;
   /** Height of the model at a plan item of size 1 (pines: height; crowns, bushes, rocks: radius), metres. */
   readonly perSize: number;
-  /** Share of its kind's plan items this model takes (the variants of a kind add up to 1). */
+  /** Share of its kind's plan items this model takes (the variants of a kind add up to 1; 0: placed by the layout only). */
   readonly share: number;
   /** Sway in the wind (paintMaterial wind), 0 for rocks and wood. */
   readonly wind: number;
@@ -367,6 +367,15 @@ export const PROP_SPECS: readonly PropSpec[] = [
   { manifest: "props/pine-river-river-stones", kind: "rock", perSize: 2.2, share: 0.2, wind: 0, laneGapMin: 0, score: 10, provisional: false },
   { manifest: "props/pine-river-stump", kind: "rock", perSize: 1.6, share: 0.15, wind: 0, laneGapMin: 0, score: 9.5, provisional: false },
   { manifest: "props/pine-river-log", kind: "rock", perSize: 2.4, share: 0.15, wind: 0, laneGapMin: 0, score: 9.5, provisional: false },
+  // Tripo round 3 (map pilot A2, 28/10): layout-only map dressing, manifest kit3 (KIT3_MANIFEST_URL).
+  { manifest: "props/pine-river-lantern-post", kind: "dress", perSize: 1, share: 0, wind: 0, laneGapMin: 0, score: 9, provisional: false },
+  { manifest: "props/pine-river-rail-fence", kind: "dress", perSize: 1, share: 0, wind: 0, laneGapMin: 0, score: 9, provisional: false },
+  { manifest: "props/pine-river-wooden-jetty", kind: "dress", perSize: 1, share: 0, wind: 0, laneGapMin: 0, score: 9, provisional: false },
+  { manifest: "props/pine-river-cliff-rock-a", kind: "rock", perSize: 1, share: 0, wind: 0, laneGapMin: 0, score: 8.5, provisional: true },
+  { manifest: "props/pine-river-cliff-rock-b", kind: "rock", perSize: 1, share: 0, wind: 0, laneGapMin: 0, score: 7.5, provisional: true },
+  { manifest: "props/pine-river-reed-clump", kind: "bush", perSize: 1, share: 0, wind: 0.07, laneGapMin: 0, score: 8, provisional: true },
+  { manifest: "props/pine-river-wildflower-clump", kind: "bush", perSize: 1, share: 0, wind: 0.05, laneGapMin: 0, score: 7.5, provisional: true },
+  { manifest: "props/pine-river-grass-tuft", kind: "bush", perSize: 1, share: 0, wind: 0.06, laneGapMin: 0, score: 8, provisional: true },
 ];
 
 /** K12, the old bridge over the river on L2-cau (paths.ts keeps its box bridge as the fallback). */
@@ -374,3 +383,5 @@ export const BRIDGE_MODEL = { manifest: "props/pine-river-bridge-old", score: 10
 
 /** Manifest of the M0b models (public/assets/dragon-hold/models/m0b/, media on Drive). */
 export const M0B_MANIFEST_URL = "/assets/dragon-hold/models/m0b/manifest.json";
+/** Manifest of the Tripo round 3 map kit (public/assets/dragon-hold/models/kit3/, same preset; missing: those props are not drawn). */
+export const KIT3_MANIFEST_URL = "/assets/dragon-hold/models/kit3/manifest.json";

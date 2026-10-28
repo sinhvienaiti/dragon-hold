@@ -203,6 +203,12 @@ export interface LayoutItem {
   readonly stone?: boolean;
   /** Tilt about x and z, radians. */
   readonly tilt?: readonly [number, number];
+  /** Map pilot A2: share of the model's height sunk into the ground (cliff blocks on a slope). */
+  readonly sinkShare?: number;
+  /** Map pilot A2: stands at the pond's water level plus this many metres (the jetty), not on the ground. */
+  readonly water?: number;
+  /** Map pilot A2: extra scale along the model's own x (cliff blocks widened into a face). */
+  readonly stretch?: number;
 }
 
 export interface Pond {
@@ -278,6 +284,10 @@ export interface MapLayout {
   readonly bushes: readonly LayoutItem[];
   readonly rocks: readonly LayoutItem[];
   readonly dirt: readonly PaintDisc[];
+  /** Map pilot A2: lanterns, fences and the jetty (kit "dress" props). */
+  readonly dress: readonly LayoutItem[];
+  /** Map pilot A2: discs the skirt scatter keeps free (the rest spot at a branch path's forest end). */
+  readonly clearings: readonly { readonly x: number; readonly z: number; readonly r: number }[];
   /** Footpath distance (0 on the centre line) minus half width; large far away. */
   pathGap(x: number, z: number): number;
   /** Counts for the report. */
@@ -1239,6 +1249,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     bushes,
     rocks,
     dirt,
+    dress: [],
+    clearings: [],
     pathGap,
     stats: {
       groves: groves.length,

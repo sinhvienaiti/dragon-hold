@@ -90,6 +90,38 @@
     "props/pine-river-bush-moss"
    ]
   },
+  "props/pine-river/cliff-rock-a.glb": {
+   "md5": "95eaa01daa082fc1760e538bdeda8438",
+   "bytes": 2134932,
+   "image": "art-src/props/pine-river/cliff-rock-a.png",
+   "usedBy": [
+    "props/pine-river-cliff-rock-a"
+   ]
+  },
+  "props/pine-river/cliff-rock-b.glb": {
+   "md5": "88cbc801907fc6a634e5fbe1e575bffa",
+   "bytes": 2042744,
+   "image": "art-src/props/pine-river/cliff-rock-b.png",
+   "usedBy": [
+    "props/pine-river-cliff-rock-b"
+   ]
+  },
+  "props/pine-river/grass-tuft.glb": {
+   "md5": "f6c2d5b4ef7ae0d3f11147980c664bca",
+   "bytes": 1857820,
+   "image": "art-src/props/pine-river/grass-tuft.png",
+   "usedBy": [
+    "props/pine-river-grass-tuft"
+   ]
+  },
+  "props/pine-river/lantern-post.glb": {
+   "md5": "42389c1c1e0724087a37ef8e5975319a",
+   "bytes": 2730528,
+   "image": "art-src/props/pine-river/lantern-post.png",
+   "usedBy": [
+    "props/pine-river-lantern-post"
+   ]
+  },
   "props/pine-river/log.glb": {
    "md5": "ff5d6c41b96747469b594bb82097d397",
    "bytes": 2791872,
@@ -120,6 +152,22 @@
    "image": "art-src/props/pine-river/pine-young.png",
    "usedBy": [
     "props/pine-river-pine-young"
+   ]
+  },
+  "props/pine-river/rail-fence.glb": {
+   "md5": "5bd27804337c084324c9b9a5b4bf451c",
+   "bytes": 2983548,
+   "image": "art-src/props/pine-river/rail-fence.png",
+   "usedBy": [
+    "props/pine-river-rail-fence"
+   ]
+  },
+  "props/pine-river/reed-clump.glb": {
+   "md5": "7b7153193225be882e6de71890b27aa2",
+   "bytes": 2249168,
+   "image": "art-src/props/pine-river/reed-clump.png",
+   "usedBy": [
+    "props/pine-river-reed-clump"
    ]
   },
   "props/pine-river/river-stones.glb": {
@@ -160,6 +208,22 @@
    "image": "art-src/props/pine-river/tree-violet.png",
    "usedBy": [
     "props/pine-river-tree-violet"
+   ]
+  },
+  "props/pine-river/wildflower-clump.glb": {
+   "md5": "f4c596edc0d2f1932d35e02de0165b6b",
+   "bytes": 1938040,
+   "image": "art-src/props/pine-river/wildflower-clump.png",
+   "usedBy": [
+    "props/pine-river-wildflower-clump"
+   ]
+  },
+  "props/pine-river/wooden-jetty.glb": {
+   "md5": "d789fcba852bb8d92291a85d41248681",
+   "bytes": 2914044,
+   "image": "art-src/props/pine-river/wooden-jetty.png",
+   "usedBy": [
+    "props/pine-river-wooden-jetty"
    ]
   },
   "traps/net-launcher.glb": {

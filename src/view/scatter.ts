@@ -62,6 +62,10 @@ export const FAR_FROM_M = 42;
 const STONE_PAINT =
   "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.43, 0.425, 0.41) * clamp(0.35 + dhL * 1.8, 0.42, 1.0); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
 
+/** Map pilot A2: cliff blocks pale warm stone; the dark sides lift (floor 0.55), the face darker toward its foot. */
+const CLIFF_PAINT =
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.5, 0.49, 0.465) * clamp(0.45 + dhL * 1.7, 0.55, 1.05); dhG *= mix(0.72, 1.05, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); diffuseColor.rgb = dhG;";
+
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
   // K03: a warm brown trunk instead of near black; V13 (map pilot): needles a step lighter, as the tall pine.
@@ -77,6 +81,16 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
   "props/pine-river-rock-boulder": STONE_PAINT,
   "props/pine-river-rock-slab": STONE_PAINT,
   "props/pine-river-river-stones": STONE_PAINT,
+  // Map pilot A2 (FB-10): the Tripo round 3 cliff blocks pale stone, a step lighter than the scatter stones
+  // (cliff-rock-b's texture is near charcoal on its sides).
+  "props/pine-river-cliff-rock-a": CLIFF_PAINT,
+  "props/pine-river-cliff-rock-b": CLIFF_PAINT,
+  // Reed plumes beige as the picture (Tripo made them grey-white), leaves a step lighter and yellower.
+  "props/pine-river-reed-clump":
+    "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhS = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) - min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b); float dhPlume = smoothstep(0.1, 0.25, dhL) * (1.0 - smoothstep(0.05, 0.14, dhS)); diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.08, 1.18, 0.82) * 1.25, vec3(0.62, 0.5, 0.33) * (0.55 + dhL * 1.1), dhPlume * 0.85);",
+  // The small clumps a step lighter (their leaves came out darker than the pictures).
+  "props/pine-river-grass-tuft": "diffuseColor.rgb *= vec3(1.06, 1.12, 0.9) * 1.15;",
+  "props/pine-river-wildflower-clump": "diffuseColor.rgb *= vec3(1.06, 1.12, 0.95) * 1.12;",
 };
 
 /**
@@ -110,6 +124,10 @@ export interface ScatterItem {
   readonly stone?: boolean;
   /** Map pilot: tilt about x and z, radians (cliff rocks lean into the face). */
   readonly tilt?: readonly [number, number];
+  /** Map pilot A2: share of the model's height sunk into the ground (overrides the kind's default). */
+  readonly sinkShare?: number;
+  /** Map pilot A2: extra scale along the model's own x (cliff blocks widened into a face). */
+  readonly stretch?: number;
 }
 
 export interface ScatterPlan {
@@ -117,6 +135,8 @@ export interface ScatterPlan {
   readonly crowns: readonly ScatterItem[];
   readonly bushes: readonly ScatterItem[];
   readonly rocks: readonly ScatterItem[];
+  /** Map pilot A2: lanterns, fences, the jetty (layout only, no primitive). */
+  readonly dress: readonly ScatterItem[];
 }
 
 /** Clearances (metres past the lane edge, the water edge, slot centres, the dais centre). */
@@ -148,7 +168,7 @@ const PINE_FAR = ["#4d6b7d", "#57648a", "#4a6a77"] as const;
 const CROWN_NEAR = ["#6f9a4f", "#5a8a5c", "#82a656", "#4f7f60"] as const;
 const CROWN_FAR = ["#8e7cc3", "#6c8fd1", "#7d7fb8", "#8a82b4"] as const;
 /** Props too small to cast a useful shadow (MAP_FACTORY 4.2: clutter casts none). */
-const SMALL_PROPS = new Set(["props/pine-river-river-stones", "props/pine-river-stump", "props/pine-river-log", "props/pine-river-rock-slab"]);
+const SMALL_PROPS = new Set(["props/pine-river-river-stones", "props/pine-river-stump", "props/pine-river-log", "props/pine-river-rock-slab", "props/pine-river-grass-tuft", "props/pine-river-wildflower-clump"]);
 /** Map spike: share of forest-ring crowns (≥ 9 m off a lane edge) that turn violet (M0b 0.4; the reference keeps accents near 5–10 % of crowns). */
 const FAR_CROWN_SHARE = 0.18;
 /** Far crown colours the GLB violet crown (K04) takes over. */
@@ -161,7 +181,7 @@ const pick = <T>(list: readonly T[], random: () => number): T => list[Math.floor
 /** Seeded placement for the map's scatter; pure apart from the field queries. */
 export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   // Spike perf split: ?decor=0 is the empty ground (no trees, bushes, rocks anywhere).
-  if (mapSwitch("decor") === "0") return { pines: [], crowns: [], bushes: [], rocks: [] };
+  if (mapSwitch("decor") === "0") return { pines: [], crowns: [], bushes: [], rocks: [], dress: [] };
   const map = field.map;
   const [cx, cz] = map.dais.center;
   const play = map.terrain.playRadiusM;
@@ -188,6 +208,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   const crowns: ScatterItem[] = [];
   const bushes: ScatterItem[] = [];
   const rocks: ScatterItem[] = [];
+  const dress: ScatterItem[] = [];
 
   const visit = (cell: number, each: (x: number, z: number, r: number) => void): void => {
     const steps = Math.ceil(cells.reach / cell);
@@ -288,11 +309,13 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   const add = (item: LayoutItem): void => {
     const spec = PROP_SPECS.find((entry) => entry.manifest === item.proto);
     if (!spec) return;
-    const sink = spec.kind === "rock" ? 0.05 : spec.kind === "bush" ? 0.05 : 0.1;
+    const sink = spec.kind === "dress" ? 0 : spec.kind === "rock" ? 0.05 : spec.kind === "bush" ? 0.05 : 0.1;
+    // A2: a jetty stands on the pond's water level, not on its bed.
+    const y = item.water !== undefined && Number.isFinite(field.pondLevel) ? field.pondLevel + item.water : sinkY(item.x, item.z, sink);
     const entry: ScatterItem = {
       x: item.x,
       z: item.z,
-      y: sinkY(item.x, item.z, sink),
+      y,
       size: item.k / spec.perSize,
       yaw: item.yaw,
       color: spec.kind === "pine" ? PINE_GREENS[0] : spec.kind === "crown" ? CROWN_NEAR[0] : spec.kind === "bush" ? BUSH[0] : ROCK[0],
@@ -301,14 +324,17 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
       ...(item.warm ? { warm: true } : {}),
       ...(item.stone ? { stone: true } : {}),
       ...(item.tilt ? { tilt: item.tilt } : {}),
+      ...(item.sinkShare !== undefined ? { sinkShare: item.sinkShare } : {}),
+      ...(item.stretch !== undefined ? { stretch: item.stretch } : {}),
     };
-    ({ pine: pines, crown: crowns, bush: bushes, rock: rocks })[spec.kind].push(entry);
+    ({ pine: pines, crown: crowns, bush: bushes, rock: rocks, dress })[spec.kind].push(entry);
   };
   for (const item of layout.trees) add(item);
   for (const item of layout.bushes) add(item);
   for (const item of layout.rocks) add(item);
+  for (const item of layout.dress) add(item);
 
-  return { pines, crowns, bushes, rocks };
+  return { pines, crowns, bushes, rocks, dress };
 }
 
 const CONE_PAINT = "diffuseColor.rgb *= mix(0.58, 1.1, smoothstep(0.0, 0.95, vDhLocal.y)) * (0.9 + 0.2 * dhNoise(vDhWorld.xz * 1.4 + vDhWorld.y * 2.2));";
@@ -348,7 +374,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
 
   const trees = plan.pines.length + plan.crowns.length;
   /** Items that became GLB props (per kind, by plan index): their primitives are hidden. */
-  const taken: Record<ScatterKind, Set<number>> = { pine: new Set(), crown: new Set(), bush: new Set(), rock: new Set() };
+  const taken: Record<ScatterKind, Set<number>> = { pine: new Set(), crown: new Set(), bush: new Set(), rock: new Set(), dress: new Set() };
   const cones = instanced(cone, coneMaterial, plan.pines.length, "dh-pines", shadows);
   const trunks = instanced(trunk, trunkMaterial, trees, "dh-trunks", shadows);
   const rounds = instanced(sphere, crownMaterial, plan.crowns.length, "dh-crowns", shadows);
@@ -418,18 +444,19 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     used = true;
     const loaded = PROP_SPECS.map((spec) => ({ spec, model: prop(spec.manifest) })).filter((entry): entry is { spec: PropSpec; model: PropModel } => entry.model !== null);
     if (loaded.length === 0) return;
-    const lists: Record<ScatterKind, readonly ScatterItem[]> = { pine: plan.pines, crown: plan.crowns, bush: plan.bushes, rock: plan.rocks };
+    const lists: Record<ScatterKind, readonly ScatterItem[]> = { pine: plan.pines, crown: plan.crowns, bush: plan.bushes, rock: plan.rocks, dress: plan.dress };
     /** Items per prop and band ("near" inside the near skirt, "mid" past it). */
     const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; warm: boolean; items: ScatterItem[] }>();
     // V7 A/B: ?warm=0 draws the warm crowns green.
     const warmOn = mapSwitch("warm") !== "0";
     const farItems: FarItem[] = [];
-    for (const kind of ["pine", "crown", "bush", "rock"] as const) {
+    for (const kind of ["pine", "crown", "bush", "rock", "dress"] as const) {
       const all = loaded.filter((entry) => entry.spec.kind === kind);
       // A prop kept off the paths (the violet crown, 05 §2.2) stands exactly where the plan put a far colour.
       const far = all.find((entry) => entry.spec.laneGapMin > 0);
-      const variants = all.filter((entry) => entry.spec.laneGapMin === 0);
-      if (variants.length === 0 && far === undefined) continue;
+      // Layout-only props (share 0) never stand in for a plain plan item.
+      const variants = all.filter((entry) => entry.spec.laneGapMin === 0 && entry.spec.share > 0);
+      if (all.length === 0) continue;
       const total = variants.reduce((sum, entry) => sum + entry.spec.share, 0);
       lists[kind].forEach((item, index) => {
         let pick: (typeof all)[number] | undefined;
@@ -451,7 +478,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         taken[kind].add(index);
         const r = Math.hypot(item.x - cx, item.z - cz);
         if (renderer && r > FAR_FROM_M && kind === "rock" && item.proto === undefined) return;
-        if (renderer && r > FAR_FROM_M && kind !== "rock") {
+        if (renderer && r > FAR_FROM_M && kind !== "rock" && kind !== "dress") {
           // Far ring: an impostor quad (trees), nothing for bushes (lost in the mist).
           if (kind === "bush") return;
           const k = item.size * pick.spec.perSize;
@@ -487,11 +514,11 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
         key: "prop-" + name + (band === "mid" ? "-mid" : ""),
         ...(paint ? { paint } : {}),
-        rim: spec.kind === "rock" ? 0.06 : 0.12,
+        rim: spec.kind === "rock" ? 0.06 : spec.kind === "dress" ? 0.08 : 0.12,
         ...(spec.wind > 0 ? { wind: spec.wind } : {}),
-        dither: spec.kind !== "rock",
+        dither: spec.kind !== "rock" && spec.kind !== "dress",
         // Foliage a mip softer: leaf masses like the reference, less pixel noise (MAP_PLAN 2.4 clutter).
-        ...(spec.kind !== "rock" ? { mapBias: FOLIAGE_MAP_BIAS } : {}),
+        ...(spec.kind !== "rock" && spec.kind !== "dress" ? { mapBias: FOLIAGE_MAP_BIAS } : {}),
       });
       const geometry = model.geometry;
       // Small clutter and the far ring cast no shadow (MAP_FACTORY 4.2).
@@ -502,10 +529,10 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         const k = item.size * spec.perSize;
         // Rocks and logs sink a little; trees stand on their roots.
         // Cliff stone beds deeper into the slope.
-        const sink = spec.kind === "rock" ? k * model.size.y * (item.stone ? 0.26 : 0.12) : 0;
+        const sink = k * model.size.y * (item.sinkShare ?? (spec.kind === "rock" ? (item.stone ? 0.26 : 0.12) : 0));
         euler.set(item.tilt?.[0] ?? 0, item.yaw, item.tilt?.[1] ?? 0, "YXZ");
         quaternion.setFromEuler(euler);
-        matrix.compose(position.set(item.x, item.y - sink, item.z), quaternion, scale.set(k, k, k));
+        matrix.compose(position.set(item.x, item.y - sink, item.z), quaternion, scale.set(k * (item.stretch ?? 1), k, k));
         mesh.setMatrixAt(index, matrix);
         // A little brightness spread so a grove never looks stamped; layout items carry their own tint.
         const spread = 0.9 + hash2(index, items.length, 7) * 0.16;
