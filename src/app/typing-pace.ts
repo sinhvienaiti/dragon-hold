@@ -15,7 +15,7 @@
  */
 import { blendSkill, parseSkill, serializeSkill, skillStorageKey, updateSkill, type SkillSample } from "../kit/balance";
 import { GRADE, TEMPO } from "../content/rules";
-import type { SimEvent, WordGroup } from "../content/types";
+import type { Difficulty, SimEvent, WordGroup } from "../content/types";
 
 export const PACE_GAME_ID = "dragon-hold";
 /** The last speed picked on the card. */
@@ -23,6 +23,12 @@ export const PACE_PICK_KEY = "dragon-hold.pace";
 /** Speeds the world accepts from the card or the URL (WPM, integers). */
 export const WPM_MIN = 10;
 export const WPM_MAX = 120;
+/** 00-canon.md D33 (6): suggest Easy to beginners before the stage. */
+export const EASY_HINT_WPM = 20;
+
+export function offerEasy(wpm: number, difficulty: Difficulty, fromMenu: boolean): boolean {
+  return wpm <= EASY_HINT_WPM && difficulty === "normal" && !fromMenu;
+}
 
 /** What a world is built with: E, and a and CV in permille when they were measured. */
 export interface PaceHeader {

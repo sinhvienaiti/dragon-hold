@@ -52,7 +52,7 @@ import { createInputRouter, type InputRouter, type KeyPanel } from "./input-rout
 import { createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
-import { PaceMeter, clampWpm, measuredHeader, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
+import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
 
 export interface App {
   dispose(): void;
@@ -374,15 +374,15 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
    * From the menu the speed in use is preselected (its own row when no
    * preset has it), so Enter on the card goes back to the game.
    */
-  function askPace(onPick: (picked: PaceHeader) => void, back?: () => void): void {
+  function askPace(onPick: (picked: PaceHeader, choice?: { easy: boolean }) => void, back?: () => void): void {
     const current = back ? run?.header : undefined;
     const { options: rows, selected } = paceOptions(readPaceMemory(safeLocalStorage), current);
     const note = current ? "Chọn tốc độ khác thì ải chơi lại từ đầu." : undefined;
-    paceCard.open(rows, selected, (picked) => {
+    paceCard.open(rows, selected, (picked, choice) => {
       // Keeping the speed in use keeps its source: a ?wpm= stays the portal's.
       if (!(current && sameSpeed(picked, current))) rememberPick(safeLocalStorage, picked);
-      onPick(picked);
-    }, back, run?.header, note);
+      onPick(picked, choice);
+    }, back, run?.header, note, back ? undefined : (wpm) => offerEasy(wpm, difficulty, false));
   }
   /**
    * Pause menu → speed card: another WPM replays the stage with it; the same
@@ -903,8 +903,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     });
     if (header !== null) begin();
     else
-      askPace((picked) => {
+      askPace((picked, choice) => {
         header = picked;
+        if (choice?.easy) difficulty = "easy";
         begin();
       });
   });
