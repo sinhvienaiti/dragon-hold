@@ -276,6 +276,12 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
   });
   const tip = new THREE.Vector3();
   const eye = new THREE.Vector3();
+  /**
+   * Each wing ribbon follows its socket through a low-pass (≈ 3 frames): sampled once a frame, a fast beat reversed
+   * inside a frame and drew right-angle hooks (judge 1a round 2); the filtered path bends round them.
+   */
+  const smoothTips = wings.map(() => new THREE.Vector3());
+  let smoothFresh = true;
 
   const loadFire = async (): Promise<void> => {
     const url = modelUrl(HERO_MODELS.fire, stage.quality);
@@ -311,6 +317,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
       bones = { neck: hero.node("neck"), head: hero.node("head"), chest: hero.node("chest") };
       wingTips = hero.tips.slice(0, 4);
       for (const ribbon of wings) ribbon.reset(hero.root.getWorldPosition(at));
+      smoothFresh = true;
     } catch (error) {
       console.warn("heroes: Hỏa Long model failed, placeholder kept", url, error);
     }
@@ -438,11 +445,17 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     const boosting = time < boostUntil;
     wingHeat = Math.max(boosting ? 0.8 : 0, wingHeat - dt / WING_TRAIL_S);
     stage.camera.getWorldPosition(eye);
+    const follow = 1 - Math.exp(-dt * 20);
     wingTips.forEach((socket, index) => {
       const ribbon = wings[index]!;
-      ribbon.update(socket.getWorldPosition(tip), dt, 0, eye, wingHeat * 0.9);
+      const smooth = smoothTips[index]!;
+      socket.getWorldPosition(tip);
+      if (smoothFresh) smooth.copy(tip);
+      else smooth.lerp(tip, follow);
+      ribbon.update(smooth, dt, 0, eye, wingHeat * 0.9);
       ribbon.mesh.visible = wingHeat > 0.01;
     });
+    smoothFresh = wingTips.length === 0;
   };
 
   const tick = (dt: number, now: number): void => {
