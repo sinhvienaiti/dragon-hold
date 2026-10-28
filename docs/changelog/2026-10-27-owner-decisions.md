@@ -1264,4 +1264,4 @@ Lựa chọn cho từng bước ở §1.7, §2.7, §3.8, §4.8, §5.9, §6.9 và
 - M0b: trần tam giác 05 §8 chưa đạt (High 3,09 M so với 2 M); mức Low vẫn dùng khối tạm; G01 ở camera chơi (cờ ngả, hai lá cờ khi cắm); Lều giống bụi cây; Gai Chông che Sói; đường dẫn media `public/assets/dragon-hold/models/m0b/` cần anh xác nhận. Model chỉ có trên Mac này cho tới khi anh chạy `pnpm media:push`.
 - Chip của `s6-traps` ở 1280 cần to hơn và đứng cạnh Lều, không đè lên Lều, nếu anh gộp nhánh.
 - Cột số sát thương của cụm Kiến (8.5 mục 6) có từ trước M0b; giao làn hiệu ứng.
-- Worktree `games/.wt-dh-m0b` và `games/.wt-dh-codex` đã gỡ (nhánh đã gộp, giữ tên nhánh). `main` đã push lên `origin`.
+- Worktree `games/.wt-dh-m0b` và `games/.wt-dh-codex` đã gỡ bằng `git worktree remove` (nhánh đã gộp, giữ tên nhánh). Trước khi gỡ, bằng chứng của làn M0b (gitignored) đã chuyển sang cây chính ở cùng đường dẫn tương đối: `tmp/mac-2026-10-27/m0b/` (gồm tấm mẫu cho anh ở `round2/samples/`), `tmp/m0b/`, và file trung gian `art-src/models/`. Media đã ở sẵn `public/assets/` của cây chính. `main` đã push lên `origin`.
