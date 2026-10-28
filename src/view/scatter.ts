@@ -22,7 +22,7 @@ import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
 import type { PropModel } from "./models";
 import type { LayoutItem } from "./layout";
 import { bakeImpostors, farRing, type FarItem, type ImpostorAtlas } from "./impostor";
-import { spikeSwitch } from "./paint";
+import { mapSwitch } from "./paint";
 import { hash2, Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
 
 export interface ScatterView {
@@ -62,10 +62,21 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
   // K04: the indigo half of the crown toward #8E7CC3, the grey trunk cream.
   "props/pine-river-tree-violet":
     "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhTrunk = 1.0 - smoothstep(0.3, 0.42, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.276, 0.204, 0.555) * (dhL / 0.264) * 1.1, 0.85 * (1.0 - dhTrunk)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76) * (0.45 + dhL), dhTrunk * 0.6);",
+  // V13 (map pilot): pine needles toward hue 120–150, the top a step lighter, so the forest is no dark teal wall.
+  "props/pine-river-pine-tall":
+    "float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhTop = smoothstep(0.3, 1.0, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.0, 1.12, 0.78) * (1.14 + 0.36 * dhTop), dhLeaf);",
   // K07: moss close to the withered #C8D24A painted dark olive.
   "props/pine-river-rock-boulder":
     "float dhMoss = smoothstep(0.04, 0.14, diffuseColor.g - diffuseColor.b) * smoothstep(-0.03, 0.05, diffuseColor.g - diffuseColor.r); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.36, 0.18) * (0.7 + dot(diffuseColor.rgb, vec3(0.33))), dhMoss * 0.7);",
 };
+
+/**
+ * V7 (map pilot): warm crowns from the round tree, rust to copper by place; the trunk stays. The ramp keeps
+ * hue 14–18°, S ≤ 0.7; its light end (#954b30 rust, #9e5935 copper) is ΔE2000 ≥ 20 from #FF4A4A,
+ * #FFB020, #FFC83A and the withered #C8D24A.
+ */
+const WARM_CROWN =
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhCopper = smoothstep(0.35, 0.65, dhNoise(vDhWorld.xz * 0.045 + 3.0)); vec3 dhDark = mix(vec3(0.15, 0.032, 0.014), vec3(0.17, 0.05, 0.016), dhCopper); vec3 dhLight = mix(vec3(0.3, 0.07, 0.03), vec3(0.34, 0.1, 0.035), dhCopper); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.32, dhL)), dhLeaf);";
 
 /** A placed placeholder, metres. `size`: height for pines, crown radius for round trees and bushes, rock radius. */
 export interface ScatterItem {
@@ -79,6 +90,8 @@ export interface ScatterItem {
   readonly proto?: string;
   /** Map spike: instance tint multiplied into the texture. */
   readonly tint?: readonly [number, number, number];
+  /** Map pilot V7: a round crown painted warm (rust, copper). */
+  readonly warm?: boolean;
 }
 
 export interface ScatterPlan {
@@ -130,7 +143,7 @@ const pick = <T>(list: readonly T[], random: () => number): T => list[Math.floor
 /** Seeded placement for the map's scatter; pure apart from the field queries. */
 export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   // Spike perf split: ?decor=0 is the empty ground (no trees, bushes, rocks anywhere).
-  if (spikeSwitch("decor") === "0") return { pines: [], crowns: [], bushes: [], rocks: [] };
+  if (mapSwitch("decor") === "0") return { pines: [], crowns: [], bushes: [], rocks: [] };
   const map = field.map;
   const [cx, cz] = map.dais.center;
   const play = map.terrain.playRadiusM;
@@ -172,19 +185,23 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   };
 
   const layout = field.layout;
-  const edgeIn = play - EDGE_IN_M;
+  // V6: the skirt forest starts at the layout's forest edge (bays, headlands, noise; EDGE_IN_M inside the play radius by default).
+  const edgeAt = (x: number, z: number): number => layout.forestEdge(x, z);
   const onCliffFace = (x: number, z: number): boolean => {
     if (!layout.cliff) return false;
     const { s, cap } = layout.cliff.offset(x, z);
-    return cap > 0.2 && s > -2.5 && s < 6;
+    return cap > 0.2 && s > -4 && s < layout.cliff.topS + 1.5;
   };
+  // V7: warm crowns at the forest edge too, 12 m from each other and from the layout's warm trees.
+  const warmSpots: { x: number; z: number }[] = layout.trees.filter((tree) => tree.warm).map((tree) => ({ x: tree.x, z: tree.z }));
 
   // Trees: pines and round crowns by forest density, from the forest edge out (the layout owns the inside).
   visit(cells.tree, (x, z, r) => {
     const roll = random();
     const density = field.forest(x, z);
     if (roll > density) return;
-    if (r < edgeIn + (hash2(Math.round(x * 3), Math.round(z * 3), 0x1ed6) - 0.5) * 3) return;
+    const edge = edgeAt(x, z);
+    if (r < edge + (hash2(Math.round(x * 3), Math.round(z * 3), 0x1ed6) - 0.5) * 2) return;
     if (onCliffFace(x, z) || layout.pathGap(x, z) < 1.2) return;
     const inside = r < play + 2;
     const lane = field.laneAt(x, z);
@@ -199,7 +216,16 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     if (random() < (inside ? 0.45 : 0.2)) {
       const size = inside ? 1.3 + random() * 0.9 : 1.8 + random() * 1.3;
       const color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
-      crowns.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color });
+      const warm =
+        !(CROWN_FAR as readonly string[]).includes(color) &&
+        r < edge + 5 &&
+        r < FAR_FROM_M - 1 &&
+        laneGap >= 9 &&
+        slotDist(x, z, false) >= 9 &&
+        hash2(Math.round(x * 5), Math.round(z * 5), 0x3a7) < 0.35 &&
+        !warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 12);
+      if (warm) warmSpots.push({ x, z });
+      crowns.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color, ...(warm ? { warm: true } : {}) });
     } else {
       const size = inside ? 3.4 + random() * 2.2 : 4.6 + random() * 4.6;
       const color = far && random() < 0.22 ? pick(PINE_FAR, random) : pick(PINE_GREENS, random);
@@ -212,7 +238,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const density = field.forest(x, z);
     const chance = 0.06 + density * 0.4 * (1 - density * 0.6);
     if (random() > chance) return;
-    if (r < edgeIn || onCliffFace(x, z) || layout.pathGap(x, z) < 0.6) return;
+    if (r < edgeAt(x, z) - 1 || onCliffFace(x, z) || layout.pathGap(x, z) < 0.6) return;
     const lane = field.laneAt(x, z);
     if (lane.dist - lane.half < SCATTER_CLEAR.bushLane) return;
     if (field.riverEdge(x, z) < SCATTER_CLEAR.bushWater) return;
@@ -251,6 +277,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
       color: spec.kind === "pine" ? PINE_GREENS[0] : spec.kind === "crown" ? CROWN_NEAR[0] : spec.kind === "bush" ? BUSH[0] : ROCK[0],
       proto: item.proto,
       tint: item.tint,
+      ...(item.warm ? { warm: true } : {}),
     };
     ({ pine: pines, crown: crowns, bush: bushes, rock: rocks })[spec.kind].push(entry);
   };
@@ -370,7 +397,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     if (loaded.length === 0) return;
     const lists: Record<ScatterKind, readonly ScatterItem[]> = { pine: plan.pines, crown: plan.crowns, bush: plan.bushes, rock: plan.rocks };
     /** Items per prop and band ("near" inside the near skirt, "mid" past it). */
-    const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; items: ScatterItem[] }>();
+    const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; warm: boolean; items: ScatterItem[] }>();
+    // V7 A/B: ?warm=0 draws the warm crowns green.
+    const warmOn = mapSwitch("warm") !== "0";
     const farItems: FarItem[] = [];
     for (const kind of ["pine", "crown", "bush", "rock"] as const) {
       const all = loaded.filter((entry) => entry.spec.kind === kind);
@@ -408,8 +437,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
           return;
         }
         const band = r <= near ? "near" : "mid";
-        const key = pick.spec.manifest + "|" + band;
-        const group = placed.get(key) ?? { spec: pick.spec, model: pick.model, band, items: [] };
+        const warm = warmOn && item.warm === true && pick.spec.manifest === "props/pine-river-pine-round";
+        const key = pick.spec.manifest + "|" + band + (warm ? "|warm" : "");
+        const group = placed.get(key) ?? { spec: pick.spec, model: pick.model, band, warm, items: [] };
         group.items.push(item);
         placed.set(key, group);
       });
@@ -426,12 +456,13 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     hide(shrubs, "bush");
     hide(stones, "rock");
     const tint = new THREE.Color();
-    for (const { spec, model, band, items } of placed.values()) {
+    for (const { spec, model, band, warm, items } of placed.values()) {
       if (items.length === 0) continue;
-      const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1);
+      const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "");
+      const paint = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
       const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
         key: "prop-" + name + (band === "mid" ? "-mid" : ""),
-        ...(PROP_PAINT[spec.manifest] ? { paint: PROP_PAINT[spec.manifest] } : {}),
+        ...(paint ? { paint } : {}),
         rim: spec.kind === "rock" ? 0.06 : 0.12,
         ...(spec.wind > 0 ? { wind: spec.wind } : {}),
         dither: spec.kind !== "rock",

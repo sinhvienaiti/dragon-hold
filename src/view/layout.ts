@@ -39,12 +39,15 @@ export const LAYOUT_RULES = {
   },
   /** L2: cliff marks in the outer skirt that frame one side (line and height pinned in the map's scene spec, profile by rule). */
   cliff: {
-    /** Share of the height reached at the first ledge (two-step stylised face). */
-    ledge: 0.72,
-    /** Signed offset (m, + away from the dais): the face rises from faceFromM to faceToM, the top runs to plateauM, then falls over backM. */
+    /**
+     * Signed offset s (m, + away from the dais): the face rises in `tiers`
+     * equal steps (MAP_PLAN V10: three of about 3 m), each a face faceW wide
+     * then a flat ledge ledgeW wide, starting at faceFromM; the top runs to
+     * plateauM, then falls over backM. Each tier's edge wanders on its own.
+     */
     faceFromM: -0.8,
-    ledgeAtM: 0.5,
-    faceToM: 2.3,
+    faceW: 1.3,
+    ledgeW: 1.9,
     plateauM: 14,
     backM: 16,
     /** Height fades over this length at both ends of the line. */
@@ -55,7 +58,9 @@ export const LAYOUT_RULES = {
   },
   /** L4: decorative footpaths, narrower and paler than any lane. */
   footpaths: {
-    widthM: 1.05,
+    /** V8: a main path (lantern route) 1.5 m and fully trodden; a branch 0.9 m with a grass crown. */
+    widthM: 0.9,
+    mainWidthM: 1.5,
     /** At a plaza end the path starts at this share of its width and reaches full width plazaTaperM out, so no footpath reads as a lane spoke at the dais. */
     plazaTaper: 0.4,
     plazaTaperM: 5,
@@ -84,8 +89,18 @@ export const LAYOUT_RULES = {
   /** L6: groves (cluster centres, then trees inside), replacing the even scatter inside the play area. */
   groves: {
     cellM: 6,
-    countMax: 12,
-    radiusM: [3.8, 7.5] as const,
+    /** V4: at most 7 groves inside the play area, ≥ 8 m apart (edge to edge), 1–2 anchors reaching into the forest. */
+    countMax: 7,
+    radiusM: [3.8, 6.2] as const,
+    anchorsMax: 2,
+    anchorFromM: 22,
+    anchorRadiusM: [7, 9] as const,
+    anchorPastM: 6,
+    /** V4: the grove's own species holds this share; the rest are young pines (outer ring) and the other species. */
+    dominantShare: 0.74,
+    violetMax: 2,
+    /** Blossom bushes read as red specks from above (V3): few. */
+    blossomShare: 0.2,
     minRadiusM: 2.6,
     ringM: [11, 30] as const,
     clearLaneM: 3.4,
@@ -95,7 +110,7 @@ export const LAYOUT_RULES = {
     clearPathM: 2.2,
     clearPondM: 3,
     /** Gap between two grove discs. */
-    gapM: 3.5,
+    gapM: 8,
     /** Trees per m² of grove disc. */
     density: 0.11,
     minTrees: 3,
@@ -113,6 +128,8 @@ export const LAYOUT_RULES = {
   /** L6: lone trees in the open meadow, each on its own dirt disc. */
   solitary: {
     count: 8,
+    /** V1: lone trees on the open meadow arc. */
+    openMax: 3,
     cellM: 5,
     ringM: [12, 29] as const,
     clearLaneM: 4.2,
@@ -124,16 +141,20 @@ export const LAYOUT_RULES = {
     clearGroveM: 2.5,
     gapM: 7,
   },
-  /** L6: rock lines along the water and the lane edges. */
+  /** L6: stone clusters (2–4 grey stones) along the water and the lane edges; the cliff's scree and lip slabs. */
   rocks: {
-    river: { stepM: 1.5, runChance: 0.42, runM: [3, 7] as const, offsetM: [0.1, 0.9] as const, clearLaneM: 2.6, reachM: 6, k: [0.5, 1.1] as const },
-    lane: { stepM: 2.0, runChance: 0.34, runM: [2, 5] as const, offsetM: [0.7, 1.3] as const, clearSlotM: 4, clearDaisM: 9, k: [0.35, 0.6] as const },
+    river: { stepM: 4.5, chance: 0.45, offsetM: [0.1, 0.8] as const, clearLaneM: 2.6, reachM: 6, k: [0.45, 0.95] as const },
+    lane: { stepM: 6, chance: 0.32, offsetM: [0.7, 1.3] as const, clearSlotM: 4, clearDaisM: 9, k: [0.35, 0.6] as const },
     pond: { count: 10, k: [0.6, 1.35] as const },
-    cliffFoot: { stepM: 2.0, chance: 0.8, k: [1.0, 2.6] as const },
-    /** Big boulders half sunk in the face (offset s from the face foot) and slabs along the top lip: the face reads as piled rock. */
-    cliffFace: { stepM: 2.4, chance: 0.85, s: [-0.2, 1.0] as const, k: [2.6, 4.4] as const },
-    cliffLip: { stepM: 3.1, chance: 0.7, s: [2.4, 3.6] as const, k: [1.8, 3.0] as const },
+    /** V10: 10–20 pale stones 0.8–2 m on the scree in front of each cliff foot. */
+    cliffFoot: { stepM: 2.2, chance: 0.7, outM: [0.8, 6.5] as const, k: [0.8, 2.0] as const },
+    /** Slabs along each tier's lip: the face reads as stacked stone, no mossy boulder "eggs". */
+    cliffLip: { stepM: 1.6, chance: 0.9, k: [2.2, 3.6] as const },
   },
+  /** V6: the skirt forest starts insideM inside the play radius, moved by the scene's bays and headlands, ± noiseM. */
+  edge: { insideM: 2, noiseM: 3.5, noiseWave: 4.5 },
+  /** V7: warm crowns (tinted round trees). */
+  warm: { clearM: 9, gapM: 12, share: 0.08, min: 5 },
   /** L7 paint stamps (potential discs: 1 at the centre, 0.5 at radius, 0 at radius + falloff). */
   paint: {
     plazaM: 6.5,
@@ -148,6 +169,9 @@ export const LAYOUT_RULES = {
     scuffM: [0.7, 1.5] as const,
     scuffOffsetM: [0.0, 0.45] as const,
     flowerPatchWaveM: 11,
+    /** V3: radius wobble of a dirt patch (≤ 0.25) and how far its centre moves to the shade side (share of r). */
+    wobble: [0.12, 0.24] as const,
+    shadeShift: 0.35,
   },
 } as const;
 
@@ -167,6 +191,8 @@ export interface LayoutItem {
   readonly tint: readonly [number, number, number];
   /** Crown radius on the ground (trees), footprint radius (rest), metres. */
   readonly radius: number;
+  /** Map pilot V7: a round tree whose crown is painted warm (rust, copper); `?warm=0` draws it green. */
+  readonly warm?: boolean;
 }
 
 export interface Pond {
@@ -187,10 +213,14 @@ export interface Cliff {
   lift(x: number, z: number): number;
   /** Signed offset from the face foot (+ away from the dais) and the end fade 0–1. */
   offset(x: number, z: number): { s: number; cap: number; along: number };
+  /** Offset where the top tier's face ends (the plateau starts past it). */
+  readonly topS: number;
 }
 
 export interface Footpath {
   readonly id: string;
+  /** V8: "main" paths are wide and fully trodden, "branch" paths narrow with a grass crown. */
+  readonly tier: "main" | "branch";
   readonly line: Polyline;
   /** Half width at each sample of `line`. */
   readonly halves: Float64Array;
@@ -211,12 +241,26 @@ export interface PaintDisc {
   readonly r: number;
   readonly falloff: number;
   readonly strength: number;
+  /**
+   * Map pilot V3: an organic patch instead of a round disc. The radius at
+   * angle a is r × (1 + wobble · (0.7 sin(lobes · a + phase) + 0.3 sin((lobes + 2) · a + 2.3 phase))),
+   * stretched by `stretch` along `angle`; wobble ≤ 0.25.
+   */
+  readonly lobes?: number;
+  readonly wobble?: number;
+  readonly phase?: number;
+  readonly stretch?: number;
+  readonly angle?: number;
 }
 
 export interface MapLayout {
   readonly fields: LayoutFields;
   readonly pond: Pond | null;
+  /** All cliff marks as one: lift is the highest, offset the nearest line's. */
   readonly cliff: Cliff | null;
+  readonly cliffs: readonly Cliff[];
+  /** V6: radius where the skirt forest starts at a bearing (bays push it out, headlands in, ±noise). */
+  forestEdge(x: number, z: number): number;
   readonly footpaths: readonly Footpath[];
   readonly groves: readonly Grove[];
   /** Grove and lone trees (inside the play area). */
@@ -412,8 +456,11 @@ function sitePond(f: LayoutFields, seed: number, pinned: ScenePond | null): Pond
 
 function buildCliff(f: LayoutFields, seed: number, spec: SceneCliff): Cliff {
   const C = { ...LAYOUT_RULES.cliff, heightM: spec.heightM };
+  const tiers = Math.max(1, spec.tiers);
   const line = new Polyline(catmullRom(spec.line, 1).points);
   const hit: Nearest = { dist: 0, along: 0, x: 0, z: 0 };
+  // Tier k's own wander (the base ragged edge is in `offset`).
+  const tierWander = (along: number, k: number): number => (k === 0 ? 0 : (valueNoise(along / (C.raggedWaveM * 0.8), 3.1 + k * 1.7, seed + RULE.cliff) - 0.5) * 2 * C.raggedM * 0.8);
   const offset = (x: number, z: number): { s: number; cap: number; along: number } => {
     line.nearest(x, z, hit);
     // + away from the dais: the side of the line the dais is not on.
@@ -428,11 +475,16 @@ function buildCliff(f: LayoutFields, seed: number, spec: SceneCliff): Cliff {
   return {
     line,
     offset,
+    topS: C.faceFromM + (tiers - 1) * (C.faceW + C.ledgeW) + C.faceW + C.raggedM * 0.8,
     lift(x: number, z: number): number {
       if (x < line.minX - 40 || x > line.maxX + 40 || z < line.minZ - 40 || z > line.maxZ + 40) return 0;
-      const { s, cap } = offset(x, z);
-      if (cap <= 0 || s < C.faceFromM - 0.5 || s > C.plateauM + C.backM) return 0;
-      const rise = C.ledge * smooth(C.faceFromM, C.ledgeAtM, s) + (1 - C.ledge) * smooth(C.ledgeAtM + 0.6, C.faceToM, s);
+      const { s, cap, along } = offset(x, z);
+      if (cap <= 0 || s < C.faceFromM - 2.5 || s > C.plateauM + C.backM) return 0;
+      let rise = 0;
+      for (let k = 0; k < tiers; k += 1) {
+        const from = C.faceFromM + k * (C.faceW + C.ledgeW) + tierWander(along, k);
+        rise += smooth(from, from + C.faceW, s) / tiers;
+      }
       const fall = 1 - smooth(C.plateauM, C.plateauM + C.backM, s);
       return C.heightM * rise * fall * cap;
     },
@@ -566,7 +618,7 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, cliff: Cliff | null,
     }
     const points: Vec2[] = xs.map((x, i) => [x, zs[i]!]);
     const line = new Polyline(catmullRom(points, 0.5).points);
-    const half = F.widthM / 2;
+    const half = (route.tier === "main" ? F.mainWidthM : F.widthM) / 2;
     const halves = new Float64Array(line.count);
     for (let i = 0; i < line.count; i += 1) {
       const s = line.cum[i]!;
@@ -575,7 +627,7 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, cliff: Cliff | null,
       const fromPlaza = from.kind === "plaza" ? lerp(F.plazaTaper, 1, smooth(0, F.plazaTaperM, s)) : 1;
       halves[i] = half * toEdge * fromPlaza * (0.92 + 0.16 * valueNoise(s / 4, routeIndex + 0.5, seed + RULE.path + 1));
     }
-    paths.push({ id: route.id, line, halves });
+    paths.push({ id: route.id, tier: route.tier, line, halves });
   });
   return paths;
 }
@@ -609,12 +661,61 @@ function treeCap(f: LayoutFields, x: number, z: number): number {
   return Math.min(G.capMax, G.capA + G.capB * Math.max(0, f.r(x, z) - 10));
 }
 
+
+/** Smallest signed difference of two bearings, degrees, in (−180, 180]. */
+function bearingDelta(a: number, b: number): number {
+  let d = (a - b) % 360;
+  if (d > 180) d -= 360;
+  if (d <= -180) d += 360;
+  return d;
+}
+
+/** Bearing of (x, z) from the dais centre, degrees in [0, 360). */
+export function bearingOf(f: LayoutFields, x: number, z: number): number {
+  const b = (Math.atan2(x - f.cx, -(z - f.cz)) * 180) / Math.PI;
+  return b < 0 ? b + 360 : b;
+}
+
+/** All cliff marks queried as one: the highest lift, the nearest line's offset. */
+function compositeCliff(cliffs: readonly Cliff[]): Cliff {
+  if (cliffs.length === 1) return cliffs[0]!;
+  return {
+    line: cliffs[0]!.line,
+    topS: Math.max(...cliffs.map((cliff) => cliff.topS)),
+    lift(x: number, z: number): number {
+      let best = 0;
+      for (const cliff of cliffs) best = Math.max(best, cliff.lift(x, z));
+      return best;
+    },
+    offset(x: number, z: number) {
+      let best = cliffs[0]!.offset(x, z);
+      for (let k = 1; k < cliffs.length; k += 1) {
+        const next = cliffs[k]!.offset(x, z);
+        // The line that owns the spot: live (cap > 0) first, then the nearest.
+        if ((next.cap > 0 && best.cap <= 0) || ((next.cap > 0) === (best.cap > 0) && Math.abs(next.s) < Math.abs(best.s))) best = next;
+      }
+      return best;
+    },
+  };
+}
+
+const PINE_ROUND = "props/pine-river-pine-round";
+const PINE_TALL = "props/pine-river-pine-tall";
+const PINE_YOUNG = "props/pine-river-pine-young";
+const ROCK_SLAB = "props/pine-river-rock-slab";
+const ROCK_BOULDER = "props/pine-river-rock-boulder";
+const RIVER_STONES = "props/pine-river-river-stones";
+/** V13: gravel and stones mid grey, never a white chain. */
+const GREY: readonly [number, number, number] = [0.7, 0.71, 0.73];
+/** V10: pale warm cliff stone. */
+const PALE: readonly [number, number, number] = [1.06, 1.03, 0.98];
+
 export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)): MapLayout {
   const f = new LayoutFields(map);
   const seed = map.terrain.seed ^ 0x6d61;
   const pond = sitePond(f, seed, scene?.ponds[0] ?? null);
-  const cliffSpec = scene?.cliffs[0];
-  const cliff = cliffSpec ? buildCliff(f, seed, cliffSpec) : null;
+  const cliffs = (scene?.cliffs ?? []).map((spec) => buildCliff(f, seed, spec));
+  const cliff = cliffs.length > 0 ? compositeCliff(cliffs) : null;
   const footpaths = routeFootpaths(f, pond, cliff, seed, scene?.footpaths ?? []);
   const pathHit: Nearest = { dist: 0, along: 0, x: 0, z: 0 };
   const pathGap = (x: number, z: number): number => {
@@ -631,20 +732,54 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
   };
   const pondEdge = (x: number, z: number): number => (pond ? pond.edge(x, z) : 99);
 
-  // Groves.
+  // Light: shade side is away from the sun (V3 puts each dirt patch's centre there).
+  const sunB = ((scene?.lighting.sunBearingDeg ?? 221.6) * Math.PI) / 180;
+  const shadeX = -Math.sin(sunB);
+  const shadeZ = Math.cos(sunB);
+
+  // V1: the open meadow arc (no groves, at most a few lone trees).
+  const open = scene?.open ?? null;
+  const inOpen = (x: number, z: number, margin = 0): boolean => {
+    if (!open) return false;
+    const r = f.r(x, z);
+    if (r < open.ringM[0] - margin || r > open.ringM[1] + margin) return false;
+    const b = bearingOf(f, x, z);
+    const spread = (Math.asin(Math.min(1, margin / Math.max(r, 1))) * 180) / Math.PI;
+    return bearingDelta(b, open.fromDeg) >= -spread && bearingDelta(b, open.toDeg) <= spread;
+  };
+
+  // V6: forest edge with bays (+ depth) and headlands (− depth), ±noise along the ring.
+  const E = LAYOUT_RULES.edge;
+  const bays = scene?.bays ?? [];
+  const forestEdge = (x: number, z: number): number => {
+    const b = bearingOf(f, x, z);
+    let edge = f.play - E.insideM;
+    for (const bay of bays) {
+      const t = Math.abs(bearingDelta(b, bay.bearingDeg)) / bay.halfWidthDeg;
+      if (t < 1) edge += bay.depthM * (1 - smooth(0.3, 1, t));
+    }
+    const r = f.r(x, z) || 1;
+    const ux = (x - f.cx) / r;
+    const uz = (z - f.cz) / r;
+    return edge + (valueNoise(ux * E.noiseWave + 9.1, uz * E.noiseWave + 3.7, seed + 77) - 0.5) * 2 * E.noiseM;
+  };
+
+  // Groves: pinned (scene spec) or by rule (open arc kept clear, edge-to-edge gap, anchors may reach the forest).
   const G = LAYOUT_RULES.groves;
-  const groves: Grove[] = [];
-  // Pinned groves (scene spec): centre and radius as authored, the violet rule as ever.
+  const groves: (Grove & { warm: boolean; dominant: string })[] = [];
+  const dominantOf = (index: number): string => (h(RULE.grove, index, 41, seed) < 0.5 ? PINE_ROUND : PINE_TALL);
   for (const pin of scene?.groves ?? []) {
     const [x, z] = pin.at;
     const violet = Math.min(f.laneGap(x, z), f.skyDist(x, z)) - pin.radiusM >= G.violetLaneM;
-    groves.push({ id: pin.id, x, z, radius: pin.radiusM, violet });
+    groves.push({ id: pin.id, x, z, radius: pin.radiusM, violet, warm: pin.warm, dominant: pin.dominant ?? dominantOf(groves.length) });
   }
+  let anchors = 0;
   for (const c of scene && scene.groves.length > 0 ? [] : candidates(f, G.cellM, G.ringM[1], RULE.grove, seed)) {
     if (groves.length >= G.countMax) break;
     const r = f.r(c.x, c.z);
     if (r < G.ringM[0] || r > G.ringM[1]) continue;
-    const want = lerp(G.radiusM[0], G.radiusM[1], h(RULE.grove, Math.round(c.x * 10), Math.round(c.z * 10), seed));
+    const anchor = anchors < G.anchorsMax && r >= G.anchorFromM;
+    const want = anchor ? lerp(G.anchorRadiusM[0], G.anchorRadiusM[1], h(RULE.grove, Math.round(c.x * 10), Math.round(c.z * 10), seed)) : lerp(G.radiusM[0], G.radiusM[1], h(RULE.grove, Math.round(c.x * 10), Math.round(c.z * 10), seed));
     const radius = Math.min(
       want,
       f.laneGap(c.x, c.z) - G.clearLaneM,
@@ -654,15 +789,17 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       pathGap(c.x, c.z) + G.clearPathM,
       pondEdge(c.x, c.z) - G.clearPondM,
       r - 9,
-      f.play + 2 - r + 1.5,
+      anchor ? f.play + G.anchorPastM - r : f.play + 3.5 - r,
     );
     if (radius < G.minRadiusM) continue;
+    if (inOpen(c.x, c.z, radius + 2)) continue;
     if (groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) < g.radius + radius + G.gapM)) continue;
+    if (anchor && radius >= G.anchorRadiusM[0] - 0.5) anchors += 1;
     const violet = Math.min(f.laneGap(c.x, c.z), f.skyDist(c.x, c.z)) - radius >= G.violetLaneM;
-    groves.push({ id: "grove:" + c.cell, x: c.x, z: c.z, radius, violet });
+    groves.push({ id: "grove:" + c.cell, x: c.x, z: c.z, radius, violet, warm: true, dominant: dominantOf(groves.length) });
   }
 
-  // Trees inside each grove: dart throwing in rank order, big crowns near the centre.
+  // Trees inside each grove: dart throwing in rank order; one species holds ≥ 70 % (V4), young pines under, 1–2 accents.
   const trees: LayoutItem[] = [];
   const bushes: LayoutItem[] = [];
   const rocks: LayoutItem[] = [];
@@ -670,11 +807,20 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     f.laneGap(x, z) >= 3.3 && f.riverEdge(x, z) >= 0.95 && f.slotDist(x, z) >= 3.5 && f.skyDist(x, z) >= 2.7 && f.r(x, z) >= 10.2 && pathGap(x, z) >= 1.1 && pondEdge(x, z) >= 1.2;
   const bushOk = (x: number, z: number): boolean =>
     f.laneGap(x, z) >= 1.3 && f.riverEdge(x, z) >= 0.6 && f.slotDist(x, z) >= 2.8 && f.r(x, z) >= 8 && pathGap(x, z) >= 0.5 && pondEdge(x, z) >= 0.6;
+  const heightOf = (proto: string, roll: number, cap: number, under: boolean): number => {
+    if (proto === PINE_YOUNG) return Math.min(cap * 0.85, 2.6 + roll * 1.6);
+    if (proto === PINE_ROUND) return Math.min(under ? cap * 0.9 : cap, 4.6 + roll * 2.2);
+    if (proto === PINE_TALL) return Math.min(under ? cap * 0.9 : cap, 5.6 + roll * 2.2);
+    return Math.min(cap, 5.2 + roll * 3);
+  };
+  const crownOf = (proto: string): number => (proto === PINE_ROUND ? 0.55 : proto.endsWith("violet") ? 0.5 : 0.28);
+  const groveTrees = new Map<string, LayoutItem[]>();
   groves.forEach((grove, gi) => {
     const tintBase = TINTS[Math.floor(h(RULE.grove, gi, 77, seed) * TINTS.length)]!;
     const area = Math.PI * grove.radius * grove.radius;
     const want = Math.max(G.minTrees, Math.round(area * G.density));
     const placed: LayoutItem[] = [];
+    let violets = 0;
     for (let attempt = 0; attempt < want * 25 && placed.length < want; attempt += 1) {
       // Uniform in the disc without trig: rejection from the square.
       const u = h(RULE.groveTree, gi * 1000 + attempt, 1, seed) * 2 - 1;
@@ -686,25 +832,22 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       if (placed.some((t) => Math.hypot(t.x - x, t.z - z) < G.treeGapM)) continue;
       const rho = Math.sqrt(u * u + v * v);
       const roll = h(RULE.groveTree, gi * 1000 + attempt, 3, seed);
+      const pick = h(RULE.groveTree, gi * 1000 + attempt, 6, seed);
       const cap = treeCap(f, x, z);
       let proto: string;
-      let height: number;
-      if (grove.violet && rho < 0.6 && roll < 0.35) {
+      if (grove.violet && rho < 0.6 && pick < 0.3 && violets < G.violetMax) {
         proto = "props/pine-river-tree-violet";
-        height = Math.min(cap, 5.2 + roll * 3);
-      } else if (rho < 0.55) {
-        proto = roll < 0.5 ? "props/pine-river-pine-round" : "props/pine-river-pine-tall";
-        height = Math.min(cap, (proto.endsWith("round") ? 4.6 : 5.6) + roll * 2.2);
-      } else {
-        proto = roll < 0.5 ? "props/pine-river-pine-young" : roll < 0.78 ? "props/pine-river-pine-tall" : "props/pine-river-pine-round";
-        height = Math.min(cap * 0.85, (proto.endsWith("young") ? 2.6 : 4.2) + roll * 1.6);
-      }
+        violets += 1;
+      } else if (pick < G.dominantShare) proto = grove.dominant;
+      else if (rho > 0.5) proto = PINE_YOUNG;
+      else proto = grove.dominant === PINE_ROUND ? PINE_TALL : PINE_ROUND;
+      const height = heightOf(proto, roll, cap, rho > 0.55);
       const jitter = 0.94 + h(RULE.groveTree, gi * 1000 + attempt, 4, seed) * 0.12;
       const tint: [number, number, number] = [tintBase[0] * jitter, tintBase[1] * jitter, tintBase[2] * jitter];
-      const crown = proto.endsWith("round") ? 0.55 : proto.endsWith("violet") ? 0.5 : 0.28;
-      placed.push({ id: grove.id + ":" + placed.length, proto, x, z, k: height, yaw: h(RULE.groveTree, gi * 1000 + attempt, 5, seed) * Math.PI * 2, tint, radius: height * crown });
+      placed.push({ id: grove.id + ":" + placed.length, proto, x, z, k: height, yaw: h(RULE.groveTree, gi * 1000 + attempt, 5, seed) * Math.PI * 2, tint, radius: height * crownOf(proto) });
     }
     trees.push(...placed);
+    groveTrees.set(grove.id, placed);
     // Rim bushes and one clutter item.
     const rimCount = Math.round(2 * Math.PI * grove.radius * G.rimBushPerM);
     for (let k = 0; k < rimCount; k += 1) {
@@ -715,7 +858,7 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       const x = grove.x + (u / length) * reach;
       const z = grove.z + (v / length) * reach;
       if (!bushOk(x, z)) continue;
-      const blossom = h(RULE.rim, gi * 100 + k, 4, seed) < 0.4;
+      const blossom = h(RULE.rim, gi * 100 + k, 4, seed) < G.blossomShare;
       bushes.push({ id: grove.id + ":rim" + k, proto: blossom ? "props/pine-river-bush-blossom" : "props/pine-river-bush-moss", x, z, k: 1.5 + h(RULE.rim, gi * 100 + k, 5, seed) * 1.0, yaw: h(RULE.rim, gi * 100 + k, 6, seed) * 6.283, tint: [1, 1, 1], radius: 0.8 });
     }
     if (h(RULE.rim, gi, 9, seed) < G.clutterChance) {
@@ -730,9 +873,10 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     }
   });
 
-  // Lone trees in the open meadow.
+  // Lone trees: a few on the open meadow (V1: 1–3), the rest in the transition bands (V5).
   const S = LAYOUT_RULES.solitary;
   const lone: LayoutItem[] = [];
+  let openLone = 0;
   for (const c of candidates(f, S.cellM, S.ringM[1], RULE.solitary, seed)) {
     if (lone.length >= S.count) break;
     const r = f.r(c.x, c.z);
@@ -741,76 +885,118 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     if (f.riverEdge(c.x, c.z) < S.clearRiverM || pathGap(c.x, c.z) < S.clearPathM || pondEdge(c.x, c.z) < S.clearPondM) continue;
     if (groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) < g.radius + S.clearGroveM)) continue;
     if (lone.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < S.gapM)) continue;
+    const isOpen = inOpen(c.x, c.z);
+    if (isOpen && openLone >= S.openMax) continue;
+    if (isOpen) openLone += 1;
     const roll = h(RULE.solitary, Math.round(c.x * 10), Math.round(c.z * 10), seed);
-    const proto = roll < 0.55 ? "props/pine-river-pine-round" : "props/pine-river-pine-tall";
-    const height = Math.min(treeCap(f, c.x, c.z), proto.endsWith("round") ? 5 + roll * 2 : 5.8 + roll * 2);
-    lone.push({ id: "lone:" + c.cell, proto, x: c.x, z: c.z, k: height, yaw: roll * 40, tint: TINTS[Math.floor(roll * 97) % TINTS.length]!, radius: height * (proto.endsWith("round") ? 0.55 : 0.28) });
+    const proto = roll < 0.6 ? PINE_ROUND : PINE_TALL;
+    const height = Math.min(treeCap(f, c.x, c.z), proto === PINE_ROUND ? 5 + roll * 2 : 5.8 + roll * 2);
+    lone.push({ id: "lone:" + c.cell, proto, x: c.x, z: c.z, k: height, yaw: roll * 40, tint: TINTS[Math.floor(roll * 97) % TINTS.length]!, radius: height * crownOf(proto) });
   }
   trees.push(...lone);
 
-  // Rock lines: along the river's banks (runs of stones at the water's edge).
+  // V6: one tree in each forest bay (its floor stays open meadow).
+  const bayTrees: LayoutItem[] = [];
+  bays.forEach((bay, bi) => {
+    if (bay.depthM <= 0) return;
+    const b = bay.bearingDeg + (h(RULE.solitary, bi, 91, seed) - 0.5) * bay.halfWidthDeg * 0.6;
+    const [dx, dz] = LayoutFields.dir(b);
+    const r = f.play - E.insideM + bay.depthM * (0.5 + 0.2 * h(RULE.solitary, bi, 92, seed));
+    const x = f.cx + dx * r;
+    const z = f.cz + dz * r;
+    if (!treeOk(x, z) || f.laneGap(x, z) < 5 || f.slotDist(x, z) < 6 || (cliff && cliff.offset(x, z).s > -3 && cliff.offset(x, z).cap > 0.2)) return;
+    if ([...trees, ...bayTrees].some((t) => Math.hypot(t.x - x, t.z - z) < 4)) return;
+    const roll = h(RULE.solitary, bi, 93, seed);
+    const height = 5.4 + roll * 1.8;
+    bayTrees.push({ id: "bay:" + bi, proto: PINE_ROUND, x, z, k: height, yaw: roll * 6.283, tint: TINTS[bi % TINTS.length]!, radius: height * 0.55 });
+  });
+  trees.push(...bayTrees);
+
+  // V7: warm crowns (tinted round trees) at bays, junction-side lone trees and grove outer faces;
+  // ≥ 9 m from lanes, slots and the sky lane, ≥ 12 m apart, about 8 % of the trees.
+  const W = LAYOUT_RULES.warm;
+  const warmIds = new Set<string>();
+  {
+    const pool: { item: LayoutItem; score: number }[] = [];
+    for (const tree of trees) {
+      if (tree.proto !== PINE_ROUND) continue;
+      if (f.laneGap(tree.x, tree.z) < W.clearM || f.slotDist(tree.x, tree.z) < W.clearM || f.skyDist(tree.x, tree.z) < W.clearM) continue;
+      let score = h(RULE.rim, Math.round(tree.x * 10), Math.round(tree.z * 10), seed) * 0.3;
+      if (tree.id.startsWith("bay:")) score += 2;
+      else if (tree.id.startsWith("lone:")) score += pathGap(tree.x, tree.z) < 6 ? 1.5 : 0.6;
+      else {
+        const grove = groves.find((g) => tree.id.startsWith(g.id + ":"));
+        if (!grove || !grove.warm) continue;
+        // Outer face: on the far side of the grove from the dais.
+        const out = ((tree.x - grove.x) * (grove.x - f.cx) + (tree.z - grove.z) * (grove.z - f.cz)) / Math.max(grove.radius * f.r(grove.x, grove.z), 1e-6);
+        if (out < 0.25) continue;
+        score += 1 + out;
+      }
+      pool.push({ item: tree, score });
+    }
+    pool.sort((a, b) => b.score - a.score || (a.item.id < b.item.id ? -1 : 1));
+    const target = Math.max(W.min, Math.round(trees.length * W.share));
+    const taken: LayoutItem[] = [];
+    for (const { item } of pool) {
+      if (taken.length >= target) break;
+      if (taken.some((t) => Math.hypot(t.x - item.x, t.z - item.z) < W.gapM)) continue;
+      taken.push(item);
+      warmIds.add(item.id);
+    }
+  }
+  const warmTrees = trees.map((tree) => (warmIds.has(tree.id) ? { ...tree, warm: true } : tree));
+  trees.length = 0;
+  trees.push(...warmTrees);
+
+  // Rock clusters along the river banks (V13: 2–4 grey stones together, never a white chain).
   const R = LAYOUT_RULES.rocks;
   if (f.river) {
     const line = f.river.line;
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
     for (const side of [-1, 1]) {
-      let run = 0;
       let index = 0;
       for (let s = 0; s < line.length; s += R.river.stepM, index += 1) {
-        line.pointAt(s, point);
-        const r = f.r(point.x, point.z);
-        if (r > f.play + R.river.reachM) {
-          run = 0;
-          continue;
-        }
-        const seg = Math.floor(s / 6);
-        if (run <= 0) {
-          if (h(RULE.rockRiver, seg * 2 + (side > 0 ? 1 : 0), 1, seed) > R.river.runChance) continue;
-          run = Math.round(lerp(R.river.runM[0], R.river.runM[1], h(RULE.rockRiver, seg * 2 + (side > 0 ? 1 : 0), 2, seed)));
-        }
-        run -= 1;
+        const key = index * 2 + (side > 0 ? 1 : 0);
+        if (h(RULE.rockRiver, key, 1, seed) > R.river.chance) continue;
+        line.pointAt(s + h(RULE.rockRiver, key, 3, seed) * R.river.stepM * 0.5, point);
+        if (f.r(point.x, point.z) > f.play + R.river.reachM) continue;
         const half = f.riverWidthAt(s) / 2;
-        const off = half + lerp(R.river.offsetM[0], R.river.offsetM[1], h(RULE.rockRiver, index, side + 5, seed));
-        const x = point.x - point.dz * off * side;
-        const z = point.z + point.dx * off * side;
-        if (f.laneGap(x, z) < R.river.clearLaneM) {
-          run = 0;
-          continue;
+        const count = 2 + Math.floor(h(RULE.rockRiver, key, 2, seed) * 3);
+        for (let k = 0; k < count; k += 1) {
+          const along = (h(RULE.rockRiver, key * 7 + k, 4, seed) - 0.5) * 1.4;
+          const off = half + lerp(R.river.offsetM[0], R.river.offsetM[1], h(RULE.rockRiver, key * 7 + k, 5, seed));
+          const x = point.x + point.dx * along - point.dz * off * side;
+          const z = point.z + point.dz * along + point.dx * off * side;
+          if (f.laneGap(x, z) < R.river.clearLaneM || pathGap(x, z) < 0.3) continue;
+          const roll = h(RULE.rockRiver, key * 7 + k, 6, seed);
+          const proto = roll < 0.7 ? RIVER_STONES : ROCK_SLAB;
+          const kk = lerp(R.river.k[0], R.river.k[1], h(RULE.rockRiver, key * 7 + k, 7, seed)) * (k === 0 ? 1 : 0.75);
+          rocks.push({ id: "rock:river:" + side + ":" + index + ":" + k, proto, x, z, k: kk, yaw: roll * 6.283, tint: GREY, radius: kk * 0.5 });
         }
-        if (pathGap(x, z) < 0.3) continue;
-        const roll = h(RULE.rockRiver, index, side + 9, seed);
-        const proto = roll < 0.55 ? "props/pine-river-river-stones" : roll < 0.85 ? "props/pine-river-rock-slab" : "props/pine-river-rock-boulder";
-        const k = lerp(R.river.k[0], R.river.k[1], h(RULE.rockRiver, index, side + 11, seed)) * (proto.endsWith("boulder") ? 0.8 : 1);
-        rocks.push({ id: "rock:river:" + side + ":" + index, proto, x, z, k, yaw: roll * 6.283, tint: [1, 1, 1], radius: k * 0.5 });
       }
     }
   }
-  // Rock lines along lane edges (both sides, short runs), off slots and the plaza.
+  // Small grey clusters by the lane edges, off slots and the plaza.
   f.lanes.forEach((lane, laneIndex) => {
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
     for (const side of [-1, 1]) {
-      let run = 0;
       let index = 0;
-      for (let s = 1; s < lane.line.length; s += R.lane.stepM, index += 1) {
-        if (lane.spans.some((span) => s > span.fromM - 2.5 && s < span.toM + 2.5)) {
-          run = 0;
-          continue;
-        }
-        const seg = Math.floor(s / 7);
-        const key = laneIndex * 1000 + seg * 2 + (side > 0 ? 1 : 0);
-        if (run <= 0) {
-          if (h(RULE.rockLane, key, 1, seed) > R.lane.runChance) continue;
-          run = Math.round(lerp(R.lane.runM[0], R.lane.runM[1], h(RULE.rockLane, key, 2, seed)));
-        }
-        run -= 1;
+      for (let s = 2; s < lane.line.length; s += R.lane.stepM, index += 1) {
+        const key = laneIndex * 1000 + index * 2 + (side > 0 ? 1 : 0);
+        if (lane.spans.some((span) => s > span.fromM - 2.5 && s < span.toM + 2.5)) continue;
+        if (h(RULE.rockLane, key, 1, seed) > R.lane.chance) continue;
         lane.line.pointAt(s, point);
-        const off = lane.half + lerp(R.lane.offsetM[0], R.lane.offsetM[1], h(RULE.rockLane, laneIndex * 1000 + index, side + 5, seed));
-        const x = point.x - point.dz * off * side;
-        const z = point.z + point.dx * off * side;
-        if (f.slotDist(x, z) < R.lane.clearSlotM || f.r(x, z) < R.lane.clearDaisM || f.riverEdge(x, z) < 0.3 || pathGap(x, z) < 0.3) continue;
-        const roll = h(RULE.rockLane, laneIndex * 1000 + index, side + 9, seed);
-        const k = lerp(R.lane.k[0], R.lane.k[1], roll);
-        rocks.push({ id: "rock:lane:" + laneIndex + ":" + side + ":" + index, proto: roll < 0.7 ? "props/pine-river-river-stones" : "props/pine-river-rock-slab", x, z, k, yaw: roll * 6.283, tint: [1, 1, 1], radius: k * 0.5 });
+        const count = 2 + Math.floor(h(RULE.rockLane, key, 2, seed) * 2);
+        for (let k = 0; k < count; k += 1) {
+          const along = (h(RULE.rockLane, key * 5 + k, 3, seed) - 0.5) * 1.0;
+          const off = lane.half + lerp(R.lane.offsetM[0], R.lane.offsetM[1], h(RULE.rockLane, key * 5 + k, 4, seed));
+          const x = point.x + point.dx * along - point.dz * off * side;
+          const z = point.z + point.dz * along + point.dx * off * side;
+          if (f.slotDist(x, z) < R.lane.clearSlotM || f.r(x, z) < R.lane.clearDaisM || f.riverEdge(x, z) < 0.3 || pathGap(x, z) < 0.3) continue;
+          const roll = h(RULE.rockLane, key * 5 + k, 5, seed);
+          const kk = lerp(R.lane.k[0], R.lane.k[1], roll);
+          rocks.push({ id: "rock:lane:" + laneIndex + ":" + side + ":" + index + ":" + k, proto: roll < 0.75 ? RIVER_STONES : ROCK_SLAB, x, z, k: kk, yaw: roll * 6.283, tint: GREY, radius: kk * 0.5 });
+        }
       }
     }
   });
@@ -826,9 +1012,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       const length = Math.hypot(ox, oz) || 1;
       const fx = p.x + (ox / length) * out;
       const fz = p.z + (oz / length) * out;
-      if (pathGap(fx, fz) < 0.6) continue;
+      if (pathGap(fx, fz) < 0.8) continue;
       const kk = lerp(R.pond.k[0], R.pond.k[1], h(RULE.rockPond, k, 3, seed));
-      rocks.push({ id: "rock:pond:" + k, proto: k % 3 === 0 ? "props/pine-river-rock-slab" : "props/pine-river-river-stones", x: fx, z: fz, k: kk, yaw: h(RULE.rockPond, k, 4, seed) * 6.283, tint: [1, 1, 1], radius: kk * 0.5 });
+      rocks.push({ id: "rock:pond:" + k, proto: k % 3 === 0 ? ROCK_SLAB : RIVER_STONES, x: fx, z: fz, k: kk, yaw: h(RULE.rockPond, k, 4, seed) * 6.283, tint: GREY, radius: kk * 0.5 });
     }
     for (let k = 0; k < 3; k += 1) {
       const s = ((k + 0.5) / 3) * pond.shore.length;
@@ -839,85 +1025,113 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       const x = p.x + (ox / length) * 1.5;
       const z = p.z + (oz / length) * 1.5;
       if (!bushOk(x, z)) continue;
-      bushes.push({ id: "pond:bush" + k, proto: k === 1 ? "props/pine-river-bush-blossom" : "props/pine-river-bush-moss", x, z, k: 1.6, yaw: k * 2.1, tint: [1, 1, 1], radius: 0.8 });
+      bushes.push({ id: "pond:bush" + k, proto: "props/pine-river-bush-moss", x, z, k: 1.6, yaw: k * 2.1, tint: [1, 1, 1], radius: 0.8 });
     }
   }
-  // Boulders and slabs along the cliff foot.
-  if (cliff) {
-    const C = LAYOUT_RULES.cliff;
+  // V10: a pale scree field at each cliff foot, slabs stacked along every tier's lip, a few on the top lip.
+  const C = LAYOUT_RULES.cliff;
+  cliffs.forEach((cl, ci) => {
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
-    let index = 0;
-    for (let s = C.capM * 0.5; s < cliff.line.length - C.capM * 0.5; s += R.cliffFoot.stepM, index += 1) {
-      if (h(RULE.rockCliff, index, 1, seed) > R.cliffFoot.chance) continue;
-      cliff.line.pointAt(s, point);
-      // Toward the dais = inward normal.
+    const inward = (): [number, number] => {
       let nx = -point.dz;
       let nz = point.dx;
       if (nx * (f.cx - point.x) + nz * (f.cz - point.z) < 0) {
         nx = -nx;
         nz = -nz;
       }
-      const out = 1.2 + h(RULE.rockCliff, index, 2, seed) * 1.8;
+      return [nx, nz];
+    };
+    let index = 0;
+    for (let s = C.capM * 0.4; s < cl.line.length - C.capM * 0.4; s += R.cliffFoot.stepM, index += 1) {
+      const key = ci * 1000 + index;
+      if (h(RULE.rockCliff, key, 1, seed) > R.cliffFoot.chance) continue;
+      cl.line.pointAt(s + (h(RULE.rockCliff, key, 4, seed) - 0.5) * R.cliffFoot.stepM, point);
+      const [nx, nz] = inward();
+      const out = lerp(R.cliffFoot.outM[0], R.cliffFoot.outM[1], h(RULE.rockCliff, key, 2, seed) ** 1.6);
       const x = point.x + nx * out;
       const z = point.z + nz * out;
-      if (f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 0.5) continue;
-      const roll = h(RULE.rockCliff, index, 3, seed);
-      const k = lerp(R.cliffFoot.k[0], R.cliffFoot.k[1], roll);
-      rocks.push({ id: "rock:cliff:" + index, proto: roll < 0.55 ? "props/pine-river-rock-boulder" : "props/pine-river-rock-slab", x, z, k, yaw: roll * 6.283, tint: [1, 1, 1], radius: k * 0.5 });
+      if (f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 0.8 || pathGap(x, z) < 0.4) continue;
+      const roll = h(RULE.rockCliff, key, 3, seed);
+      const k = lerp(R.cliffFoot.k[0], R.cliffFoot.k[1], h(RULE.rockCliff, key, 5, seed)) * (out > 3 ? 0.75 : 1);
+      const proto = roll < 0.6 ? ROCK_SLAB : RIVER_STONES;
+      rocks.push({ id: "rock:cliff:" + ci + ":" + index, proto, x, z, k, yaw: roll * 6.283, tint: PALE, radius: k * 0.5 });
     }
-    // Face boulders and lip slabs: points at a signed offset s from the face line (+ away from the dais).
-    for (const [rule, R2, proto0, proto1, salt] of [
-      ["face", R.cliffFace, "props/pine-river-rock-boulder", "props/pine-river-rock-slab", 21],
-      ["lip", R.cliffLip, "props/pine-river-rock-slab", "props/pine-river-rock-boulder", 31],
-    ] as const) {
+    // Slabs on each tier's lip (the ledge front) and on the top lip: the face reads as stacked stone.
+    const tierCount = Math.max(1, scene?.cliffs[ci]?.tiers ?? 2);
+    for (let tier = 0; tier < tierCount; tier += 1) {
       let k2 = 0;
-      for (let s = C.capM * 0.6; s < cliff.line.length - C.capM * 0.6; s += R2.stepM, k2 += 1) {
-        if (h(RULE.rockCliff, k2, salt, seed) > R2.chance) continue;
-        cliff.line.pointAt(s + (h(RULE.rockCliff, k2, salt + 1, seed) - 0.5) * R2.stepM * 0.6, point);
-        let nx = -point.dz;
-        let nz = point.dx;
-        if (nx * (f.cx - point.x) + nz * (f.cz - point.z) > 0) {
-          nx = -nx;
-          nz = -nz;
-        }
-        // nx, nz now point away from the dais; the ragged edge is folded in by sampling offset() at the spot.
-        const want = lerp(R2.s[0], R2.s[1], h(RULE.rockCliff, k2, salt + 2, seed));
-        let x = point.x + nx * want;
-        let z = point.z + nz * want;
-        const off = cliff.offset(x, z).s;
-        x += nx * (want - off);
-        z += nz * (want - off);
-        const roll = h(RULE.rockCliff, k2, salt + 3, seed);
-        const k = lerp(R2.k[0], R2.k[1], h(RULE.rockCliff, k2, salt + 4, seed)) * smooth(0, C.capM, s) * smooth(cliff.line.length, cliff.line.length - C.capM, s);
+      const lipS = C.faceFromM + tier * (C.faceW + C.ledgeW) + C.faceW + 0.25;
+      for (let s = C.capM * 0.6; s < cl.line.length - C.capM * 0.6; s += R.cliffLip.stepM, k2 += 1) {
+        const key = ci * 1000 + tier * 100 + k2;
+        if (h(RULE.rockCliff, key, 21, seed) > R.cliffLip.chance) continue;
+        cl.line.pointAt(s + (h(RULE.rockCliff, key, 22, seed) - 0.5) * R.cliffLip.stepM * 0.6, point);
+        const [ix, iz] = inward();
+        // Out of the dais side: + s.
+        let x = point.x - ix * lipS;
+        let z = point.z - iz * lipS;
+        const off = cl.offset(x, z).s;
+        x -= ix * (lipS - off);
+        z -= iz * (lipS - off);
+        const roll = h(RULE.rockCliff, key, 23, seed);
+        const k = lerp(R.cliffLip.k[0], R.cliffLip.k[1], h(RULE.rockCliff, key, 24, seed)) * smooth(0, C.capM, s) * smooth(cl.line.length, cl.line.length - C.capM, s);
         if (k < 1) continue;
-        rocks.push({ id: "rock:cliff-" + rule + ":" + k2, proto: roll < 0.65 ? proto0 : proto1, x, z, k, yaw: roll * 6.283, tint: [0.98 + roll * 0.06, 0.97 + roll * 0.05, 0.95], radius: k * 0.5 });
+        // Yaw along the line (± 25°), so the slabs of a lip line up like a course of stone.
+        const along = Math.atan2(point.dx, point.dz) + (roll - 0.5) * 1.4;
+        rocks.push({ id: "rock:cliff-lip:" + ci + ":" + tier + ":" + k2, proto: ROCK_SLAB, x, z, k, yaw: along, tint: PALE, radius: k * 0.5 });
       }
     }
-  }
+  });
+  // LG1: a fallen log beside the Cầu trail past its gate (the gate's forest gap has a story).
+  f.lanes.forEach((lane, laneIndex) => {
+    if (laneIndex !== 0) return;
+    const [gx, gz] = [lane.trail.xs[1]!, lane.trail.zs[1]!];
+    const dx = (lane.trail.xs[0]! - gx) / lane.trail.length;
+    const dz = (lane.trail.zs[0]! - gz) / lane.trail.length;
+    const x = gx + dx * 6.5 - dz * (lane.half + 2.4);
+    const z = gz + dz * 6.5 + dx * (lane.half + 2.4);
+    rocks.push({ id: "gate:log:" + laneIndex, proto: "props/pine-river-log", x, z, k: 2.8, yaw: Math.atan2(dx, dz) + 0.35, tint: [1, 1, 1], radius: 1.4 });
+  });
 
-  // L7 dirt stamps: plaza apron, canopy dirt, lone-tree discs, junctions, lane crossings, lane scuffs.
+  // L7 dirt stamps (V3: lobed patches, centre pushed to the shade side): plaza, canopy dirt, lone and bay
+  // trees, junctions, lane crossings, lane scuffs, cliff scree.
   const P = LAYOUT_RULES.paint;
   const dirt: PaintDisc[] = [];
-  dirt.push({ x: f.cx, z: f.cz, r: P.plazaM, falloff: P.plazaFalloffM, strength: 1 });
-  for (const grove of groves) dirt.push({ x: grove.x, z: grove.z, r: grove.radius * P.groveDirt, falloff: 1.6, strength: 0.9 });
-  for (const tree of trees) {
-    const isLone = tree.id.startsWith("lone:");
-    dirt.push({ x: tree.x, z: tree.z, r: isLone ? P.loneDirtM : Math.max(1.1, tree.radius * P.canopyDirt), falloff: P.canopyFalloffM, strength: 1 });
-  }
-  for (const path of footpaths) {
+  const blob = (x: number, z: number, r: number, falloff: number, strength: number, key: number, shade: number): PaintDisc => {
+    const lobes = 3 + Math.floor(h(RULE.scuff, key, 31, seed) * 3);
+    return {
+      x: x + shadeX * r * shade,
+      z: z + shadeZ * r * shade,
+      r,
+      falloff,
+      strength,
+      lobes,
+      wobble: P.wobble[0] + (P.wobble[1] - P.wobble[0]) * h(RULE.scuff, key, 32, seed),
+      phase: h(RULE.scuff, key, 33, seed) * 6.283,
+      stretch: 1 + 0.35 * h(RULE.scuff, key, 34, seed),
+      angle: h(RULE.scuff, key, 35, seed) * Math.PI,
+    };
+  };
+  dirt.push({ ...blob(f.cx, f.cz, P.plazaM, P.plazaFalloffM, 1, 1, 0), stretch: 1, wobble: 0.08, lobes: 5 });
+  groves.forEach((grove, gi) => dirt.push(blob(grove.x, grove.z, grove.radius * P.groveDirt, 1.6, 0.9, 100 + gi, P.shadeShift)));
+  trees.forEach((tree, ti) => {
+    const free = tree.id.startsWith("lone:") || tree.id.startsWith("bay:");
+    const r = free ? P.loneDirtM : Math.max(1.1, tree.radius * P.canopyDirt);
+    dirt.push(blob(tree.x, tree.z, r, P.canopyFalloffM, 1, 300 + ti, P.shadeShift));
+  });
+  footpaths.forEach((path, pi) => {
     for (const end of [0, path.line.count - 1]) {
       const x = path.line.xs[end]!;
       const z = path.line.zs[end]!;
-      // Junctions and the plaza mouth get a trodden patch; forest ends fade out instead.
-      if (f.r(x, z) > f.play) continue;
-      dirt.push({ x, z, r: P.junctionM, falloff: 1.2, strength: 0.75 });
+      // Junctions, the plaza mouth and inner destinations get a trodden patch; forest ends fade out instead.
+      if (f.r(x, z) > f.play + 4) continue;
+      dirt.push(blob(x, z, path.tier === "main" ? P.junctionM * 1.25 : P.junctionM, 1.2, 0.75, 700 + pi * 2 + end, 0));
     }
-  }
-  f.lanes.forEach((lane) => {
+  });
+  f.lanes.forEach((lane, laneIndex) => {
     for (const span of lane.spans) {
       for (const at of [span.fromM - 1.2, span.toM + 1.2]) {
         const p = lane.line.pointAt(at);
-        dirt.push({ x: p.x, z: p.z, r: P.crossingM, falloff: 1.5, strength: 0.9 });
+        dirt.push(blob(p.x, p.z, P.crossingM, 1.5, 0.9, 800 + laneIndex * 10 + Math.round(at), 0));
       }
     }
   });
@@ -934,32 +1148,37 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
         const side = h(RULE.scuff, laneIndex * 100 + index, 1, seed) < 0.5 ? -1 : 1;
         const off = lane.half + lerp(P.scuffOffsetM[0], P.scuffOffsetM[1], h(RULE.scuff, laneIndex * 100 + index, 2, seed));
         const r = lerp(P.scuffM[0], P.scuffM[1], h(RULE.scuff, laneIndex * 100 + index, 3, seed));
-        dirt.push({ x: point.x - point.dz * off * side, z: point.z + point.dx * off * side, r, falloff: 0.8, strength: 0.62 });
+        dirt.push(blob(point.x - point.dz * off * side, point.z + point.dx * off * side, r, 0.8, 0.62, 900 + laneIndex * 100 + index, 0));
       }
       s += lerp(P.scuffStepM[0], P.scuffStepM[1], h(RULE.scuff, laneIndex * 100 + index, 4, seed));
     }
   });
-  // Scree at the cliff foot.
-  if (cliff) {
+  cliffs.forEach((cl, ci) => {
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
     let index = 0;
-    for (let s = 3; s < cliff.line.length - 3; s += 2.6, index += 1) {
-      cliff.line.pointAt(s, point);
+    for (let s = 3; s < cl.line.length - 3; s += 2.4, index += 1) {
+      cl.line.pointAt(s, point);
       let nx = -point.dz;
       let nz = point.dx;
       if (nx * (f.cx - point.x) + nz * (f.cz - point.z) < 0) {
         nx = -nx;
         nz = -nz;
       }
-      const out = 1.5 + h(RULE.rockCliff, index, 7, seed) * 1.5;
-      dirt.push({ x: point.x + nx * out, z: point.z + nz * out, r: 1.6 + h(RULE.rockCliff, index, 8, seed) * 1.4, falloff: 1.4, strength: 0.75 });
+      const key = 2000 + ci * 100 + index;
+      const out = 1.5 + h(RULE.rockCliff, key, 7, seed) * 2.5;
+      const x = point.x + nx * out;
+      const z = point.z + nz * out;
+      if (f.riverEdge(x, z) < 1 || f.laneGap(x, z) < 2) continue;
+      dirt.push(blob(x, z, 2 + h(RULE.rockCliff, key, 8, seed) * 1.6, 1.4, 0.8, key, 0));
     }
-  }
+  });
 
   return {
     fields: f,
     pond,
     cliff,
+    cliffs,
+    forestEdge,
     footpaths,
     groves,
     trees,
@@ -969,8 +1188,11 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     pathGap,
     stats: {
       groves: groves.length,
-      groveTrees: trees.length - lone.length,
+      groveTrees: trees.length - lone.length - bayTrees.length,
       loneTrees: lone.length,
+      openLone,
+      bayTrees: bayTrees.length,
+      warmTrees: warmIds.size,
       bushes: bushes.length,
       rocks: rocks.length,
       footpaths: footpaths.length,

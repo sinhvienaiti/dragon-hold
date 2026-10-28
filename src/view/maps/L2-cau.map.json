@@ -4,31 +4,41 @@
   "game": "dragon-hold",
   "unit": "cm",
   "gameplay": { "adapter": "dragon-hold@1", "commit": "02fe9c787886aecd668248fe00b5f2a97a6e45f4", "note": "simHash and viewHash come with the dragon-hold@2 reader (MAP_PLAN 2.1); the sim never reads this file" },
-  "brief": "Map pilot stage A1: the spike's hand constants as pinned scenery, unchanged.",
-  "lighting": { "sunBearingDeg": 221.6, "sunElevationDeg": 51.7 },
+  "brief": "MAP_PLAN 3.2: sun from the east; the high side is west, a pale three-tier cliff framing the left edge with a gorge where Đường Suối and the stream leave; a bright open meadow east and south-east with the pond at its far edge; footpaths with destinations (pond landing, cliff scree, a south-east forest bay, a fishing spot on the north bank); anchor grove in the north-west wedge across the river; forest bays every 60–90° and a gap at every gate.",
+  "lighting": { "sunBearingDeg": 95, "sunElevationDeg": 50, "hemiSky": "#d6e4ff", "hemiGround": "#6d7a5a", "hemiIntensityPermille": 2100, "fogNearCm": 5200, "fogFarCm": 11500 },
   "scene": {
     "cliffs": [
-      { "id": "north-west-bluff", "site": "pinned", "lineCm": [[-1900, -4000], [-2800, -3300], [-3550, -2200], [-3900, -1000], [-4000, 0]], "heightCm": 900 }
+      { "id": "west-bluff", "site": "pinned", "tiers": 3, "heightCm": 900,
+        "lineCm": [[-4080, 360], [-3990, -280], [-3850, -890], [-3710, -1500], [-3510, -2110]],
+        "note": "bearings 265–301°, r 39–41 m; face normal · sun 0.53–0.64" },
+      { "id": "south-west-bluff", "site": "pinned", "tiers": 3, "heightCm": 780,
+        "lineCm": [[-2120, 3390], [-2510, 2990], [-2900, 2610], [-3190, 2410]],
+        "note": "bearings 212–233°, r 39–40 m, south-east of the stream; normal · sun ≥ 0.33" }
     ],
-    "ponds": [{ "id": "pond", "site": "pinned", "atCm": [0, 2300], "radiusCm": 460 }],
+    "ponds": [{ "id": "pond", "site": "pinned", "atCm": [1900, 700], "radiusCm": 460, "note": "r 20.2 m, bearing 110°, at the open meadow's far edge" }],
+    "open": { "fromDeg": 95, "toDeg": 200, "ringCm": [900, 2800] },
     "footpaths": [
-      { "id": "fp-pond", "from": { "dais": "pond" }, "to": { "pond": true }, "bendPermille": 100 },
-      { "id": "fp-west", "from": { "path": "fp-pond", "atPermille": 450 }, "to": { "river": 236 }, "bendPermille": -140 },
-      { "id": "fp-south", "from": { "pond": 218 }, "to": { "edge": 196 }, "bendPermille": 160 },
-      { "id": "fp-east", "from": { "pond": 84 }, "to": { "edge": 116 }, "bendPermille": -180 },
-      { "id": "fp-north", "from": { "edge": 324 }, "to": { "edge": 283 }, "bendPermille": 300 }
+      { "id": "fp-jetty", "tier": "main", "from": { "dais": 100 }, "to": { "pond": true }, "bendPermille": 60, "note": "dais plaza → pond landing (jetty when the kit has one)" },
+      { "id": "fp-scree", "tier": "main", "from": { "dais": 188 }, "to": { "cliff": 222 }, "bendPermille": -120, "note": "dais plaza → scree at the south-west cliff foot" },
+      { "id": "fp-camp", "tier": "branch", "from": { "pond": 165 }, "to": { "edge": 158 }, "bendPermille": 140, "note": "pond → campfire in the south-east forest bay" },
+      { "id": "fp-fish", "tier": "branch", "from": { "pointCm": [1350, -2380] }, "to": { "pointCm": [2100, -2460] }, "bendPermille": 120, "note": "north-bank bridgehead → fishing spot" }
     ],
     "groves": [
-      { "id": "grove:2_4", "atCm": [1281, 2390], "radiusCm": 412 },
-      { "id": "grove:-4_2", "atCm": [-2302, 1372], "radiusCm": 260 },
-      { "id": "grove:3_0", "atCm": [1882, 174], "radiusCm": 438 },
-      { "id": "grove:-1_-4", "atCm": [-553, -2477], "radiusCm": 519 },
-      { "id": "grove:4_2", "atCm": [2164, 1368], "radiusCm": 438 },
-      { "id": "grove:-2_3", "atCm": [-998, 2010], "radiusCm": 304 },
-      { "id": "grove:-4_-1", "atCm": [-2564, -362], "radiusCm": 308 },
-      { "id": "grove:2_2", "atCm": [1024, 1247], "radiusCm": 322 },
-      { "id": "grove:3_-2", "atCm": [2034, -1296], "radiusCm": 285 },
-      { "id": "grove:-4_-3", "atCm": [-2173, -1708], "radiusCm": 607 }
+      { "id": "grove:nw-anchor", "atCm": [-900, -2450], "radiusCm": 700, "dominant": "pine-tall", "warm": true, "note": "anchor across the river, merges into the forest edge (V4)" },
+      { "id": "grove:cliff-foot", "atCm": [-2550, -1470], "radiusCm": 380, "dominant": "pine-round", "warm": true, "note": "at the north end of the west cliff foot" },
+      { "id": "grove:ne-pocket", "atCm": [2034, -1296], "radiusCm": 285, "dominant": "pine-round" },
+      { "id": "grove:south-west", "atCm": [-1250, 2250], "radiusCm": 420, "dominant": "pine-round", "warm": true }
+    ],
+    "bays": [
+      { "bearingDeg": 45, "halfWidthDeg": 14, "depthCm": 700 },
+      { "bearingDeg": 85, "halfWidthDeg": 10, "depthCm": -300 },
+      { "bearingDeg": 120, "halfWidthDeg": 16, "depthCm": 800 },
+      { "bearingDeg": 160, "halfWidthDeg": 14, "depthCm": 900 },
+      { "bearingDeg": 192, "halfWidthDeg": 10, "depthCm": -300 },
+      { "bearingDeg": 222, "halfWidthDeg": 15, "depthCm": 700 },
+      { "bearingDeg": 283, "halfWidthDeg": 18, "depthCm": 800 },
+      { "bearingDeg": 330, "halfWidthDeg": 12, "depthCm": 600 },
+      { "bearingDeg": 352, "halfWidthDeg": 9, "depthCm": -300 }
     ]
   }
 }

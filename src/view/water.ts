@@ -48,15 +48,16 @@ void main() {
   float depth = (1.0 - across * across) * (1.0 - shallow * 0.85);
   vec3 col = mix(uShallow, uDeep, smoothstep(0.05, 0.85, depth));
   // Two ripple layers drifting downstream at two speeds, posterised to painted streaks.
-  vec2 f1 = vec2(vUv.x * 5.0, vUv.y * 0.32 - uTime * 0.55);
-  vec2 f2 = vec2(vUv.x * 9.0 + 3.0, vUv.y * 0.75 - uTime * 0.95);
+  // Map pilot (MAP_PLAN 3.2): the water runs against the data's point order, from the south-west gorge out to the north-east.
+  vec2 f1 = vec2(vUv.x * 5.0, vUv.y * 0.32 + uTime * 0.55);
+  vec2 f2 = vec2(vUv.x * 9.0 + 3.0, vUv.y * 0.75 + uTime * 0.95);
   float n = dhNoise(f1) * 0.6 + dhNoise(f2) * 0.4;
   float streak = smoothstep(0.6, 0.66, n) - smoothstep(0.74, 0.8, n) * 0.5;
   col = mix(col, uShallow * 1.18 + 0.03, streak * 0.4);
   float dark = smoothstep(0.34, 0.28, n) * depth;
   col = mix(col, uDeep * 0.82, dark * 0.35);
   // Foam: noise-cut two-step at the banks and over the ford.
-  float fn = dhNoise(vec2(vUv.x * 13.0, vUv.y * 1.4 - uTime * 0.8));
+  float fn = dhNoise(vec2(vUv.x * 13.0, vUv.y * 1.4 + uTime * 0.8));
   float foamEdge = step(0.84, across + fn * 0.16) ;
   float foamSoft = smoothstep(0.7, 0.84, across + fn * 0.16) * 0.45;
   float fordNoise = dhNoise(vDhWorld.xz * 1.5 + vec2(uTime * 0.25, -uTime * 0.9));
@@ -220,8 +221,9 @@ export function buildWater(map: MapDef, terrain: PaintedTerrain): WaterView {
       fragmentShader: POND_FRAGMENT,
       uniforms: {
         ...terrain.look.uniforms,
-        uDeep: { value: new THREE.Color("#24555c") },
-        uShallow: { value: new THREE.Color("#5f978f") },
+        // V11: hue 205–215, deeper in the middle, apart from the forest's greens.
+        uDeep: { value: new THREE.Color("#244f7c") },
+        uShallow: { value: new THREE.Color("#5b8fb6") },
         uFoam: { value: new THREE.Color("#eef3ea") },
         uPad: { value: new THREE.Color("#5d8a4a") },
         uBloom: { value: new THREE.Color("#f1ead8") },
@@ -256,8 +258,8 @@ export function buildWater(map: MapDef, terrain: PaintedTerrain): WaterView {
     uniforms: {
       ...terrain.look.uniforms,
       // Dark jade, desaturated (05 §2.2: never the semantic teal near the paths).
-      uDeep: { value: new THREE.Color("#2b6466") },
-      uShallow: { value: new THREE.Color("#66a093") },
+      uDeep: { value: new THREE.Color("#2a5a86") },
+      uShallow: { value: new THREE.Color("#6197bb") },
       uFoam: { value: new THREE.Color("#eef3ea") },
       uShallowsC: { value: shallows },
     },

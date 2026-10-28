@@ -23,10 +23,12 @@ import { MAP_L2_CAU } from "../content/data/maps";
 import { KEYS } from "../content/rules";
 import type { MapDef } from "../content/types";
 import { CAMERA_ACTIONS, createCameraRig, type CameraRig } from "./camera";
+import { sceneFor } from "./maps/scene";
 import { BRIDGE_MODEL, PROP_SPECS } from "./model-specs";
 import { loadCrowdModels, type CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
 import { buildScatter, type ScatterView } from "./scatter";
+import { mapSwitch } from "./paint";
 import { buildTerrain, SUN_DIRECTION, sunDirection, type PaintedTerrain } from "./terrain";
 import { buildWater, type WaterView } from "./water";
 
@@ -93,8 +95,9 @@ const GRADE_SHADER = {
     tDiffuse: { value: null as THREE.Texture | null },
     uExposure: { value: 1.0 },
     uSaturation: { value: 1.0 },
-    uLift: { value: new THREE.Vector3(0.025, 0.02, 0.045) },
-    uShadowTint: { value: new THREE.Vector3(0.93, 0.95, 1.08) },
+    // Map pilot (MAP_PLAN 2.5): shadows cool blue, not violet; a milky lift without the violet cast.
+    uLift: { value: new THREE.Vector3(0.022, 0.024, 0.034) },
+    uShadowTint: { value: new THREE.Vector3(0.95, 0.98, 1.05) },
     uHighTint: { value: new THREE.Vector3(1.04, 1.01, 0.94) },
     uVignette: { value: 0.22 },
     uAspect: { value: 16 / 9 },
@@ -340,26 +343,65 @@ export interface MapStage {
   worldToScreen(xM: number, yM: number, zM: number, out?: ScreenPoint): ScreenPoint;
   /** Swaps near scatter items and the bridge for the owner's GLB props once `models` has loaded them (M0b). */
   useModels(models: CrowdModels): void;
+  /** Map pilot load times, ms: terrain (height field, layout, paint masks), scatter plan, ground bake (null until done or off). */
+  readonly loadStats: {
+    terrainMs: number;
+    layoutMs: number;
+    maskMs: number;
+    scatterMs: number;
+    bakeMs: number | null;
+    bakeSplit: { prepMs: number; compileMs: number; renderMs: number } | null;
+    baked: boolean;
+  };
   dispose(): void;
 }
 
 /** Builds the stage and the painted diorama of `map` into `host` (the #dh-canvas element). */
 export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality = "high"): MapStage {
   const stage = createStage(host, quality);
+  const t0 = performance.now();
   const terrain = buildTerrain(map, quality);
+  const t1 = performance.now();
   const water = buildWater(map, terrain);
   const paths = buildPaths(map, terrain);
+  const t2 = performance.now();
   const scatter = buildScatter(map, terrain, quality);
+  const loadStats = {
+    terrainMs: t1 - t0,
+    layoutMs: terrain.field.layoutMs,
+    maskMs: terrain.paint.bakeMs,
+    scatterMs: performance.now() - t2,
+    bakeMs: null as number | null,
+    bakeSplit: null as { prepMs: number; compileMs: number; renderMs: number } | null,
+    baked: false,
+  };
   stage.layers.ground.add(terrain.group, water.group, paths.group, scatter.group);
-  // The map's light (scene spec): the key sun moves to the map's bearing and elevation.
-  stage.lights.key.position.copy(sunDirection(map)).multiplyScalar(140);
+  // The map's light (scene spec): the key sun moves to the map's bearing and elevation; the cool fill
+  // comes from the other side; the sky light's ground bounce takes the map's colour.
+  const sun = sunDirection(map);
+  stage.lights.key.position.copy(sun).multiplyScalar(140);
+  stage.lights.fill.position.set(-sun.x * 90, 50, -sun.z * 90);
+  const lighting = sceneFor(map)?.lighting;
+  if (lighting?.hemiSky) stage.lights.sky.color.set(lighting.hemiSky);
+  if (lighting?.hemiGround) stage.lights.sky.groundColor.set(lighting.hemiGround);
+  if (lighting?.hemiIntensity) stage.lights.sky.intensity = lighting.hemiIntensity;
   stage.scene.background = terrain.look.mist.clone();
   stage.renderer.setClearColor(terrain.look.mist, 1);
   (stage.scene.fog as THREE.Fog).color.copy(terrain.look.mist);
   const rig = createCameraRig(stage.camera, map, host);
   rig.update(0);
   let disposed = false;
+  // A3: bake the ground paint once its tiles and decals are in (the live paint shows until then).
+  void terrain.paint.ready
+    .then(() => (disposed ? null : terrain.paint.bake(stage.renderer, terrain.look)))
+    .then((ms) => {
+      loadStats.bakeMs = ms;
+      loadStats.baked = ms !== null;
+      loadStats.bakeSplit = terrain.paint.bakeSplit;
+    })
+    .catch((error: unknown) => console.warn("paint: the ground bake failed; the live paint stays", error));
   return {
+    loadStats,
     stage,
     scene: stage.scene,
     camera: stage.camera,
@@ -411,6 +453,7 @@ export interface TerrainPreviewInfo {
   readonly yawDeg: number;
   readonly pitchDeg: number;
   readonly zoom: number;
+  readonly load?: MapStage["loadStats"];
 }
 
 declare global {
@@ -495,7 +538,8 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
 
   view.__dhTerrain = {
     info: () => ({
-      ready: frames > 2 && propsSettled,
+      ready: frames > 2 && propsSettled && (world.loadStats.baked || mapSwitch("bake") === "0" || quality === "low"),
+      load: world.loadStats,
       frames,
       frameMs,
       ...world.stage.stats(),

@@ -13,7 +13,7 @@ import type { Quality } from "../app/contracts";
 import type { MapDef, Vec2 } from "../content/types";
 import { buildLayout, type MapLayout } from "./layout";
 import { sceneFor, sunVector } from "./maps/scene";
-import { buildGroundPaint, spikeSwitch, type GroundPaint } from "./paint";
+import { buildGroundPaint, mapSwitch, type GroundPaint } from "./paint";
 
 // ── Noise and seeded random (view only: deterministic per map, not sim) ─────
 
@@ -289,8 +289,8 @@ export function createPaintLook(map: MapDef): PaintLook {
     uniforms: {
       uTime: { value: 0 },
       uDhCentre: { value: new THREE.Vector2(map.dais.center[0], map.dais.center[1]) },
-      uFogNear: { value: play + 9 },
-      uFogFar: { value: play + 62 },
+      uFogNear: { value: sceneFor(map)?.lighting.fogNearM ?? play + 9 },
+      uFogFar: { value: sceneFor(map)?.lighting.fogFarM ?? play + 62 },
       uFogCool: { value: cool },
       uFogWarm: { value: warm },
       uSunDir: { value: sunDirection(map) },
@@ -545,6 +545,8 @@ export interface HeightField {
   readonly layout: MapLayout;
   /** Pond water level, metres (NaN without a pond). */
   readonly pondLevel: number;
+  /** Time the layout took to build, ms. */
+  readonly layoutMs: number;
 }
 
 /** Trail painted past each gate into the forest (metres). */
@@ -596,7 +598,9 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
   const nx = xs.length;
   const nz = zs.length;
   const count = nx * nz;
+  const layoutStart = performance.now();
   const layout = buildLayout(map);
+  const layoutMs = performance.now() - layoutStart;
   const cliff = layout.cliff;
   const pond = layout.pond;
 
@@ -892,6 +896,7 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
     forest,
     layout,
     pondLevel,
+    layoutMs,
   };
 }
 
@@ -977,7 +982,7 @@ c = mix(c, petal, dot1 * meadow * 0.8);
 diffuseColor.rgb = c;
 `;
 
-const GROUND_PARS = /* glsl */ `
+export const GROUND_PARS = /* glsl */ `
 uniform vec3 uGrassDeep;
 uniform vec3 uGrassMid;
 uniform vec3 uGrassLight;
@@ -1154,7 +1159,7 @@ export function buildTerrain(map: MapDef, quality: Quality): PaintedTerrain {
   // Map spike: the L7 paint (mask, tiles, decals) replaces the procedural-only ground paint.
   const groundPaint: GroundPaint = buildGroundPaint(field, field.layout, quality);
   // Spike perf split: ?paint=m0b draws the M0b procedural ground paint instead.
-  const m0bPaint = spikeSwitch("paint") === "m0b";
+  const m0bPaint = mapSwitch("paint") === "m0b";
   const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff" }), look, {
     key: m0bPaint ? "ground" : "ground-spike",
     fragmentPars: m0bPaint ? GROUND_PARS : GROUND_PARS + groundPaint.pars,
