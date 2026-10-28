@@ -224,7 +224,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
       firePlaceholder.visible = false;
       fire = hero;
     } catch (error) {
-      console.warn("heroes: Hoa Long model failed, placeholder kept", url, error);
+      console.warn("heroes: Hỏa Long model failed, placeholder kept", url, error);
     }
   };
 
@@ -291,7 +291,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
       }) as never);
       guide = rig;
     } catch (error) {
-      console.warn("heroes: Bach Long model failed, placeholder kept", url, error);
+      console.warn("heroes: Bạch Long model failed, placeholder kept", url, error);
     }
   };
 

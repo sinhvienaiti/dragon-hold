@@ -18,10 +18,10 @@ import { el, foeIcon, icon, keyLabel, setShown, setText } from "./skin";
 
 /** What each M0 species does and what beats it, in one line each (02 §2, §3; 03 for our side). */
 export const DEBUT_LINES: Readonly<Partial<Record<FoeId, { readonly does: string; readonly counter: string }>>> = {
-  "moss-grunt": { does: "Walks to the platform and slashes Hoa Long.", counter: "Type its word; Grove Warden can block it." },
+  "moss-grunt": { does: "Walks to the platform and slashes Hỏa Long.", counter: "Type its word; Grove Warden can block it." },
   "thorn-ant": { does: "The swarm shares one word: type it to hit them all.", counter: "Pine Bomb, Fire Breath." },
   "thorn-wasp": { does: "Flies along Sky Lane and fires from 10 m away; ground traps cannot hit it.", counter: "Net Launcher grounds it." },
-  "moss-archer": { does: "Stops 12 m away and fires at Hoa Long until defeated.", counter: "Type it first; Sky Fire hits the group." },
+  "moss-archer": { does: "Stops 12 m away and fires at Hỏa Long until defeated.", counter: "Type it first; Sky Fire hits the group." },
   "tusk-boar": { does: "Marks a red line, then charges the platform.", counter: "Grove Warden blocks it; Spikes slow it." },
   "blight-wolf": { does: "Runs in fast packs and leaps past blockers.", counter: "Spikes slow them; type each wolf early." },
   "moss-banner": { does: "A general that plants a Banner: foes within 5 m deal 25% more damage.", counter: "Type the Banner word to remove it; word chains strip the aura." },

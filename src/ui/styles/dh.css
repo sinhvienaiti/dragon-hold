@@ -340,9 +340,11 @@ body {
   left: calc(16px * var(--ui));
   bottom: calc(14px * var(--ui));
   width: calc(420px * var(--ui));
+  /* At 720p the 58 px column is 46 px and "Bạch Long" at the 11 px floor is 57 px: the column takes its label's width and the panel grows by it (layout pass 29/10). */
+  min-width: max-content;
   padding: calc(8px * var(--ui)) calc(10px * var(--ui)) calc(8px * var(--ui)) calc(8px * var(--ui));
   display: grid;
-  grid-template-columns: calc(58px * var(--ui)) 1fr;
+  grid-template-columns: minmax(calc(58px * var(--ui)), max-content) 1fr;
   column-gap: calc(9px * var(--ui));
 }
 
@@ -392,12 +394,12 @@ body {
   text-align: center;
 }
 
-/* Two lines at every size: "Bạch Long" and "dẫn đường" each stay whole (test pass 26/10: four lines at 720p). */
+/* Two lines at every size: "Bạch Long" and "guide" each stay whole (test pass 26/10: four lines at 720p). */
 .dh-guide > span:not(.dh-icon) {
   white-space: nowrap;
 }
 
-/* At 720p the column is ~39 px: "dẫn đường" (~54 px) ran under the ⌥1 slot; the tooltip keeps the full line. */
+/* At 720p the second line ran under the ⌥1 slot: it is hidden there; the tooltip keeps the full line. */
 @media (max-height: 820px) {
   .dh-guide > span:last-child {
     display: none;
@@ -1051,10 +1053,11 @@ body {
   height: calc(11px * var(--ui));
 }
 
-/* "Thiếu 28" may break after its word at 720p: the 11 px floor is wider than the cell (gate round 2). */
+/* One line: the short forms ("−35", "Break", "Full", "Max") fit the 46 px cell at the 11 px floor (layout pass 29/10). */
 .dh-cell__reason {
   margin-top: calc(2px * var(--ui));
   max-width: 100%;
+  white-space: nowrap;
   font: 700 max(11px, calc(10px * var(--ui))) / 1.1 var(--dh-font);
   color: var(--dh-muted);
 }
@@ -1471,7 +1474,8 @@ body {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: calc(10px * var(--ui));
-  overflow: hidden;
+  /* Visible: the panel's moss trims sit 3–4 px outside its box (hidden cut them, layout pass 29/10); the book row shrinks and scrolls instead. */
+  overflow: visible;
 }
 
 .dh-results__title {

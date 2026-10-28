@@ -10,6 +10,11 @@ const VIETNAMESE = /[À-ÃÈ-ÊÌ-ÍÒ-ÕÙ-ÚÝà-ãè-êì-íò-õù-úýĂă�
 // No whole-file vocabulary exemptions: only vi fields and this meaning fixture.
 const VOCABULARY_FILES = new Set(["src/ui/ui-preview.ts"]);
 const PREVIEW_MEANING = '">khu rừng</div>';
+// Proper names of unique characters keep their Vietnamese spelling (AGENTS.md,
+// "Language, names and art level"; NAMES_EN.md: Dragonhold has the two dragons
+// and no named boss). Only these exact names pass; any other Vietnamese fails.
+const PROPER_NAMES = ["Hỏa Long", "Bạch Long"];
+const withoutNames = (text: string): string => PROPER_NAMES.reduce((rest, name) => rest.split(name).join(""), text.normalize("NFC"));
 // Dev-only, not in the production build: Vite builds index.html alone, and no
 // game file links or imports these pages (checked below).
 const DEV_ONLY = ["src/audio/dev/harness.html", "src/audio/dev/harness.ts"];
@@ -32,7 +37,7 @@ function violations(file: string, text: string): string[] {
         value = value.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
       }
       const authoringBrief = file === "src/view/maps/L2-cau.map.json" && ts.isPropertyAssignment(node.parent) && node.parent.name.getText(ast) === '"brief"';
-      if (VIETNAMESE.test(value.normalize("NFC")) && !vocabularyMeaning(file, node) && !authoringBrief) {
+      if (VIETNAMESE.test(withoutNames(value)) && !vocabularyMeaning(file, node) && !authoringBrief) {
         bad.push(file + ":" + (ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1) + " " + JSON.stringify(value));
       }
     }
@@ -77,6 +82,12 @@ describe("English player text", () => {
 
   it("detects strings, templates, nested expressions and Unicode escapes", () => {
     expect(violations("src/ui/probe.ts", 'const a = "Bắt đầu"; const b = `Đợt ${"Mới"}`; const c = "B\\u1eaft đầu";')).toHaveLength(4);
+  });
+
+  it("lets only the listed proper names through", () => {
+    expect(violations("src/ui/probe.ts", 'const a = "Hỏa Long stunned"; const b = `${n}: Bạch Long guides you`;')).toEqual([]);
+    expect(violations("src/ui/probe.ts", 'const a = "Hỏa Long choáng";')).toHaveLength(1);
+    expect(violations("src/ui/probe.ts", 'const a = "Hỏa"; const b = "Long Hống"; const c = "Bạch Long và Hỏa Long";')).toHaveLength(3);
   });
 
   it("ignores source comments, embedded comments, multiplication and IPA", () => {

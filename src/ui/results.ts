@@ -192,16 +192,16 @@ export function defeatCause(summary: Pick<ResultsSummary, "keys" | "hurt">): "ty
 /** The line under the stars (06 §6: "Giữ máu Hỏa Long để có 3 sao"). */
 export function starHint(summary: ResultsSummary): string {
   if (summary.outcome === "defeat") {
-    const at = "Hoa Long fell on wave " + summary.wave;
+    const at = "Hỏa Long fell on wave " + summary.wave;
     const cause = defeatCause(summary);
-    if (cause === "typing") return at + ". Type foes' words to make Hoa Long breathe fire at them.";
+    if (cause === "typing") return at + ". Type foes' words to make Hỏa Long breathe fire at them.";
     if (cause === "blight")
-      return at + ", mainly from Blight: untyped foes in the Word Zone drain Hoa Long's HP. Type foes nearest the platform first; use " + keyLabel("skill-1") + " Fire Breath when foes crowd in.";
+      return at + ", mainly from Blight: untyped foes in the Word Zone drain Hỏa Long's HP. Type foes nearest the platform first; use " + keyLabel("skill-1") + " Fire Breath when foes crowd in.";
     return at + " as foes reached the platform. Place blockers and traps on busier lanes.";
   }
-  if (summary.stars >= 3) return "Hoa Long has " + summary.hpPct + "% HP: all three stars.";
+  if (summary.stars >= 3) return "Hỏa Long has " + summary.hpPct + "% HP: all three stars.";
   const need = summary.stars === 2 ? STARS.threeStarHpPct : STARS.twoStarHpPct;
-  return "Hoa Long has " + summary.hpPct + "% HP. Keep at least " + need + "% for " + (summary.stars + 1) + " stars.";
+  return "Hỏa Long has " + summary.hpPct + "% HP. Keep at least " + need + "% for " + (summary.stars + 1) + " stars.";
 }
 
 // ── The screen ──────────────────────────────────────────────────────────────

@@ -172,7 +172,7 @@ const REJECT_TEXT: Readonly<Record<string, string>> = {
   "max-level": "Max level",
   building: "Building",
   "unknown-slot": "No such slot",
-  stunned: "Hoa Long stunned",
+  stunned: "Hỏa Long stunned",
 };
 
 const COMMAND_TEXT: Partial<Record<SimCommand["type"], string>> = {
@@ -278,13 +278,13 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   portrait.append(levelBadge);
   const guide = el(doc, "div", "dh-guide");
   guide.innerHTML = `<span class="dh-icon">${icon("white-dragon")}</span>`;
-  guide.append(el(doc, "span", "", "Bach Long"), el(doc, "span", "", "guide"));
-  guide.title = "Bach Long guides you from the sidelines";
+  guide.append(el(doc, "span", "", "Bạch Long"), el(doc, "span", "", "guide"));
+  guide.title = "Bạch Long guides you from the sidelines";
   side.append(portrait, guide);
 
   const main = el(doc, "div", "dh-dragon-main");
   const head = el(doc, "div", "dh-dragon-head");
-  head.append(el(doc, "span", "dh-title", "Hoa Long"));
+  head.append(el(doc, "span", "dh-title", "Hỏa Long"));
   const armourChip = el(doc, "span", "dh-chip");
   armourChip.title = "Armor";
   armourChip.innerHTML = `<span class="dh-icon">${icon("armour")}</span>`;

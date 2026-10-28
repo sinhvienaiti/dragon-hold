@@ -827,7 +827,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     lowEdge.classList.toggle("is-on", lowHp);
     // The notice over the learning frame: the IME first, then low HP with a potion ready.
     const potion = Object.values(world.shop.held).some((count) => count > 0) && world.tick >= world.shop.consumableReadyAt;
-    const noticeText = now < imeUntil ? "Turn off Vietnamese input (Unikey, Telex) to type English" : lowHp && potion ? "Hoa Long low on HP: press " + keyLabel("consumable-1") + " for a Small Potion" : "";
+    const noticeText = now < imeUntil ? "Turn off Vietnamese input (Unikey, Telex) to type English" : lowHp && potion ? "Hỏa Long low on HP: press " + keyLabel("consumable-1") + " for a Small Potion" : "";
     setShown(notice2, noticeText !== "" && !menuOpen && !paceCard.isOpen);
     if (notice2.textContent !== noticeText) notice2.textContent = noticeText;
     notice2.classList.toggle("is-ime", now < imeUntil);

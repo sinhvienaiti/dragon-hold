@@ -31,7 +31,7 @@ describe("ui carry strip (03 §4.2, §6)", () => {
   it("says why a cell is off: gold short (never red), phase, no free slot, full bag, run limit", () => {
     const poor = stripCells(fakeWorld({ phase: "break", gold: 60 }), RULES);
     expect(poor.find((cell) => cell.id === "spikes")).toMatchObject({ enabled: true });
-    expect(poor.find((cell) => cell.id === "pine-bomb")).toMatchObject({ enabled: false, reason: "Need 30 Gold", short: "Need 30" });
+    expect(poor.find((cell) => cell.id === "pine-bomb")).toMatchObject({ enabled: false, reason: "Need 30 Gold", short: "−30" });
 
     const inWave = stripCells(fakeWorld({ phase: "wave", gold: 500 }), RULES);
     expect(inWave.find((cell) => cell.id === "spikes")).toMatchObject({ reason: "Place in breaks", short: "Break" });
@@ -45,15 +45,15 @@ describe("ui carry strip (03 §4.2, §6)", () => {
     const cells = stripCells(world, RULES);
     expect(cells.find((cell) => cell.id === "herb-hut")).toMatchObject({ reason: "No free slots", short: "Full", badge: "6" });
     expect(cells.find((cell) => cell.id === "small-potion")).toMatchObject({ reason: "Bag full", badge: "6" });
-    expect(cells.find((cell) => cell.id === "dragon-heart")).toMatchObject({ price: null, reason: "Max 3 buys", badge: "3/3" });
+    expect(cells.find((cell) => cell.id === "dragon-heart")).toMatchObject({ price: null, reason: "Max 3 buys", short: "Max", badge: "3/3" });
     expect(cells.find((cell) => cell.id === "hard-scale")).toMatchObject({ price: 105, enabled: true, note: "Bought 1/3" });
   });
 
   it("describes each item from its data", () => {
     expect(effectLine("spikes")).toBe("Slows 25%, 8 damage per second on its lane");
-    expect(effectLine("small-potion")).toBe("Restores 25% of Hoa Long's HP over 2 s; use during waves");
-    expect(effectLine("hard-scale")).toBe("+15 Armor for Hoa Long");
-    expect(effectLine("dragon-heart")).toBe("+10% max HP for Hoa Long; heals the added HP");
+    expect(effectLine("small-potion")).toBe("Restores 25% of Hỏa Long's HP over 2 s; use during waves");
+    expect(effectLine("hard-scale")).toBe("+15 Armor for Hỏa Long");
+    expect(effectLine("dragon-heart")).toBe("+10% max HP for Hỏa Long; heals the added HP");
     expect(effectLine("herb-hut")).toContain("0.3% HP per second");
     expect(effectLine("net-launcher")).toBe("Grounds one low flyer for 3 s, range 11 m; recharge 15 s");
   });

@@ -71,10 +71,10 @@ export function effectLine(id: PlaceableId | ConsumableId | HeroUpgradeId): stri
   }
   if (isConsumable(id)) {
     const item = CONSUMABLES[id];
-    return `Restores ${item.effect.healPct}% of Hoa Long's HP over ${sec(item.effect.durationMs)}; use during waves`;
+    return `Restores ${item.effect.healPct}% of Hỏa Long's HP over ${sec(item.effect.durationMs)}; use during waves`;
   }
   const buy = HERO_UPGRADES[id as HeroUpgradeId];
-  return buy.effect.kind === "max-hp" ? `+${buy.effect.pct}% max HP for Hoa Long; heals the added HP` : `+${buy.effect.amount} ${buy.effect.kind === "armour" ? "Armor" : "Magic resist"} for Hoa Long`;
+  return buy.effect.kind === "max-hp" ? `+${buy.effect.pct}% max HP for Hỏa Long; heals the added HP` : `+${buy.effect.amount} ${buy.effect.kind === "armour" ? "Armor" : "Magic resist"} for Hỏa Long`;
 }
 
 /** The strip's cells now: carry items (keys 1…), then the stage's in-run buys (03 §6.2). */
@@ -82,7 +82,8 @@ export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_R
   const gold = world.economy.gold;
   const building = buildPhase(world.phase);
   const lack = (price: number): string => "Need " + (price - gold) + " Gold";
-  const shortOf = (reason: string | null): string | null => (reason === null ? null : SHORT[reason] ?? reason.replace(/ Gold$/, ""));
+  // The cell's line stays one line at the 11 px floor in a 46 px cell (720p): "Need 35 Gold" reads "−35" under the price, "Max 3 buys" reads "Max" beside its 3/3 badge.
+  const shortOf = (reason: string | null): string | null => (reason === null ? null : SHORT[reason] ?? reason.replace(/^Need (\d+) Gold$/, "−$1").replace(/^Max \d+ buys$/, "Max"));
   const cells: StripCell[] = [];
   let key = 1;
   const nextKey = (): number | null => (key <= 9 ? key++ : null);
