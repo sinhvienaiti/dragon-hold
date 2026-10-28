@@ -229,6 +229,9 @@ export interface PaintLook {
     readonly uDhSkySeg: { value: THREE.Vector4[] };
     readonly uDhSkyCount: { value: number };
     readonly uDhSkyY: { value: number };
+    /** Map pilot A3: only a lane or sky-lane point inside this disc dithers (the trails past the gates do not). */
+    readonly uDhDitherC: { value: THREE.Vector2 };
+    readonly uDhDitherR: { value: number };
   };
   /** Mist colour seen at the far edge (scene background, clear colour). */
   readonly mist: THREE.Color;
@@ -285,6 +288,8 @@ export function createPaintLook(map: MapDef): PaintLook {
       uDhSkySeg: { value: skySeg },
       uDhSkyCount: { value: skyCount },
       uDhSkyY: { value: altitude },
+      uDhDitherC: { value: new THREE.Vector2(map.dais.center[0], map.dais.center[1]) },
+      uDhDitherR: { value: play + 1 },
     },
     uniforms: {
       uTime: { value: 0 },
@@ -384,6 +389,8 @@ uniform int uDhLaneCount;
 uniform vec4 uDhSkySeg[${MAX_SKY_SEGMENTS}];
 uniform int uDhSkyCount;
 uniform float uDhSkyY;
+uniform vec2 uDhDitherC;
+uniform float uDhDitherR;
 float dhSegDist(vec2 p, vec2 a, vec2 b) {
   vec2 ab = b - a;
   float t = clamp(dot(p - a, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);
@@ -402,7 +409,8 @@ bool dhHidesLane(vec3 world) {
   float t = (0.1 - cameraPosition.y) / rd.y;
   if (t > far + 0.3) {
     vec2 hit = (cameraPosition + rd * t).xz;
-    for (int k = 0; k < ${MAX_LANE_SEGMENTS}; k++) {
+    // A3: trees in the skirt over a trail past its gate stay whole (grid-like dot strips at the forest edge).
+    if (length(hit - uDhDitherC) < uDhDitherR) for (int k = 0; k < ${MAX_LANE_SEGMENTS}; k++) {
       if (k >= uDhLaneCount) break;
       vec4 s = uDhLaneSeg[k];
       if (dhSegDist(hit, s.xy, s.zw) < uDhLaneHalf[k] + 0.6) return true;
@@ -411,7 +419,7 @@ bool dhHidesLane(vec3 world) {
   float ts = (uDhSkyY - cameraPosition.y) / rd.y;
   if (ts > far + 0.3) {
     vec2 hit = (cameraPosition + rd * ts).xz;
-    for (int k = 0; k < ${MAX_SKY_SEGMENTS}; k++) {
+    if (length(hit - uDhDitherC) < uDhDitherR) for (int k = 0; k < ${MAX_SKY_SEGMENTS}; k++) {
       if (k >= uDhSkyCount) break;
       vec4 s = uDhSkySeg[k];
       if (dhSegDist(hit, s.xy, s.zw) < 1.4) return true;
