@@ -56,8 +56,8 @@ const DECALS = {
  */
 export const PILOT_GROUND = {
   uGrassDeep: "#4f7a40",
-  uGrassMid: "#69ab50",
-  uGrassLight: "#86c05c",
+  uGrassMid: "#669d42",
+  uGrassLight: "#7cb150",
   uForestFloor: "#4d6a3f",
   uVioletShade: "#b4c0d8",
   uDirt: "#c9a77c",
@@ -689,16 +689,16 @@ if (edge0 < 0.6 || pm2.g > 0.05) dRock = dhDetail(textureGrad(uTRock, p / 4.5, d
 float calm = broad * 0.75 + mid * 0.17 + stroke * 0.08;
 vec3 c = mix(uGrassMid, uGrassLight, clamp(0.4 + (calm - 0.5) * 1.1, 0.0, 1.0));
 c *= dGrass;
-// Meadow tufts (the reference's speckle): sparse small dabs a step darker, lit on the sun side; baked, so free per frame.
+// Meadow tufts (the reference's speckle): small dabs a step darker and deeper green, lit on the sun side; baked, so free per frame.
 {
-  vec2 tc = floor(p / 0.85);
+  vec2 tc = floor(p / 0.75);
   float th = dhHash(tc + 7.3);
-  vec2 to = (tc + 0.25 + 0.5 * vec2(dhHash(tc + 1.7), dhHash(tc + 3.1))) * 0.85;
-  vec2 td = (p - to) * vec2(1.0, 1.6);
-  float tr = 0.1 + 0.12 * dhHash(tc + 5.9);
-  float tuft = (1.0 - smoothstep(tr * 0.7, tr, length(td))) * step(th, 0.3);
+  vec2 to = (tc + 0.25 + 0.5 * vec2(dhHash(tc + 1.7), dhHash(tc + 3.1))) * 0.75;
+  vec2 td = (p - to) * vec2(1.0, 1.5);
+  float tr = 0.12 + 0.14 * dhHash(tc + 5.9);
+  float tuft = (1.0 - smoothstep(tr * 0.6, tr, length(td))) * step(th, 0.42 * smoothstep(0.25, 0.6, mid + 0.25));
   float lit = smoothstep(-0.2, 0.6, dot(normalize(td + 1e-4), vec2(0.99, 0.09)));
-  c *= 1.0 - tuft * mix(0.16, 0.02, lit);
+  c = mix(c, c * vec3(0.7, 0.8, 0.68) * mix(0.82, 1.05, lit), tuft * 0.9);
 }
 float h = vDhWorld.y;
 c = mix(c, c * uCoolTint, smoothstep(0.1, -0.9, h) * 0.3);

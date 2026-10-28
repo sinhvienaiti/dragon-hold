@@ -364,6 +364,8 @@ export interface PaintOptions {
   readonly dither?: boolean;
   /** The geometry carries an `aDhMask` vec4 attribute (ground). */
   readonly mask?: boolean;
+  /** Mip bias of the colour map (map pilot: foliage reads as painted leaf masses, not leaf noise). */
+  readonly mapBias?: number;
 }
 
 const RAMP_GLSL = /* glsl */ `
@@ -472,6 +474,7 @@ export function paintMaterial<T extends THREE.MeshLambertMaterial>(material: T, 
         .replace("void main() {", DITHER_GLSL + "\nvoid main() {")
         .replace("#include <clipping_planes_fragment>", "#include <clipping_planes_fragment>\nif (dhHidesLane(vDhWorld) && dhBayer(gl_FragCoord.xy) > 0.35) discard;");
     }
+    if (options.mapBias) fragment = fragment.replace("#include <map_fragment>", THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, vMapUv, " + options.mapBias.toFixed(2) + " )"));
     if (options.paint) fragment = fragment.replace("#include <color_fragment>", "#include <color_fragment>\n{\n" + options.paint + "\n}\n");
     const rim = options.rim ?? 0;
     fragment = fragment.replace(

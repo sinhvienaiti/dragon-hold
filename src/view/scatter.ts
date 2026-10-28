@@ -54,6 +54,14 @@ export const EDGE_IN_M = 2;
  */
 export const FAR_FROM_M = 42;
 
+/**
+ * V10, V13 (map pilot): every rock prop pale grey from its own shading (moss and texture hue dropped,
+ * so no mossy "eggs" and no white chains), darker toward its foot, a faint cool/warm drift by place.
+ * One paint for cliff, river, lane and forest stones keeps one draw call a rock prop.
+ */
+const STONE_PAINT =
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.47, 0.46, 0.445) * clamp(0.35 + dhL * 2.0, 0.42, 1.15); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
+
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
   // K03: a warm brown trunk instead of near black; V13 (map pilot): needles a step lighter, as the tall pine.
@@ -65,9 +73,10 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
   // V13 (map pilot): pine needles toward hue 120–150, the top a step lighter, so the forest is no dark teal wall.
   "props/pine-river-pine-tall":
     "float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhTop = smoothstep(0.3, 1.0, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.0, 1.12, 0.78) * (1.14 + 0.36 * dhTop), dhLeaf);",
-  // K07: moss close to the withered #C8D24A painted dark olive.
-  "props/pine-river-rock-boulder":
-    "float dhMoss = smoothstep(0.04, 0.14, diffuseColor.g - diffuseColor.b) * smoothstep(-0.03, 0.05, diffuseColor.g - diffuseColor.r); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.36, 0.18) * (0.7 + dot(diffuseColor.rgb, vec3(0.33))), dhMoss * 0.7);",
+  // K07 (moss close to the withered #C8D24A) is gone with the moss: rocks are pale stone (map pilot V10, V13).
+  "props/pine-river-rock-boulder": STONE_PAINT,
+  "props/pine-river-rock-slab": STONE_PAINT,
+  "props/pine-river-river-stones": STONE_PAINT,
 };
 
 /**
@@ -78,12 +87,10 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
 const WARM_CROWN =
   "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhOrange = smoothstep(0.38, 0.62, dhNoise(vDhWorld.xz * 0.05 + 3.0)); vec3 dhDark = mix(vec3(0.2, 0.035, 0.018), vec3(0.24, 0.07, 0.016), dhOrange); vec3 dhLight = mix(vec3(0.42, 0.075, 0.035), vec3(0.45, 0.16, 0.035), dhOrange); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.3, dhL)), dhLeaf);";
 
-/**
- * V10 (map pilot): cliff stone. Any rock prop painted pale grey from its own shading (moss and
- * texture hue dropped), darker toward its foot, a faint cool/warm drift by place.
- */
-const STONE_PAINT =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.47, 0.46, 0.445) * clamp(0.35 + dhL * 2.0, 0.42, 1.15); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
+
+
+/** Mip bias of foliage colour maps (map pilot). */
+const FOLIAGE_MAP_BIAS = 1.8;
 
 /** A placed placeholder, metres. `size`: height for pines, crown radius for round trees and bushes, rock radius. */
 export interface ScatterItem {
@@ -99,7 +106,7 @@ export interface ScatterItem {
   readonly tint?: readonly [number, number, number];
   /** Map pilot V7: a round crown painted warm (red, orange). */
   readonly warm?: boolean;
-  /** Map pilot V10: a cliff rock painted pale stone. */
+  /** Map pilot V10: a cliff rock (beds deeper into the slope). */
   readonly stone?: boolean;
   /** Map pilot: tilt about x and z, radians (cliff rocks lean into the face). */
   readonly tilt?: readonly [number, number];
@@ -231,7 +238,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
       const warm =
         !(CROWN_FAR as readonly string[]).includes(color) &&
         r < edge + 5 &&
-        r < FAR_FROM_M - 1 &&
+        r < play + PROP_NEAR_SKIRT_M - 0.5 &&
         laneGap >= 9 &&
         slotDist(x, z, false) >= 9 &&
         hash2(Math.round(x * 5), Math.round(z * 5), 0x3a7) < 0.35 &&
@@ -411,7 +418,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     if (loaded.length === 0) return;
     const lists: Record<ScatterKind, readonly ScatterItem[]> = { pine: plan.pines, crown: plan.crowns, bush: plan.bushes, rock: plan.rocks };
     /** Items per prop and band ("near" inside the near skirt, "mid" past it). */
-    const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; warm: boolean; stone: boolean; items: ScatterItem[] }>();
+    const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; warm: boolean; items: ScatterItem[] }>();
     // V7 A/B: ?warm=0 draws the warm crowns green.
     const warmOn = mapSwitch("warm") !== "0";
     const farItems: FarItem[] = [];
@@ -450,11 +457,11 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
           farItems.push({ manifest: pick.spec.manifest, x: item.x, y: item.y, z: item.z, k, mirror: hash2(Math.round(item.x * 3), Math.round(item.z * 3), 0x31) < 0.5, tint: item.tint ?? [spread, spread, spread] });
           return;
         }
-        const band = r <= near ? "near" : "mid";
+        // Small clutter casts no shadow in either band: one group (one draw call) for both.
+        const band = r <= near || SMALL_PROPS.has(pick.spec.manifest) ? "near" : "mid";
         const warm = warmOn && item.warm === true && pick.spec.manifest === "props/pine-river-pine-round";
-        const stone = item.stone === true && pick.spec.kind === "rock";
-        const key = pick.spec.manifest + "|" + band + (warm ? "|warm" : "") + (stone ? "|stone" : "");
-        const group = placed.get(key) ?? { spec: pick.spec, model: pick.model, band, warm, stone, items: [] };
+        const key = pick.spec.manifest + "|" + band + (warm ? "|warm" : "");
+        const group = placed.get(key) ?? { spec: pick.spec, model: pick.model, band, warm, items: [] };
         group.items.push(item);
         placed.set(key, group);
       });
@@ -471,16 +478,18 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     hide(shrubs, "bush");
     hide(stones, "rock");
     const tint = new THREE.Color();
-    for (const { spec, model, band, warm, stone, items } of placed.values()) {
+    for (const { spec, model, band, warm, items } of placed.values()) {
       if (items.length === 0) continue;
-      const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "") + (stone ? "-stone" : "");
-      const paint = warm ? WARM_CROWN : stone ? STONE_PAINT : PROP_PAINT[spec.manifest];
+      const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "");
+      const paint = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
       const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
         key: "prop-" + name + (band === "mid" ? "-mid" : ""),
         ...(paint ? { paint } : {}),
         rim: spec.kind === "rock" ? 0.06 : 0.12,
         ...(spec.wind > 0 ? { wind: spec.wind } : {}),
         dither: spec.kind !== "rock",
+        // Foliage a mip softer: leaf masses like the reference, less pixel noise (MAP_PLAN 2.4 clutter).
+        ...(spec.kind !== "rock" ? { mapBias: FOLIAGE_MAP_BIAS } : {}),
       });
       const geometry = model.geometry;
       // Small clutter and the far ring cast no shadow (MAP_FACTORY 4.2).

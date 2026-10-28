@@ -127,7 +127,8 @@ export const LAYOUT_RULES = {
   },
   /** L6: lone trees in the open meadow, each on its own dirt disc. */
   solitary: {
-    count: 8,
+    /** V5: lone trees on dirt discs in the transition bands (the reference's middle ground), at most openMax on the open arc. */
+    count: 12,
     /** V1: lone trees on the open meadow arc. */
     openMax: 3,
     cellM: 5,
@@ -1131,7 +1132,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       if (trees.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < t.radius + D.clearTreeM)) continue;
       if ([...dots, ...rocks].some((t) => Math.hypot(t.x - c.x, t.z - c.z) < D.gapM)) continue;
       const k = lerp(D.k[0], D.k[1], h(RULE.dots, Math.round(c.x * 10), Math.round(c.z * 10), seed + 1));
-      dots.push({ id: "dot:" + c.cell, proto: "props/pine-river-bush-moss", x: c.x, z: c.z, k, yaw: roll * 37.7, tint: TINTS[Math.floor(roll * 53) % TINTS.length]!, radius: k * 0.45 });
+      // Deep green (the moss bush model is yellow-green), each on a small worn halo (paint below).
+      const shade = 0.9 + 0.12 * roll;
+      dots.push({ id: "dot:" + c.cell, proto: "props/pine-river-bush-moss", x: c.x, z: c.z, k, yaw: roll * 37.7, tint: [0.62 * shade, 0.8 * shade, 0.62 * shade], radius: k * 0.45 });
     }
     bushes.push(...dots);
   }
@@ -1196,6 +1199,11 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       }
       s += lerp(P.scuffStepM[0], P.scuffStepM[1], h(RULE.scuff, laneIndex * 100 + index, 4, seed));
     }
+  });
+  // V3: a pale halo under each meadow dot, no dirt core (the reference's bushes sit on pale rings).
+  bushes.forEach((bush, bi) => {
+    if (!bush.id.startsWith("dot:")) return;
+    dirt.push(blob(bush.x, bush.z, bush.radius * 1.6, 0.9, 0.43, 1500 + bi, 0));
   });
   cliffs.forEach((cl, ci) => {
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
