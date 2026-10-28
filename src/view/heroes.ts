@@ -85,9 +85,10 @@ const HEAD_KICK = { rad: 0.16, peakS: 0.06 } as const;
 const COIL_HOLD_S = 1.4;
 /** Wing ribbons on FX_WING_L/R/L2/R2: points (one a frame), half-width (m), how long they burn after an attack (s). */
 const WING_TRAIL_POINTS = 16;
-const WING_TRAIL_WIDTH_M = 0.16;
+const WING_TRAIL_WIDTH_M = 0.2;
 const WING_TRAIL_S = 0.5;
-const WING_COLORS = [new THREE.Color("#ffb37a"), new THREE.Color("#ff7a32")] as const;
+// The fire ramp's saturated end: the peach #ffb37a, added over the sunlit dais, read as pale beige bars (judge 1a).
+const WING_COLORS = [new THREE.Color("#ff8a3d"), new THREE.Color("#ff5a1f")] as const;
 
 /**
  * An Attack clip from `fromS` on, resampled at 60 Hz (every track kept: a dropped track would let a bone fall to

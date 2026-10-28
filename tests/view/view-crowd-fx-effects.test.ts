@@ -249,6 +249,38 @@ describe("view fx", () => {
     expect(track.times[1]! - track.times[0]!).toBeCloseTo(1 / 60, 5);
   });
 
+  it("lands a word bolt with fire and soot, and a scorch held dark 1.5 s, gone by 2.6 s (VFX_STANDARD §3.4, judge 1a)", () => {
+    const core = new FxCore("high", { locator: fixed(0, 1, -15) });
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.launchBolt(new THREE.Vector3(0, 4, -1), { slot: 0, serial: 5, x: 0, y: 1, z: -15 }, false);
+    core.landBolt(5, 1, new THREE.Vector3(0, 1, -15), 0, -1);
+    let frames = 0;
+    let puffs = 0;
+    while (core.stats().marks === 0 && frames < 60) {
+      puffs = core.stats().puffs;
+      core.update(1 / 60, frames / 60, eye, 600);
+      frames += 1;
+    }
+    expect(core.stats().marks).toBe(1);
+    // The impact's fire bodies and soot puffs come on top of what the flight left.
+    // (7 born on the landing frame: 3 fire, 3 soot, 1 grey; the flight's last head bodies run out meanwhile.)
+    expect(core.stats().puffs).toBeGreaterThanOrEqual(puffs + 5);
+    const marks = core.group.children.find((m): m is THREE.Mesh => m instanceof THREE.Mesh && m.renderOrder === 2 && (m.material as THREE.ShaderMaterial).polygonOffset)!;
+    const alpha = (): number => (marks.geometry.getAttribute("iColor") as THREE.InstancedBufferAttribute).getW(0);
+    const at = (seconds: number): number => {
+      for (let k = 0; k < Math.round(seconds * 60); k += 1) core.update(1 / 60, 1, eye, 600);
+      return alpha();
+    };
+    expect(at(0.2)).toBeCloseTo(0.92, 3);
+    expect(at(1.2)).toBeCloseTo(0.92, 3);
+    const late = at(0.6);
+    expect(late).toBeGreaterThan(0.2);
+    expect(late).toBeLessThan(0.8);
+    at(0.7);
+    expect(core.stats().marks).toBe(0);
+    core.dispose();
+  });
+
   it("charges the mouth a step a letter, spends it on the release, lets an abandoned word go", () => {
     const core = new FxCore("high", { locator: fixed(0, 1, -15) });
     const eye = new THREE.Vector3(0, 60, 60);
