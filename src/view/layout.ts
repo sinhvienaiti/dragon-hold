@@ -100,7 +100,8 @@ export const LAYOUT_RULES = {
     dominantShare: 0.74,
     /** FB-08 (A2): one violet crown in one grove at most (the accent is rare, never at every angle). */
     violetMax: 1,
-    violetGrovesMax: 1,
+    /** FB-08 (A3): no violet crown on L2-cau (the judges read them as violet crystals at every edge). */
+    violetGrovesMax: 0,
     /** Blossom bushes read as red specks from above (V3): few. */
     blossomShare: 0.2,
     minRadiusM: 2.6,
@@ -130,13 +131,14 @@ export const LAYOUT_RULES = {
   /** L6: lone trees in the open meadow, each on its own dirt disc. */
   solitary: {
     /** V5: lone trees on dirt discs in the transition bands (the reference's middle ground), at most openMax on the open arc. */
-    count: 9,
+    /** FB-03 (A3): more lone trees, out into the forest bays too (r to 37 m, on meadow only). */
+    count: 13,
     /** V1: lone trees on the open meadow arc (FB-11, A2: one; the meadow stays open). */
     openMax: 1,
     /** FB-11 (A2): a lone tree stands within this of a grove disc or the forest edge (the transition band), never mid-meadow. */
     bandM: 8,
     cellM: 5,
-    ringM: [12, 29] as const,
+    ringM: [12, 37] as const,
     clearLaneM: 4.2,
     clearSlotM: 5.2,
     clearSkyM: 4,
@@ -154,16 +156,22 @@ export const LAYOUT_RULES = {
     lane: { stepM: 6, chance: 0.22, offsetM: [0.7, 1.3] as const, clearSlotM: 4, clearDaisM: 9, k: [0.35, 0.6] as const },
     pond: { count: 10, k: [0.6, 1.35] as const },
     /** V10: 10–20 pale stones 0.8–2 m on the scree in front of each cliff foot; FB-10 (A2): some are low Cliff Rock (wide) blocks. */
-    cliffFoot: { stepM: 2.0, chance: 0.75, outM: [0.8, 6.5] as const, k: [0.8, 2.0] as const, blockShare: 0.3, blockK: [1.6, 2.6] as const },
+    cliffFoot: { stepM: 1.8, chance: 0.62, outM: [0.8, 6.5] as const, k: [0.8, 2.0] as const, blockShare: 0.45, blockK: [1.6, 2.6] as const },
     /**
      * FB-10 (A2): tiered faces of the Tripo round 3 Cliff Rocks, replacing the round boulders: along each tier's
      * face foot a row of tall blocks (cliff-rock-a, height a tier × kA), turned to the dais, every stepM; the
      * lowest tier mixes in wide blocks (cliff-rock-b, width kB × tier); a few wide blocks along the top lip.
      */
-    cliffFace: { stepM: [1.6, 2.8] as const, skip: 0.12, intoM: 0.35, kA: [0.78, 1.12] as const, stretchA: [1.25, 2.1] as const, tall: 0.12, tallK: 1.75, kB: [1.2, 1.5] as const, footWide: 0.35, upperWide: 0.18, lipStepM: 4.5, lipK: [2.4, 3.4] as const, yawJitter: 0.6, leanRad: 0.08 },
+    /**
+     * FB-10 (A3): half the face blocks are Cliff Rock (wide) a whole tier tall (kB × 0.5 of the tier: flat
+     * layered tops level with the ledge above, strata rather than eggs), the rest tall blocks widened into the
+     * face; blocks off a straight row (sJitterM), a few flat slabs on the ledges.
+     */
+    cliffFace: { stepM: [2.2, 3.6] as const, skip: 0.1, intoM: 0.35, sJitterM: 0.4, kA: [0.9, 1.3] as const, stretchA: [1.6, 2.7] as const, tall: 0.14, tallK: 1.75, kB: [1.9, 2.25] as const, footWide: 0.55, upperWide: 0.5, lipStepM: 7, lipK: [2.8, 3.8] as const, yawJitter: 0.3, leanRad: 0.05, ledgeStepM: [6, 9] as const, ledgeK: [2.8, 4.0] as const },
   },
   /** V6: the skirt forest starts insideM inside the play radius, moved by the scene's bays and headlands, ± noiseM. */
-  edge: { insideM: 2, noiseM: 4, noiseWave: 4.5 },
+  /** FB-03 (A3): plus broad lobes (lobeM, about lobeWave cycles per radian) so bays and capes reach deep. */
+  edge: { insideM: 2, noiseM: 4, noiseWave: 4.5, lobeM: 6.5, lobeWave: 1.25, minM: 28 },
   /**
    * V5 (map pilot): small round bushes dotted over the meadow, as in the reference: sparse on the open
    * arc, a little denser in the transition bands; clear of lanes, slots, the sky lane, water and paths.
@@ -174,7 +182,7 @@ export const LAYOUT_RULES = {
    * V7: warm crowns (tinted round trees). FB-09 (A2): 16 m apart and from a violet crown, 10 m from lanes,
    * slots and the sky lane, and never under the default frame's HUD (`hud`: screen boxes [u0, v0, u1, v1], 0–1).
    */
-  warm: { clearM: 10, gapM: 16, share: 0.08, min: 4, violetGapM: 16, grow: 1.18, hud: [[0, 0.7, 0.32, 1.6], [0.3, 0.8, 0.7, 1.6]] as const },
+  warm: { clearM: 10, gapM: 15, share: 0.08, min: 4, violetGapM: 16, grow: 1.18, frame: [0.12, 0.1, 0.88, 0.75] as const, frameMin: 3, accentClearM: 9, hud: [[0, 0.7, 0.32, 1.6], [0.3, 0.8, 0.7, 1.6]] as const },
   /**
    * FB-16, FB-18, FB-15 (A2): path dressing from the Tripo round 3 kit. Lantern Post every 9–12 m along a main
    * path, sides alternating, 0.9 m off its edge (more often near the dais); Rail Fence sections at both
@@ -183,8 +191,10 @@ export const LAYOUT_RULES = {
    * end of a branch path that enters a forest bay.
    */
   dress: {
-    lantern: { firstM: 3.5, stepM: [9, 12] as const, offM: 0.9, k: 2.2, clearSlotM: 4.6, clearLaneM: 2.2, clearWaterM: 1.0 },
-    fence: { k: 2.4, bridgeOffM: 0.7, bendDeg: 15, bendsMax: 2, offM: 0.85, clearSlotM: 1.9, clearLaneM: 0.5 },
+    /** FB-16 (A3): also along the lanes (laneOffM off the lane edge, from laneFromR out) and the branch paths. */
+    lantern: { firstM: 3.5, stepM: [9, 12] as const, offM: 0.9, k: 2.2, clearSlotM: 4.6, clearLaneM: 2.2, clearWaterM: 1.0, laneOffM: 2.3, laneFromR: 9, laneStepM: [10, 12.5] as const },
+    /** FB-16 (A3): and on the outside of lane bends near the dais (laneBendDeg, within laneBendR). */
+    fence: { k: 2.4, bridgeOffM: 0.7, bendDeg: 15, bendsMax: 2, offM: 0.85, clearSlotM: 1.9, clearLaneM: 0.5, laneBendDeg: 9, laneBendR: [8, 20] as const, laneOffM: 1.1 },
     jetty: { k: 3.3, landM: 0.9, deckM: 0.3 },
     reeds: { pond: 6, pondK: [0.95, 1.35] as const, riverSpots: 4, riverK: [0.9, 1.3] as const, clearLaneM: 2.4, clearSlotM: 3, clearJettyM: 2.4 },
     rest: { r: 2.6 },
@@ -204,7 +214,7 @@ export const LAYOUT_RULES = {
     scuffOffsetM: [0.0, 0.45] as const,
     flowerPatchWaveM: 11,
     /** V3: radius wobble of a dirt patch (≤ 0.25) and how far its centre moves to the shade side (share of r). */
-    wobble: [0.12, 0.24] as const,
+    wobble: [0.14, 0.25] as const,
     shadeShift: 0.35,
   },
 } as const;
@@ -273,6 +283,8 @@ export interface Footpath {
   readonly line: Polyline;
   /** Half width at each sample of `line`. */
   readonly halves: Float64Array;
+  /** A3 (FB-18): a branch path whose far end is a free point or a forest edge ends at a rest spot. */
+  readonly rest: boolean;
 }
 
 export interface Grove {
@@ -683,7 +695,7 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, cliff: Cliff | null,
       const fromPlaza = from.kind === "plaza" ? lerp(F.plazaTaper, 1, smooth(0, F.plazaTaperM, s)) : 1;
       halves[i] = half * toEdge * fromPlaza * (0.92 + 0.16 * valueNoise(s / 4, routeIndex + 0.5, seed + RULE.path + 1));
     }
-    paths.push({ id: route.id, tier: route.tier, line, halves });
+    paths.push({ id: route.id, tier: route.tier, line, halves, rest: route.tier === "branch" && (to.kind === "point" || to.kind === "edge") });
   });
   return paths;
 }
@@ -776,22 +788,46 @@ const FLOWER = "props/pine-river-wildflower-clump";
 /** Processed heights of the width-sized round 3 props (scripts/models/presets/dragon-hold-m0b.json: 1 m wide). */
 const CLIFF_B_H = 0.444;
 
-/**
- * Where a world point lands in the map's home view (map.camera, the stage camera's 30° field, 16:9):
- * [u, v] from the top-left, 0–1, or null behind the camera. FB-09 keeps warm crowns out of the HUD boxes.
- */
-export function homeViewUv(map: MapDef, x: number, y: number, z: number): [number, number] | null {
-  const D = Math.PI / 180;
-  const [cx, cz] = map.dais.center;
+/** A3 (item 10): a warm crown is well inside the home view or well outside it, never cut by its edge. */
+export function onFrameEdge(uv: readonly [number, number], margin = 0.11): boolean {
+  const inside = uv[0] > margin && uv[0] < 1 - margin && uv[1] > margin + 0.02 && uv[1] < 1 - margin * 0.9;
+  const outside = uv[0] < -0.06 || uv[0] > 1.06 || uv[1] < -0.06 || uv[1] > 1.12;
+  return !inside && !outside;
+}
+
+/** A camera of the rig (view/camera.ts): yaw, pitch, the point it looks at, zoom on the map's distance. */
+export interface ViewPose {
+  readonly yawDeg: number;
+  readonly pitchDeg: number;
+  readonly targetX: number;
+  readonly targetZ: number;
+  readonly zoom: number;
+}
+
+/** The map's home view (map.camera). */
+export function homePose(map: MapDef): ViewPose {
   const [lx, lz] = map.camera.lookM ?? [0, 0];
-  const yaw = map.camera.yawDeg * D;
-  const pitch = map.camera.pitchDeg * D;
-  const tx = cx + lx;
+  return { yawDeg: map.camera.yawDeg, pitchDeg: map.camera.pitchDeg, targetX: map.dais.center[0] + lx, targetZ: map.dais.center[1] + lz, zoom: 1 };
+}
+
+/** The judge's still set (tools/map-factory/docs/judge.md): 3 tilts × 4 headings on the dais, zoom 1. */
+export const STANDARD_POSES: readonly ViewPose[] = [40, 55, 75].flatMap((pitchDeg) => [0, 90, 180, 270].map((yawDeg) => ({ yawDeg, pitchDeg, targetX: 0, targetZ: 0, zoom: 1 })));
+
+/**
+ * Where a world point lands in a view (the stage camera's 30° field, 16:9): [u, v] from the top-left, 0–1,
+ * or null behind the camera.
+ */
+export function viewUv(map: MapDef, pose: ViewPose, x: number, y: number, z: number): [number, number] | null {
+  const D = Math.PI / 180;
+  const yaw = pose.yawDeg * D;
+  const pitch = pose.pitchDeg * D;
+  const distance = map.camera.distanceM * pose.zoom;
+  const tx = pose.targetX;
   const ty = 0.6;
-  const tz = cz + lz;
-  const flat = Math.cos(pitch) * map.camera.distanceM;
+  const tz = pose.targetZ;
+  const flat = Math.cos(pitch) * distance;
   const px = tx + Math.sin(yaw) * flat;
-  const py = ty + Math.sin(pitch) * map.camera.distanceM;
+  const py = ty + Math.sin(pitch) * distance;
   const pz = tz + Math.cos(yaw) * flat;
   let fx = tx - px;
   let fy = ty - py;
@@ -820,6 +856,25 @@ export function homeViewUv(map: MapDef, x: number, y: number, z: number): [numbe
   return [(ndcX + 1) / 2, (1 - ndcY) / 2];
 }
 
+/** Where a world point lands in the map's home view, or null behind the camera. FB-09 keeps warm crowns out of the HUD boxes. */
+export function homeViewUv(map: MapDef, x: number, y: number, z: number): [number, number] | null {
+  return viewUv(map, homePose(map), x, y, z);
+}
+
+/** A3 (item 10): is the point cut by the edge of the home view or a 55° standard view? */
+export function onAnyFrameEdge(map: MapDef, x: number, y: number, z: number): boolean {
+  // The home view strictly, the standard set with a thinner band (most of the map's rim is near some view's edge).
+  const home = viewUv(map, homePose(map), x, y, z);
+  if (home !== null && onFrameEdge(home)) return true;
+  // The 55° headings are the views gate C scores with the home view; the 40° and 75° ones are left free (too few spots).
+  for (const pose of STANDARD_POSES) {
+    if (pose.pitchDeg !== 55) continue;
+    const uv = viewUv(map, pose, x, y, z);
+    if (uv !== null && onFrameEdge(uv, 0.05)) return true;
+  }
+  return false;
+}
+
 export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)): MapLayout {
   const f = new LayoutFields(map);
   const seed = map.terrain.seed ^ 0x6d61;
@@ -845,11 +900,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
   const DR = LAYOUT_RULES.dress;
   const clearings: { x: number; z: number; r: number }[] = [];
   for (const path of footpaths) {
-    if (path.tier !== "branch") continue;
+    if (!path.rest) continue;
     const last = path.line.count - 1;
-    const x = path.line.xs[last]!;
-    const z = path.line.zs[last]!;
-    if (f.r(x, z) > f.play) clearings.push({ x, z, r: DR.rest.r });
+    clearings.push({ x: path.line.xs[last]!, z: path.line.zs[last]!, r: DR.rest.r });
   }
 
   // Light: shade side is away from the sun (V3 puts each dirt patch's centre there).
@@ -881,7 +934,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     const r = f.r(x, z) || 1;
     const ux = (x - f.cx) / r;
     const uz = (z - f.cz) / r;
-    return edge + (valueNoise(ux * E.noiseWave + 9.1, uz * E.noiseWave + 3.7, seed + 77) - 0.5) * 2 * E.noiseM;
+    const lobe = (valueNoise(ux * E.lobeWave + 2.3, uz * E.lobeWave - 5.1, seed + 79) - 0.5) * 2 * E.lobeM;
+    // A3: a cape never reaches inside minM (the A3 lobes pushed the 190° headland to 22 m: a wall at the 90° views).
+    return Math.max(E.minM, edge + lobe + (valueNoise(ux * E.noiseWave + 9.1, uz * E.noiseWave + 3.7, seed + 77) - 0.5) * 2 * E.noiseM);
   };
 
   // Groves: pinned (scene spec) or by rule (open arc kept clear, edge-to-edge gap, anchors may reach the forest).
@@ -1014,6 +1069,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     if (f.riverEdge(c.x, c.z) < S.clearRiverM || pathGap(c.x, c.z) < S.clearPathM || pondEdge(c.x, c.z) < S.clearPondM) continue;
     if (groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) < g.radius + S.clearGroveM)) continue;
     if (lone.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < S.gapM)) continue;
+    // FB-03 (A3): out in a bay only on its meadow floor.
+    if (r > forestEdge(c.x, c.z) - 2) continue;
     // FB-11 (A2): only in the transition band, near a grove disc or the forest edge.
     const nearGrove = groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) - g.radius < S.bandM);
     if (!nearGrove && forestEdge(c.x, c.z) - r > S.bandM) continue;
@@ -1052,7 +1109,7 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
   // FB-09: the crown's middle (about 0.7 of its height) projected into the home view, inside a HUD box.
   const underHud = (tree: LayoutItem): boolean => {
     const uv = homeViewUv(map, tree.x, tree.k * 0.7, tree.z);
-    return uv !== null && W.hud.some(([u0, v0, u1, v1]) => uv[0] >= u0 && uv[0] <= u1 && uv[1] >= v0 && uv[1] <= v1);
+    return (uv !== null && W.hud.some(([u0, v0, u1, v1]) => uv[0] >= u0 && uv[0] <= u1 && uv[1] >= v0 && uv[1] <= v1)) || onAnyFrameEdge(map, tree.x, tree.k * 0.7, tree.z);
   };
   {
     const pool: { item: LayoutItem; score: number }[] = [];
@@ -1070,12 +1127,15 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
         if (!grove || !grove.warm) continue;
         // Outer face: on the far side of the grove from the dais.
         const out = ((tree.x - grove.x) * (grove.x - f.cx) + (tree.z - grove.z) * (grove.z - f.cz)) / Math.max(grove.radius * f.r(grove.x, grove.z), 1e-6);
-        if (out < 0.25) continue;
-        score += 1 + out;
+        // A3: an inner-face tree may carry the accent when the home view shows it clear of its edges.
+        const uvIn = homeViewUv(map, tree.x, tree.k * 0.7, tree.z);
+        const shown = uvIn !== null && uvIn[0] > W.frame[0] && uvIn[0] < W.frame[2] && uvIn[1] > W.frame[1] && uvIn[1] < W.frame[3];
+        if (out < 0.25 && !shown) continue;
+        score += 1 + Math.max(0, out);
       }
       // A2: prefer spots the home view shows clear of its edges and the HUD (accents the default frame carries).
       const uv = homeViewUv(map, tree.x, tree.k * 0.7, tree.z);
-      if (uv !== null && uv[0] > 0.08 && uv[0] < 0.92 && uv[1] > 0.08 && uv[1] < 0.75) score += 1.6;
+      if (uv !== null && uv[0] > W.frame[0] && uv[0] < W.frame[2] && uv[1] > W.frame[1] && uv[1] < W.frame[3]) score += 1.6;
       pool.push({ item: tree, score });
     }
     pool.sort((a, b) => b.score - a.score || (a.item.id < b.item.id ? -1 : 1));
@@ -1086,6 +1146,46 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       if (taken.some((t) => Math.hypot(t.x - item.x, t.z - item.z) < W.gapM)) continue;
       taken.push(item);
       warmIds.add(item.id);
+    }
+  }
+  // A3 (FB-09, item 10): the home view keeps at least frameMin warm accents well inside it. When the pool left
+  // fewer, an accent tree (a round tree on its own dirt disc) is sited by rule: on meadow in the transition band
+  // (near a grove or the forest edge), clear of lanes, slots, the sky lane, water, paths and trees, spaced from
+  // every warm crown, inside the frame and off the HUD; best by nearness to the edge band, then by hash.
+  {
+    const shownWarm = (): number =>
+      trees.filter((tree) => warmIds.has(tree.id)).filter((tree) => {
+        const uv = homeViewUv(map, tree.x, tree.k * 0.7, tree.z);
+        return uv !== null && uv[0] > 0.11 && uv[0] < 0.89 && uv[1] > 0.13 && uv[1] < 0.9;
+      }).length;
+    let added = 0;
+    while (shownWarm() < W.frameMin && added < W.frameMin) {
+      let best: { x: number; z: number; score: number } | null = null;
+      for (let z = f.cz - f.play - 6; z <= f.cz + f.play + 6; z += 1) {
+        for (let x = f.cx - f.play - 6; x <= f.cx + f.play + 6; x += 1) {
+          const r = f.r(x, z);
+          const edge = forestEdge(x, z);
+          if (r < 12 || r > edge - 1.5) continue;
+          // FB-09's own floor (9 m from lanes and slots), 9.5 m from the sky lane.
+          if (f.laneGap(x, z) < W.accentClearM || f.slotDist(x, z) < W.accentClearM || f.skyDist(x, z) < W.accentClearM + 0.5) continue;
+          if (f.riverEdge(x, z) < 1.6 || pondEdge(x, z) < 3 || pathGap(x, z) < 2.5 || (cliff && cliff.lift(x, z) > 0.2)) continue;
+          if (groves.some((g) => Math.hypot(g.x - x, g.z - z) < g.radius + 1.5) || trees.some((tree) => Math.hypot(tree.x - x, tree.z - z) < tree.radius + 2)) continue;
+          if (trees.some((tree) => warmIds.has(tree.id) && Math.hypot(tree.x - x, tree.z - z) < W.gapM)) continue;
+          const tree: LayoutItem = { id: "", proto: PINE_ROUND, x, z, k: 6, yaw: 0, tint: [1, 1, 1], radius: 3 };
+          const uv = homeViewUv(map, x, 4.2, z);
+          if (uv === null || !(uv[0] > 0.14 && uv[0] < 0.86 && uv[1] > 0.15 && uv[1] < 0.75) || underHud(tree)) continue;
+          const band = Math.min(edge - r, ...groves.map((g) => Math.hypot(g.x - x, g.z - z) - g.radius));
+          const score = -Math.max(0, band - 3) + h(RULE.solitary, Math.round(x), Math.round(z), seed) * 0.5;
+          if (!best || score > best.score) best = { x, z, score };
+        }
+      }
+      if (!best) break;
+      const roll = h(RULE.solitary, Math.round(best.x * 10), Math.round(best.z * 10), seed + 3);
+      const height = Math.min(G.capMax, 6.4 + roll * 1.2);
+      const id = "accent:" + added;
+      trees.push({ id, proto: PINE_ROUND, x: best.x, z: best.z, k: height, yaw: roll * 6.283, tint: [1, 1, 1], radius: height * 0.55 });
+      warmIds.add(id);
+      added += 1;
     }
   }
   // A warm crown is the grove's accent tree: a little larger than its neighbours (the reference's maples), within the height cap.
@@ -1189,7 +1289,7 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
   };
   // Lantern Post every 9–12 m along each main path, alternating sides, the arm over the path.
   footpaths.forEach((path, pi) => {
-    if (path.tier !== "main") return;
+    // A3: branch paths get their lanterns too (FB-16: minor paths at a steady rhythm).
     const L = DR.lantern;
     let side = h(RULE.dress, 600 + pi, 1, seed) < 0.5 ? -1 : 1;
     let n = 0;
@@ -1211,6 +1311,35 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       // Near the dais the first gaps are the shortest (FB-13: denser at the plaza, sparser toward the gates).
       const step = lerp(L.stepM[0], L.stepM[1], h(RULE.dress, 620 + pi * 50 + n, 3, seed));
       s += placed ? step : 2;
+    }
+  });
+  // FB-16 (A3): Lantern Post along each lane too, every 10–12.5 m from the plaza out to the gate, sides
+  // alternating, laneOffM off the lane edge (never on a span, a slot or another lane), the arm toward the lane.
+  f.lanes.forEach((lane, li) => {
+    const L = DR.lantern;
+    let side = h(RULE.dress, 800 + li, 1, seed) < 0.5 ? -1 : 1;
+    let n = 0;
+    // From the dais end (the polyline runs gate → dais) outward.
+    for (let back = 0; back < lane.line.length; n += 1) {
+      const s = lane.line.length - back;
+      lane.line.pointAt(s, tangent);
+      let placed = false;
+      if (f.r(tangent.x, tangent.z) >= L.laneFromR && f.r(tangent.x, tangent.z) <= f.play - 1.5 && !lane.spans.some((span) => s > span.fromM - 2.5 && s < span.toM + 2.5)) {
+        for (const tryside of [side, -side]) {
+          const off = lane.half + L.laneOffM;
+          const x = tangent.x - tangent.dz * off * tryside;
+          const z = tangent.z + tangent.dx * off * tryside;
+          // Slots on the lane itself are its trap and block points: a post beside the lane keeps 3.2 m from them, 4.6 m from a house.
+          if (f.map.slots.some((slot) => Math.hypot(slot.pos[0] - x, slot.pos[1] - z) < (slot.kind === "house" ? L.clearSlotM : 3.2))) continue;
+          if (!dressOk(x, z, 0, L.laneOffM - 0.2, L.clearWaterM) || pathGap(x, z) < 0.6 || jettyGap(x, z) < 1.5) continue;
+          if (dress.some((d) => d.proto === LANTERN && Math.hypot(d.x - x, d.z - z) < 6)) continue;
+          dress.push({ id: "dress:lantern:lane:" + li + ":" + n, proto: LANTERN, x, z, k: L.k * (0.94 + 0.1 * h(RULE.dress, 810 + li * 50 + n, 2, seed)), yaw: Math.atan2(tangent.dz * tryside, -tangent.dx * tryside), tint: [1, 1, 1], radius: 0.4 });
+          placed = true;
+          side = -tryside;
+          break;
+        }
+      }
+      back += placed ? lerp(L.laneStepM[0], L.laneStepM[1], h(RULE.dress, 820 + li * 50 + n, 3, seed)) : 1.5;
     }
   });
   // Rail Fence: both bridgeheads, each side of the lane, along the bank.
@@ -1289,9 +1418,29 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       if (dress.length > before) taken.push(bend.s);
     }
   });
+  // FB-16 (A3): Rail Fence on the outside of each lane's bends near the dais.
+  f.lanes.forEach((lane, li) => {
+    const a = { x: 0, z: 0, dx: 0, dz: 1 };
+    const b = { x: 0, z: 0, dx: 0, dz: 1 };
+    let best: { s: number; turn: number } | null = null;
+    for (let s = 3; s < lane.line.length - 3; s += 0.5) {
+      lane.line.pointAt(s, tangent);
+      const r = f.r(tangent.x, tangent.z);
+      if (r < FN.laneBendR[0] || r > FN.laneBendR[1] || lane.spans.some((span) => s > span.fromM - 2 && s < span.toM + 2)) continue;
+      lane.line.pointAt(s - 3, a);
+      lane.line.pointAt(s + 3, b);
+      const turn = (Math.atan2(a.dx * b.dz - a.dz * b.dx, a.dx * b.dx + a.dz * b.dz) * 180) / Math.PI;
+      if (Math.abs(turn) >= FN.laneBendDeg && (!best || Math.abs(turn) > Math.abs(best.turn))) best = { s, turn };
+    }
+    if (!best) return;
+    lane.line.pointAt(best.s, tangent);
+    const side = best.turn > 0 ? 1 : -1;
+    const off = lane.half + FN.laneOffM;
+    fenceAt("dress:fence:lane:" + li, tangent.x - tangent.dz * off * side, tangent.z + tangent.dx * off * side, tangent.dx, tangent.dz);
+  });
   // Rest spots: a log seat and a stump in the clearing at a branch path's forest end, a lantern by the path.
   clearings.forEach((c, ci) => {
-    const path = footpaths.find((p) => p.tier === "branch" && Math.hypot(p.line.xs[p.line.count - 1]! - c.x, p.line.zs[p.line.count - 1]! - c.z) < 0.1);
+    const path = footpaths.find((p) => p.rest && Math.hypot(p.line.xs[p.line.count - 1]! - c.x, p.line.zs[p.line.count - 1]! - c.z) < 0.1);
     if (!path) return;
     path.line.pointAt(path.line.length - 0.5, tangent);
     const lx = c.x + tangent.dx * 1.6 - tangent.dz * 1.3;
@@ -1306,6 +1455,7 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     for (let k = 0; k < 3; k += 1) {
       const a = h(RULE.dress, 700 + ci * 10 + k, 1, seed) * 6.283;
       const rr = c.r + 0.3 + h(RULE.dress, 700 + ci * 10 + k, 2, seed) * 0.8;
+      if (!bushOk(c.x + Math.cos(a) * rr, c.z + Math.sin(a) * rr)) continue;
       bushes.push({ id: "rest:tuft:" + ci + ":" + k, proto: k === 0 ? FLOWER : TUFT, x: c.x + Math.cos(a) * rr, z: c.z + Math.sin(a) * rr, k: 0.6 + 0.2 * h(RULE.dress, 700 + ci * 10 + k, 3, seed), yaw: a, tint: [1, 1, 1], radius: 0.35 });
     }
   });
@@ -1432,7 +1582,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
         const fade = ends(along);
         if (fade < 0.25) continue;
         // The block's centre a little into the face: its front stands on the ledge below, its back in the face.
-        const wantS = cl.faceS(along, tier) + F.intoM;
+        // A3: each block a little in or out of the face, so the tier is no straight row.
+        const wantS = cl.faceS(along, tier) + F.intoM + (h(RULE.rockCliff, key, 31, seed) - 0.5) * 2 * F.sJitterM;
         let x = point.x - ix * wantS;
         let z = point.z - iz * wantS;
         const off = cl.offset(x, z).s;
@@ -1466,6 +1617,27 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
           ...(wide ? {} : { stretch: lerp(F.stretchA[0], F.stretchA[1], h(RULE.rockCliff, key, 29, seed)) }),
           tilt: [(h(RULE.rockCliff, key, 27, seed) - 0.5) * 2 * F.leanRad, (h(RULE.rockCliff, key, 28, seed) - 0.5) * 2 * F.leanRad],
         });
+      }
+    }
+    // FB-10 (A3): flat slabs lying on the ledges between the tiers (bright flat tops, the tier edge in shadow).
+    for (let tier = 0; tier < cl.tiers - 1; tier += 1) {
+      let k4 = 0;
+      for (let s = C.capM * 0.5 + h(RULE.rockCliff, ci * 13 + tier, 50, seed) * 2; s < cl.line.length - C.capM * 0.5; s += lerp(F.ledgeStepM[0], F.ledgeStepM[1], h(RULE.rockCliff, ci * 1000 + tier * 100 + k4, 51, seed)), k4 += 1) {
+        const key = ci * 20000 + tier * 500 + k4;
+        cl.line.pointAt(s, point);
+        const [ix, iz] = inward();
+        const fade = ends(s);
+        if (fade < 0.4) continue;
+        // On the ledge: past this tier's face, before the next one.
+        const wantS = cl.faceS(s, tier) + C.faceW + C.ledgeW * (0.3 + 0.4 * h(RULE.rockCliff, key, 52, seed));
+        let x = point.x - ix * wantS;
+        let z = point.z - iz * wantS;
+        const off = cl.offset(x, z).s;
+        x -= ix * (wantS - off);
+        z -= iz * (wantS - off);
+        if (f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 1) continue;
+        const k = lerp(F.ledgeK[0], F.ledgeK[1], h(RULE.rockCliff, key, 53, seed)) * (0.7 + 0.3 * fade);
+        rocks.push({ id: "rock:cliff-ledge:" + ci + ":" + tier + ":" + k4, proto: CLIFF_B, x, z, k, yaw: Math.atan2(ix, iz) + (h(RULE.rockCliff, key, 54, seed) - 0.5) * 1.2, tint: [1, 1, 1], radius: k * 0.45, stone: true, sinkShare: 0.45 });
       }
     }
     // A few wide blocks along the top lip, so the top edge reads as rock, not a grass bank.
@@ -1544,9 +1716,21 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
   dirt.push({ ...blob(f.cx, f.cz, P.plazaM, P.plazaFalloffM, 1, 1, 0), stretch: 1, wobble: 0.08, lobes: 5 });
   groves.forEach((grove, gi) => dirt.push(blob(grove.x, grove.z, grove.radius * P.groveDirt, 1.6, 0.9, 100 + gi, P.shadeShift)));
   trees.forEach((tree, ti) => {
-    const free = tree.id.startsWith("lone:") || tree.id.startsWith("bay:");
-    const r = free ? P.loneDirtM : Math.max(1.1, tree.radius * P.canopyDirt);
-    dirt.push(blob(tree.x, tree.z, r, P.canopyFalloffM, 1, 300 + ti, P.shadeShift));
+    const free = tree.id.startsWith("lone:") || tree.id.startsWith("bay:") || tree.id.startsWith("accent:");
+    if (!free) {
+      dirt.push(blob(tree.x, tree.z, Math.max(1.1, tree.radius * P.canopyDirt), P.canopyFalloffM, 1, 300 + ti, P.shadeShift));
+      return;
+    }
+    // FB-12 (A3): a lone tree's disc is 2–3 overlapping lobed patches of its own size, pushed to the shade side
+    // (no two read as the same stamp).
+    const size = P.loneDirtM * (0.75 + 0.5 * h(RULE.scuff, 300 + ti, 40, seed));
+    dirt.push(blob(tree.x, tree.z, size, P.canopyFalloffM, 1, 300 + ti, P.shadeShift));
+    const extra = 1 + (h(RULE.scuff, 300 + ti, 41, seed) < 0.55 ? 1 : 0);
+    for (let e = 0; e < extra; e += 1) {
+      const a = h(RULE.scuff, 300 + ti * 7 + e, 42, seed) * 6.283;
+      const d = size * (0.45 + 0.35 * h(RULE.scuff, 300 + ti * 7 + e, 43, seed));
+      dirt.push(blob(tree.x + Math.cos(a) * d, tree.z + Math.sin(a) * d, size * (0.45 + 0.25 * h(RULE.scuff, 300 + ti * 7 + e, 44, seed)), P.canopyFalloffM * 0.8, 0.85, 3000 + ti * 7 + e, P.shadeShift));
+    }
   });
   footpaths.forEach((path, pi) => {
     for (const end of [0, path.line.count - 1]) {
