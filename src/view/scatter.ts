@@ -56,9 +56,9 @@ export const FAR_FROM_M = 42;
 
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
-  // K03: a warm brown trunk instead of near black.
+  // K03: a warm brown trunk instead of near black; V13 (map pilot): needles a step lighter, as the tall pine.
   "props/pine-river-pine-young":
-    "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhTrunk = 1.0 - smoothstep(0.16, 0.26, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.3, 0.2) * (0.6 + dhL * 1.6), dhTrunk * 0.75);",
+    "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhTrunk = 1.0 - smoothstep(0.16, 0.26, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.3, 0.2) * (0.6 + dhL * 1.6), dhTrunk * 0.75); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r) * (1.0 - dhTrunk); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.0, 1.1, 0.8) * (1.1 + 0.3 * smoothstep(0.3, 1.0, vDhLocal.y)), dhLeaf);",
   // K04: the indigo half of the crown toward #8E7CC3, the grey trunk cream.
   "props/pine-river-tree-violet":
     "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhTrunk = 1.0 - smoothstep(0.3, 0.42, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.276, 0.204, 0.555) * (dhL / 0.264) * 1.1, 0.85 * (1.0 - dhTrunk)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76) * (0.45 + dhL), dhTrunk * 0.6);",
@@ -71,12 +71,19 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
 };
 
 /**
- * V7 (map pilot): warm crowns from the round tree, rust to copper by place; the trunk stays. The ramp keeps
- * hue 14–18°, S ≤ 0.7; its light end (#954b30 rust, #9e5935 copper) is ΔE2000 ≥ 20 from #FF4A4A,
- * #FFB020, #FFC83A and the withered #C8D24A.
+ * V7 (map pilot): warm crowns from the round tree, maple red to orange by place; the trunk stays.
+ * Albedo kept at S ≤ 0.7, V ≤ 0.7 (lit, the sunny side reads red-orange like the reference's maples);
+ * ΔE2000 ≥ 20 from #FF4A4A, #FFB020, #FFC83A and the withered #C8D24A (darker and less saturated).
  */
 const WARM_CROWN =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhCopper = smoothstep(0.35, 0.65, dhNoise(vDhWorld.xz * 0.045 + 3.0)); vec3 dhDark = mix(vec3(0.15, 0.032, 0.014), vec3(0.17, 0.05, 0.016), dhCopper); vec3 dhLight = mix(vec3(0.3, 0.07, 0.03), vec3(0.34, 0.1, 0.035), dhCopper); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.32, dhL)), dhLeaf);";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhOrange = smoothstep(0.38, 0.62, dhNoise(vDhWorld.xz * 0.05 + 3.0)); vec3 dhDark = mix(vec3(0.2, 0.035, 0.018), vec3(0.24, 0.07, 0.016), dhOrange); vec3 dhLight = mix(vec3(0.42, 0.075, 0.035), vec3(0.45, 0.16, 0.035), dhOrange); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.3, dhL)), dhLeaf);";
+
+/**
+ * V10 (map pilot): cliff stone. Any rock prop painted pale grey from its own shading (moss and
+ * texture hue dropped), darker toward its foot, a faint cool/warm drift by place.
+ */
+const STONE_PAINT =
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.47, 0.46, 0.445) * clamp(0.35 + dhL * 2.0, 0.42, 1.15); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
 
 /** A placed placeholder, metres. `size`: height for pines, crown radius for round trees and bushes, rock radius. */
 export interface ScatterItem {
@@ -90,8 +97,12 @@ export interface ScatterItem {
   readonly proto?: string;
   /** Map spike: instance tint multiplied into the texture. */
   readonly tint?: readonly [number, number, number];
-  /** Map pilot V7: a round crown painted warm (rust, copper). */
+  /** Map pilot V7: a round crown painted warm (red, orange). */
   readonly warm?: boolean;
+  /** Map pilot V10: a cliff rock painted pale stone. */
+  readonly stone?: boolean;
+  /** Map pilot: tilt about x and z, radians (cliff rocks lean into the face). */
+  readonly tilt?: readonly [number, number];
 }
 
 export interface ScatterPlan {
@@ -213,7 +224,8 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     if (inside && skyDist(x, z) < SCATTER_CLEAR.skyLane) return;
     const far = laneGap > 9 && r > play - 4;
     const yaw = random() * Math.PI * 2;
-    if (random() < (inside ? 0.45 : 0.2)) {
+    // Round crowns light the forest edge (the reference's broadleaf rim); pines deeper in.
+    if (random() < (inside || r < edge + 7 ? 0.5 : 0.22)) {
       const size = inside ? 1.3 + random() * 0.9 : 1.8 + random() * 1.3;
       const color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
       const warm =
@@ -278,6 +290,8 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
       proto: item.proto,
       tint: item.tint,
       ...(item.warm ? { warm: true } : {}),
+      ...(item.stone ? { stone: true } : {}),
+      ...(item.tilt ? { tilt: item.tilt } : {}),
     };
     ({ pine: pines, crown: crowns, bush: bushes, rock: rocks })[spec.kind].push(entry);
   };
@@ -397,7 +411,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     if (loaded.length === 0) return;
     const lists: Record<ScatterKind, readonly ScatterItem[]> = { pine: plan.pines, crown: plan.crowns, bush: plan.bushes, rock: plan.rocks };
     /** Items per prop and band ("near" inside the near skirt, "mid" past it). */
-    const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; warm: boolean; items: ScatterItem[] }>();
+    const placed = new Map<string, { spec: PropSpec; model: PropModel; band: "near" | "mid"; warm: boolean; stone: boolean; items: ScatterItem[] }>();
     // V7 A/B: ?warm=0 draws the warm crowns green.
     const warmOn = mapSwitch("warm") !== "0";
     const farItems: FarItem[] = [];
@@ -438,8 +452,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         }
         const band = r <= near ? "near" : "mid";
         const warm = warmOn && item.warm === true && pick.spec.manifest === "props/pine-river-pine-round";
-        const key = pick.spec.manifest + "|" + band + (warm ? "|warm" : "");
-        const group = placed.get(key) ?? { spec: pick.spec, model: pick.model, band, warm, items: [] };
+        const stone = item.stone === true && pick.spec.kind === "rock";
+        const key = pick.spec.manifest + "|" + band + (warm ? "|warm" : "") + (stone ? "|stone" : "");
+        const group = placed.get(key) ?? { spec: pick.spec, model: pick.model, band, warm, stone, items: [] };
         group.items.push(item);
         placed.set(key, group);
       });
@@ -456,10 +471,10 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     hide(shrubs, "bush");
     hide(stones, "rock");
     const tint = new THREE.Color();
-    for (const { spec, model, band, warm, items } of placed.values()) {
+    for (const { spec, model, band, warm, stone, items } of placed.values()) {
       if (items.length === 0) continue;
-      const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "");
-      const paint = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
+      const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "") + (stone ? "-stone" : "");
+      const paint = warm ? WARM_CROWN : stone ? STONE_PAINT : PROP_PAINT[spec.manifest];
       const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
         key: "prop-" + name + (band === "mid" ? "-mid" : ""),
         ...(paint ? { paint } : {}),
@@ -475,8 +490,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       items.forEach((item, index) => {
         const k = item.size * spec.perSize;
         // Rocks and logs sink a little; trees stand on their roots.
-        const sink = spec.kind === "rock" ? k * model.size.y * 0.12 : 0;
-        euler.set(0, item.yaw, 0, "YXZ");
+        // Cliff stone beds deeper into the slope.
+        const sink = spec.kind === "rock" ? k * model.size.y * (item.stone ? 0.26 : 0.12) : 0;
+        euler.set(item.tilt?.[0] ?? 0, item.yaw, item.tilt?.[1] ?? 0, "YXZ");
         quaternion.setFromEuler(euler);
         matrix.compose(position.set(item.x, item.y - sink, item.z), quaternion, scale.set(k, k, k));
         mesh.setMatrixAt(index, matrix);

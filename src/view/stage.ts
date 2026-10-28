@@ -353,6 +353,8 @@ export interface MapStage {
     bakeSplit: { prepMs: number; compileMs: number; renderMs: number } | null;
     baked: boolean;
   };
+  /** Settles once the ground bake has run (or was skipped or failed). */
+  readonly groundBaked: Promise<void>;
   dispose(): void;
 }
 
@@ -392,7 +394,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   rig.update(0);
   let disposed = false;
   // A3: bake the ground paint once its tiles and decals are in (the live paint shows until then).
-  void terrain.paint.ready
+  const groundBaked = terrain.paint.ready
     .then(() => (disposed ? null : terrain.paint.bake(stage.renderer, terrain.look)))
     .then((ms) => {
       loadStats.bakeMs = ms;
@@ -402,6 +404,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
     .catch((error: unknown) => console.warn("paint: the ground bake failed; the live paint stays", error));
   return {
     loadStats,
+    groundBaked,
     stage,
     scene: stage.scene,
     camera: stage.camera,

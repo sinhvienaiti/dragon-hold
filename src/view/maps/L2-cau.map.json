@@ -5,12 +5,12 @@
   "unit": "cm",
   "gameplay": { "adapter": "dragon-hold@1", "commit": "02fe9c787886aecd668248fe00b5f2a97a6e45f4", "note": "simHash and viewHash come with the dragon-hold@2 reader (MAP_PLAN 2.1); the sim never reads this file" },
   "brief": "MAP_PLAN 3.2: sun from the east; the high side is west, a pale three-tier cliff framing the left edge with a gorge where Đường Suối and the stream leave; a bright open meadow east and south-east with the pond at its far edge; footpaths with destinations (pond landing, cliff scree, a south-east forest bay, a fishing spot on the north bank); anchor grove in the north-west wedge across the river; forest bays every 60–90° and a gap at every gate.",
-  "lighting": { "sunBearingDeg": 95, "sunElevationDeg": 50, "hemiSky": "#d6e4ff", "hemiGround": "#6d7a5a", "hemiIntensityPermille": 2100, "fogNearCm": 5200, "fogFarCm": 11500 },
+  "lighting": { "sunBearingDeg": 95, "sunElevationDeg": 50, "hemiSky": "#d6e4ff", "hemiGround": "#6d7a5a", "hemiIntensityPermille": 2450, "fogNearCm": 5200, "fogFarCm": 11500 },
   "scene": {
     "cliffs": [
       { "id": "west-bluff", "site": "pinned", "tiers": 3, "heightCm": 900,
-        "lineCm": [[-4080, 360], [-3990, -280], [-3850, -890], [-3710, -1500], [-3510, -2110]],
-        "note": "bearings 265–301°, r 39–41 m; face normal · sun 0.53–0.64" },
+        "lineCm": [[-3845, 201], [-3733, -591], [-3501, -1344], [-3153, -2048], [-2701, -2701], [-2266, -3236]],
+        "note": "bearings 267–325°, r 37.5–39.5 m (in the default frame's left edge); face normal · sun 0.41–0.64" },
       { "id": "south-west-bluff", "site": "pinned", "tiers": 3, "heightCm": 780,
         "lineCm": [[-2120, 3390], [-2510, 2990], [-2900, 2610], [-3190, 2410]],
         "note": "bearings 212–233°, r 39–40 m, south-east of the stream; normal · sun ≥ 0.33" }
@@ -20,11 +20,10 @@
     "footpaths": [
       { "id": "fp-jetty", "tier": "main", "from": { "dais": 100 }, "to": { "pond": true }, "bendPermille": 60, "note": "dais plaza → pond landing (jetty when the kit has one)" },
       { "id": "fp-scree", "tier": "main", "from": { "dais": 188 }, "to": { "cliff": 222 }, "bendPermille": -120, "note": "dais plaza → scree at the south-west cliff foot" },
-      { "id": "fp-camp", "tier": "branch", "from": { "pond": 165 }, "to": { "edge": 158 }, "bendPermille": 140, "note": "pond → campfire in the south-east forest bay" },
-      { "id": "fp-fish", "tier": "branch", "from": { "pointCm": [1350, -2380] }, "to": { "pointCm": [2100, -2460] }, "bendPermille": 120, "note": "north-bank bridgehead → fishing spot" }
+      { "id": "fp-camp", "tier": "branch", "from": { "pond": 165 }, "to": { "edge": 158 }, "bendPermille": 140, "note": "pond → campfire in the south-east forest bay" }
     ],
     "groves": [
-      { "id": "grove:nw-anchor", "atCm": [-900, -2450], "radiusCm": 700, "dominant": "pine-tall", "warm": true, "note": "anchor across the river, merges into the forest edge (V4)" },
+      { "id": "grove:nw-anchor", "atCm": [-900, -2450], "radiusCm": 700, "dominant": "pine-round", "warm": true, "note": "anchor across the river, merges into the forest edge (V4)" },
       { "id": "grove:cliff-foot", "atCm": [-2550, -1470], "radiusCm": 380, "dominant": "pine-round", "warm": true, "note": "at the north end of the west cliff foot" },
       { "id": "grove:ne-pocket", "atCm": [2034, -1296], "radiusCm": 285, "dominant": "pine-round" },
       { "id": "grove:south-west", "atCm": [-1250, 2250], "radiusCm": 420, "dominant": "pine-round", "warm": true }

@@ -148,11 +148,16 @@ export const LAYOUT_RULES = {
     pond: { count: 10, k: [0.6, 1.35] as const },
     /** V10: 10–20 pale stones 0.8–2 m on the scree in front of each cliff foot. */
     cliffFoot: { stepM: 2.2, chance: 0.7, outM: [0.8, 6.5] as const, k: [0.8, 2.0] as const },
-    /** Slabs along each tier's lip: the face reads as stacked stone, no mossy boulder "eggs". */
-    cliffLip: { stepM: 1.6, chance: 0.9, k: [2.2, 3.6] as const },
+    /** Big pale rocks bedded in the tier faces (painted stone, no moss): the face reads as a rock mass. */
+    cliffMass: { stepM: 2.2, chance: 0.9, pairChance: 0.7, k: [4.2, 7.2] as const, boulderShare: 0.5, leanRad: 0.16 },
   },
   /** V6: the skirt forest starts insideM inside the play radius, moved by the scene's bays and headlands, ± noiseM. */
   edge: { insideM: 2, noiseM: 3.5, noiseWave: 4.5 },
+  /**
+   * V5 (map pilot): small round bushes dotted over the meadow, as in the reference: sparse on the open
+   * arc, a little denser in the transition bands; clear of lanes, slots, the sky lane, water and paths.
+   */
+  dots: { cellM: 3.6, openChance: 0.42, chance: 0.6, max: 34, gapM: 3.2, k: [1.3, 2.1] as const, clearLaneM: 2.6, clearSlotM: 3.8, clearSkyM: 2.2, clearWaterM: 1.3, clearPathM: 0.9, clearTreeM: 2.4, daisM: 9.5 },
   /** V7: warm crowns (tinted round trees). */
   warm: { clearM: 9, gapM: 12, share: 0.08, min: 5 },
   /** L7 paint stamps (potential discs: 1 at the centre, 0.5 at radius, 0 at radius + falloff). */
@@ -193,6 +198,10 @@ export interface LayoutItem {
   readonly radius: number;
   /** Map pilot V7: a round tree whose crown is painted warm (rust, copper); `?warm=0` draws it green. */
   readonly warm?: boolean;
+  /** Map pilot V10: a cliff rock painted pale stone. */
+  readonly stone?: boolean;
+  /** Tilt about x and z, radians. */
+  readonly tilt?: readonly [number, number];
 }
 
 export interface Pond {
@@ -373,7 +382,7 @@ const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 /** Rule-scoped hash in [0, 1): one stream per rule id. */
 const h = (rule: number, a: number, b: number, seed: number): number => hash2(a * 7919 + rule * 104729, b, seed);
 
-const RULE = { pond: 1, cliff: 2, path: 3, grove: 4, groveTree: 5, solitary: 6, rockRiver: 7, rockLane: 8, rockPond: 9, rockCliff: 10, scuff: 11, rim: 12 } as const;
+const RULE = { pond: 1, cliff: 2, path: 3, grove: 4, groveTree: 5, solitary: 6, rockRiver: 7, rockLane: 8, rockPond: 9, rockCliff: 10, scuff: 11, rim: 12, dots: 13 } as const;
 
 /** Tree tints (multiplied into the texture): base, sun green, cool blue-green, deep, fresh. Never yellow (Héo). */
 const TINTS: readonly (readonly [number, number, number])[] = [
@@ -707,8 +716,6 @@ const ROCK_BOULDER = "props/pine-river-rock-boulder";
 const RIVER_STONES = "props/pine-river-river-stones";
 /** V13: gravel and stones mid grey, never a white chain. */
 const GREY: readonly [number, number, number] = [0.7, 0.71, 0.73];
-/** V10: pale warm cliff stone. */
-const PALE: readonly [number, number, number] = [1.06, 1.03, 0.98];
 
 export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)): MapLayout {
   const f = new LayoutFields(map);
@@ -1028,7 +1035,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       bushes.push({ id: "pond:bush" + k, proto: "props/pine-river-bush-moss", x, z, k: 1.6, yaw: k * 2.1, tint: [1, 1, 1], radius: 0.8 });
     }
   }
-  // V10: a pale scree field at each cliff foot, slabs stacked along every tier's lip, a few on the top lip.
+  // V10: pale scree at each cliff foot; big pale rocks bedded in the tier faces, leaning into the
+  // slope at random tiers along the line (a rock mass, never a row of slabs); a few on the top lip.
   const C = LAYOUT_RULES.cliff;
   cliffs.forEach((cl, ci) => {
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
@@ -1054,30 +1062,44 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       const roll = h(RULE.rockCliff, key, 3, seed);
       const k = lerp(R.cliffFoot.k[0], R.cliffFoot.k[1], h(RULE.rockCliff, key, 5, seed)) * (out > 3 ? 0.75 : 1);
       const proto = roll < 0.6 ? ROCK_SLAB : RIVER_STONES;
-      rocks.push({ id: "rock:cliff:" + ci + ":" + index, proto, x, z, k, yaw: roll * 6.283, tint: PALE, radius: k * 0.5 });
+      rocks.push({ id: "rock:cliff:" + ci + ":" + index, proto, x, z, k, yaw: roll * 6.283, tint: [1, 1, 1], radius: k * 0.5, stone: true });
     }
-    // Slabs on each tier's lip (the ledge front) and on the top lip: the face reads as stacked stone.
     const tierCount = Math.max(1, scene?.cliffs[ci]?.tiers ?? 2);
-    for (let tier = 0; tier < tierCount; tier += 1) {
-      let k2 = 0;
-      const lipS = C.faceFromM + tier * (C.faceW + C.ledgeW) + C.faceW + 0.25;
-      for (let s = C.capM * 0.6; s < cl.line.length - C.capM * 0.6; s += R.cliffLip.stepM, k2 += 1) {
-        const key = ci * 1000 + tier * 100 + k2;
-        if (h(RULE.rockCliff, key, 21, seed) > R.cliffLip.chance) continue;
-        cl.line.pointAt(s + (h(RULE.rockCliff, key, 22, seed) - 0.5) * R.cliffLip.stepM * 0.6, point);
+    const M = R.cliffMass;
+    let k2 = 0;
+    for (let s = C.capM * 0.5; s < cl.line.length - C.capM * 0.5; s += M.stepM, k2 += 1) {
+      const per = 1 + (h(RULE.rockCliff, ci * 1000 + k2, 20, seed) < M.pairChance ? 1 : 0);
+      for (let n = 0; n < per; n += 1) {
+        const key = ci * 10000 + k2 * 10 + n;
+        if (h(RULE.rockCliff, key, 21, seed) > M.chance) continue;
+        cl.line.pointAt(s + (h(RULE.rockCliff, key, 22, seed) - 0.5) * M.stepM * 1.2, point);
         const [ix, iz] = inward();
-        // Out of the dais side: + s.
-        let x = point.x - ix * lipS;
-        let z = point.z - iz * lipS;
+        // A tier (the top one a little more often), on its face, ± a little up or down the slope.
+        const tier = Math.min(tierCount, Math.floor(h(RULE.rockCliff, key, 25, seed) * (tierCount + 0.6)));
+        const faceS = tier >= tierCount ? C.faceFromM + (tierCount - 1) * (C.faceW + C.ledgeW) + C.faceW + 1.2 : C.faceFromM + tier * (C.faceW + C.ledgeW) + C.faceW * 0.55;
+        const wantS = faceS + (h(RULE.rockCliff, key, 26, seed) - 0.5) * 0.9;
+        let x = point.x - ix * wantS;
+        let z = point.z - iz * wantS;
         const off = cl.offset(x, z).s;
-        x -= ix * (lipS - off);
-        z -= iz * (lipS - off);
+        x -= ix * (wantS - off);
+        z -= iz * (wantS - off);
+        const ends = smooth(0, C.capM, s) * smooth(cl.line.length, cl.line.length - C.capM, s);
+        const k = lerp(M.k[0], M.k[1], h(RULE.rockCliff, key, 24, seed)) * (0.55 + 0.45 * ends) * (tier >= tierCount ? 0.8 : 1);
+        if (k < M.k[0] * 0.6 || f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 1) continue;
         const roll = h(RULE.rockCliff, key, 23, seed);
-        const k = lerp(R.cliffLip.k[0], R.cliffLip.k[1], h(RULE.rockCliff, key, 24, seed)) * smooth(0, C.capM, s) * smooth(cl.line.length, cl.line.length - C.capM, s);
-        if (k < 1) continue;
-        // Yaw along the line (± 25°), so the slabs of a lip line up like a course of stone.
-        const along = Math.atan2(point.dx, point.dz) + (roll - 0.5) * 1.4;
-        rocks.push({ id: "rock:cliff-lip:" + ci + ":" + tier + ":" + k2, proto: ROCK_SLAB, x, z, k, yaw: along, tint: PALE, radius: k * 0.5 });
+        const lean = (h(RULE.rockCliff, key, 27, seed) - 0.5) * 2 * M.leanRad;
+        rocks.push({
+          id: "rock:cliff-mass:" + ci + ":" + k2 + ":" + n,
+          proto: roll < M.boulderShare ? ROCK_BOULDER : ROCK_SLAB,
+          x,
+          z,
+          k,
+          yaw: roll * 37.7,
+          tint: [1, 1, 1],
+          radius: k * 0.5,
+          stone: true,
+          tilt: [lean, (h(RULE.rockCliff, key, 28, seed) - 0.5) * 2 * M.leanRad],
+        });
       }
     }
   });
@@ -1091,6 +1113,28 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     const z = gz + dz * 6.5 + dx * (lane.half + 2.4);
     rocks.push({ id: "gate:log:" + laneIndex, proto: "props/pine-river-log", x, z, k: 2.8, yaw: Math.atan2(dx, dz) + 0.35, tint: [1, 1, 1], radius: 1.4 });
   });
+
+  // V5: meadow dots (small bushes), off every lane, slot, path, grove and tree.
+  {
+    const D = LAYOUT_RULES.dots;
+    const dots: LayoutItem[] = [];
+    for (const c of candidates(f, D.cellM, f.play, RULE.dots, seed)) {
+      if (dots.length >= D.max) break;
+      const r = f.r(c.x, c.z);
+      if (r < D.daisM || r > forestEdge(c.x, c.z) - 1.5) continue;
+      const roll = h(RULE.dots, Math.round(c.x * 10), Math.round(c.z * 10), seed);
+      if (roll > (inOpen(c.x, c.z) ? D.openChance : D.chance)) continue;
+      if (f.laneGap(c.x, c.z) < D.clearLaneM || f.slotDist(c.x, c.z) < D.clearSlotM || f.skyDist(c.x, c.z) < D.clearSkyM) continue;
+      if (f.riverEdge(c.x, c.z) < D.clearWaterM || pondEdge(c.x, c.z) < D.clearWaterM || pathGap(c.x, c.z) < D.clearPathM) continue;
+      if (cliff && cliff.lift(c.x, c.z) > 0.2) continue;
+      if (groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) < g.radius + 1)) continue;
+      if (trees.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < t.radius + D.clearTreeM)) continue;
+      if ([...dots, ...rocks].some((t) => Math.hypot(t.x - c.x, t.z - c.z) < D.gapM)) continue;
+      const k = lerp(D.k[0], D.k[1], h(RULE.dots, Math.round(c.x * 10), Math.round(c.z * 10), seed + 1));
+      dots.push({ id: "dot:" + c.cell, proto: "props/pine-river-bush-moss", x: c.x, z: c.z, k, yaw: roll * 37.7, tint: TINTS[Math.floor(roll * 53) % TINTS.length]!, radius: k * 0.45 });
+    }
+    bushes.push(...dots);
+  }
 
   // L7 dirt stamps (V3: lobed patches, centre pushed to the shade side): plaza, canopy dirt, lone and bay
   // trees, junctions, lane crossings, lane scuffs, cliff scree.

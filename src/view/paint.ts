@@ -64,8 +64,8 @@ export const PILOT_GROUND = {
   uDirtLight: "#dcc59c",
   uDirtDark: "#8a6c4e",
   uRimStone: "#7d7a72",
-  uStone: "#c4bcb0",
-  uScree: "#b9b2a4",
+  uStone: "#bdb9b1",
+  uScree: "#b3b1aa",
 } as const;
 
 const ART_BASE = "/art-src/";
@@ -689,6 +689,17 @@ if (edge0 < 0.6 || pm2.g > 0.05) dRock = dhDetail(textureGrad(uTRock, p / 4.5, d
 float calm = broad * 0.75 + mid * 0.17 + stroke * 0.08;
 vec3 c = mix(uGrassMid, uGrassLight, clamp(0.4 + (calm - 0.5) * 1.1, 0.0, 1.0));
 c *= dGrass;
+// Meadow tufts (the reference's speckle): sparse small dabs a step darker, lit on the sun side; baked, so free per frame.
+{
+  vec2 tc = floor(p / 0.85);
+  float th = dhHash(tc + 7.3);
+  vec2 to = (tc + 0.25 + 0.5 * vec2(dhHash(tc + 1.7), dhHash(tc + 3.1))) * 0.85;
+  vec2 td = (p - to) * vec2(1.0, 1.6);
+  float tr = 0.1 + 0.12 * dhHash(tc + 5.9);
+  float tuft = (1.0 - smoothstep(tr * 0.7, tr, length(td))) * step(th, 0.3);
+  float lit = smoothstep(-0.2, 0.6, dot(normalize(td + 1e-4), vec2(0.99, 0.09)));
+  c *= 1.0 - tuft * mix(0.16, 0.02, lit);
+}
 float h = vDhWorld.y;
 c = mix(c, c * uCoolTint, smoothstep(0.1, -0.9, h) * 0.3);
 // Forest floor: the vertex forest mask outside the paint square, the baked canopy shade inside. The deep tone lives only here.
@@ -700,10 +711,16 @@ c = mix(c, uGrassDeep * dGrass, smoothstep(0.12, 0.4, shadeV) * 0.45);
 vec3 floorC = mix(uForestFloor * dMoss, uForestFloor * 1.15 * dLitter * vec3(1.2, 1.0, 0.8), smoothstep(0.45, 0.6, stroke + big * 0.2) * 0.4);
 c = mix(c, floorC * (0.92 + 0.2 * stroke), woods * 0.8);
 c = mix(c, c * uVioletShade, woods * smoothstep(0.35, 0.65, stroke + big * 0.3) * 0.35 * (1.0 - smoothstep(0.2, 0.35, slope)));
-// Cliff ground (ledges and tops): pale scree with grass in the cracks.
+// Cliff ground (ledges and tops): pale grey rock, darker cracks, grass only in a few pockets (V10).
 float level = 1.0 - smoothstep(0.22, 0.38, slope);
 float cliffG = smoothstep(0.25, 0.6, pm2.g + (mid - 0.5) * 0.3);
-c = mix(c, mix(uScree * dRock * (0.9 + 0.2 * stroke), c, 0.25 + smoothstep(0.5, 0.7, mid) * 0.5), cliffG);
+if (cliffG > 0.0) {
+  float crack = smoothstep(0.58, 0.72, dhNoise(p * vec2(0.7, 1.3) + 2.0) * 0.6 + dhNoise(p * 2.1 + 5.0) * 0.4);
+  vec3 rockTop = uScree * dRock * (0.9 + 0.18 * stroke + 0.12 * (big - 0.5));
+  rockTop = mix(rockTop, rockTop * vec3(0.66, 0.68, 0.72), crack * 0.7);
+  float pocket = smoothstep(0.6, 0.74, mid + (big - 0.5) * 0.35);
+  c = mix(c, mix(rockTop, c, pocket * 0.85), cliffG);
+}
 // Banks: patchy sand, a pebbly margin, wet mud at the waterline.
 float edge = vDhMask.z;
 float bankPatch = smoothstep(0.42, 0.62, dhNoise(p * 0.22 + 11.0));

@@ -258,8 +258,8 @@ export function buildWater(map: MapDef, terrain: PaintedTerrain): WaterView {
     uniforms: {
       ...terrain.look.uniforms,
       // Dark jade, desaturated (05 §2.2: never the semantic teal near the paths).
-      uDeep: { value: new THREE.Color("#2a5a86") },
-      uShallow: { value: new THREE.Color("#6197bb") },
+      uDeep: { value: new THREE.Color("#32679a") },
+      uShallow: { value: new THREE.Color("#6aa3c6") },
       uFoam: { value: new THREE.Color("#eef3ea") },
       uShallowsC: { value: shallows },
     },
