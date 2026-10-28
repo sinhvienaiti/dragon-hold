@@ -351,7 +351,10 @@ export class QuadPool {
       this.iPos[n * 3] = this.x[i]!;
       this.iPos[n * 3 + 1] = this.y[i]!;
       this.iPos[n * 3 + 2] = this.z[i]!;
-      this.iData[n * 4] = this.size[i]! * (1 + this.grow[i]! * (1 - (1 - k) * (1 - k)));
+      // A held quad grows only once its hold is over (as flares do): frame 0 of a held burst is its peak in size too
+      // (round 3, vfx-sheet: the release ball grown on frame 1 lit 6 % more of the close-up ring than frame 0).
+      const g = hold > 0 ? out : k;
+      this.iData[n * 4] = this.size[i]! * (1 + this.grow[i]! * (1 - (1 - g) * (1 - g)));
       this.iData[n * 4 + 1] = this.rot[i]!;
       this.iData[n * 4 + 2] = this.flat ? 1 : 0;
       this.iData[n * 4 + 3] = this.seed[i]!;
@@ -874,7 +877,10 @@ export class FxCore {
     // the head covered part of it on frame 0 and swung clear on frame 1, which read brighter).
     const lift = WORD_FX.flashLiftM * s;
     this.flares.flare(at, 0.85 * s * big, FX_COLORS.flashCore, 2.3 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.15, 1, lift);
-    this.flares.flare(at, 1.5 * s * big, hot, (strong ? 1.15 : 0.9) * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
+    // A strong word's teal is a wide, low glow (2.2 m at 0.5): teal stacked on the gold middle at full strength turned
+    // a disc 2.4× the plain core white (round 3 measure: 20 px against 8 at 720p).
+    if (strong) this.flares.flare(at, 2.2 * s * big, hot, 0.5 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
+    else this.flares.flare(at, 1.5 * s * big, hot, 0.9 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
     // Tongues of fire thrown along the shot (tapered flame ribbons, uneven in length, width and angle; 2 full frames).
     this.tongue(at, ux, uz, 0, 3.4, 0.7, 1);
     this.tongue(at, ux, uz, this.rand(0.26, 0.4), 2.3, 0.5, -1);
@@ -939,7 +945,8 @@ export class FxCore {
         tongue.trail.hide();
         continue;
       }
-      const reach = tongue.length * (0.8 + 0.2 * Math.min(1, age / WORD_FX.flashHoldS));
+      // Full length on frame 0 (the peak), a little longer as it fades.
+      const reach = tongue.length * (1 + 0.15 * (1 - k));
       const sideX = -tongue.dir.z;
       const sideZ = tongue.dir.x;
       const n = tongue.trail.count;
