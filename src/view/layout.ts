@@ -160,7 +160,7 @@ export const LAYOUT_RULES = {
      * face foot a row of tall blocks (cliff-rock-a, height a tier × kA), turned to the dais, every stepM; the
      * lowest tier mixes in wide blocks (cliff-rock-b, width kB × tier); a few wide blocks along the top lip.
      */
-    cliffFace: { stepM: 2.1, jitterM: 0.4, intoM: 0.35, kA: [0.88, 1.08] as const, stretchA: [1.45, 1.95] as const, kB: [1.2, 1.5] as const, footWide: 0.35, lipStepM: 4.5, lipK: [2.4, 3.4] as const, yawJitter: 0.45, leanRad: 0.06 },
+    cliffFace: { stepM: [1.6, 2.8] as const, skip: 0.12, intoM: 0.35, kA: [0.78, 1.12] as const, stretchA: [1.25, 2.1] as const, tall: 0.12, tallK: 1.75, kB: [1.2, 1.5] as const, footWide: 0.35, upperWide: 0.18, lipStepM: 4.5, lipK: [2.4, 3.4] as const, yawJitter: 0.6, leanRad: 0.08 },
   },
   /** V6: the skirt forest starts insideM inside the play radius, moved by the scene's bays and headlands, ± noiseM. */
   edge: { insideM: 2, noiseM: 4, noiseWave: 4.5 },
@@ -1422,9 +1422,11 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     const ends = (s: number): number => smooth(0, C.capM, s) * smooth(cl.line.length, cl.line.length - C.capM, s);
     for (let tier = 0; tier < cl.tiers; tier += 1) {
       let k2 = 0;
-      for (let s = C.capM * 0.35; s < cl.line.length - C.capM * 0.35; s += F.stepM, k2 += 1) {
+      // Irregular steps, a few gaps, a few tall blocks over two tiers: a rock face, not a wall of equal blocks.
+      for (let s = C.capM * 0.35 + h(RULE.rockCliff, ci * 7 + tier, 21, seed) * F.stepM[0]; s < cl.line.length - C.capM * 0.35; s += lerp(F.stepM[0], F.stepM[1], h(RULE.rockCliff, ci * 100000 + tier * 1000 + k2, 20, seed)), k2 += 1) {
         const key = ci * 100000 + tier * 1000 + k2;
-        const along = s + (h(RULE.rockCliff, key, 22, seed) - 0.5) * 2 * F.jitterM;
+        if (h(RULE.rockCliff, key, 26, seed) < F.skip) continue;
+        const along = s;
         cl.line.pointAt(along, point);
         const [ix, iz] = inward();
         const fade = ends(along);
@@ -1437,8 +1439,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
         x -= ix * (wantS - off);
         z -= iz * (wantS - off);
         if (f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 1) continue;
-        const wide = tier === 0 && h(RULE.rockCliff, key, 23, seed) < F.footWide;
-        const tierH = cl.tierM * (0.55 + 0.45 * fade);
+        const wide = h(RULE.rockCliff, key, 23, seed) < (tier === 0 ? F.footWide : F.upperWide);
+        const tall = !wide && tier < cl.tiers - 1 && h(RULE.rockCliff, key, 30, seed) < F.tall;
+        const tierH = cl.tierM * (0.55 + 0.45 * fade) * (tall ? F.tallK : 1);
         const proto = wide ? CLIFF_B : CLIFF_A;
         const k = wide ? (tierH / CLIFF_B_H) * 0.5 * lerp(F.kB[0], F.kB[1], h(RULE.rockCliff, key, 24, seed)) : tierH * lerp(F.kA[0], F.kA[1], h(RULE.rockCliff, key, 24, seed));
         const height = wide ? k * CLIFF_B_H : k;
