@@ -46,7 +46,7 @@ export const SKY_FX = {
   lightCharge: 0.35,
   lightReleaseCd: 120,
   lightReleaseS: 6 / 60,
-  lightImpactCd: 220,
+  lightImpactCd: 150,
   lightImpactS: 12 / 60,
   lightImpactReach: 26,
   /** Flashes: full for 2 frames, out by frame 3 (L10). */
@@ -279,14 +279,16 @@ export class SkyFire {
     const soft = host.reduced ? 0.7 : 1;
     const mouth = host.mouthPoint(this.v);
     const facing = host.mouthFacing(this.w);
-    const at = this.u.set(mouth.x + facing.x * 0.45 * k, mouth.y + 0.05, mouth.z + facing.z * 0.45 * k);
+    // At the jaw, sized by √k: the capture showed a ball over the head (the word attack's judge 3 fault).
+    const rk = Math.sqrt(k);
+    const at = this.u.set(mouth.x + facing.x * 0.3 * rk, mouth.y - 0.05, mouth.z + facing.z * 0.3 * rk);
     const flicker = 0.92 + 0.08 * Math.sin(this.time * 43) * Math.sin(this.time * 19 + 0.7);
     // L9: a core at the mouth, HDR 1 → 3, on an ember halo and a deep-orange body (normal blend: it reads on the dais).
     // Round 3 (word attack lesson): a fire ball with a dark-red rim, drawn for one frame (a quad dies on its second update)., so the gathering reads on the
     // sunlit dais; the halo stays low (an additive ember wash turns the dais cream).
-    host.puffs.spawn(at.x, at.y, at.z, (0.9 + 1.5 * f) * k, 1 / 30, FX_COLORS.chargeBall, 0.9, { fadeIn: 0.001, hold: 1 / 30, spin: 4, rot: host.random() * TAU, shape: PUFF_FIRE });
-    host.flares.draw(at, (1.0 + 1.7 * f) * k, FX_COLORS.ember, (0.35 + 0.4 * f) * flicker * soft);
-    host.flares.draw(at, (0.35 + 0.6 * f) * k, FX_COLORS.fireHot, (1 + 2 * f) * flicker * soft);
+    host.puffs.spawn(at.x, at.y, at.z, (0.5 + 1.0 * f) * rk, 1 / 30, FX_COLORS.chargeBall, 0.9, { fadeIn: 0.001, hold: 1 / 30, spin: 4, rot: host.random() * TAU, shape: PUFF_FIRE });
+    host.flares.draw(at, (0.8 + 1.3 * f) * rk, FX_COLORS.ember, (0.35 + 0.4 * f) * flicker * soft);
+    host.flares.draw(at, (0.25 + 0.5 * f) * rk, FX_COLORS.fireHot, (1 + 2 * f) * flicker * soft);
     // L8: 12 embers pulled into the mouth over f0–f8, from round the head and up from the rune circle.
     const due = Math.min(SKY_FX.embers, Math.ceil(((age * 60 + 1) / SKY_FX.emberFrames) * SKY_FX.embers));
     const count = host.reduced ? Math.ceil(due * 0.6) : due;
