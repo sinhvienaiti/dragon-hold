@@ -54,14 +54,17 @@ export function meanLuma(img, box) {
 
 /**
  * Where `img` got brightest over `base` inside `box`: the centre of the `cell`-px square with the largest mean gain.
+ * With `later` (a frame after the flash has gone), a gain that is still there in it is taken off: a flash is what
+ * came and went, not a body that moved (the strike clip turns the Dragon on the frame the flash is born).
  */
-export function brightestGain(img, base, box, cell) {
+export function brightestGain(img, base, box, cell, later = null) {
   let best = { x: box.x + box.w / 2, y: box.y + box.h / 2, gain: -1 };
   const step = Math.max(2, Math.round(cell / 3));
   for (let y = Math.max(0, box.y); y + cell <= Math.min(img.h, box.y + box.h); y += step) {
     for (let x = Math.max(0, box.x); x + cell <= Math.min(img.w, box.x + box.w); x += step) {
       const square = { x, y, w: cell, h: cell };
-      const gain = meanLuma(img, square) - meanLuma(base, square);
+      const under = meanLuma(base, square);
+      const gain = meanLuma(img, square) - under - (later === null ? 0 : Math.max(0, meanLuma(later, square) - under));
       if (gain > best.gain) best = { x: x + cell / 2, y: y + cell / 2, gain };
     }
   }
@@ -121,4 +124,55 @@ export function clip(pattern, out, fps = 60) {
   const run = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-framerate", String(fps), "-i", pattern, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", out], { encoding: "utf8" });
   if (run.status !== 0) throw new Error("ffmpeg failed: " + run.stderr);
   return out;
+}
+
+/**
+ * Size of a bolt in flight (VFX_STANDARD §5.6: head ≥ 20 × 6 px at 720p): from `center` (the projected head) the
+ * pixels that changed from `base` by more than `delta` (RGB distance, 0–1) and touch it, within `reach` px,
+ * measured along the shot (`dir`, screen) and across it. Along includes the ribbon behind the head.
+ * Returns { along, across, pixels } or null when the head pixel did not change.
+ */
+export function headSize(img, base, center, dir, { delta = 0.18, reach = 90 } = {}) {
+  const length = Math.hypot(dir.x, dir.y) || 1;
+  const ux = dir.x / length;
+  const uy = dir.y / length;
+  const cx = Math.round(center.x);
+  const cy = Math.round(center.y);
+  const changed = (x, y) => {
+    const i = (y * img.w + x) * 3;
+    const dr = img.data[i] - base.data[i];
+    const dg = img.data[i + 1] - base.data[i + 1];
+    const db = img.data[i + 2] - base.data[i + 2];
+    return Math.sqrt(dr * dr + dg * dg + db * db) / (255 * Math.sqrt(3)) > delta;
+  };
+  // Start from the most changed pixel within 4 px of the projected head.
+  let start = null;
+  for (let y = cy - 4; y <= cy + 4; y += 1) for (let x = cx - 4; x <= cx + 4; x += 1) if (x >= 0 && y >= 0 && x < img.w && y < img.h && changed(x, y)) start ??= [x, y];
+  if (start === null) return null;
+  const seen = new Uint8Array(img.w * img.h);
+  const stack = [start];
+  seen[start[1] * img.w + start[0]] = 1;
+  let alongMin = 0;
+  let alongMax = 0;
+  let acrossMin = 0;
+  let acrossMax = 0;
+  let pixels = 0;
+  while (stack.length > 0) {
+    const [x, y] = stack.pop();
+    pixels += 1;
+    const t = (x - cx) * ux + (y - cy) * uy;
+    const d = (x - cx) * uy - (y - cy) * ux;
+    alongMin = Math.min(alongMin, t);
+    alongMax = Math.max(alongMax, t);
+    acrossMin = Math.min(acrossMin, d);
+    acrossMax = Math.max(acrossMax, d);
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= img.w || ny >= img.h || Math.hypot(nx - cx, ny - cy) > reach) continue;
+      const k = ny * img.w + nx;
+      if (seen[k] || !changed(nx, ny)) continue;
+      seen[k] = 1;
+      stack.push([nx, ny]);
+    }
+  }
+  return { along: Math.round(alongMax - alongMin + 1), across: Math.round(acrossMax - acrossMin + 1), pixels };
 }

@@ -9,10 +9,12 @@ import { badResources, boot, outDir, press, state, waitFor } from "./lib/dh.mjs"
 const SPEED = process.env.SPEED ?? "2";
 const WAVES = Number(process.env.WAVES ?? "5");
 const Q = process.env.Q ?? "high";
+// Extra URL options, e.g. QUERY="bloom=1&mouthlight=0" (dev switches, app.ts optionsFromUrl).
+const QUERY = process.env.QUERY ? "&" + process.env.QUERY : "";
 
 export default async function (page) {
   const out = outDir("integrator");
-  await boot(page, `prelearn=0&q=${Q}&speed=${SPEED}`);
+  await boot(page, `prelearn=0&q=${Q}&speed=${SPEED}${QUERY}`);
   await press(page, "Enter");
   await waitFor(page, "s.phase === 'wave'", { timeoutMs: 15000 });
   void page.eval(`window.__botRun = (async () => {
@@ -47,5 +49,5 @@ export default async function (page) {
     await page.sleep(500);
   }
   await page.eval("window.__stopBot = true");
-  return { quality: Q, size: page.width + "x" + page.height, rows, end: await state(page), badResources: await badResources(page) };
+  return { quality: Q, query: QUERY.slice(1), size: page.width + "x" + page.height, rows, end: await state(page), badResources: await badResources(page) };
 }

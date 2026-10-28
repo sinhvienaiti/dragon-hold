@@ -10,13 +10,13 @@
 // key → release (needs the after build's fx.lastRelease).
 //   URL=http://127.0.0.1:4157/ LABEL=after node scripts/visual/cdp-run.mjs scripts/visual/scenarios/dh-vfx-word.mjs --width=1920 --height=1080
 // Env: LABEL (before|after), SIZES=1280x720,1920x1080, CAMS=play,close, GROUNDS=light,dark, SEED, KEY_GAP (frames
-// between keys, 7), QUERY (extra URL options, e.g. bloom=1&mouthlight=0), CLIP=1, CLIP_SIZE=1920x1080, LIVE=1,
+// between keys, 7), TYPO (a wrong key before letter i: the plain bolt), QUERY (extra URL options, e.g. bloom=1&mouthlight=0), CLIP=1, CLIP_SIZE=1920x1080, LIVE=1,
 // ONLY_CLIP=1. Output: OUT_DIR or tmp/vfx/<LABEL>/ (ignored by Git).
 // Owner: view-crowd-fx (LANES.md).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { badResources, BASE, press } from "./lib/dh.mjs";
-import { beside, brightestGain, clip, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
+import { beside, brightestGain, clip, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
 
 const LABEL = process.env.LABEL ?? "after";
 const OUT = resolve(process.env.OUT_DIR ?? join("tmp/vfx", LABEL));
@@ -26,6 +26,8 @@ const GROUNDS = (process.env.GROUNDS ?? "light,dark").split(",");
 const SEED = process.env.SEED ?? "20261028";
 const KEY_GAP = Number(process.env.KEY_GAP ?? "7");
 const QUERY = process.env.QUERY ?? "";
+/** TYPO=i: one wrong key before letter i (a 1-error word grades Vừa or Tốt: the plain orange bolt, no camera kick). */
+const TYPO = process.env.TYPO === undefined ? -1 : Number(process.env.TYPO);
 const REFERENCE = process.env.REFERENCE ?? resolve("../../tmp/vfx/owner-reference-layered-vfx.webp");
 /** Frames after the last key drawn one by one (R, T, I), then F every F_STEP frames to F_END. */
 const DENSE = 36;
@@ -37,7 +39,7 @@ const PLATE_ALPHA = 0.9;
 const TEXT_LUM = Math.min(lum255(0xff, 0xf4, 0xd6), lum255(0x7f, 0xf5, 0xe0), lum255(0xea, 0xdf, 0xc4));
 
 /** The held clock and the speech stub, in every document the page opens. */
-const SHIM = `(() => {
+export const SHIM = `(() => {
   try { const s = window.speechSynthesis; if (s) { s.speak = () => {}; s.cancel = () => {}; } } catch {}
   if (!new URLSearchParams(location.search).has("heldclock")) return;
   const realRaf = window.requestAnimationFrame.bind(window);
@@ -63,15 +65,20 @@ const META = `(() => {
   const d = window.__dh; const s = d.state(); const fx = d.numberLayer(); const core = fx && fx.core;
   const tags = [...document.querySelectorAll('.dh-tag')].filter((t) => { const c = getComputedStyle(t); return c.display !== 'none' && c.visibility !== 'hidden' && Number(c.opacity) > 0.05 && !t.closest('[hidden]'); })
     .map((t) => t.querySelector('.dh-tag__body')).filter(Boolean).map((b) => { const r = b.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }).filter((r) => r[2] > 4 && r[3] > 4);
-  return { tick: s.tick, phase: s.phase, stats: core && core.stats ? core.stats() : null, light: core && core.mouthLightLevel !== undefined ? core.mouthLightLevel : null, drawCalls: d.perf().drawCalls, tags };
+  const heads = core && core.boltHeads ? core.boltHeads().map((p) => d.project(p.x, p.y, p.z)) : [];
+  const flash = core && core.releasePoint ? d.project(core.releasePoint.x, core.releasePoint.y, core.releasePoint.z) : null;
+  return { tick: s.tick, phase: s.phase, stats: core && core.stats ? core.stats() : null, light: core && core.mouthLightLevel !== undefined ? core.mouthLightLevel : null, drawCalls: d.perf().drawCalls, tags, heads, flash };
 })()`;
 
-const step = (page, n = 1) => page.eval("window.__clock.step(" + n + ")");
+export const step = (page, n = 1) => page.eval("window.__clock.step(" + n + ")");
 const state = (page) => page.eval("window.__dh.state()");
 
 /** Opens the game at a held clock, models in, wave 1 running; returns the frames stepped so far. */
-async function open(page, w, h, ground, extra = "") {
+export async function open(page, w, h, ground, extra = "") {
   await page.viewport(w, h, 1);
+  // Every run starts from empty storage: the learning memory and the pace profile a run writes would change the
+  // next run's deck, and so the word and foe a capture types.
+  await page.send("Storage.clearDataForOrigin", { origin: new URL(BASE).origin, storageTypes: "all" });
   const query = ["heldclock=1", "prelearn=0", "q=high", "wpm=35", "seed=" + SEED, ground === "dark" ? "dusk=1" : "", QUERY, extra].filter(Boolean).join("&");
   await page.goto(BASE + "/?" + query, { settle: 300 });
   let waited = 0;
@@ -95,7 +102,7 @@ async function open(page, w, h, ground, extra = "") {
 }
 
 /** Steps until a live word sits on a drawn foe; returns it and its foe. */
-async function target(page) {
+export async function target(page) {
   for (let k = 0; k < 400; k += 1) {
     const found = await page.eval(`(() => { const d = window.__dh; const word = d.words().find((w) => w.target && w.visible && w.kind === 'enemy' && w.text.length >= 4 && w.typed === 0);
       if (!word) return null; const foe = d.foes().find((f) => f.slot === word.target.slot && f.serial === word.target.serial); return foe ? { word, foe } : null; })()`);
@@ -105,8 +112,16 @@ async function target(page) {
   return null;
 }
 
+/** A wrong letter: not `next`, and no live word starts with it (so it cannot switch the target). */
+async function wrongKey(page, next) {
+  const firsts = await page.eval("window.__dh.words().map((w) => w.text[0])");
+  const letter = [..."qxzjvkwy"].find((c) => c !== next && !firsts.includes(c)) ?? "q";
+  await press(page, "Key" + letter.toUpperCase());
+  await step(page, 2);
+}
+
 /** Camera: "play" is the home view (05 §3); "close" the nearest zoom (0.6), side-on to the shot, on the sun side. */
-async function aim(page, cam, foe) {
+export async function aim(page, cam, foe) {
   if (cam !== "close") return null;
   const shot = (Math.atan2(foe.x, foe.z) * 180) / Math.PI;
   const yawA = shot + 90;
@@ -169,6 +184,7 @@ async function capture(page, [w, h], cam, ground) {
   const text = picked.word.text;
   await grab(page, dir, "a-00", "A start", frames);
   for (let i = 0; i < text.length - 1; i += 1) {
+    if (i === TYPO) await wrongKey(page, text[i]);
     await press(page, "Key" + text[i].toUpperCase());
     await step(page, 1);
     await grab(page, dir, "a-" + String(i + 1).padStart(2, "0"), "A " + text.slice(0, i + 1), frames);
@@ -185,8 +201,8 @@ async function capture(page, [w, h], cam, ground) {
   return { dir, opened, picked, view, crop, frames, grades: end.grades };
 }
 
-/** Measures of one capture (VFX_STANDARD §5.6). */
-function measure(run, h) {
+/** Measures of one capture (VFX_STANDARD §5.6); exported so a capture on disk can be measured again (its meta.json). */
+export function measure(run, h) {
   const frames = run.frames;
   const s = h / 720;
   const pre = frames.find((f) => f.name === "pre");
@@ -197,7 +213,10 @@ function measure(run, h) {
   const m = run.crop.mouth;
   const search = { x: Math.round(m.x - 140 * s), y: Math.round(m.y - 110 * s), w: Math.round(280 * s), h: Math.round(220 * s) };
   const cell = Math.round(18 * s);
-  const spot = brightestGain(f0, preImg, search, cell);
+  // Where the release flash was born (builds that report it), else the most transient gain round the head:
+  // f8 has the flash (≤ 3 frames) and the light (≤ 6) out, so what still shines there is the Dragon or the bolt.
+  const born = dense[0].flash;
+  const spot = born?.visible ? { x: Math.round(born.x), y: Math.round(born.y) } : brightestGain(f0, preImg, search, cell, readRgb(dense[8].png));
   const roi = { x: spot.x - cell / 2, y: spot.y - cell / 2, w: cell, h: cell };
   const base = meanLuma(preImg, roi);
   const series = dense.slice(0, 8).map((f) => +(meanLuma(readRgb(f.png), roi) - base).toFixed(4));
@@ -219,7 +238,15 @@ function measure(run, h) {
   contrasts.sort((a, b) => a.contrast - b.contrast);
   const lights = dense.slice(0, 8).map((f) => f.light);
   const lightPeak = Math.max(...lights.map((v) => v ?? 0));
+  // T: the bolt head in flight, f3–f10 (the strike lands at f12), against the frame before the last key.
+  const shot = { x: run.crop.foe.x - run.crop.mouth.x, y: run.crop.foe.y - run.crop.mouth.y };
+  const heads = dense
+    .slice(3, 11)
+    .filter((f) => f.heads?.[0]?.visible)
+    .map((f) => ({ frame: f.name, ...(headSize(readRgb(f.png), preImg, f.heads[0], shot, { reach: Math.round(90 * s) }) ?? {}) }));
+  const sized = heads.filter((head) => head.along !== undefined);
   return {
+    head: { frames: heads, minAlong: sized.length ? Math.min(...sized.map((x) => x.along)) : null, minAcross: sized.length ? Math.min(...sized.map((x) => x.across)) : null },
     flash: { roi, series, firstOverPeak: peak > 0 ? +(series[0] / peak).toFixed(3) : null },
     light: { series: lights, firstOverPeak: lightPeak > 0 ? +((lights[0] ?? 0) / lightPeak).toFixed(3) : null },
     whiteOutMaxPct: +(whiteMax * 100).toFixed(2),
@@ -268,6 +295,7 @@ async function recordClip(page, [w, h]) {
 /** Key → release at the real clock: the last key's keydown to the frame that drew the bolt at the mouth. */
 async function live(page) {
   await page.viewport(1920, 1080, 1);
+  await page.send("Storage.clearDataForOrigin", { origin: new URL(BASE).origin, storageTypes: "all" });
   await page.goto(BASE + "/?" + ["prelearn=0", "q=high", "wpm=35", "seed=" + SEED, QUERY].filter(Boolean).join("&"), { settle: 300 });
   for (let k = 0; k < 120 && (await page.eval("window.__dh?.ready === true")) !== true; k += 1) await page.sleep(250);
   await page.sleep(2500);
