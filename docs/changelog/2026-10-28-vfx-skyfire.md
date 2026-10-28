@@ -8,7 +8,11 @@ Làn V-dh, nhánh `dh-vfx` trong `games/.wt-dh-vfx`. Chuẩn: `docs/games/VFX_ST
 
 ## 1. Tóm tắt
 
-KẾT_QUẢ
+**Bước 2 đang dừng giữa chừng** (điều phối viên, 29/10: làm đòn chữ vòng 5 trước). Trạng thái ở `7ae38e9` đã chụp đủ 8 tổ hợp và đo; `cc0f5ad` (hạt gồng bằng cỡ đầu, đèn trúng 150 cd) chưa chụp lại. Chưa có người chấm độc lập, chưa đo hiệu năng.
+
+- Đủ năm pha trong 48 khung: gồng f0–f11, tung đòn ở f12, bay một cung từ miệng tới đích, trúng ở f48, dư âm tới giây 7 (mục 2).
+- Số đo §5.6 ở `7ae38e9`: khung đầu của lóe tung đòn 100 %, của lóe trúng 98,5–100 %, của đèn 100 %; đường bay 100 % trong khung ở cả hai cỡ; vòm đúng 4 m (tỉ lệ 1,00); trắng xóa ≤ 0,24 %; thẻ chữ ≥ 9,94 : 1 với 2–3 thẻ trên màn; từ Alt + 2 tới khung gồng đầu tiên tối đa 8,7 ms, trung bình 6,9 ms (5 lần).
+- Bài học của đòn chữ vòng 3–4 đã áp một phần (khối lửa trộn thường có viền, ribbon lửa trộn thường, lõi trắng nhỏ). Bài học vòng 5 (lõi nóng HDR ngoài tone map, lớp tối bên dưới) chưa áp.
 
 ## 2. Năm pha (f0 = lúc dùng chiêu, 60 Hz)
 
@@ -24,19 +28,47 @@ KẾT_QUẢ
 
 ## 3. Lỗi tìm thấy khi chụp lần đầu, đã sửa
 
-SỬA
+- **`StreakSparks` không vẽ được tia nào** (mặt sau bị loại do chiều tam giác bị lật): sửa ở `2e6fd2c`. Sky Fire mất cả 12 đốm than lúc gồng và 56 tia lúc trúng vì lỗi này.
+- **Lóe tung đòn và lóe trúng đọc màu kem** trên cỏ nắng (lõi trắng trong lóe vàng cộng sáng 3,2–6,4 m): màu giờ do khối `PUFF_FIRE` trộn thường mang, lõi trắng nhỏ (`7ddfadd`).
+- **Nón lửa là một hình nêm nhạt, phẳng:** bị nhiễu xé mạnh hơn, nguội hơn, ngắn lại (`7ddfadd`).
+- **Ribbon lửa khi bay chỉ là một vệt chấm mờ** sau khối lửa 2,5 m: rộng và đậm hơn (`7ddfadd`), rồi đổi sang ribbon lửa trộn thường (`7ae38e9`).
+- **Vết nứt nằm trên sông** ở khúc cạn: phần decal trên mặt đất ướt mờ đi (thuộc tính `aDry` theo đỉnh, từ `FxCore.wetAt`).
+- **Đèn trúng 300 cd** hắt vàng cả bãi cỏ: 220 cd (`7ddfadd`), rồi 150 cd (`cc0f5ad`, chưa chụp lại).
+- **Tung đòn trễ 1 khung:** 12 bước 1/60 cộng lại hơi thiếu 12/60; thêm sai số nhỏ khi so tuổi. Test mới: năm pha trong 48 khung, đèn đủ sáng ở khung đầu, vòm trong ±10 % của 4 m.
+- **Khối lửa lúc tung đòn và hạt gồng che đầu Rồng:** khối lửa dời ra 1,5 m × k theo hướng phóng, lõi trắng chỉ 1 khung (`7ae38e9`); hạt gồng bằng cỡ đầu ở hàm (`cc0f5ad`).
+- **Kịch bản chụp:** một tổ hợp mà trang chưa sẵn sàng thì chụp lại; điểm chiếu không được ở cận cảnh bị bỏ khỏi khung cắt.
 
 ## 4. Số đo (§5.6)
 
-SỐ_ĐO
+Cảnh: seed 20261028, đợt 1, Sky Fire dùng vào điểm của con quái có nhiều quái quanh nhất (luật của sim), cùng chỗ ở mọi bản dựng: (−18,0; 0,58), sát khúc cạn của sông. "Trước" là Sky Fire của `25160fe` (khối lửa rơi từ trên đích), đo lại tại đúng điểm lóe và điểm trúng của bản sau.
+
+| Tổ hợp | Tung đòn: khung đầu / đỉnh | Trúng: khung đầu / đỉnh (trước → sau) | Đèn R / I | Đường bay trong khung | Vòm / luật 4 m | Trắng xóa (trước → sau) | Thẻ chữ p01 (số thẻ) | Draw call rảnh → tối đa |
+|---|---|---|---|---|---|---|---|---|
+| 1280x720 chơi nắng | 1 | 1 → 1 | 1 / 1 | 100 % | 1 | 0,060 % → 0,060 % | 9,940 (3) | 55 → 68 |
+| 1280x720 chơi tối | 1 | 1 → 0,985 | 1 / 1 | 100 % | 1 | 0,050 % → 0,050 % | 10,160 (3) | 55 → 68 |
+| 1280x720 cận nắng | 1 | None → 1 | 1 / 1 | 100 % | 1 | 0,210 % → 0,220 % | 9,970 (3) | 55 → 68 |
+| 1280x720 cận tối | 1 | None → 1 | 1 / 1 | 100 % | 1 | 0,180 % → 0,200 % | 10,270 (3) | 55 → 68 |
+| 1920x1080 chơi nắng | 1 | 1 → 1 | 1 / 1 | 100 % | 1 | 0,070 % → 0,070 % | 9,940 (3) | 55 → 68 |
+| 1920x1080 chơi tối | 1 | 1 → 1 | 1 / 1 | 100 % | 1 | 0,060 % → 0,060 % | 9,980 (3) | 55 → 68 |
+| 1920x1080 cận nắng | 1 | None → 1 | 1 / 1 | 100 % | 1 | 0,230 % → 0,240 % | 9,970 (3) | 55 → 68 |
+| 1920x1080 cận tối | 1 | None → 1 | 1 / 1 | 100 % | 1 | 0,210 % → 0,220 % | 10,580 (3) | 55 → 68 |
+
+- Lóe tung đòn của bản trước: không có (không có gì ở miệng Rồng).
+- Đầu khối lửa khi bay ở 720p: ≥ 63 × 73 px (cả vệt liền đầu). Ở 1080p camera chơi nền tối, phép đo có một khung chỉ đọc được 4 × 5 px (khối lửa đi qua bóng cây); các khung khác ≥ 98 × 117 px.
+- Draw call: rảnh 55, lúc tung đòn 63, lúc trúng 66, tối đa 68 (+13; trần High +32).
 
 ## 5. Hiệu năng
 
-HIỆU_NĂNG
+Chưa đo cho bước 2. Bench 220 quái của bước 1 (ném Sky Fire 4 s một lần) ở `7b6eb72`–`451bc2c` đã chứa bản Sky Fire WIP: 8,08 / 10,7 ms (không bloom, có đèn), không chậm hơn bản `25160fe` trong cùng lượt. Cần một lượt `dh-perf` và bench riêng khi bước 2 xong.
 
 ## 6. Tờ khung và clip
 
-TỜ_KHUNG
+Dưới `games/.wt-dh-vfx/tmp/vfx/final-sky1/` (Git bỏ qua), bản `7ae38e9`:
+- `{1280x720,1920x1080}-{play,close}-{light,dark}-before-after.jpg`: hàng TRƯỚC (Sky Fire `25160fe`) trên hàng SAU, 24 khung từ gồng tới giây 7;
+- `…-beside-reference.jpg`: cạnh ảnh tham chiếu;
+- `clip-before-1920x1080.mp4`, `clip-after-7ae38e9-1920x1080.mp4`: clip 3 s;
+- số đo: `report-after-7ae38e9.json`, `report-before.json`, `report-before-at-after-points.json`.
+Khung thô đã dọn sau khi ghép tờ.
 
 ## 7. Bản giảm chuyển động (§3.8)
 
@@ -46,4 +78,7 @@ TỜ_KHUNG
 
 ## 8. Còn mở
 
-CÒN_MỞ
+1. Áp bài học vòng 5 của đòn chữ: lõi nóng HDR ngoài tone map (`toneMapped: false`) ở miệng, ở khối lửa bay và ở cú trúng; một lớp tối (muội) dưới mỗi lớp sáng.
+2. Chụp lại sau `cc0f5ad` và các sửa trên; vòng rune dưới chân Rồng còn mờ, cần đậm hơn.
+3. Đo `dh-perf` và bench cho bước 2.
+4. Người chấm độc lập.
