@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MAP_L2_CAU } from "../../src/content/data/maps";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import type { StageDef, WaveDef } from "../../src/content/types";
-import { bannerText, summarizeWave } from "../../src/ui/wave-card";
+import { bannerText, shortFoeName, summarizeWave } from "../../src/ui/wave-card";
 
 const wave = (n: number, groups: WaveDef["groups"], generals: WaveDef["generals"] = []): WaveDef => ({
   n,
@@ -62,6 +62,9 @@ describe("ui wave card summary (02 §5.6)", () => {
     expect(summary.flyers).toBe(3);
     expect(summary.generals).toEqual(["moss-banner"]);
     expect(bannerText(summary)).toBe("Đợt cuối · 2 đường · có quái bay · có tướng địch");
+    // English game nouns (owner 27/10): a kind shows its full name, a general its class label.
+    expect(cau.foes.map(shortFoeName)).toEqual(["Tướng", "Moss Grunt"]);
+    expect(shortFoeName(summary.lanes[2]!.foes[0]!)).toBe("Thorn Wasp");
   });
 
   it("returns null past the last wave and still crowns generals of a wave without groups", () => {

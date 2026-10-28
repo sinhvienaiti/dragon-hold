@@ -54,11 +54,11 @@ const cooldown = (readyAt: number, tick: number, totalMs: number): CooldownView 
 
 /** Hỏa Long's skills on keys (01 §2.4, 00 §6); Long Hống comes from the urgent word, Viêm Đế from full rage. */
 export const SKILL_SLOTS: readonly { readonly skill: HeroSkillId; readonly action: string; readonly nameVi: string; readonly icon: string }[] = [
-  { skill: "breath", action: "skill-1", nameVi: "Phun Lửa", icon: "breath" },
-  { skill: "skyfire", action: "skill-2", nameVi: "Thiên Hỏa", icon: "skyfire" },
+  { skill: "breath", action: "skill-1", nameVi: "Fire Breath", icon: "breath" },
+  { skill: "skyfire", action: "skill-2", nameVi: "Sky Fire", icon: "skyfire" },
 ];
 
-export const ULT_SLOT = { skill: "inferno" as HeroSkillId, action: "ult-fire", nameVi: "Viêm Đế", icon: "inferno" };
+export const ULT_SLOT = { skill: "inferno" as HeroSkillId, action: "ult-fire", nameVi: "Inferno", icon: "inferno" };
 
 export function skillCooldown(world: World, skill: HeroSkillId): CooldownView {
   const spec = HERO_SKILLS[skill];
@@ -158,10 +158,10 @@ const REJECT_PAIR: Readonly<Record<string, string>> = {
 };
 
 const REJECT_TEXT: Readonly<Record<string, string>> = {
-  gold: "Chưa đủ vàng",
+  gold: "Chưa đủ Gold",
   phase: "Việc này chỉ làm được lúc nghỉ",
   cooldown: "Kỹ năng đang hồi",
-  rage: "Long Nộ chưa đầy",
+  rage: "Dragon Rage chưa đầy",
   "ult-gap": "Tối Thượng: cách lần trước ít nhất 45 s",
   occupied: "Ô đã có món",
   "slot-kind": "Món này không đặt được ở ô đó",
@@ -239,7 +239,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   const goldValue = el(doc, "b", "", "0");
   const goldFloat = el(doc, "span", "dh-gold-float");
   goldStat.append(goldValue, goldFloat);
-  goldStat.title = "Vàng";
+  goldStat.title = "Gold";
   const waveStat = el(doc, "div", "dh-stat");
   waveStat.append(el(doc, "span", "dh-label", "Đợt"));
   const waveValue = el(doc, "b", "", "0/0");
@@ -321,7 +321,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   const skillSlots = SKILL_SLOTS.map((slot) =>
     makeSlot("dh-skill", slot.icon, keyLabel(slot.action), slot.nameVi + " (" + keyLabel(slot.action) + ")", () => useSkill(slot.skill, slot.action)),
   );
-  const roarSlot = makeSlot("dh-roar", "roar", "Từ Khẩn", "Long Hống: gõ Từ Khẩn khi quái áp sát (một lần mỗi đợt)", () => undefined);
+  const roarSlot = makeSlot("dh-roar", "roar", "Từ Khẩn", "Dragon Roar: gõ Từ Khẩn khi quái áp sát (một lần mỗi đợt)", () => undefined);
   roarSlot.button.querySelector(".dh-key")?.classList.add("dh-key--word");
   const sep = el(doc, "span", "dh-actions__sep");
   const consumableNodes = Array.from({ length: OUR_SIDE.consumableSlots }, (_, index) =>
@@ -329,12 +329,12 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   );
 
   const rage = el(doc, "div", "dh-rage");
-  const rageLabel = el(doc, "span", "dh-label", "Long Nộ");
+  const rageLabel = el(doc, "span", "dh-label", "Dragon Rage");
   const rageBar = el(doc, "div", "dh-rage__bar");
   const rageFill = el(doc, "div", "dh-rage__fill");
   rageBar.append(rageFill);
   const rageValue = el(doc, "span", "dh-rage__value", "0");
-  const ultSlot = makeSlot("dh-ult", ULT_SLOT.icon, keyLabel(ULT_SLOT.action), ULT_SLOT.nameVi + " (" + keyLabel(ULT_SLOT.action) + "): khi Long Nộ đầy", () => useSkill(ULT_SLOT.skill, ULT_SLOT.action));
+  const ultSlot = makeSlot("dh-ult", ULT_SLOT.icon, keyLabel(ULT_SLOT.action), ULT_SLOT.nameVi + " (" + keyLabel(ULT_SLOT.action) + "): khi Dragon Rage đầy", () => useSkill(ULT_SLOT.skill, ULT_SLOT.action));
   rage.append(rageLabel, rageBar, rageValue);
   actions.append(...skillSlots.map((slot) => slot.button), roarSlot.button, ultSlot.button, sep, ...consumableNodes.map((slot) => slot.button));
 
@@ -396,7 +396,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     const slot = world ? consumableSlots(world)[index] : undefined;
     if (!slot || slot.item === null) {
       if (node) pressed(node, false);
-      toast("Ô đồ tiêu hao trống: mua Bình Máu lúc nghỉ");
+      toast("Ô đồ tiêu hao trống: mua Small Potion lúc nghỉ");
       return;
     }
     if (node) pressed(node, slot.cool.leftS === 0);
@@ -429,7 +429,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
           : "Nghỉ giữa đợt";
     } else if (phase === "wave") line = `Đang giữ ải · đợt <b>${w.wave}</b>`;
     else if (phase === "victory") line = "Giữ ải thành công";
-    else line = "Bệ Rồng thất thủ";
+    else line = "Dragon Platform thất thủ";
     if (phaseLine.innerHTML !== line) phaseLine.innerHTML = line;
 
     // The toast sits just above the strip, which folds outside prep and breaks (CSS fallback; placeToast measures).
@@ -466,7 +466,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     const roarOpen = unlocked.includes("roar") && w.stage.unlocks.urgentWord;
     setShown(roarSlot.button, roarOpen);
     setClass(roarSlot.button, "is-used", w.combat.urgentUsed);
-    roarSlot.button.title = w.combat.urgentUsed ? "Long Hống: đã dùng trong đợt này" : "Long Hống: gõ Từ Khẩn khi quái áp sát (một lần mỗi đợt)";
+    roarSlot.button.title = w.combat.urgentUsed ? "Dragon Roar: đã dùng trong đợt này" : "Dragon Roar: gõ Từ Khẩn khi quái áp sát (một lần mỗi đợt)";
 
     // Consumables.
     const slots = consumableSlots(w);

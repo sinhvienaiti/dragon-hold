@@ -47,7 +47,7 @@ describe("ui placement helpers (00 §6, 03 §0.2)", () => {
 
   it("explains a failed place check in Vietnamese, with the gold missing", () => {
     expect(placeReason({ ok: true }, 10, 50)).toBeNull();
-    expect(placeReason({ ok: false, reason: "gold" }, 30, 50)).toBe("Thiếu 20 vàng");
+    expect(placeReason({ ok: false, reason: "gold" }, 30, 50)).toBe("Thiếu 20 Gold");
     expect(placeReason({ ok: false, reason: "occupied" }, 300, 50)).toBe("Ô đã có món");
     expect(placeReason({ ok: false, reason: "phase" }, 300, 50)).toBe("Chỉ đặt lúc nghỉ đợt");
   });

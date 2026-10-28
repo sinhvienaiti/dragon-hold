@@ -10,7 +10,7 @@ export const GENERALS: Readonly<Record<GeneralId, GeneralDef>> = {
   "moss-banner": {
     id: "moss-banner",
     code: "G01",
-    nameVi: "Yêu Rêu Cầm Cờ",
+    nameVi: "Moss Bannerman",
     nameEn: "Moss Bannerman",
     family: "moss",
     gait: "biped",

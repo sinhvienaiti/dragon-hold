@@ -31,7 +31,7 @@ describe("ui carry strip (03 §4.2, §6)", () => {
   it("says why a cell is off: gold short (never red), phase, no free slot, full bag, run limit", () => {
     const poor = stripCells(fakeWorld({ phase: "break", gold: 60 }), RULES);
     expect(poor.find((cell) => cell.id === "spikes")).toMatchObject({ enabled: true });
-    expect(poor.find((cell) => cell.id === "pine-bomb")).toMatchObject({ enabled: false, reason: "Thiếu 30 vàng", short: "Thiếu 30" });
+    expect(poor.find((cell) => cell.id === "pine-bomb")).toMatchObject({ enabled: false, reason: "Thiếu 30 Gold", short: "Thiếu 30" });
 
     const inWave = stripCells(fakeWorld({ phase: "wave", gold: 500 }), RULES);
     expect(inWave.find((cell) => cell.id === "spikes")).toMatchObject({ reason: "Chỉ đặt lúc nghỉ", short: "Lúc nghỉ" });
@@ -50,17 +50,17 @@ describe("ui carry strip (03 §4.2, §6)", () => {
   });
 
   it("describes each item from its data", () => {
-    expect(effectLine("spikes")).toBe("Chậm 25 %, 8 sát thương mỗi giây trên đường");
-    expect(effectLine("small-potion")).toBe("Hồi 25 % máu Hỏa Long trong 2 s; dùng trong đợt");
-    expect(effectLine("hard-scale")).toBe("+15 Giáp Hỏa Long");
-    expect(effectLine("dragon-heart")).toBe("+10 % máu tối đa Hỏa Long, hồi luôn phần tăng");
+    expect(effectLine("spikes")).toBe("(chông nhọn) Chậm 25 %, 8 sát thương mỗi giây trên đường");
+    expect(effectLine("small-potion")).toBe("(bình hồi máu nhỏ) Hồi 25 % máu Hỏa Long trong 2 s; dùng trong đợt");
+    expect(effectLine("hard-scale")).toBe("(vảy cứng) +15 Giáp Hỏa Long");
+    expect(effectLine("dragon-heart")).toBe("(tim rồng) +10 % máu tối đa Hỏa Long, hồi luôn phần tăng");
     expect(effectLine("herb-hut")).toContain("0,3 % máu mỗi giây");
-    expect(effectLine("net-launcher")).toBe("Kéo một quái bay thấp xuống đất trong 3 s, tầm 11 m; nạp 15 s");
+    expect(effectLine("net-launcher")).toBe("(máy phóng lưới) Kéo một quái bay thấp xuống đất trong 3 s, tầm 11 m; nạp 15 s");
   });
 
   it("names every item so it reads as what it is (owner, 26/10: the herb hut is Lều Thuốc Nam, never Nhà Thuốc Lá)", () => {
     const names = stripCells(fakeWorld({ phase: "prep", gold: 200 }), RULES).map((cell) => cell.nameVi);
-    expect(names).toContain("Lều Thuốc Nam");
+    expect(names).toContain("Herb Hut");
     for (const name of names) expect(name.toLowerCase()).not.toContain("thuốc lá");
   });
 });

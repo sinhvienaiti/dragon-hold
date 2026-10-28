@@ -38,7 +38,7 @@ const TRAP_UPGRADE = { costPct: [70, 100], mainPct: [45, 35], rechargePctAt3: -1
 export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
   spikes: {
     id: "spikes",
-    nameVi: "Gai Chông",
+    nameVi: "Spikes",
     style: "floor",
     continuous: true,
     cost: 50,
@@ -63,7 +63,7 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
   },
   "pine-bomb": {
     id: "pine-bomb",
-    nameVi: "Bom Hạt Thông",
+    nameVi: "Pine Bomb",
     style: "floor",
     continuous: false,
     cost: 90,
@@ -88,7 +88,7 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
   },
   "net-launcher": {
     id: "net-launcher",
-    nameVi: "Lưới Phóng",
+    nameVi: "Net Launcher",
     style: "post",
     continuous: false,
     cost: 80,
@@ -116,7 +116,7 @@ export const TRAPS: Readonly<Record<TrapId, TrapDef>> = {
 export const HOUSES: Readonly<Record<HouseId, HouseDef>> = {
   "herb-hut": {
     id: "herb-hut",
-    nameVi: "Lều Thuốc Nam",
+    nameVi: "Herb Hut",
     cost: 120,
     hp: 600,
     radiusMm: 7000,
@@ -141,7 +141,7 @@ export const HOUSES: Readonly<Record<HouseId, HouseDef>> = {
 export const UNITS: Readonly<Record<UnitId, UnitDef>> = {
   "moss-warden": {
     id: "moss-warden",
-    nameVi: "Vệ Binh Rêu",
+    nameVi: "Grove Warden",
     role: "blocker",
     cost: 70,
     blockSlots: 2,
@@ -169,7 +169,7 @@ export const UNITS: Readonly<Record<UnitId, UnitDef>> = {
 export const CONSUMABLES: Readonly<Record<ConsumableId, ConsumableDef>> = {
   "small-potion": {
     id: "small-potion",
-    nameVi: "Bình Máu Nhỏ",
+    nameVi: "Small Potion",
     cost: 30,
     cooldownMs: 8000,
     stackMax: 3,
@@ -188,7 +188,7 @@ export const CONSUMABLES: Readonly<Record<ConsumableId, ConsumableDef>> = {
 export const HERO_UPGRADES: Readonly<Record<HeroUpgradeId, HeroUpgradeDef>> = {
   "dragon-heart": {
     id: "dragon-heart",
-    nameVi: "Tim Rồng",
+    nameVi: "Dragon Heart",
     costs: [80, 120, 160],
     maxPerRun: 3,
     effect: { kind: "max-hp", pct: 10 },
@@ -203,7 +203,7 @@ export const HERO_UPGRADES: Readonly<Record<HeroUpgradeId, HeroUpgradeDef>> = {
   },
   "hard-scale": {
     id: "hard-scale",
-    nameVi: "Vảy Cứng",
+    nameVi: "Hard Scale",
     costs: [70, 105, 140],
     maxPerRun: 3,
     effect: { kind: "armour", amount: 15 },

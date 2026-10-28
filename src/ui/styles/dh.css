@@ -1003,11 +1003,13 @@ body {
   border-left: calc(2px * var(--ui)) solid rgba(107, 79, 54, 0.6);
 }
 
+/* min-width (here and on __text): at 720p the 11 px name floor outgrows the cell; "Launcher" (52 px) widens its own cell (names pass 28/10). */
 .dh-cell {
   display: grid;
   justify-items: center;
   align-content: start;
   width: calc(58px * var(--ui));
+  min-width: min-content;
   min-height: calc(78px * var(--ui));
   padding: calc(5px * var(--ui)) calc(3px * var(--ui)) calc(4px * var(--ui));
   text-align: center;
@@ -1021,7 +1023,7 @@ body {
 .dh-cell__text {
   display: grid;
   justify-items: center;
-  min-width: 0;
+  min-width: min-content;
   max-width: 100%;
 }
 

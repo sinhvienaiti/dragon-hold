@@ -69,7 +69,7 @@ const PLACE_REASON_VI: Readonly<Record<Exclude<PlaceCheck, { ok: true }>["reason
   "slot-kind": "Món này không hợp ô này",
   occupied: "Ô đã có món",
   phase: "Chỉ đặt lúc nghỉ đợt",
-  gold: "Chưa đủ vàng",
+  gold: "Chưa đủ Gold",
   limit: "Đã đủ số món này",
   locked: "Món chưa mở",
   "unknown-slot": "Không có ô này",
@@ -78,7 +78,7 @@ const PLACE_REASON_VI: Readonly<Record<Exclude<PlaceCheck, { ok: true }>["reason
 /** Vietnamese reason a place check failed, with the gold missing when that is why; null when it is fine. */
 export function placeReason(check: PlaceCheck, gold: number, cost: number): string | null {
   if (check.ok) return null;
-  if (check.reason === "gold") return "Thiếu " + Math.max(0, cost - gold) + " vàng";
+  if (check.reason === "gold") return "Thiếu " + Math.max(0, cost - gold) + " Gold";
   return PLACE_REASON_VI[check.reason];
 }
 
@@ -530,7 +530,7 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
       const up = uiButton(doc, cost === null || short > 0 ? "is-poor" + (short > 0 ? " is-short" : "") : "", () => pressEdit("upgrade", menuSlot, true));
       up.innerHTML = `<span class="dh-key">=</span>`;
       // Short of gold: the whole row dims and says by how much, like the carry strip (test pass 27/10).
-      const upLabel = menuArmed?.action === "upgrade" ? "Bấm lần nữa để nâng" : cost === null ? "Cấp tối đa" : "Nâng cấp " + (slot.level + 1) + (short > 0 ? " · thiếu " + short + " vàng" : "");
+      const upLabel = menuArmed?.action === "upgrade" ? "Bấm lần nữa để nâng" : cost === null ? "Cấp tối đa" : "Nâng cấp " + (slot.level + 1) + (short > 0 ? " · thiếu " + short + " Gold" : "");
       up.append(el(doc, "span", "", upLabel), el(doc, "span", "", cost === null ? "" : String(cost)));
       if (cost === null) up.disabled = true;
       const sell = uiButton(doc, "", () => pressEdit("sell", menuSlot, true));
@@ -633,7 +633,7 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         const info = placeableInfo(item);
         titleText = info.nameVi;
         const reason = placeReason(rules.canPlace(w, item, cursor), w.economy.gold, info.cost);
-        lines.push({ html: `<span class="dh-money">${info.cost} vàng</span> · ${slotName(w, cursor)}` });
+        lines.push({ html: `<span class="dh-money">${info.cost} Gold</span> · ${slotName(w, cursor)}` });
         if (cursorSlot.def.lane) {
           const summary = summarizeWave(w.stage, w.map, upcomingWave(w));
           const count = summary?.lanes.find((lane) => lane.id === cursorSlot.def.lane)?.count ?? 0;
@@ -646,9 +646,9 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         const cost = upgradeCost(cursorSlot.item, cursorSlot.level);
         const lack = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
         lines.push({
-          html: cost === null ? "Cấp tối đa" : `<span class="dh-key">=</span> nâng cấp ${cursorSlot.level + 1}: <span class="dh-money">${cost} vàng</span>` + (lack > 0 ? ` · <b>thiếu ${lack} vàng</b>` : ""),
+          html: cost === null ? "Cấp tối đa" : `<span class="dh-key">=</span> nâng cấp ${cursorSlot.level + 1}: <span class="dh-money">${cost} Gold</span>` + (lack > 0 ? ` · <b>thiếu ${lack} Gold</b>` : ""),
         });
-        lines.push({ html: `<span class="dh-key">-</span> bán: <span class="dh-money">+${sellRefund(w, cursor)} vàng</span>` });
+        lines.push({ html: `<span class="dh-key">-</span> bán: <span class="dh-money">+${sellRefund(w, cursor)} Gold</span>` });
         if (armed && armed.slot === cursor) {
           const up = armed.action === "upgrade";
           lines.push({ html: `Bấm <span class="dh-key">${up ? "=" : "-"}</span> lần nữa để ${up ? "nâng" : "bán"}`, armed: true });
