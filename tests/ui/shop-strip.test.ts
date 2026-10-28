@@ -55,7 +55,7 @@ describe("ui carry strip (03 §4.2, §6)", () => {
     expect(effectLine("hard-scale")).toBe("+15 Giáp Hỏa Long");
     expect(effectLine("dragon-heart")).toBe("+10 % máu tối đa Hỏa Long, hồi luôn phần tăng");
     expect(effectLine("herb-hut")).toContain("0,3 % máu mỗi giây");
-    expect(effectLine("net-launcher")).toBe("Chỉ bắn quái bay: kéo một con xuống đất 3 s, tầm 11 m; nạp 15 s");
+    expect(effectLine("net-launcher")).toBe("Kéo một quái bay thấp xuống đất trong 3 s, tầm 11 m; nạp 15 s");
   });
 
   it("names every item so it reads as what it is (owner, 26/10: the herb hut is Lều Thuốc Nam, never Nhà Thuốc Lá)", () => {

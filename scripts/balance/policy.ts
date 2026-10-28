@@ -5,9 +5,7 @@
  *   balanced: the "average kit" (Cân Bằng, tactics "Vừa"): each break, score
  *             every action by value per gold against the next wave's card,
  *             take the best, fill useful slots before upgrading, value the
- *             first Lều Thuốc Nam that reaches the dais, buy a Lưới Phóng in
- *             reach of the sky lane when a flyer wave is next (00 D33 (1)),
- *             keep 10 % of the gold;
+ *             first Lều Thuốc Nam that reaches the dais, keep 10 % of the gold;
  *   good:     the same reading (tactics "Tốt"), and Tim Rồng, Vảy Cứng only
  *             for the last two waves;
  *   best:     the no-typing floor bot (G6): spends everything, leans on
@@ -183,20 +181,6 @@ function flyerEnds(world: World): Vec2[] {
 /** Each item of the same kind already on the lane (houses: anywhere) is worth this much less: a second spike strip still pays. */
 const DIMINISH = 0.8;
 
-/**
- * A flyer wave next and no Lưới Phóng in reach of the sky lane yet: the bot
- * buys one (00 D33 (1)). Its place value at a slot in full reach, above a
- * spike strip's best (about 6.9 a 100 gold at Đường Cầu's last slot).
- */
-const NET_WANT = 6;
-
-/** 1 when the net at `slot` reaches where flyers end, 0.5 within 4 m more, else 0. */
-function netReach(world: World, slot: SlotState): number {
-  const reach = Math.min(...flyerEnds(world).map((end) => distM(slotM(slot), end)));
-  const range = TRAPS["net-launcher"].area.radiusMm / 1000;
-  return reach <= range ? 1 : reach <= range + 4 ? 0.5 : 0;
-}
-
 /** Style weights: the floor bot leans on killers and holders. */
 const WEIGHTS: Readonly<Record<Exclude<BuyStyle, "none">, Readonly<Record<PlaceableId | "hero" | "potion", number>>>> = {
   balanced: { spikes: 1, "pine-bomb": 1, "net-launcher": 1, "moss-warden": 1, "herb-hut": 1, hero: 1, potion: 1 },
@@ -218,8 +202,12 @@ function baseValue(world: World, card: WaveCard, slot: SlotState, item: Placeabl
       return kind === "trap" && lane ? 0.3 * lane.groundW * synergy : 0;
     case "pine-bomb":
       return kind === "trap" && lane ? (1.5 * lane.clusters + 0.5 * lane.packs + 0.15 * lane.groundW) * synergy : 0;
-    case "net-launcher":
-      return kind === "trap" ? 0.9 * card.flyers * netReach(world, slot) : 0;
+    case "net-launcher": {
+      if (kind !== "trap") return 0;
+      const reach = Math.min(...flyerEnds(world).map((end) => distM(slotM(slot), end)));
+      const range = TRAPS["net-launcher"].area.radiusMm / 1000;
+      return 0.9 * card.flyers * (reach <= range ? 1 : reach <= range + 4 ? 0.5 : 0);
+    }
     case "moss-warden": {
       if (kind !== "block" || !lane || !runtime) return 0;
       // The point nearer the dais holds longer; the far one buys typing time.
@@ -251,14 +239,12 @@ export function shopActions(world: World, card: WaveCard, style: Exclude<BuyStyl
   const units = world.slots.filter((slot) => slot.item === "moss-warden").length;
   const carried = (item: PlaceableId | ConsumableId) => world.stage.carry.includes(item);
   let open = false;
-  const netWanted = card.flyers > 0 && !world.slots.some((slot) => slot.item === "net-launcher" && netReach(world, slot) === 1);
   for (const slot of world.slots) {
     if (slot.item === null) {
       const items: PlaceableId[] = slot.def.kind === "trap" ? [...TRAP_IDS] : slot.def.kind === "block" ? (units < BLOCK.maxUnits ? ["moss-warden"] : []) : ["herb-hut"];
       for (const item of items) {
         if (!carried(item)) continue;
-        let value = baseValue(world, card, slot, item) * Math.pow(DIMINISH, standing(world, slot, item)) * weights[item];
-        if (item === "net-launcher" && netWanted && netReach(world, slot) === 1) value = Math.max(value, NET_WANT * weights[item]);
+        const value = baseValue(world, card, slot, item) * Math.pow(DIMINISH, standing(world, slot, item)) * weights[item];
         if (value > 0) out.push({ key: "place:" + slot.def.id + ":" + item, command: { type: "place", item, slot: slot.def.id }, cost: ITEM_COST[item], value });
         if (value > 0.5) open = true;
       }

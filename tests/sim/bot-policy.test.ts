@@ -70,20 +70,6 @@ describe("bot policy", () => {
     expect(nets.map((a) => (a.command as { slot: string }).slot)).not.toContain("suoi-t1");
   });
 
-  it("buys a net post in reach when a flyer wave is next and none stands yet (00 D33 (1))", () => {
-    const world = createBotWorld(BOTS.b35, { seed: 1 });
-    const card = waveCard(world, 1);
-    expect(card.flyers).toBe(1);
-    const gold = 200;
-    const places = (flyers: number) => shopActions(world, { ...card, flyers }, "balanced").filter((a) => a.command.type === "place");
-    // Above every other trap, unit or house (the potion is a buy, not a slot).
-    const pick = bestShopAction(places(1), gold, Math.ceil(gold * 0.1), 0.4, new Set());
-    expect(pick?.command).toEqual({ type: "place", item: "net-launcher", slot: "cau-t4" });
-    // No flyers next: no rush for the net.
-    const calm = bestShopAction(places(0), gold, Math.ceil(gold * 0.1), 0.4, new Set());
-    expect(calm?.command).not.toMatchObject({ item: "net-launcher" });
-  });
-
   it("aims Thiên Hỏa at the densest group inside the word zone", () => {
     const m = 60_000;
     const foes = [

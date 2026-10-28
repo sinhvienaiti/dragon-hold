@@ -33,7 +33,6 @@ import { createLearningFrame, createPrelearn, createReviewCard, type LearningFra
 import { createPlacementUi, type PlacementUi } from "../ui/placement-ui";
 import { VICTORY_HOLD_MS, createResults } from "../ui/results";
 import { createShopStrip } from "../ui/shop-strip";
-import { createSlotState } from "../ui/slot-state";
 import { createDebutCard } from "../ui/debut-card";
 import { el, installSkin, keyLabel, setShown, uiButton } from "../ui/skin";
 import { createTags } from "../ui/tags";
@@ -525,8 +524,6 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     });
     const frame = createLearningFrame(overlay!, learning.gloss, { speak: learning.speak });
     const placement = createPlacementUi(overlay!, map.stage.project, sink, { onSlots: (visible, highlight) => map.paths.showSlots(visible, highlight) });
-    // Ready, recharging and fired on each trap and house in a wave (00 D33 (1)).
-    const slotState = createSlotState(overlay!, map.stage.project);
     const hud = createHud(overlay!, sink, {
       onPause: openMenu,
       onCameraReset: () => map.rig.reset(),
@@ -576,7 +573,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       meter: new PaceMeter(),
       log: [],
       // actors first: the others read the positions it computes each frame.
-      presenters: [actors, heroes, telegraphs, banners, hpbars, fx, tags, frame, placement, slotState, hud, waveCard, laneCue, strip, debut, results, audio],
+      presenters: [actors, heroes, telegraphs, banners, hpbars, fx, tags, frame, placement, hud, waveCard, laneCue, strip, debut, results, audio],
       scene: { presenters: [actors, telegraphs, banners, hpbars, fx], roots: onStage().filter((root) => !before.has(root)) },
       handlers: [results, placement, strip, waveCard, hud, replay, map.rig],
       actors,

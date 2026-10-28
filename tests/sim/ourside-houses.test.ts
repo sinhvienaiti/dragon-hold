@@ -63,7 +63,7 @@ describe("houses (03 §8, §10.2)", () => {
     expect(world.houses.list[0]).toMatchObject({ level: 2, hpMax: 857, hp: 857 });
   });
 
-  it("charges energy from word kills in its area and pulses at 3 (00 D33 (1)), healing 10 %", () => {
+  it("charges energy from word kills in its area and pulses at 5, healing 10 %", () => {
     const world = built([["herb-hut", "h-ne"]]);
     world.hero.hp = 500;
     const kill = (by: "word" | "trap") => {
@@ -73,15 +73,15 @@ describe("houses (03 §8, §10.2)", () => {
       sweepDead(world);
     };
     kill("trap");
-    for (let k = 0; k < 2; k += 1) kill("word");
-    expect(world.houses.list[0]!.energy).toBe(2);
+    for (let k = 0; k < 4; k += 1) kill("word");
+    expect(world.houses.list[0]!.energy).toBe(4);
     expect(world.hero.hp).toBe(500);
     // A kill far from the house does not count.
     const far = foeAt(world, "moss-grunt", "suoi", 2);
     far.alive = false;
     far.killedBy = "word";
     sweepDead(world);
-    expect(world.houses.list[0]!.energy).toBe(2);
+    expect(world.houses.list[0]!.energy).toBe(4);
     world.events.drain();
     kill("word");
     expect(world.houses.list[0]!.energy).toBe(0);

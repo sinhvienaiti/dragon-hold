@@ -699,7 +699,7 @@ export const OUR_SIDE = {
   resonanceMs: 800,
   resonanceBestMs: 1200,
   resonanceCapPct: 50,
-  /** A word kill inside a house's area: +1 energy; 5 fires its pulse (03 §10.2), unless the house sets `energyMax` (Lều Thuốc Nam 3, 00 D33 (1)). */
+  /** A word kill inside a house's area: +1 energy; 5 fires its pulse (03 §10.2). */
   houseEnergyMax: 5,
   /** In a wave, C1–C5 only consumables and repairs (03 §0.1 rule 6). */
   quickPlaceFromChapter: 6,

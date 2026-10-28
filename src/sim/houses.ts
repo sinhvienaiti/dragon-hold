@@ -1,8 +1,7 @@
 /**
  * Magic houses (03 §8): auras on allies, HP 600 (+40 % a level), Đổ Nát at 0
  * (off, never lost; repair 30 % of the spent price, or half mends itself at
- * wave end), energy +1 per word kill inside the area, pulse at 5 (03 §10.2;
- * a house's `energyMax` overrides it: Lều Thuốc Nam 3, 00 D33 (1)).
+ * wave end), energy +1 per word kill inside the area, pulse at 5 (03 §10.2).
  * M0: Lều Thuốc Nam (03 gave 1.5 %; OUR_SIDE tuning 0.3 %) heals max HP a
  * second to units and both Dragons within 7 m (the Dragons count up to the
  * dais edge), pulse heals 10 %.
@@ -238,9 +237,6 @@ export function stepHouses(world: World): void {
   for (const pick of best.values()) applyHeal(world, pick.house, pick.target, pick.amount);
 }
 
-/** Word kills in the area that fire `def`'s pulse (03 §10.2; per house, 00 D33 (1)). */
-export const houseEnergyMax = (def: HouseDef): number => def.energyMax ?? OUR_SIDE.houseEnergyMax;
-
 /** Word kills inside a house's area give it energy (03 §10.2); cleanup calls it once per dead foe. */
 export function onEnemyKilled(world: World, enemy: EnemyState): void {
   if (enemy.killedBy !== "word") return;
@@ -250,7 +246,7 @@ export function onEnemyKilled(world: World, enemy: EnemyState): void {
     const slot = world.slots[house.slot]!;
     if (!within(enemy.x, enemy.z, slot.x, slot.z, mmToU(def.radiusMm))) continue;
     house.energy += 1;
-    if (house.energy < houseEnergyMax(def)) continue;
+    if (house.energy < OUR_SIDE.houseEnergyMax) continue;
     house.energy = 0;
     // Xung: Lều Thuốc Nam heals 10 % at once.
     if (def.pulse.kind === "heal-burst") healAllies(world, house, def.pulse.healPct * 10);
