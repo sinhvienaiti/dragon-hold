@@ -223,8 +223,8 @@ export function measure(run, h, { at = null } = {}) {
       whiteMax = white;
       whiteAt = f.name;
     }
-    const c = tagContrast(img, f.tags, PLATE, PLATE_ALPHA, TEXT_LUM);
-    if (c !== null) contrasts.push({ frame: f.name, contrast: c, tags: f.tags.length });
+    const c = tagContrast(img, f.tags ?? [], PLATE, PLATE_ALPHA, TEXT_LUM);
+    if (c !== null) contrasts.push({ frame: f.name, contrast: c, tags: (f.tags ?? []).length });
   }
   const sorted = [...contrasts].sort((a, b) => a.contrast - b.contrast);
   const drawCalls = dense.map((f) => f.drawCalls);
