@@ -60,7 +60,7 @@ export const FAR_FROM_M = 42;
  * One paint for cliff, river, lane and forest stones keeps one draw call a rock prop.
  */
 const STONE_PAINT =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.47, 0.46, 0.445) * clamp(0.35 + dhL * 2.0, 0.42, 1.15); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.43, 0.425, 0.41) * clamp(0.35 + dhL * 1.8, 0.42, 1.0); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
 
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
@@ -212,6 +212,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   };
   // V7: warm crowns at the forest edge too, 12 m from each other and from the layout's warm trees.
   const warmSpots: { x: number; z: number }[] = layout.trees.filter((tree) => tree.warm).map((tree) => ({ x: tree.x, z: tree.z }));
+  const violetSpots = layout.trees.filter((tree) => tree.proto.endsWith("violet"));
 
   // Trees: pines and round crowns by forest density, from the forest edge out (the layout owns the inside).
   visit(cells.tree, (x, z, r) => {
@@ -242,7 +243,8 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
         laneGap >= 9 &&
         slotDist(x, z, false) >= 9 &&
         hash2(Math.round(x * 5), Math.round(z * 5), 0x3a7) < 0.35 &&
-        !warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 12);
+        !warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 12) &&
+        !violetSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 7);
       if (warm) warmSpots.push({ x, z });
       crowns.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color, ...(warm ? { warm: true } : {}) });
     } else {

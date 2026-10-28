@@ -160,7 +160,7 @@ export const LAYOUT_RULES = {
    */
   dots: { cellM: 3.6, openChance: 0.42, chance: 0.6, max: 34, gapM: 3.2, k: [1.3, 2.1] as const, clearLaneM: 2.6, clearSlotM: 3.8, clearSkyM: 2.2, clearWaterM: 1.3, clearPathM: 0.9, clearTreeM: 2.4, daisM: 9.5 },
   /** V7: warm crowns (tinted round trees). */
-  warm: { clearM: 9, gapM: 12, share: 0.08, min: 5 },
+  warm: { clearM: 9, gapM: 12, share: 0.08, min: 5, violetGapM: 7 },
   /** L7 paint stamps (potential discs: 1 at the centre, 0.5 at radius, 0 at radius + falloff). */
   paint: {
     plazaM: 6.5,
@@ -929,6 +929,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     for (const tree of trees) {
       if (tree.proto !== PINE_ROUND) continue;
       if (f.laneGap(tree.x, tree.z) < W.clearM || f.slotDist(tree.x, tree.z) < W.clearM || f.skyDist(tree.x, tree.z) < W.clearM) continue;
+      // One accent colour per spot: no warm crown beside a violet one.
+      if (trees.some((t) => t.proto.endsWith("violet") && Math.hypot(t.x - tree.x, t.z - tree.z) < W.violetGapM)) continue;
       let score = h(RULE.rim, Math.round(tree.x * 10), Math.round(tree.z * 10), seed) * 0.3;
       if (tree.id.startsWith("bay:")) score += 2;
       else if (tree.id.startsWith("lone:")) score += pathGap(tree.x, tree.z) < 6 ? 1.5 : 0.6;
