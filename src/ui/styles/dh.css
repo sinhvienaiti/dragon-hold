@@ -1680,20 +1680,38 @@ body {
 
 .dh-results__foot {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: calc(12px * var(--ui));
+}
+
+.dh-results__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, calc(440px * var(--ui)));
   gap: calc(12px * var(--ui));
 }
 
 .dh-results__foot .dh-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
   gap: calc(8px * var(--ui));
   padding: calc(8px * var(--ui)) calc(20px * var(--ui));
   font-size: calc(15px * var(--ui));
+  text-decoration: none;
+}
+
+.dh-results__actions .dh-btn.is-focused {
+  outline: calc(2px * var(--ui)) solid var(--dh-ember-hi);
+  outline-offset: calc(2px * var(--ui));
 }
 
 .dh-results__keys {
+  text-align: center;
   font: 700 max(11px, calc(11.5px * var(--ui))) / 1.3 var(--dh-font);
   color: var(--dh-muted);
 }

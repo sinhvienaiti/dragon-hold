@@ -2,11 +2,12 @@
  * End of the run (01 §5, §6.5; 06 §4 screens 8 and 9): victory with stars or
  * defeat, gold, accuracy, new words learned, and the Sổ Từ Ải list (words
  * met: new, mistyped, to review; listen to each). Collects the word log from
- * word events during the run. Keyboard: ↑ ↓ pick a word, Tab listens, Enter
- * plays again; while shown it takes every command key.
+ * word events during the run. Keyboard: ↑ ↓ pick a word, Tab listens, ← →
+ * pick retry or portal, Enter activates it; while shown it takes every command key.
  * Owner: ui (LANES.md).
  */
 import type { ActionHandler, FrameInfo, Presenter } from "../app/contracts";
+import { portalHome } from "../app/portal";
 import { STARS } from "../content/rules";
 import type { Grade, SimEvent, WordGroup, WordKind } from "../content/types";
 import type { World } from "../sim/world";
@@ -249,11 +250,30 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   const bookList = el(doc, "ul", "dh-book__list");
   book.append(bookHead, bookList);
   const foot = el(doc, "div", "dh-results__foot");
+  const buttons = el(doc, "div", "dh-results__actions");
   const retryButton = uiButton(doc, "dh-retry", () => actions.retry());
+  const portalButton = el(doc, "a", "dh-btn dh-results__portal");
+  portalButton.href = portalHome(import.meta.env.VITE_PORTAL_ORIGINS);
+  portalButton.target = "_top";
+  portalButton.tabIndex = -1;
+  portalButton.addEventListener("mousedown", (event) => event.preventDefault());
+  portalButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>Về cổng game`;
+  // Keep focus in the window key router, as uiButton does elsewhere.
+  const resultButtons = [retryButton, portalButton] as const;
+  let focusedAction = 0;
+  const focusAction = (index: number): void => {
+    focusedAction = index;
+    resultButtons.forEach((button, k) => setClass(button, "is-focused", k === index));
+  };
+  resultButtons.forEach((button, index) => {
+    button.addEventListener("mouseenter", () => focusAction(index));
+    button.addEventListener("focus", () => focusAction(index));
+  });
+  buttons.append(...resultButtons);
   const easierButton = uiButton(doc, "dh-retry dh-retry--easier", () => actions.easier?.());
   setShown(easierButton, false);
   const keys = el(doc, "span", "dh-results__keys");
-  foot.append(retryButton, easierButton, keys);
+  foot.append(buttons, easierButton, keys);
   panel.append(titleBox, starsBox, tiles, book, foot);
   screen.append(panel);
   setShown(screen, false);
@@ -335,7 +355,10 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     setShown(easierButton, offerEasier);
     if (easier !== null) easierButton.innerHTML = `<span class="dh-key">${keyLabel("call-early")}</span>Thua 2 lần: chơi lại mức ${easier}`;
     keys.innerHTML =
-      `<span class="dh-key">↑</span><span class="dh-key">↓</span> chọn từ` + (actions.listen ? ` · <span class="dh-key">Tab</span> nghe` : "");
+      `<span class="dh-key">${keyLabel("rotate-left")}</span><span class="dh-key">${keyLabel("rotate-right")}</span> chọn nút · ` +
+      `<span class="dh-key">${keyLabel("tilt-up")}</span><span class="dh-key">${keyLabel("tilt-down")}</span> chọn từ` +
+      (actions.listen ? ` · <span class="dh-key">${keyLabel("replay")}</span> nghe` : "");
+    focusAction(0);
     setShown(screen, true);
     select(0);
   };
@@ -393,7 +416,8 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
       return true;
     }
     if (!summary) return false;
-    if (action === "enter") actions.retry();
+    if (action === "enter") resultButtons[focusedAction]!.click();
+    else if (action === "rotate-left" || action === "rotate-right") focusAction(1 - focusedAction);
     else if (action === "call-early" && offerEasier) actions.easier?.();
     else if (action === "tilt-up") select(selected - 1);
     else if (action === "tilt-down") select(selected + 1);
