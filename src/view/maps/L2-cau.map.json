@@ -15,6 +15,12 @@
         "lineCm": [[-1987, 3178], [-2349, 2799], [-2714, 2443], [-2991, 2259]],
         "note": "bearings 212–233°, r 36.5–37.5 m (A3: 2.5 m nearer), south-east of the stream; A3 (ART_DIRECTION 3.5): twice as tall, 15.6 m in four tiers" }
     ],
+    "landmarks": [
+      { "id": "pass-gate", "model": "Codex 124 / owner Tripo", "site": "proposed", "atCm": [-5600, 2000], "yawDeg": 70, "note": "A3 (ART_DIRECTION 3.5): the Hold's gate across the gorge mouth where Duong Suoi and the stream leave, past the lane trail (r 59 m), facing the dais; slot only, nothing is drawn until the GLB exists (no stand-in)" },
+      { "id": "pass-wall", "model": "Codex 124 / owner Tripo", "site": "proposed", "lineCm": [[-5000, -400], [-5600, 2000], [-4400, 4300]], "note": "ramparts from the west bluff's top over the gate to the south-west bluff; slot only" },
+      { "id": "watchtower", "model": "Codex 124 / owner Tripo", "site": "proposed", "atCm": [-4300, -2300], "yawDeg": 120, "note": "on the west bluff's plateau, seen from the default frame's top-left and the title orbit; slot only" },
+      { "id": "dragon-statue", "model": "Codex 124 / owner Tripo", "site": "proposed", "atCm": [-3500, -1600], "yawDeg": 115, "heightCm": 1600, "note": "carved into the west bluff's face, turned to the dais; slot only" }
+    ],
     "ponds": [{ "id": "pond", "site": "pinned", "atCm": [1720, 620], "radiusCm": 460, "note": "r 18.3 m, bearing 110°, at the open meadow's far edge; A3 (FB-07): 2 m nearer the dais (was (19; 7)) so the 90° views keep it inside the frame; slot 6.9 m, sky lane 6.3 m" }],
     "open": { "fromDeg": 95, "toDeg": 200, "ringCm": [900, 2800] },
     "footpaths": [

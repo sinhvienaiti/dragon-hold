@@ -84,8 +84,22 @@ export interface SceneLighting {
   readonly heightFog?: { readonly baseM: number; readonly falloffM: number; readonly density: number };
 }
 
+/**
+ * A3 (ART_DIRECTION 3.5): a landmark slot (pass gate, wall, watchtower, dragon statue). The models come
+ * from Codex 124 and the owner's Tripo builds; until then nothing is drawn (no stand-in), the slot only
+ * keeps the site in the map data.
+ */
+export interface SceneLandmark {
+  readonly id: string;
+  readonly at?: Vec2;
+  readonly line?: readonly Vec2[];
+  readonly yawDeg?: number;
+  readonly heightM?: number;
+}
+
 export interface SceneSpec {
   readonly id: string;
+  readonly landmarks: readonly SceneLandmark[];
   readonly lighting: SceneLighting;
   readonly cliffs: readonly SceneCliff[];
   readonly ponds: readonly ScenePond[];
@@ -143,6 +157,13 @@ export function readScene(json: Json): SceneSpec {
         ...(l.heightFog ? { heightFog: { baseM: cm(l.heightFog.baseCm), falloffM: cm(l.heightFog.falloffCm), density: l.heightFog.densityPermille / 1000 } } : {}),
       };
     })(),
+    landmarks: list<{ id: string; atCm?: number[]; lineCm?: number[][]; yawDeg?: number; heightCm?: number }>("landmarks").map((l) => ({
+      id: l.id,
+      ...(l.atCm ? { at: point(l.atCm) } : {}),
+      ...(l.lineCm ? { line: l.lineCm.map(point) } : {}),
+      ...(l.yawDeg !== undefined ? { yawDeg: l.yawDeg } : {}),
+      ...(l.heightCm ? { heightM: cm(l.heightCm) } : {}),
+    })),
     cliffs: list<{ id: string; lineCm: number[][]; heightCm: number; tiers?: number }>("cliffs").map((c) => ({ id: c.id, line: c.lineCm.map(point), heightM: cm(c.heightCm), tiers: c.tiers ?? 2 })),
     ponds: list<{ id: string; atCm: number[]; radiusCm: number }>("ponds").map((p) => ({ id: p.id, at: point(p.atCm), radiusM: cm(p.radiusCm) })),
     footpaths: list<{ id: string; from: RawAnchor; to: RawAnchor; bendPermille: number; tier?: string }>("footpaths").map((f) => ({
