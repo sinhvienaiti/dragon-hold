@@ -460,7 +460,7 @@ const KIND_STYLE: Readonly<Record<WordKind, { readonly icon: string; readonly cl
   seal: { icon: "seal", cls: "is-seal", label: "Ấn Phá" },
   flag: { icon: "flag", cls: "is-flag", label: "Nhổ cờ" },
   interrupt: { icon: "bolt", cls: "is-interrupt", label: "Từ Ngắt" },
-  urgent: { icon: "roar", cls: "is-urgent", label: "Long Hống" },
+  urgent: { icon: "roar", cls: "is-urgent", label: "Dragon Roar" },
   skill: { icon: "flame", cls: "is-skill", label: "Chữ Chiêu" },
   assist: { icon: "leaf", cls: "is-assist", label: "Từ Trợ" },
   trigger: { icon: "gear", cls: "is-trigger", label: "Từ Kích" },

@@ -273,7 +273,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       const skyNames = summary.lanes.filter((lane) => lane.sky && lane.count > 0).map((lane) => lane.nameVi);
       const warn = el(doc, "span", "dh-warn");
       warn.dataset.warn = "flyer";
-      warn.title = "Quái bay ×" + summary.flyers + (skyNames.length ? " trên " + skyNames.join(", ") : "") + ": bẫy sàn không trúng, dùng Lưới Phóng";
+      warn.title = "Quái bay ×" + summary.flyers + (skyNames.length ? " trên " + skyNames.join(", ") : "") + ": bẫy sàn không trúng, dùng Net Launcher";
       warn.innerHTML = `<span class="dh-icon">${icon("wing")}</span>`;
       warn.append("Quái bay ", countNode(summary.flyers));
       warnNodes.push(warn);
@@ -365,7 +365,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
     if (phase === "break" && left !== null) {
       // The stage's call-early gold can run out (00 §4.9's 15 % pool): then only the rage is offered (test pass 27/10).
       const bonus = callEarlyBonus(left, callEarlyRoom(w));
-      const gains = [...(bonus > 0 ? [`<span class="dh-bonus">+${bonus} vàng</span>`] : []), ...(w.stage.unlocks.rage ? [`+${RAGE.callEarlyX10 / 10} Long Nộ`] : [])];
+      const gains = [...(bonus > 0 ? [`<span class="dh-bonus">+${bonus} Gold</span>`] : []), ...(w.stage.unlocks.rage ? [`+${RAGE.callEarlyX10 / 10} Dragon Rage`] : [])];
       const callHtml = `<span class="dh-key">${keyLabel("call-early")}</span>Gọi sớm` + (gains.length > 0 ? " " + gains.join(" · ") : "");
       if (callButton.innerHTML !== callHtml) callButton.innerHTML = callHtml;
     }

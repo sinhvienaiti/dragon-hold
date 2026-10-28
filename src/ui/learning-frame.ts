@@ -489,7 +489,7 @@ export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPa
     const right = typed === word.text;
     if (right) correct += 1;
     hooks.recall(word.text, right, hookNow(hooks) - startedAt, typed);
-    box.result.textContent = right ? "Đúng! +5 Vàng đầu ải" : "Chưa đúng: " + word.text;
+    box.result.textContent = right ? "Đúng! +5 Gold đầu ải" : "Chưa đúng: " + word.text;
     box.result.className = "dh-lpanel__result " + (right ? "is-right" : "is-wrong");
     waiting = true;
     hookLater(hooks, right ? 700 : 1400, next);
@@ -642,7 +642,7 @@ export function createReviewCard(root: HTMLElement, hooks: PanelHooks): Learning
     hooks.recall(item.text, right, hookNow(hooks) - startedAt, typed);
     hooks.send({ type: "review-card", correct: right });
     if (right) {
-      box.result.textContent = "Đúng! +10 Vàng";
+      box.result.textContent = "Đúng! +10 Gold";
       box.result.className = "dh-lpanel__result is-right";
     } else {
       box.word.textContent = item.text;

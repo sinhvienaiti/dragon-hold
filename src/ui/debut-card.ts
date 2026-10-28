@@ -18,13 +18,13 @@ import { el, foeIcon, icon, keyLabel, setShown, setText } from "./skin";
 
 /** What each M0 species does and what beats it, in one line each (02 §2, §3; 03 for our side). */
 export const DEBUT_LINES: Readonly<Partial<Record<FoeId, { readonly does: string; readonly counter: string }>>> = {
-  "moss-grunt": { does: "Đi bộ tới bệ rồi chém Hỏa Long.", counter: "Gõ chữ trên đầu nó; Vệ Binh Rêu chặn được." },
-  "thorn-ant": { does: "Cả bầy mang một chữ: gõ một lần là trúng cả bầy.", counter: "Bom Hạt Thông, Phun Lửa." },
-  "thorn-wasp": { does: "Bay trên Đường Trời, dừng cách bệ 10 m rồi bắn; bẫy sàn không trúng.", counter: "Lưới Phóng kéo nó xuống đất." },
-  "moss-archer": { does: "Dừng cách bệ 12 m và bắn Hỏa Long tới khi bị hạ.", counter: "Gõ nó trước; Thiên Hỏa trúng cả nhóm." },
-  "tusk-boar": { does: "Báo vạch đỏ rồi húc thẳng vào bệ.", counter: "Vệ Binh Rêu chặn, Gai Chông làm chậm." },
-  "blight-wolf": { does: "Chạy nhanh theo bầy, vồ qua lính chặn.", counter: "Gai Chông làm chậm; gõ từng con sớm." },
-  "moss-banner": { does: "Tướng địch: cắm cờ, quân trong 5 m quanh cờ đánh mạnh hơn 25 %.", counter: "Gõ chữ trên cờ để nhổ cờ; chuỗi từ làm nó mất hào quang." },
+  "moss-grunt": { does: "(lính rêu) Đi bộ tới bệ rồi chém Hỏa Long.", counter: "Gõ chữ trên đầu nó; Grove Warden chặn được." },
+  "thorn-ant": { does: "(kiến gai) Cả bầy mang một chữ: gõ một lần là trúng cả bầy.", counter: "Pine Bomb, Fire Breath." },
+  "thorn-wasp": { does: "(ong bắp cày gai) Bay trên Đường Trời, dừng cách bệ 10 m rồi bắn; bẫy sàn không trúng.", counter: "Net Launcher kéo nó xuống đất." },
+  "moss-archer": { does: "(cung thủ rêu) Dừng cách bệ 12 m và bắn Hỏa Long tới khi bị hạ.", counter: "Gõ nó trước; Sky Fire trúng cả nhóm." },
+  "tusk-boar": { does: "(heo rừng nanh lớn) Báo vạch đỏ rồi húc thẳng vào bệ.", counter: "Grove Warden chặn, Spikes làm chậm." },
+  "blight-wolf": { does: "(sói héo mục) Chạy nhanh theo bầy, vồ qua lính chặn.", counter: "Spikes làm chậm; gõ từng con sớm." },
+  "moss-banner": { does: "(lính rêu cầm cờ) Tướng địch: cắm cờ, quân trong 5 m quanh Banner đánh mạnh hơn 25 %.", counter: "Gõ chữ trên Banner để nhổ cờ; chuỗi từ làm nó mất hào quang." },
 };
 
 /** A card stays this long (02 §1.5: 3 s). */
@@ -118,7 +118,7 @@ export function createDebutCard(root: HTMLElement): Presenter {
     setText(name, def.nameVi);
     setText(does, lines.does);
     // Skill keys are named the way the HUD shows them (⌥1 on a Mac).
-    setText(counter, "Khắc chế: " + lines.counter.replace("Phun Lửa", "Phun Lửa (" + keyLabel("skill-1") + ")").replace("Thiên Hỏa", "Thiên Hỏa (" + keyLabel("skill-2") + ")"));
+    setText(counter, "Khắc chế: " + lines.counter.replace("Fire Breath", "Fire Breath (" + keyLabel("skill-1") + ")").replace("Sky Fire", "Sky Fire (" + keyLabel("skill-2") + ")"));
     card.classList.toggle("is-general", general);
     card.classList.remove("is-on");
     void card.offsetWidth;

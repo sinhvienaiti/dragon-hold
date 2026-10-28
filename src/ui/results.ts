@@ -193,9 +193,9 @@ export function starHint(summary: ResultsSummary): string {
   if (summary.outcome === "defeat") {
     const at = "Hỏa Long gục ở đợt " + summary.wave;
     const cause = defeatCause(summary);
-    if (cause === "typing") return at + ". Gõ chữ trên đầu quái để Hỏa Long phun lửa hạ chúng.";
+    if (cause === "typing") return at + ". Gõ chữ trên đầu quái để Hỏa Long dùng Fire Breath hạ chúng.";
     if (cause === "blight")
-      return at + ", phần lớn vì Héo lan: quái mang chữ đứng trong Vùng Chữ mà chưa bị gõ thì rút máu Hỏa Long. Gõ quái gần bệ trước, dùng " + keyLabel("skill-1") + " Phun Lửa khi quái dồn.";
+      return at + ", phần lớn vì Héo lan: quái mang chữ đứng trong Vùng Chữ mà chưa bị gõ thì rút máu Hỏa Long. Gõ quái gần bệ trước, dùng " + keyLabel("skill-1") + " Fire Breath khi quái dồn.";
     return at + " vì quái đánh tới bệ. Đặt lính chặn và bẫy ở đường đông quái hơn.";
   }
   if (summary.stars >= 3) return "Hỏa Long còn " + summary.hpPct + " % máu: trọn ba sao.";
@@ -290,14 +290,14 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     if (!world) return;
     summary = summarizeRun(world, log, outcome, starCount, wave, hurt);
     const s = summary;
-    setText(title, s.outcome === "victory" ? "Giữ Ải thành công" : "Bệ Rồng thất thủ");
+    setText(title, s.outcome === "victory" ? "Giữ Ải thành công" : "Dragon Platform thất thủ");
     setText(sub, world.stage.nameVi + " · " + (s.outcome === "victory" ? s.waves + "/" + s.waves + " đợt" : "thua ở đợt " + s.wave + "/" + s.waves));
     starNodes.forEach((node, index) => setClass(node, "is-on", index < s.stars));
     setShown(stars, s.outcome === "victory");
     setText(hint, starHint(s));
     tiles.replaceChildren(
-      tile(String(s.goldLeft), "Vàng còn", true),
-      tile(String(s.goldEarned), "Vàng kiếm được", true),
+      tile(String(s.goldLeft), "Gold còn", true),
+      tile(String(s.goldEarned), "Gold kiếm được", true),
       tile(s.accuracyPct === null ? "—" : s.accuracyPct + " %", "Độ chuẩn"),
       tile(s.newLearned + "/" + s.newMet, "Từ mới đã học"),
       tile(String(s.met), "Từ đã gặp"),

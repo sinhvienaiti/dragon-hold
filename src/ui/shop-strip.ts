@@ -57,32 +57,32 @@ export function effectLine(id: PlaceableId | ConsumableId | HeroUpgradeId): stri
   if (id in TRAPS) {
     const trap = TRAPS[id as keyof typeof TRAPS];
     const e = trap.effect;
-    if (e.kind === "spikes") return `Chậm ${e.slowPct} %, ${e.dps} sát thương mỗi giây trên đường`;
-    if (e.kind === "bomb") return `Nổ ${e.damage} sát thương khi ≥ ${trap.triggerMin} quái, đẩy lùi ${metres(e.pushMm)}; nạp ${sec(trap.rechargeMs)}`;
-    return `Kéo ${e.targets > 1 ? e.targets : "một"} quái bay thấp xuống đất trong ${sec(e.groundMs)}, tầm ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
+    if (e.kind === "spikes") return `(chông nhọn) Chậm ${e.slowPct} %, ${e.dps} sát thương mỗi giây trên đường`;
+    if (e.kind === "bomb") return `(bom quả thông) Nổ ${e.damage} sát thương khi ≥ ${trap.triggerMin} quái, đẩy lùi ${metres(e.pushMm)}; nạp ${sec(trap.rechargeMs)}`;
+    return `(máy phóng lưới) Kéo ${e.targets > 1 ? e.targets : "một"} quái bay thấp xuống đất trong ${sec(e.groundMs)}, tầm ${metres(trap.area.radiusMm)}; nạp ${sec(trap.rechargeMs)}`;
   }
   if (id in HOUSES) {
     const house = HOUSES[id as keyof typeof HOUSES];
-    return `Hồi ${viNumber(house.effect.healPmPerS / 10)} % máu mỗi giây cho phe ta trong ${metres(house.radiusMm)}; đủ 5 lần gõ hạ quái gần nhà: hồi ${house.pulse.healPct} %`;
+    return `(lều thảo dược) Hồi ${viNumber(house.effect.healPmPerS / 10)} % máu mỗi giây cho phe ta trong ${metres(house.radiusMm)}; đủ 5 lần gõ hạ quái gần nhà: hồi ${house.pulse.healPct} %`;
   }
   if (id in UNITS) {
     const unit = UNITS[id as keyof typeof UNITS];
-    return `Lính chặn ${unit.blockSlots} quái, ${unit.hp} máu, đánh ${unit.attack.damage} mỗi ${sec(unit.attack.periodMs)}`;
+    return `(vệ binh rêu) Lính chặn ${unit.blockSlots} quái, ${unit.hp} máu, đánh ${unit.attack.damage} mỗi ${sec(unit.attack.periodMs)}`;
   }
   if (isConsumable(id)) {
     const item = CONSUMABLES[id];
-    return `Hồi ${item.effect.healPct} % máu Hỏa Long trong ${sec(item.effect.durationMs)}; dùng trong đợt`;
+    return `(bình hồi máu nhỏ) Hồi ${item.effect.healPct} % máu Hỏa Long trong ${sec(item.effect.durationMs)}; dùng trong đợt`;
   }
   const buy = HERO_UPGRADES[id as HeroUpgradeId];
-  return buy.effect.kind === "max-hp" ? `+${buy.effect.pct} % máu tối đa Hỏa Long, hồi luôn phần tăng` : `+${buy.effect.amount} ${buy.effect.kind === "armour" ? "Giáp" : "Kháng phép"} Hỏa Long`;
+  return buy.effect.kind === "max-hp" ? `(tim rồng) +${buy.effect.pct} % máu tối đa Hỏa Long, hồi luôn phần tăng` : `(vảy cứng) +${buy.effect.amount} ${buy.effect.kind === "armour" ? "Giáp" : "Kháng phép"} Hỏa Long`;
 }
 
 /** The strip's cells now: carry items (keys 1…), then the stage's in-run buys (03 §6.2). */
 export function stripCells(world: World, rules: PlacementRules = SIM_PLACEMENT_RULES): StripCell[] {
   const gold = world.economy.gold;
   const building = buildPhase(world.phase);
-  const lack = (price: number): string => "Thiếu " + (price - gold) + " vàng";
-  const shortOf = (reason: string | null): string | null => (reason === null ? null : SHORT[reason] ?? reason.replace(/ vàng$/, ""));
+  const lack = (price: number): string => "Thiếu " + (price - gold) + " Gold";
+  const shortOf = (reason: string | null): string | null => (reason === null ? null : SHORT[reason] ?? reason.replace(/ Gold$/, ""));
   const cells: StripCell[] = [];
   let key = 1;
   const nextKey = (): number | null => (key <= 9 ? key++ : null);
@@ -212,8 +212,8 @@ export function createShopStrip(root: HTMLElement, sink: CommandSink, options: S
       armed = { id: cell.id, until: now + CONFIRM_MS };
       // "Bấm 6 lần nữa" read as "press six more times" (test pass 26/10): the key goes in a chip, pressed once again.
       flash = {
-        text: "Bấm lại phím " + cell.key + " để mua " + cell.nameVi + " (" + (cell.price ?? 0) + " vàng)",
-        html: `Bấm lại <span class="dh-key">${cell.key}</span> để mua ${cell.nameVi} (${cell.price ?? 0} vàng)`,
+        text: "Bấm lại phím " + cell.key + " để mua " + cell.nameVi + " (" + (cell.price ?? 0) + " Gold)",
+        html: `Bấm lại <span class="dh-key">${cell.key}</span> để mua ${cell.nameVi} (${cell.price ?? 0} Gold)`,
         until: armed.until,
       };
       nodes.get(cell.id)?.button.classList.add("is-armed");

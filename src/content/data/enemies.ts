@@ -40,7 +40,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
   "moss-grunt": {
     id: "moss-grunt",
     code: "E09",
-    nameVi: "Yêu Rêu Lính",
+    nameVi: "Moss Grunt",
     nameEn: "Moss Grunt",
     family: "moss",
     gait: "biped",
@@ -72,7 +72,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
   "moss-archer": {
     id: "moss-archer",
     code: "E11",
-    nameVi: "Yêu Rêu Cung",
+    nameVi: "Moss Archer",
     nameEn: "Moss Archer",
     family: "moss",
     gait: "biped",
@@ -103,7 +103,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
   "blight-wolf": {
     id: "blight-wolf",
     code: "E18",
-    nameVi: "Sói Mục",
+    nameVi: "Blight Wolf",
     nameEn: "Blight Wolf",
     family: "beast",
     gait: "quadruped",
@@ -135,7 +135,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
   "tusk-boar": {
     id: "tusk-boar",
     code: "E19",
-    nameVi: "Heo Nanh Đá",
+    nameVi: "Tusk Boar",
     nameEn: "Tusk Boar",
     family: "beast",
     gait: "quadruped",
@@ -166,7 +166,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
   "thorn-wasp": {
     id: "thorn-wasp",
     code: "E01",
-    nameVi: "Ong Gai",
+    nameVi: "Thorn Wasp",
     nameEn: "Thorn Wasp",
     family: "bug",
     gait: "flyer",
@@ -198,7 +198,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
   "thorn-ant": {
     id: "thorn-ant",
     code: "E25",
-    nameVi: "Kiến Gai",
+    nameVi: "Thorn Ant",
     nameEn: "Thorn Ant",
     family: "bug",
     gait: "swarm",
