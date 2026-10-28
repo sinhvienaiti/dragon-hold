@@ -88,9 +88,8 @@ export const PILOT_GROUND = {
   uGrassLight: "#8f9a4c",
   uForestFloor: "#3a4a30",
   uVioletShade: "#b4c0d8",
-  // A3 follow-up: lanes and trodden ground keep the A2 tan, so moss-green foes still read on them (dh-foe-contrast).
-  uDirt: "#c9a77c",
-  uDirtLight: "#dcc59c",
+  uDirt: "#b89c74",
+  uDirtLight: "#cfb98f",
   uDirtDark: "#7b6247",
   uRimStone: "#76726a",
   uStone: "#cfc6b2",
@@ -814,6 +813,13 @@ vec3 laneC = mix(uDirt, uDirtLight, smoothstep(0.42, 0.72, stroke + mid * 0.2)) 
 laneC = mix(laneC, uDirtDark * dPath, worn * 0.45 + rut * 0.3);
 float shoulder = (1.0 - smoothstep(1.0, 1.9, lane + wob)) * (1.0 - dirt);
 c = mix(c, mix(c, uGrassLight * dGrass, 0.45), shoulder * 0.7);
+// A3 follow-up (FB-17, dh-foe-contrast): a wider band along each lane leans grey-olive and a step lighter, so
+// moss-green foes (and their shadows) part from the meadow; the lane dirt itself keeps the A3 tan.
+{
+  float laneBand = (1.0 - smoothstep(1.4, 4.5, lane + wob)) * (1.0 - dirt);
+  float bandL = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  c = mix(c, mix(vec3(bandL), c, 0.55) * 1.1, laneBand * 0.55);
+}
 c = mix(c, laneC, dirt);
 // Decals (D1–D4), bombed; their density lives in the mask, so lanes and water never get one.
 // Decals lie flat: none on slopes (they would stretch down a face).

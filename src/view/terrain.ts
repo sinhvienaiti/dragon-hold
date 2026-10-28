@@ -1054,7 +1054,7 @@ export const PINE_RIVER_GROUND = {
   uCoolTint: "#9fb3cc",
   uForestFloor: "#3a4a30",
   uVioletShade: "#b0a2dc",
-  uRock: "#8f89a0",
+  uRock: "#9a968c",
   uSand: "#c9c2a6",
   uMud: "#5f5546",
   uDirt: "#c2a47e",
