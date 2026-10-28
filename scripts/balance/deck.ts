@@ -1,5 +1,5 @@
 /**
- * The bots' word deck (01 §6.1): 100 words from shared/vocabulary levels 1–3
+ * The bots' word deck (01 §6.1): 100 words frozen in this file's SOURCE string
  * (a–z only, no q x z j starts), frozen here so balance runs and golden
  * hashes do not move when the vocabulary does. Lengths 3–10 cover every slot
  * of 01 §3.4 from 25 to 60 WPM; groups follow 01 §6.1 (new 15 %, due 35 %,

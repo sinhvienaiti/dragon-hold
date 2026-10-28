@@ -190,7 +190,7 @@ export function startUiPreview(doc: Document = document): PreviewHandle {
   const overlay = doc.getElementById("dh-overlay") ?? doc.body;
   const canvasHost = doc.getElementById("dh-canvas") ?? doc.body;
   overlay.replaceChildren();
-  doc.title = "Rồng Giữ Ải · xem UI";
+  doc.title = "Dragonhold · UI preview";
 
   let world = previewWorld();
   const project = previewProjector(view, world.map.camera);
@@ -214,7 +214,7 @@ export function startUiPreview(doc: Document = document): PreviewHandle {
   frameStub.innerHTML =
     `<div class="${LEARNING_FRAME_CLASSES.word}"><span class="${LEARNING_FRAME_CLASSES.typed}">fo</span>rest</div>` +
     `<div class="${LEARNING_FRAME_CLASSES.ipa}">/ˈfɔːrɪst/</div><div class="${LEARNING_FRAME_CLASSES.meaning}">khu rừng</div>` +
-    `<div class="${LEARNING_FRAME_CLASSES.recent}">Vừa học: bridge · honey · valley</div>`;
+    `<div class="${LEARNING_FRAME_CLASSES.recent}">Learned: bridge · honey · valley</div>`;
   const tagLayer = el(doc, "div");
   tagLayer.dataset.fake = "tags";
   tagLayer.style.position = "absolute";
@@ -228,7 +228,7 @@ export function startUiPreview(doc: Document = document): PreviewHandle {
   };
 
   const placement = createPlacementUi(overlay, project, sink, { rules: PREVIEW_RULES });
-  const hud = createHud(overlay, sink, { onPause: () => hud.toast("Tạm dừng (menu dừng do integrator làm)"), onCameraReset: () => hud.toast("Camera về hướng chuẩn") });
+  const hud = createHud(overlay, sink, { onPause: () => hud.toast("Paused (preview)"), onCameraReset: () => hud.toast("Reset camera") });
   const waveCard = createWaveCard(overlay, sink);
   const strip = createShopStrip(overlay, sink, { placement, rules: PREVIEW_RULES });
   const gloss = (text: string) => {

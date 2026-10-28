@@ -100,9 +100,9 @@ describe("typing pace", () => {
     const row = url70.options[url70.selected]!;
     expect(row.key).toBe(PACE_CURRENT_KEY);
     expect(row.header).toEqual({ typistWpm: 70, source: "url" });
-    expect(row.label).toBe("Đang dùng: 70 WPM");
+    expect(row.label).toBe("In use: 70 WPM");
     expect(url70.options).toHaveLength(PACE_PRESETS.length + 1);
-    expect(paceLabel({ typistWpm: 70, source: "url" })).toBe("70 WPM (cổng game đặt)");
+    expect(paceLabel({ typistWpm: 70, source: "url" })).toBe("70 WPM (portal preset)");
     // A 75 WPM row for fast typists (test pass 26/10).
     expect(PACE_PRESETS.map((preset) => preset.wpm)).toContain(75);
   });

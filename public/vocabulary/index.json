@@ -1,0 +1,608 @@
+{
+  "version": 1,
+  "plannedLevels": 100,
+  "availableLevels": 100,
+  "totalEntries": 18000,
+  "levels": [
+    {
+      "level": 1,
+      "label": "Foundation 001",
+      "file": "levels/001.json",
+      "count": 150
+    },
+    {
+      "level": 2,
+      "label": "Foundation 002",
+      "file": "levels/002.json",
+      "count": 150
+    },
+    {
+      "level": 3,
+      "label": "Foundation 003",
+      "file": "levels/003.json",
+      "count": 150
+    },
+    {
+      "level": 4,
+      "label": "A1 Foundation 004",
+      "file": "levels/004.json",
+      "count": 181
+    },
+    {
+      "level": 5,
+      "label": "A1 Foundation 005",
+      "file": "levels/005.json",
+      "count": 181
+    },
+    {
+      "level": 6,
+      "label": "A1 Foundation 006",
+      "file": "levels/006.json",
+      "count": 181
+    },
+    {
+      "level": 7,
+      "label": "A1 Foundation 007",
+      "file": "levels/007.json",
+      "count": 181
+    },
+    {
+      "level": 8,
+      "label": "A1 Foundation 008",
+      "file": "levels/008.json",
+      "count": 181
+    },
+    {
+      "level": 9,
+      "label": "A1 Foundation 009",
+      "file": "levels/009.json",
+      "count": 181
+    },
+    {
+      "level": 10,
+      "label": "A1 Foundation 010",
+      "file": "levels/010.json",
+      "count": 181
+    },
+    {
+      "level": 11,
+      "label": "A1 Foundation 011",
+      "file": "levels/011.json",
+      "count": 181
+    },
+    {
+      "level": 12,
+      "label": "A1 Foundation 012",
+      "file": "levels/012.json",
+      "count": 181
+    },
+    {
+      "level": 13,
+      "label": "A2 Foundation 013",
+      "file": "levels/013.json",
+      "count": 181
+    },
+    {
+      "level": 14,
+      "label": "A2 Foundation 014",
+      "file": "levels/014.json",
+      "count": 181
+    },
+    {
+      "level": 15,
+      "label": "A2 Foundation 015",
+      "file": "levels/015.json",
+      "count": 181
+    },
+    {
+      "level": 16,
+      "label": "A2 Foundation 016",
+      "file": "levels/016.json",
+      "count": 181
+    },
+    {
+      "level": 17,
+      "label": "A2 Foundation 017",
+      "file": "levels/017.json",
+      "count": 181
+    },
+    {
+      "level": 18,
+      "label": "A2 Foundation 018",
+      "file": "levels/018.json",
+      "count": 181
+    },
+    {
+      "level": 19,
+      "label": "A2 Foundation 019",
+      "file": "levels/019.json",
+      "count": 181
+    },
+    {
+      "level": 20,
+      "label": "A2 Foundation 020",
+      "file": "levels/020.json",
+      "count": 181
+    },
+    {
+      "level": 21,
+      "label": "A2 Foundation 021",
+      "file": "levels/021.json",
+      "count": 181
+    },
+    {
+      "level": 22,
+      "label": "A2 Foundation 022",
+      "file": "levels/022.json",
+      "count": 181
+    },
+    {
+      "level": 23,
+      "label": "A2 Foundation 023",
+      "file": "levels/023.json",
+      "count": 181
+    },
+    {
+      "level": 24,
+      "label": "A2 Foundation 024",
+      "file": "levels/024.json",
+      "count": 181
+    },
+    {
+      "level": 25,
+      "label": "A2 Foundation 025",
+      "file": "levels/025.json",
+      "count": 181
+    },
+    {
+      "level": 26,
+      "label": "A2 Foundation 026",
+      "file": "levels/026.json",
+      "count": 181
+    },
+    {
+      "level": 27,
+      "label": "A2 Foundation 027",
+      "file": "levels/027.json",
+      "count": 181
+    },
+    {
+      "level": 28,
+      "label": "A2 Foundation 028",
+      "file": "levels/028.json",
+      "count": 181
+    },
+    {
+      "level": 29,
+      "label": "B1 Intermediate 029",
+      "file": "levels/029.json",
+      "count": 181
+    },
+    {
+      "level": 30,
+      "label": "B1 Intermediate 030",
+      "file": "levels/030.json",
+      "count": 181
+    },
+    {
+      "level": 31,
+      "label": "B1 Intermediate 031",
+      "file": "levels/031.json",
+      "count": 181
+    },
+    {
+      "level": 32,
+      "label": "B1 Intermediate 032",
+      "file": "levels/032.json",
+      "count": 181
+    },
+    {
+      "level": 33,
+      "label": "B1 Intermediate 033",
+      "file": "levels/033.json",
+      "count": 181
+    },
+    {
+      "level": 34,
+      "label": "B1 Intermediate 034",
+      "file": "levels/034.json",
+      "count": 181
+    },
+    {
+      "level": 35,
+      "label": "B1 Intermediate 035",
+      "file": "levels/035.json",
+      "count": 181
+    },
+    {
+      "level": 36,
+      "label": "B1 Intermediate 036",
+      "file": "levels/036.json",
+      "count": 181
+    },
+    {
+      "level": 37,
+      "label": "B1 Intermediate 037",
+      "file": "levels/037.json",
+      "count": 181
+    },
+    {
+      "level": 38,
+      "label": "B1 Intermediate 038",
+      "file": "levels/038.json",
+      "count": 181
+    },
+    {
+      "level": 39,
+      "label": "B1 Intermediate 039",
+      "file": "levels/039.json",
+      "count": 181
+    },
+    {
+      "level": 40,
+      "label": "B1 Intermediate 040",
+      "file": "levels/040.json",
+      "count": 181
+    },
+    {
+      "level": 41,
+      "label": "B1 Intermediate 041",
+      "file": "levels/041.json",
+      "count": 181
+    },
+    {
+      "level": 42,
+      "label": "B1 Intermediate 042",
+      "file": "levels/042.json",
+      "count": 181
+    },
+    {
+      "level": 43,
+      "label": "B1 Intermediate 043",
+      "file": "levels/043.json",
+      "count": 181
+    },
+    {
+      "level": 44,
+      "label": "B1 Intermediate 044",
+      "file": "levels/044.json",
+      "count": 181
+    },
+    {
+      "level": 45,
+      "label": "B1 Intermediate 045",
+      "file": "levels/045.json",
+      "count": 181
+    },
+    {
+      "level": 46,
+      "label": "B1 Intermediate 046",
+      "file": "levels/046.json",
+      "count": 181
+    },
+    {
+      "level": 47,
+      "label": "B2 Upper Intermediate 047",
+      "file": "levels/047.json",
+      "count": 181
+    },
+    {
+      "level": 48,
+      "label": "B2 Upper Intermediate 048",
+      "file": "levels/048.json",
+      "count": 181
+    },
+    {
+      "level": 49,
+      "label": "B2 Upper Intermediate 049",
+      "file": "levels/049.json",
+      "count": 181
+    },
+    {
+      "level": 50,
+      "label": "B2 Upper Intermediate 050",
+      "file": "levels/050.json",
+      "count": 181
+    },
+    {
+      "level": 51,
+      "label": "B2 Upper Intermediate 051",
+      "file": "levels/051.json",
+      "count": 181
+    },
+    {
+      "level": 52,
+      "label": "B2 Upper Intermediate 052",
+      "file": "levels/052.json",
+      "count": 181
+    },
+    {
+      "level": 53,
+      "label": "B2 Upper Intermediate 053",
+      "file": "levels/053.json",
+      "count": 181
+    },
+    {
+      "level": 54,
+      "label": "B2 Upper Intermediate 054",
+      "file": "levels/054.json",
+      "count": 181
+    },
+    {
+      "level": 55,
+      "label": "B2 Upper Intermediate 055",
+      "file": "levels/055.json",
+      "count": 181
+    },
+    {
+      "level": 56,
+      "label": "B2 Upper Intermediate 056",
+      "file": "levels/056.json",
+      "count": 181
+    },
+    {
+      "level": 57,
+      "label": "B2 Upper Intermediate 057",
+      "file": "levels/057.json",
+      "count": 181
+    },
+    {
+      "level": 58,
+      "label": "B2 Upper Intermediate 058",
+      "file": "levels/058.json",
+      "count": 181
+    },
+    {
+      "level": 59,
+      "label": "B2 Upper Intermediate 059",
+      "file": "levels/059.json",
+      "count": 181
+    },
+    {
+      "level": 60,
+      "label": "B2 Upper Intermediate 060",
+      "file": "levels/060.json",
+      "count": 181
+    },
+    {
+      "level": 61,
+      "label": "B2 Upper Intermediate 061",
+      "file": "levels/061.json",
+      "count": 181
+    },
+    {
+      "level": 62,
+      "label": "B2 Upper Intermediate 062",
+      "file": "levels/062.json",
+      "count": 181
+    },
+    {
+      "level": 63,
+      "label": "B2 Upper Intermediate 063",
+      "file": "levels/063.json",
+      "count": 181
+    },
+    {
+      "level": 64,
+      "label": "B2 Upper Intermediate 064",
+      "file": "levels/064.json",
+      "count": 181
+    },
+    {
+      "level": 65,
+      "label": "B2 Upper Intermediate 065",
+      "file": "levels/065.json",
+      "count": 181
+    },
+    {
+      "level": 66,
+      "label": "C1 Advanced 066",
+      "file": "levels/066.json",
+      "count": 181
+    },
+    {
+      "level": 67,
+      "label": "C1 Advanced 067",
+      "file": "levels/067.json",
+      "count": 181
+    },
+    {
+      "level": 68,
+      "label": "C1 Advanced 068",
+      "file": "levels/068.json",
+      "count": 181
+    },
+    {
+      "level": 69,
+      "label": "C1 Advanced 069",
+      "file": "levels/069.json",
+      "count": 181
+    },
+    {
+      "level": 70,
+      "label": "C1 Advanced 070",
+      "file": "levels/070.json",
+      "count": 181
+    },
+    {
+      "level": 71,
+      "label": "C1 Advanced 071",
+      "file": "levels/071.json",
+      "count": 181
+    },
+    {
+      "level": 72,
+      "label": "C1 Advanced 072",
+      "file": "levels/072.json",
+      "count": 181
+    },
+    {
+      "level": 73,
+      "label": "C1 Advanced 073",
+      "file": "levels/073.json",
+      "count": 181
+    },
+    {
+      "level": 74,
+      "label": "C1 Advanced 074",
+      "file": "levels/074.json",
+      "count": 181
+    },
+    {
+      "level": 75,
+      "label": "C1 Advanced 075",
+      "file": "levels/075.json",
+      "count": 181
+    },
+    {
+      "level": 76,
+      "label": "C1 Advanced 076",
+      "file": "levels/076.json",
+      "count": 181
+    },
+    {
+      "level": 77,
+      "label": "C1 Advanced 077",
+      "file": "levels/077.json",
+      "count": 181
+    },
+    {
+      "level": 78,
+      "label": "C1 Advanced 078",
+      "file": "levels/078.json",
+      "count": 181
+    },
+    {
+      "level": 79,
+      "label": "C1 Advanced 079",
+      "file": "levels/079.json",
+      "count": 181
+    },
+    {
+      "level": 80,
+      "label": "C1 Advanced 080",
+      "file": "levels/080.json",
+      "count": 181
+    },
+    {
+      "level": 81,
+      "label": "C1 Advanced 081",
+      "file": "levels/081.json",
+      "count": 181
+    },
+    {
+      "level": 82,
+      "label": "C1 Advanced 082",
+      "file": "levels/082.json",
+      "count": 181
+    },
+    {
+      "level": 83,
+      "label": "C2 Advanced 083",
+      "file": "levels/083.json",
+      "count": 181
+    },
+    {
+      "level": 84,
+      "label": "C2 Advanced 084",
+      "file": "levels/084.json",
+      "count": 181
+    },
+    {
+      "level": 85,
+      "label": "C2 Advanced 085",
+      "file": "levels/085.json",
+      "count": 181
+    },
+    {
+      "level": 86,
+      "label": "C2 Advanced 086",
+      "file": "levels/086.json",
+      "count": 181
+    },
+    {
+      "level": 87,
+      "label": "C2 Advanced 087",
+      "file": "levels/087.json",
+      "count": 181
+    },
+    {
+      "level": 88,
+      "label": "C2 Advanced 088",
+      "file": "levels/088.json",
+      "count": 181
+    },
+    {
+      "level": 89,
+      "label": "C2 Advanced 089",
+      "file": "levels/089.json",
+      "count": 181
+    },
+    {
+      "level": 90,
+      "label": "C2 Advanced 090",
+      "file": "levels/090.json",
+      "count": 181
+    },
+    {
+      "level": 91,
+      "label": "C2 Advanced 091",
+      "file": "levels/091.json",
+      "count": 181
+    },
+    {
+      "level": 92,
+      "label": "C2 Advanced 092",
+      "file": "levels/092.json",
+      "count": 181
+    },
+    {
+      "level": 93,
+      "label": "C2 Advanced 093",
+      "file": "levels/093.json",
+      "count": 181
+    },
+    {
+      "level": 94,
+      "label": "C2 Advanced 094",
+      "file": "levels/094.json",
+      "count": 180
+    },
+    {
+      "level": 95,
+      "label": "Advanced 095",
+      "file": "levels/095.json",
+      "count": 180
+    },
+    {
+      "level": 96,
+      "label": "Advanced 096",
+      "file": "levels/096.json",
+      "count": 180
+    },
+    {
+      "level": 97,
+      "label": "Advanced 097",
+      "file": "levels/097.json",
+      "count": 180
+    },
+    {
+      "level": 98,
+      "label": "Advanced 098",
+      "file": "levels/098.json",
+      "count": 180
+    },
+    {
+      "level": 99,
+      "label": "Advanced 099",
+      "file": "levels/099.json",
+      "count": 180
+    },
+    {
+      "level": 100,
+      "label": "Advanced 100",
+      "file": "levels/100.json",
+      "count": 180
+    }
+  ]
+}

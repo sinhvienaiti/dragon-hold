@@ -1,0 +1,1093 @@
+{
+  "version": 1,
+  "level": 8,
+  "label": "A1 Foundation 008",
+  "entries": [
+    {
+      "id": "L008-001",
+      "en": "jacket",
+      "vi": "áo vét tông; áo tây; áo vét",
+      "ipa": "/ˈdʒækət/"
+    },
+    {
+      "id": "L008-002",
+      "en": "habit",
+      "vi": "thói quen; thói; mặc áo dòng cho",
+      "ipa": "/ˈhæbət/"
+    },
+    {
+      "id": "L008-003",
+      "en": "lazy",
+      "vi": "lười biếng; lười",
+      "ipa": "/ˈleɪzi/"
+    },
+    {
+      "id": "L008-004",
+      "en": "opera",
+      "vi": "ca kịch; nhạc kịch; nhà hát",
+      "ipa": "/ˈɑpɹə/"
+    },
+    {
+      "id": "L008-005",
+      "en": "delicious",
+      "vi": "ngon; táo Delicious (giống táo ngọt)",
+      "ipa": "/dɪˈlɪʃəs/"
+    },
+    {
+      "id": "L008-006",
+      "en": "conversation",
+      "vi": "(cuộc) đối thoại",
+      "ipa": "/ˌkɑnvɚˈseɪʃən/"
+    },
+    {
+      "id": "L008-007",
+      "en": "telephone",
+      "vi": "điện thoại; dây nói; phôn",
+      "ipa": "/ˈtɛləˌfoʊn/"
+    },
+    {
+      "id": "L008-008",
+      "en": "dig",
+      "vi": "địa điểm khai quật (khảo cổ); lời nói mỉa mai; lời đả kích",
+      "ipa": "/dɪɡ/"
+    },
+    {
+      "id": "L008-009",
+      "en": "leaf",
+      "vi": "lá; lật qua; xem lướt (sách)",
+      "ipa": "/lif/"
+    },
+    {
+      "id": "L008-010",
+      "en": "devices",
+      "vi": "ý muốn, khuynh hướng (thường số nhiều: to leave someone to their own devices)",
+      "ipa": "/dɪˈvaɪsəz/"
+    },
+    {
+      "id": "L008-011",
+      "en": "snake",
+      "vi": "rắn; lượn, uốn khúc; lượn sóng, ngoằn ngoèo",
+      "ipa": "/sneɪk/"
+    },
+    {
+      "id": "L008-012",
+      "en": "favor",
+      "vi": "ơn; ủng hộ; thiên vị",
+      "ipa": "/ˈfeɪvɚ/"
+    },
+    {
+      "id": "L008-013",
+      "en": "offering",
+      "vi": "lễ vật; cúng phẩm; đề nghị",
+      "ipa": "/ˈɔfɚɪŋ/"
+    },
+    {
+      "id": "L008-014",
+      "en": "lonely",
+      "vi": "cô đơn; lẻ loi; hoang tàn",
+      "ipa": "/ˈloʊnli/"
+    },
+    {
+      "id": "L008-015",
+      "en": "dish",
+      "vi": "đĩa; món; món ăn",
+      "ipa": "/dɪʃ/"
+    },
+    {
+      "id": "L008-016",
+      "en": "identified",
+      "vi": "được xác định; được nhận dạng",
+      "ipa": "/aɪˈdɛntəˌfaɪd/"
+    },
+    {
+      "id": "L008-017",
+      "en": "teeth",
+      "vi": "bộ răng; hàm răng",
+      "ipa": "/tiθ/"
+    },
+    {
+      "id": "L008-018",
+      "en": "reporter",
+      "vi": "phóng viên; nhà báo; ký giả",
+      "ipa": "/ɹɪˈpɔɹtɚ/"
+    },
+    {
+      "id": "L008-019",
+      "en": "rude",
+      "vi": "thô lỗ; bất lịch sự; thô thiển",
+      "ipa": "/ɹud/"
+    },
+    {
+      "id": "L008-020",
+      "en": "swim",
+      "vi": "bơi; tắm; sự bơi lội",
+      "ipa": "/swɪm/"
+    },
+    {
+      "id": "L008-021",
+      "en": "directed",
+      "vi": "được hướng dẫn; có hướng; được chỉ đạo",
+      "ipa": "/dˈɚɛktəd/"
+    },
+    {
+      "id": "L008-022",
+      "en": "el",
+      "vi": "e-lờ; lờ",
+      "ipa": "/ɛl/"
+    },
+    {
+      "id": "L008-023",
+      "en": "destroyed",
+      "vi": "bị phá hủy; bị tiêu hủy; bị hủy hoại",
+      "ipa": "/dɪˈstɹɔɪd/"
+    },
+    {
+      "id": "L008-024",
+      "en": "saving",
+      "vi": "cứu rỗi; cứu độ; tiết kiệm",
+      "ipa": "/ˈseɪvɪŋ/"
+    },
+    {
+      "id": "L008-025",
+      "en": "brush",
+      "vi": "bàn chải; cọ; bút lông",
+      "ipa": "/bɹʌʃ/"
+    },
+    {
+      "id": "L008-026",
+      "en": "laid",
+      "vi": "được đặt (theo kế hoạch); được bố trí",
+      "ipa": "/leɪd/"
+    },
+    {
+      "id": "L008-027",
+      "en": "appointed",
+      "vi": "được bổ nhiệm; được chỉ định, được bổ nhiệm (vào vị trí); đã định, đã ấn định (theo lệnh)",
+      "ipa": "/əˈpɔɪntɪd/"
+    },
+    {
+      "id": "L008-028",
+      "en": "brazil",
+      "vi": "hạt Brazil",
+      "ipa": "/bɹəˈzɪl/"
+    },
+    {
+      "id": "L008-029",
+      "en": "breathe",
+      "vi": "thở; hô hấp",
+      "ipa": "/bɹið/"
+    },
+    {
+      "id": "L008-030",
+      "en": "vacation",
+      "vi": "kì nghỉ; nghỉ lễ; đi nghỉ",
+      "ipa": "/veɪˈkeɪʃən/"
+    },
+    {
+      "id": "L008-031",
+      "en": "sheep",
+      "vi": "cừu",
+      "ipa": "/ʃip/"
+    },
+    {
+      "id": "L008-032",
+      "en": "fever",
+      "vi": "sốt",
+      "ipa": "/ˈfivɚ/"
+    },
+    {
+      "id": "L008-033",
+      "en": "random",
+      "vi": "ngẫu nhiên",
+      "ipa": "/ˈɹændəm/"
+    },
+    {
+      "id": "L008-034",
+      "en": "taxi",
+      "vi": "xe tắc xi; tắc xi; đi taxi",
+      "ipa": "/ˈtæksi/"
+    },
+    {
+      "id": "L008-035",
+      "en": "seeking",
+      "vi": "sự tìm kiếm; sự tìm cách đạt được",
+      "ipa": "/ˈsikɪŋ/"
+    },
+    {
+      "id": "L008-036",
+      "en": "laughing",
+      "vi": "cười, đang cười",
+      "ipa": "/ˈlæfɪŋ/"
+    },
+    {
+      "id": "L008-037",
+      "en": "aunt",
+      "vi": "cô; dì",
+      "ipa": "/ænt/"
+    },
+    {
+      "id": "L008-038",
+      "en": "introduce",
+      "vi": "giới thiệu",
+      "ipa": "/ˌɪntɹəˈdus/"
+    },
+    {
+      "id": "L008-039",
+      "en": "couch",
+      "vi": "đi văng; diễn đạt, trình bày (theo một phong cách)",
+      "ipa": "/kaʊtʃ/"
+    },
+    {
+      "id": "L008-040",
+      "en": "trained",
+      "vi": "được đào tạo; được huấn luyện",
+      "ipa": "/tɹeɪnd/"
+    },
+    {
+      "id": "L008-041",
+      "en": "shy",
+      "vi": "nhát; nhút nhát; ngại",
+      "ipa": "/ʃaɪ/"
+    },
+    {
+      "id": "L008-042",
+      "en": "corn",
+      "vi": "ngô; muối (thịt); cho (gia súc) ăn ngô",
+      "ipa": "/kɔɹn/"
+    },
+    {
+      "id": "L008-043",
+      "en": "strict",
+      "vi": "nghiêm khắc",
+      "ipa": "/stɹɪkt/"
+    },
+    {
+      "id": "L008-044",
+      "en": "handsome",
+      "vi": "đẹp trai",
+      "ipa": "/ˈhænsəm/"
+    },
+    {
+      "id": "L008-045",
+      "en": "clever",
+      "vi": "thông minh",
+      "ipa": "/ˈklɛvɚ/"
+    },
+    {
+      "id": "L008-046",
+      "en": "assets",
+      "vi": "tài sản; tài sản có",
+      "ipa": "/ˈæˌsɛts/"
+    },
+    {
+      "id": "L008-047",
+      "en": "rooms",
+      "vi": "phòng trọ; dãy phòng (trong khách sạn)",
+      "ipa": "/ɹumz/"
+    },
+    {
+      "id": "L008-048",
+      "en": "soup",
+      "vi": "canh; nước dùng; nước lèo",
+      "ipa": "/sup/"
+    },
+    {
+      "id": "L008-049",
+      "en": "defined",
+      "vi": "rõ ràng; xác định; có ranh giới rõ",
+      "ipa": "/dɪˈfaɪnd/"
+    },
+    {
+      "id": "L008-050",
+      "en": "cow",
+      "vi": "bò cái; bò",
+      "ipa": "/kaʊ/"
+    },
+    {
+      "id": "L008-051",
+      "en": "dedicated",
+      "vi": "tận tâm; cống hiến; hiến dâng",
+      "ipa": "/ˈdɛdəkeɪtəd/"
+    },
+    {
+      "id": "L008-052",
+      "en": "headed",
+      "vi": "hướng về; đi về phía; có tiêu đề",
+      "ipa": "/ˈhɛdəd/"
+    },
+    {
+      "id": "L008-053",
+      "en": "climb",
+      "vi": "dốc lên; đoạn đường lên dốc; sự leo",
+      "ipa": "/klaɪm/"
+    },
+    {
+      "id": "L008-054",
+      "en": "salad",
+      "vi": "sa-lát; rau trộn",
+      "ipa": "/ˈsæləd/"
+    },
+    {
+      "id": "L008-055",
+      "en": "pig",
+      "vi": "heo; lợn; cúi",
+      "ipa": "/pɪɡ/"
+    },
+    {
+      "id": "L008-056",
+      "en": "cinema",
+      "vi": "rạp phim; rạp chiếu phim; rạp xi nê",
+      "ipa": "/ˈsɪnəmə/"
+    },
+    {
+      "id": "L008-057",
+      "en": "awake",
+      "vi": "thức; thức dậy; dậy lên",
+      "ipa": "/əˈweɪk/"
+    },
+    {
+      "id": "L008-058",
+      "en": "crying",
+      "vi": "khẩn cấp; cấp bách; trắng trợn",
+      "ipa": "/ˈkɹaɪɪŋ/"
+    },
+    {
+      "id": "L008-059",
+      "en": "zoo",
+      "vi": "thảo cầm viên; sở thú; vườn thú",
+      "ipa": "/zu/"
+    },
+    {
+      "id": "L008-060",
+      "en": "rat",
+      "vi": "chuột; bỏ rơi đồng đội; phản bội",
+      "ipa": "/ɹæt/"
+    },
+    {
+      "id": "L008-061",
+      "en": "controlled",
+      "vi": "được kiểm soát, được điều chỉnh",
+      "ipa": "/kənˈtɹoʊld/"
+    },
+    {
+      "id": "L008-062",
+      "en": "bible",
+      "vi": "sách gối đầu giường, sách kinh điển",
+      "ipa": "/ˈbaɪbəl/"
+    },
+    {
+      "id": "L008-063",
+      "en": "mining",
+      "vi": "khai thác mỏ",
+      "ipa": "/ˈmaɪnɪŋ/"
+    },
+    {
+      "id": "L008-064",
+      "en": "poster",
+      "vi": "bích chương; áp phích",
+      "ipa": "/ˈpoʊstɚ/"
+    },
+    {
+      "id": "L008-065",
+      "en": "earned",
+      "vi": "kiếm được; giành được",
+      "ipa": "/ɝnd/"
+    },
+    {
+      "id": "L008-066",
+      "en": "realized",
+      "vi": "đã hoàn thành; đã thực hiện",
+      "ipa": "/ˈɹiəˌlaɪzd/"
+    },
+    {
+      "id": "L008-067",
+      "en": "elementary",
+      "vi": "cơ bản; sơ đẳng; đơn giản",
+      "ipa": "/ˌɛləˈmɛntɹi/"
+    },
+    {
+      "id": "L008-068",
+      "en": "jr",
+      "vi": "con trai trùng tên với cha",
+      "ipa": "/ˈdʒunjɚ/"
+    },
+    {
+      "id": "L008-069",
+      "en": "amazon",
+      "vi": "người đàn bà cao lớn, hùng hổ; nữ chiến binh Amazon (thần thoại Hy Lạp); sông Amazon",
+      "ipa": "/ˈæməˌzɑn/"
+    },
+    {
+      "id": "L008-070",
+      "en": "roads",
+      "vi": "vùng neo đậu có chắn gió",
+      "ipa": "/ɹoʊdz/"
+    },
+    {
+      "id": "L008-071",
+      "en": "hurry",
+      "vi": "sự vội vã; sự gấp rút; sự vội vàng",
+      "ipa": "/ˈhɝi/"
+    },
+    {
+      "id": "L008-072",
+      "en": "combat",
+      "vi": "chiến đấu; giao chiến; sự chống lại",
+      "ipa": "/ˈkɑmbæt/"
+    },
+    {
+      "id": "L008-073",
+      "en": "blank",
+      "vi": "trắng; để trắng; trống",
+      "ipa": "/blæŋk/"
+    },
+    {
+      "id": "L008-074",
+      "en": "checked",
+      "vi": "kẻ ô, ca-rô",
+      "ipa": "/tʃɛkt/"
+    },
+    {
+      "id": "L008-075",
+      "en": "bee",
+      "vi": "ong; bê; bờ",
+      "ipa": "/bi/"
+    },
+    {
+      "id": "L008-076",
+      "en": "scientist",
+      "vi": "nhà khoa học; khoa học gia",
+      "ipa": "/ˈsaɪəntɪst/"
+    },
+    {
+      "id": "L008-077",
+      "en": "seats",
+      "vi": "chỗ ngồi, khu vực có chỗ ngồi",
+      "ipa": "/sits/"
+    },
+    {
+      "id": "L008-078",
+      "en": "grammar",
+      "vi": "ngữ pháp; văn phạm",
+      "ipa": "/ˈɡɹæmɚ/"
+    },
+    {
+      "id": "L008-079",
+      "en": "farmer",
+      "vi": "nông dân",
+      "ipa": "/ˈfɑɹmɚ/"
+    },
+    {
+      "id": "L008-080",
+      "en": "coke",
+      "vi": "than cốc; Cô-ca (Coca-Cola); cô-ca-in (tiếng lóng)",
+      "ipa": "/koʊk/"
+    },
+    {
+      "id": "L008-081",
+      "en": "garbage",
+      "vi": "rác",
+      "ipa": "/ˈɡɑɹbɪdʒ/"
+    },
+    {
+      "id": "L008-082",
+      "en": "sleeping",
+      "vi": "nằm ngủ (động vật); giấc ngủ; trạng thái ngủ",
+      "ipa": "/ˈslipɪŋ/"
+    },
+    {
+      "id": "L008-083",
+      "en": "drum",
+      "vi": "trống; gõ nhịp; đập nhịp",
+      "ipa": "/dɹʌm/"
+    },
+    {
+      "id": "L008-084",
+      "en": "drawn",
+      "vi": "hốc hác, phờ phạc; kéo rèm lại, đóng màn",
+      "ipa": "/dɹɔn/"
+    },
+    {
+      "id": "L008-085",
+      "en": "catholic",
+      "vi": "(thuộc) Công giáo; rộng rãi, bao dung, phổ quát; tín đồ Công giáo",
+      "ipa": "/ˈkæθlɪk/"
+    },
+    {
+      "id": "L008-086",
+      "en": "linked",
+      "vi": "được nối, được kết nối",
+      "ipa": "/lɪŋkt/"
+    },
+    {
+      "id": "L008-087",
+      "en": "driven",
+      "vi": "bị thúc đẩy, bị buộc phải; bị thôi thúc; có động lực mạnh mẽ, quyết tâm",
+      "ipa": "/ˈdɹɪvən/"
+    },
+    {
+      "id": "L008-088",
+      "en": "sunny",
+      "vi": "nắng",
+      "ipa": "/ˈsʌni/"
+    },
+    {
+      "id": "L008-089",
+      "en": "declared",
+      "vi": "công khai tuyên bố; thừa nhận; được khẳng định",
+      "ipa": "/dɪˈklɛɹd/"
+    },
+    {
+      "id": "L008-090",
+      "en": "doll",
+      "vi": "búp bê",
+      "ipa": "/dɑl/"
+    },
+    {
+      "id": "L008-091",
+      "en": "cookie",
+      "vi": "bánh quy; bích quy; bánh bích quy",
+      "ipa": "/ˈkʊki/"
+    },
+    {
+      "id": "L008-092",
+      "en": "understood",
+      "vi": "được hiểu; được thấu hiểu; ngầm hiểu",
+      "ipa": "/ˌʌndɚˈstʊd/"
+    },
+    {
+      "id": "L008-093",
+      "en": "bucket",
+      "vi": "xô; bỏ vào xô; mang bằng xô",
+      "ipa": "/ˈbʌkət/"
+    },
+    {
+      "id": "L008-094",
+      "en": "jeans",
+      "vi": "jeans; quần jeans; quần bò",
+      "ipa": "/dʒinz/"
+    },
+    {
+      "id": "L008-095",
+      "en": "fairy",
+      "vi": "tiên nữ; nàng tiên; yêu tinh",
+      "ipa": "/ˈfɛɹi/"
+    },
+    {
+      "id": "L008-096",
+      "en": "fed",
+      "vi": "nhân viên liên bang (cảnh sát); Cục Dự trữ Liên bang (Mỹ)",
+      "ipa": "/fɛd/"
+    },
+    {
+      "id": "L008-097",
+      "en": "sunshine",
+      "vi": "nắng; ánh nắng; ánh sáng mặt trời",
+      "ipa": "/ˈsʌnˌʃaɪn/"
+    },
+    {
+      "id": "L008-098",
+      "en": "sandwich",
+      "vi": "bánh mì kẹp; xăng-uých; xăng-đuých",
+      "ipa": "/ˈsændwɪtʃ/"
+    },
+    {
+      "id": "L008-099",
+      "en": "tooth",
+      "vi": "răng",
+      "ipa": "/tuθ/"
+    },
+    {
+      "id": "L008-100",
+      "en": "performing",
+      "vi": "sự biểu diễn; sự trình diễn (vai diễn)",
+      "ipa": "/pɚˈfɔɹmɪŋ/"
+    },
+    {
+      "id": "L008-101",
+      "en": "causing",
+      "vi": "sự gây ra; nguyên nhân",
+      "ipa": "/ˈkɑzɪŋ/"
+    },
+    {
+      "id": "L008-102",
+      "en": "pollution",
+      "vi": "sự ô nhiễm",
+      "ipa": "/pəˈluʃən/"
+    },
+    {
+      "id": "L008-103",
+      "en": "semi",
+      "vi": "bán kết; xe tải kéo rơ-moóc",
+      "ipa": "/ˈsɛmi/"
+    },
+    {
+      "id": "L008-104",
+      "en": "letting",
+      "vi": "tài sản cho thuê; nhà cho thuê",
+      "ipa": "/ˈlɛtɪŋ/"
+    },
+    {
+      "id": "L008-105",
+      "en": "grandfather",
+      "vi": "ông",
+      "ipa": "/ˈɡɹændˌfɑðɚ/"
+    },
+    {
+      "id": "L008-106",
+      "en": "burger",
+      "vi": "bánh mì kẹp thịt, bánh hamburger",
+      "ipa": "/ˈbɝɡɚ/"
+    },
+    {
+      "id": "L008-107",
+      "en": "potato",
+      "vi": "khoai tây",
+      "ipa": "/pəˈteɪˌtoʊ/"
+    },
+    {
+      "id": "L008-108",
+      "en": "eggs",
+      "vi": "trứng",
+      "ipa": "/ɛɡz/"
+    },
+    {
+      "id": "L008-109",
+      "en": "en",
+      "vi": "en-nờ; en; nờ",
+      "ipa": "/ɛn/"
+    },
+    {
+      "id": "L008-110",
+      "en": "grandma",
+      "vi": "bà, bà nội, bà ngoại",
+      "ipa": "/ˈɡɹændmɑ/"
+    },
+    {
+      "id": "L008-111",
+      "en": "circumstances",
+      "vi": "hoàn cảnh, tình cảnh; hoàn cảnh tài chính",
+      "ipa": "/ˈsɝkəmˌstænsəz/"
+    },
+    {
+      "id": "L008-112",
+      "en": "license",
+      "vi": "giấy phép; bằng; cấp phép, cho phép",
+      "ipa": "/ˈlaɪsəns/"
+    },
+    {
+      "id": "L008-113",
+      "en": "shelf",
+      "vi": "giá sách; giá",
+      "ipa": "/ʃɛlf/"
+    },
+    {
+      "id": "L008-114",
+      "en": "monkey",
+      "vi": "khỉ; can thiệp; mày mò (một cách gian dối)",
+      "ipa": "/ˈmʌŋki/"
+    },
+    {
+      "id": "L008-115",
+      "en": "cartoon",
+      "vi": "hoạt hình; tranh biếm hoạ; vẽ tranh biếm họa",
+      "ipa": "/kɑɹˈtun/"
+    },
+    {
+      "id": "L008-116",
+      "en": "cloth",
+      "vi": "vải; vải vóc",
+      "ipa": "/klɔθ/"
+    },
+    {
+      "id": "L008-117",
+      "en": "rising",
+      "vi": "đang lên; đang gia tăng; đang phát triển",
+      "ipa": "/ˈɹaɪzɪŋ/"
+    },
+    {
+      "id": "L008-118",
+      "en": "classroom",
+      "vi": "lớp học; phòng học; lớp",
+      "ipa": "/ˈklæsˌɹum/"
+    },
+    {
+      "id": "L008-119",
+      "en": "reporting",
+      "vi": "việc đưa tin, báo cáo tin tức",
+      "ipa": "/ɹiˈpɔɹtɪŋ/"
+    },
+    {
+      "id": "L008-120",
+      "en": "opposed",
+      "vi": "phản đối, chống đối",
+      "ipa": "/əˈpoʊzd/"
+    },
+    {
+      "id": "L008-121",
+      "en": "rabbit",
+      "vi": "thỏ; săn thỏ",
+      "ipa": "/ˈɹæbət/"
+    },
+    {
+      "id": "L008-122",
+      "en": "homework",
+      "vi": "bài tập; bài tập về nhà",
+      "ipa": "/ˈhoʊmˌwɝk/"
+    },
+    {
+      "id": "L008-123",
+      "en": "suggestion",
+      "vi": "sự gợi ý",
+      "ipa": "/səˈdʒɛstʃən/"
+    },
+    {
+      "id": "L008-124",
+      "en": "ford",
+      "vi": "chỗ cạn; lội qua (sông cạn)",
+      "ipa": "/fɔɹd/"
+    },
+    {
+      "id": "L008-125",
+      "en": "exposed",
+      "vi": "lộ ra; không được che chở; không che đậy",
+      "ipa": "/ɪkˈspoʊzd/"
+    },
+    {
+      "id": "L008-126",
+      "en": "celebration",
+      "vi": "lễ kỷ niệm; sự ăn mừng; cuộc vui, sự hân hoan",
+      "ipa": "/ˌsɛləˈbɹeɪʃən/"
+    },
+    {
+      "id": "L008-127",
+      "en": "subway",
+      "vi": "tàu điện ngầm; mê-tơ-rô; metro",
+      "ipa": "/ˈsʌbˌweɪ/"
+    },
+    {
+      "id": "L008-128",
+      "en": "bean",
+      "vi": "đậu; ném trúng đầu (bóng chày)",
+      "ipa": "/bin/"
+    },
+    {
+      "id": "L008-129",
+      "en": "faced",
+      "vi": "có khuôn mặt...; mặt...",
+      "ipa": "/feɪst/"
+    },
+    {
+      "id": "L008-130",
+      "en": "porn",
+      "vi": "khiêu dâm; đồi trụy",
+      "ipa": "/pɔɹn/"
+    },
+    {
+      "id": "L008-131",
+      "en": "protein",
+      "vi": "protein; prô-tê-in; chất đạm",
+      "ipa": "/ˈpɹoʊˌtin/"
+    },
+    {
+      "id": "L008-132",
+      "en": "banana",
+      "vi": "(trái) chuối; (quả) chuối; (cây) chuối",
+      "ipa": "/bəˈnænə/"
+    },
+    {
+      "id": "L008-133",
+      "en": "wondering",
+      "vi": "tò mò, ngạc nhiên",
+      "ipa": "/ˈwʌndɚɪŋ/"
+    },
+    {
+      "id": "L008-134",
+      "en": "auto",
+      "vi": "ô tô, xe hơi",
+      "ipa": "/ˈɔtoʊ/"
+    },
+    {
+      "id": "L008-135",
+      "en": "miller",
+      "vi": "người thợ xay; người chủ cối xay",
+      "ipa": "/ˈmɪlɚ/"
+    },
+    {
+      "id": "L008-136",
+      "en": "entitled",
+      "vi": "có quyền; được quyền",
+      "ipa": "/ɛnˈtaɪtəld/"
+    },
+    {
+      "id": "L008-137",
+      "en": "facing",
+      "vi": "viền (trang trí hoặc gia cố); lớp ốp mặt (tòa nhà); lớp phủ bảo vệ (bên ngoài)",
+      "ipa": "/ˈfeɪsɪŋ/"
+    },
+    {
+      "id": "L008-138",
+      "en": "communications",
+      "vi": "ngành truyền thông",
+      "ipa": "/kəˌmjunəˈkeɪʃənz/"
+    },
+    {
+      "id": "L008-139",
+      "en": "roman",
+      "vi": "thuộc La Mã; kiểu chữ La Mã; người La Mã (hiện đại)",
+      "ipa": "/ˈɹoʊmən/"
+    },
+    {
+      "id": "L008-140",
+      "en": "expressed",
+      "vi": "được diễn đạt, được bày tỏ; rõ ràng, minh bạch",
+      "ipa": "/ɪkˈspɹɛst/"
+    },
+    {
+      "id": "L008-141",
+      "en": "racing",
+      "vi": "đua; cuộc đua",
+      "ipa": "/ˈɹeɪsɪŋ/"
+    },
+    {
+      "id": "L008-142",
+      "en": "lily",
+      "vi": "bách hợp; loa kèn",
+      "ipa": "/ˈlɪli/"
+    },
+    {
+      "id": "L008-143",
+      "en": "grandmother",
+      "vi": "bà; bà ngoại; bà nội",
+      "ipa": "/ˈɡɹændˌmʌðɚ/"
+    },
+    {
+      "id": "L008-144",
+      "en": "hobby",
+      "vi": "sở thích riêng; sở thích",
+      "ipa": "/ˈhɑbi/"
+    },
+    {
+      "id": "L008-145",
+      "en": "musician",
+      "vi": "nhạc sĩ",
+      "ipa": "/mjuˈzɪʃən/"
+    },
+    {
+      "id": "L008-146",
+      "en": "studied",
+      "vi": "có chủ ý; cố tình",
+      "ipa": "/ˈstʌdid/"
+    },
+    {
+      "id": "L008-147",
+      "en": "towel",
+      "vi": "khăn; lau khô bằng khăn",
+      "ipa": "/ˈtaʊəl/"
+    },
+    {
+      "id": "L008-148",
+      "en": "skirt",
+      "vi": "váy; vạt; né tránh",
+      "ipa": "/skɝt/"
+    },
+    {
+      "id": "L008-149",
+      "en": "bicycle",
+      "vi": "xe đạp; đạp xe",
+      "ipa": "/ˈbaɪsɪkəl/"
+    },
+    {
+      "id": "L008-150",
+      "en": "registered",
+      "vi": "đã đăng ký; được ghi nhận chính thức; được đăng ký (giống vật nuôi)",
+      "ipa": "/ˈɹɛdʒɪstɚd/"
+    },
+    {
+      "id": "L008-151",
+      "en": "borrow",
+      "vi": "mượn; vay",
+      "ipa": "/ˈbɑˌɹoʊ/"
+    },
+    {
+      "id": "L008-152",
+      "en": "tied",
+      "vi": "được buộc; bị trói; được cột",
+      "ipa": "/taɪd/"
+    },
+    {
+      "id": "L008-153",
+      "en": "pencil",
+      "vi": "bút chì; viết chì; vẽ hoặc viết bằng bút chì",
+      "ipa": "/ˈpɛnsəl/"
+    },
+    {
+      "id": "L008-154",
+      "en": "tested",
+      "vi": "đã được kiểm nghiệm, đã được thử nghiệm",
+      "ipa": "/ˈtɛstɪd/"
+    },
+    {
+      "id": "L008-155",
+      "en": "riding",
+      "vi": "cưỡi ngựa (thể thao); đi ngựa",
+      "ipa": "/ˈɹaɪdɪŋ/"
+    },
+    {
+      "id": "L008-156",
+      "en": "protected",
+      "vi": "được bảo vệ, được bảo toàn",
+      "ipa": "/pɹəˈtɛktɪd/"
+    },
+    {
+      "id": "L008-157",
+      "en": "recognize",
+      "vi": "công nhận, thừa nhận; nhận thức rõ, ý thức được; nhận ra, nhận biết",
+      "ipa": "/ˈɹɛkəɡˌnaɪz/"
+    },
+    {
+      "id": "L008-158",
+      "en": "equivalent",
+      "vi": "tương đương; vật tương đương; người tương đương",
+      "ipa": "/ɪˈkwɪvələnt/"
+    },
+    {
+      "id": "L008-159",
+      "en": "proved",
+      "vi": "đã được chứng minh; đã xác thực",
+      "ipa": "/pɹuvd/"
+    },
+    {
+      "id": "L008-160",
+      "en": "sought",
+      "vi": "được tìm kiếm",
+      "ipa": "/sɔt/"
+    },
+    {
+      "id": "L008-161",
+      "en": "heading",
+      "vi": "tiêu đề, đầu đề; hướng đi, hướng; đường hầm (mỏ), lò dọc",
+      "ipa": "/ˈhɛdɪŋ/"
+    },
+    {
+      "id": "L008-162",
+      "en": "wanting",
+      "vi": "không có, thiếu; thiếu hụt, không đủ",
+      "ipa": "/ˈwɑntɪŋ/"
+    },
+    {
+      "id": "L008-163",
+      "en": "represented",
+      "vi": "được mô tả chính xác; được thể hiện",
+      "ipa": "/ˌɹɛpɹɪˈzɛntɪd/"
+    },
+    {
+      "id": "L008-164",
+      "en": "tears",
+      "vi": "sự khóc; nước mắt",
+      "ipa": "/tɛɹz/"
+    },
+    {
+      "id": "L008-165",
+      "en": "tons",
+      "vi": "hàng tấn, rất nhiều",
+      "ipa": "/tʌnz/"
+    },
+    {
+      "id": "L008-166",
+      "en": "recognized",
+      "vi": "được công nhận; có uy tín; có danh tiếng vững chắc",
+      "ipa": "/ˈɹɛkəɡˌnaɪzd/"
+    },
+    {
+      "id": "L008-167",
+      "en": "headache",
+      "vi": "chứng nhức đầu",
+      "ipa": "/ˈhɛˌdeɪk/"
+    },
+    {
+      "id": "L008-168",
+      "en": "organized",
+      "vi": "có tổ chức; được sắp xếp; ngăn nắp, có hệ thống",
+      "ipa": "/ˈɔɹɡəˌnaɪzd/"
+    },
+    {
+      "id": "L008-169",
+      "en": "attended",
+      "vi": "có đệm nhạc, có hát bè; có người chăm sóc; có người trông coi",
+      "ipa": "/əˈtɛndɪd/"
+    },
+    {
+      "id": "L008-170",
+      "en": "paragraph",
+      "vi": "đoạn; chia thành đoạn văn; viết đoạn văn",
+      "ipa": "/ˈpæɹəˌɡɹæf/"
+    },
+    {
+      "id": "L008-171",
+      "en": "loving",
+      "vi": "yêu thương; trìu mến",
+      "ipa": "/ˈlʌvɪŋ/"
+    },
+    {
+      "id": "L008-172",
+      "en": "accused",
+      "vi": "bị cáo; người bị buộc tội",
+      "ipa": "/əˈkjuzd/"
+    },
+    {
+      "id": "L008-173",
+      "en": "duke",
+      "vi": "công tước",
+      "ipa": "/duk/"
+    },
+    {
+      "id": "L008-174",
+      "en": "stations",
+      "vi": "14 chặng Thánh giá",
+      "ipa": "/ˈsteɪʃənz/"
+    },
+    {
+      "id": "L008-175",
+      "en": "returning",
+      "vi": "có xu hướng trở lại; bị đẩy lùi",
+      "ipa": "/ɹɪˈtɝnɪŋ/"
+    },
+    {
+      "id": "L008-176",
+      "en": "mac",
+      "vi": "áo mưa cao su; áo mưa mac",
+      "ipa": "/mæk/"
+    },
+    {
+      "id": "L008-177",
+      "en": "colors",
+      "vi": "quốc kỳ; cờ; phù hiệu",
+      "ipa": "/ˈkʌlɚz/"
+    },
+    {
+      "id": "L008-178",
+      "en": "bullshit",
+      "vi": "chuyện nhảm nhí; chuyện phiếm; chuyện vô lý",
+      "ipa": "/ˈbʊlˌʃɪt/"
+    },
+    {
+      "id": "L008-179",
+      "en": "frog",
+      "vi": "ếch; nhái; ngoé",
+      "ipa": "/fɹɑɡ/"
+    },
+    {
+      "id": "L008-180",
+      "en": "joining",
+      "vi": "sự kết nối; sự nối",
+      "ipa": "/ˈdʒɔɪnɪŋ/"
+    },
+    {
+      "id": "L008-181",
+      "en": "bars",
+      "vi": "xà kép (thể dục dụng cụ)",
+      "ipa": "/bɑɹz/"
+    }
+  ]
+}

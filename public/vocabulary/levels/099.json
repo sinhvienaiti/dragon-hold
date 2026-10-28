@@ -1,0 +1,1087 @@
+{
+  "version": 1,
+  "level": 99,
+  "label": "Advanced 099",
+  "entries": [
+    {
+      "id": "L099-001",
+      "en": "headgear",
+      "vi": "mũ, nón; cần trục giếng mỏ; dây cương ngựa",
+      "ipa": "/ˈhɛdˌɡɪɹ/"
+    },
+    {
+      "id": "L099-002",
+      "en": "harlequin",
+      "vi": "hề Harlequin (trong kịch hài Ý); tô điểm, làm lốm đốm",
+      "ipa": "/ˈhɑɹləkwən/"
+    },
+    {
+      "id": "L099-003",
+      "en": "lodgings",
+      "vi": "chỗ ở tạm; nhà trọ",
+      "ipa": "/ˈlɑdʒɪŋz/"
+    },
+    {
+      "id": "L099-004",
+      "en": "notepad",
+      "vi": "sổ ghi chép; tập giấy ghi chú",
+      "ipa": "/ˈnoʊtˌpæd/"
+    },
+    {
+      "id": "L099-005",
+      "en": "conjugate",
+      "vi": "chia động từ; kết hợp; ghép đôi",
+      "ipa": "/ˌkɑndʒəˈɡeɪt/"
+    },
+    {
+      "id": "L099-006",
+      "en": "aggressiveness",
+      "vi": "tính táo bạo; sự năng nổ; tính hiếu chiến",
+      "ipa": "/əˈɡɹɛsɪvnəs/"
+    },
+    {
+      "id": "L099-007",
+      "en": "astonishingly",
+      "vi": "một cách đáng kinh ngạc",
+      "ipa": "/əˈstɑnɪʃɪŋli/"
+    },
+    {
+      "id": "L099-008",
+      "en": "pronto",
+      "vi": "ngay lập tức, nhanh chóng",
+      "ipa": "/ˈpɹɑntoʊ/"
+    },
+    {
+      "id": "L099-009",
+      "en": "outlier",
+      "vi": "người ở xa nơi làm việc; giá trị ngoại lai (thống kê)",
+      "ipa": "/ˈaʊtlaɪɚ/"
+    },
+    {
+      "id": "L099-010",
+      "en": "glassware",
+      "vi": "đồ thủy tinh, đồ pha lê",
+      "ipa": "/ˈɡlæˌswɛɹ/"
+    },
+    {
+      "id": "L099-011",
+      "en": "insolvent",
+      "vi": "mất khả năng thanh toán, vỡ nợ; người mất khả năng thanh toán, con nợ",
+      "ipa": "/ˌɪnˈsɑlvənt/"
+    },
+    {
+      "id": "L099-012",
+      "en": "bloodthirsty",
+      "vi": "khát máu, hiếu chiến",
+      "ipa": "/ˈblʌdˌθɝsti/"
+    },
+    {
+      "id": "L099-013",
+      "en": "wanton",
+      "vi": "vô cớ; bừa bãi; phóng đãng",
+      "ipa": "/ˈwɔntən/"
+    },
+    {
+      "id": "L099-014",
+      "en": "mingling",
+      "vi": "sự hòa trộn; sự giao lưu",
+      "ipa": "/ˈmɪŋɡəlɪŋ/"
+    },
+    {
+      "id": "L099-015",
+      "en": "garibaldi",
+      "vi": "áo cánh cổ cao rộng",
+      "ipa": "/ˌɡæɹəˈbɔldi/"
+    },
+    {
+      "id": "L099-016",
+      "en": "injector",
+      "vi": "vòi phun, bơm phun",
+      "ipa": "/ˌɪnˈdʒɛktɚ/"
+    },
+    {
+      "id": "L099-017",
+      "en": "apparition",
+      "vi": "bóng ma; hồn ma; sự hiện hình",
+      "ipa": "/ˌæpˈɚɪʃən/"
+    },
+    {
+      "id": "L099-018",
+      "en": "tetanus",
+      "vi": "uốn ván",
+      "ipa": "/ˈtɛtənəs/"
+    },
+    {
+      "id": "L099-019",
+      "en": "defamatory",
+      "vi": "phỉ báng; bôi nhọ",
+      "ipa": "/dɪˈfæməˌtɔɹi/"
+    },
+    {
+      "id": "L099-020",
+      "en": "hydraulics",
+      "vi": "thuỷ lực học",
+      "ipa": "/haɪˈdɹɔlɪks/"
+    },
+    {
+      "id": "L099-021",
+      "en": "infertile",
+      "vi": "vô sinh, hiếm muộn",
+      "ipa": "/ˌɪnˈfɝtəl/"
+    },
+    {
+      "id": "L099-022",
+      "en": "middleman",
+      "vi": "người trung gian; nhà bán buôn; người đứng giữa (trong dàn hát)",
+      "ipa": "/ˈmɪdəlˌmæn/"
+    },
+    {
+      "id": "L099-023",
+      "en": "incitement",
+      "vi": "sự xúi giục, sự kích động; lời xúi giục, vật kích thích",
+      "ipa": "/ˌɪnˈsaɪtmənt/"
+    },
+    {
+      "id": "L099-024",
+      "en": "hydrolysis",
+      "vi": "sự thuỷ phân",
+      "ipa": "/haɪˈdɹɑləsəs/"
+    },
+    {
+      "id": "L099-025",
+      "en": "atoll",
+      "vi": "đảo san hô vòng",
+      "ipa": "/ˈæˌtɑl/"
+    },
+    {
+      "id": "L099-026",
+      "en": "tingle",
+      "vi": "cảm giác vừa sợ vừa thích; cảm giác kim châm; làm kim châm",
+      "ipa": "/ˈtɪŋɡəl/"
+    },
+    {
+      "id": "L099-027",
+      "en": "iterative",
+      "vi": "lặp đi lặp lại, có tính lặp; thể lặp (của động từ)",
+      "ipa": "/ˈɪtˌɚeɪtɪv/"
+    },
+    {
+      "id": "L099-028",
+      "en": "purview",
+      "vi": "phạm vi, tầm nhìn",
+      "ipa": "/ˈpɝˌvju/"
+    },
+    {
+      "id": "L099-029",
+      "en": "smoothed",
+      "vi": "đã được là phẳng",
+      "ipa": "/smuðd/"
+    },
+    {
+      "id": "L099-030",
+      "en": "dike",
+      "vi": "đê; đập; bóng, pê đê (tiếng lóng xúc phạm)",
+      "ipa": "/daɪk/"
+    },
+    {
+      "id": "L099-031",
+      "en": "cleave",
+      "vi": "chẻ; bổ; tách ra",
+      "ipa": "/kliv/"
+    },
+    {
+      "id": "L099-032",
+      "en": "encroachment",
+      "vi": "sự xâm lấn; sự lấn chiếm; sự xâm phạm (tài sản)",
+      "ipa": "/ɛnˈkɹoʊtʃmənt/"
+    },
+    {
+      "id": "L099-033",
+      "en": "lengthening",
+      "vi": "sự kéo dài, sự làm dài ra",
+      "ipa": "/ˈlɛŋθənɪŋ/"
+    },
+    {
+      "id": "L099-034",
+      "en": "tenement",
+      "vi": "nhà ở tồi tàn (nhiều căn hộ)",
+      "ipa": "/ˈtɛnəmənt/"
+    },
+    {
+      "id": "L099-035",
+      "en": "disheartening",
+      "vi": "làm nản lòng; làm chán nản",
+      "ipa": "/dɪsˈhɑɹtənɪŋ/"
+    },
+    {
+      "id": "L099-036",
+      "en": "illiteracy",
+      "vi": "nạn mù chữ, sự thất học; sự dốt nát (do không đọc)",
+      "ipa": "/ˌɪˈlɪtɚəsi/"
+    },
+    {
+      "id": "L099-037",
+      "en": "eaves",
+      "vi": "mái hiên",
+      "ipa": "/ivz/"
+    },
+    {
+      "id": "L099-038",
+      "en": "thrifty",
+      "vi": "tiết kiệm; tằn tiện",
+      "ipa": "/ˈθɹɪfti/"
+    },
+    {
+      "id": "L099-039",
+      "en": "amalgam",
+      "vi": "hỗn hống",
+      "ipa": "/əˈmælɡəm/"
+    },
+    {
+      "id": "L099-040",
+      "en": "outboard",
+      "vi": "phía ngoài (tàu, máy bay); thuyền gắn máy ngoài; động cơ gắn ngoài (thuyền)",
+      "ipa": "/ˈaʊtˌbɔɹd/"
+    },
+    {
+      "id": "L099-041",
+      "en": "domed",
+      "vi": "có mái vòm; hình vòm",
+      "ipa": "/doʊmd/"
+    },
+    {
+      "id": "L099-042",
+      "en": "spatula",
+      "vi": "dao bay; que phết",
+      "ipa": "/ˈspæˌtʃʊlə/"
+    },
+    {
+      "id": "L099-043",
+      "en": "benzene",
+      "vi": "benzen",
+      "ipa": "/bɛnˈzin/"
+    },
+    {
+      "id": "L099-044",
+      "en": "meditative",
+      "vi": "trầm ngâm; suy tư; thiền",
+      "ipa": "/ˈmɛdəˌteɪtɪv/"
+    },
+    {
+      "id": "L099-045",
+      "en": "enema",
+      "vi": "thụt tháo; thuốc thụt",
+      "ipa": "/ˈɛnəmə/"
+    },
+    {
+      "id": "L099-046",
+      "en": "blemish",
+      "vi": "vết nhơ; làm xấu; làm hỏng",
+      "ipa": "/ˈblɛmɪʃ/"
+    },
+    {
+      "id": "L099-047",
+      "en": "shrieking",
+      "vi": "tiếng thét chói tai; tiếng rít",
+      "ipa": "/ˈʃɹikɪŋ/"
+    },
+    {
+      "id": "L099-048",
+      "en": "simmering",
+      "vi": "sự ninh, sự hầm (lửa nhỏ)",
+      "ipa": "/ˈsɪmɚɪŋ/"
+    },
+    {
+      "id": "L099-049",
+      "en": "wedlock",
+      "vi": "hôn nhân; tình trạng kết hôn",
+      "ipa": "/ˈwɛdˌlɑk/"
+    },
+    {
+      "id": "L099-050",
+      "en": "ravioli",
+      "vi": "ravioli (bánh bao nhân thịt/phô mai)",
+      "ipa": "/ˌɹævˈioʊli/"
+    },
+    {
+      "id": "L099-051",
+      "en": "publicize",
+      "vi": "công bố, tiết lộ; quảng bá, đưa ra ánh sáng",
+      "ipa": "/ˈpʌblɪˌsaɪz/"
+    },
+    {
+      "id": "L099-052",
+      "en": "splicing",
+      "vi": "sự nối, chỗ nối (phim, băng từ)",
+      "ipa": "/ˈsplaɪsɪŋ/"
+    },
+    {
+      "id": "L099-053",
+      "en": "deftly",
+      "vi": "khéo léo; tài tình",
+      "ipa": "/ˈdɛftli/"
+    },
+    {
+      "id": "L099-054",
+      "en": "adequacy",
+      "vi": "sự đầy đủ, thích đáng",
+      "ipa": "/ˈædəkwəsi/"
+    },
+    {
+      "id": "L099-055",
+      "en": "barrio",
+      "vi": "khu phố nói tiếng Tây Ban Nha; khu dân cư (ở nước nói tiếng Tây Ban Nha)",
+      "ipa": "/ˈbɑɹioʊ/"
+    },
+    {
+      "id": "L099-056",
+      "en": "cadmium",
+      "vi": "catmi; cađimi",
+      "ipa": "/ˈkædmiəm/"
+    },
+    {
+      "id": "L099-057",
+      "en": "candida",
+      "vi": "nấm Candida",
+      "ipa": "/ˈkændɪdə/"
+    },
+    {
+      "id": "L099-058",
+      "en": "numerically",
+      "vi": "về mặt số lượng; về số",
+      "ipa": "/nuˈmɛɹɪkli/"
+    },
+    {
+      "id": "L099-059",
+      "en": "tryout",
+      "vi": "sự thử nghiệm; cuộc thử; buổi thử giọng",
+      "ipa": "/ˈtɹˌaɪaʊt/"
+    },
+    {
+      "id": "L099-060",
+      "en": "irregularly",
+      "vi": "một cách bất thường, không đều; không đều, thất thường",
+      "ipa": "/ˌɪˈɹɛɡjəlɚli/"
+    },
+    {
+      "id": "L099-061",
+      "en": "gulag",
+      "vi": "trại lao động cải tạo (Liên Xô); gulag",
+      "ipa": "/ˈɡjulæɡ/"
+    },
+    {
+      "id": "L099-062",
+      "en": "nutcracker",
+      "vi": "cái kẹp để kẹp trái de",
+      "ipa": "/ˈnʌtˌkɹækɚ/"
+    },
+    {
+      "id": "L099-063",
+      "en": "suffocate",
+      "vi": "ngạt; ngạt thở; ngộp",
+      "ipa": "/ˈsʌfəˌkeɪt/"
+    },
+    {
+      "id": "L099-064",
+      "en": "kohl",
+      "vi": "kẻ mắt (phấn bôi mắt)",
+      "ipa": "/koʊl/"
+    },
+    {
+      "id": "L099-065",
+      "en": "annulment",
+      "vi": "sự hủy bỏ; sự hủy hôn, hủy bỏ (pháp lý); sự bãi bỏ, thủ tiêu",
+      "ipa": "/ˈænəlmənt/"
+    },
+    {
+      "id": "L099-066",
+      "en": "racehorse",
+      "vi": "ngựa đua",
+      "ipa": "/ˈɹeɪsˌhɔɹs/"
+    },
+    {
+      "id": "L099-067",
+      "en": "unopposed",
+      "vi": "không bị chống đối; không có đối thủ",
+      "ipa": "/ˌʌnəˈpoʊzd/"
+    },
+    {
+      "id": "L099-068",
+      "en": "compositional",
+      "vi": "thuộc về bố cục; thuộc về thành phần",
+      "ipa": "/ˌkɑmpəˈzɪʃənəl/"
+    },
+    {
+      "id": "L099-069",
+      "en": "babbling",
+      "vi": "tiếng bập bẹ",
+      "ipa": "/ˈbæbəlɪŋ/"
+    },
+    {
+      "id": "L099-070",
+      "en": "chimera",
+      "vi": "quái vật Chimera (thần thoại); ảo tưởng; vật tưởng tượng quái đản",
+      "ipa": "/tʃɪˈmɛɹə/"
+    },
+    {
+      "id": "L099-071",
+      "en": "neutralized",
+      "vi": "bị trung hòa; bị vô hiệu hóa",
+      "ipa": "/ˈnutɹəˌlaɪzd/"
+    },
+    {
+      "id": "L099-072",
+      "en": "abominable",
+      "vi": "đáng ghê tởm; khả ố; tồi tệ",
+      "ipa": "/əˈbɑmənəbəl/"
+    },
+    {
+      "id": "L099-073",
+      "en": "horst",
+      "vi": "địa hào (khối vỏ Trái Đất nâng lên)",
+      "ipa": "/hɔɹst/"
+    },
+    {
+      "id": "L099-074",
+      "en": "defraud",
+      "vi": "lừa đảo; lừa gạt",
+      "ipa": "/dɪˈfɹɔd/"
+    },
+    {
+      "id": "L099-075",
+      "en": "strangling",
+      "vi": "sự bóp cổ; sự làm ngạt thở",
+      "ipa": "/ˈstɹæŋɡəlɪŋ/"
+    },
+    {
+      "id": "L099-076",
+      "en": "unbridled",
+      "vi": "vô hạn chế; không kiềm chế; bộc phát",
+      "ipa": "/ənˈbɹaɪdəld/"
+    },
+    {
+      "id": "L099-077",
+      "en": "nosy",
+      "vi": "lắm chuyện; nhiều chuyện; đa sự",
+      "ipa": "/ˈnoʊzi/"
+    },
+    {
+      "id": "L099-078",
+      "en": "inset",
+      "vi": "hình chèn nhỏ; vật được chèn vào; miếng chèn",
+      "ipa": "/ˈɪnˌsɛt/"
+    },
+    {
+      "id": "L099-079",
+      "en": "petitioner",
+      "vi": "người khởi kiện, nguyên đơn; người cầu xin",
+      "ipa": "/pəˈtɪʃənɚ/"
+    },
+    {
+      "id": "L099-080",
+      "en": "hyperactivity",
+      "vi": "tăng động, hiếu động thái quá",
+      "ipa": "/ˌhaɪpɚækˈtɪvɪti/"
+    },
+    {
+      "id": "L099-081",
+      "en": "meddle",
+      "vi": "can thiệp; xen vào",
+      "ipa": "/ˈmɛdəl/"
+    },
+    {
+      "id": "L099-082",
+      "en": "dowager",
+      "vi": "góa phụ giàu có (thừa kế tài sản chồng)",
+      "ipa": "/ˈdaʊədʒɚ/"
+    },
+    {
+      "id": "L099-083",
+      "en": "quicksilver",
+      "vi": "thuỷ ngân; hay thay đổi thất thường",
+      "ipa": "/ˈkwɪkˈsɪlvɚ/"
+    },
+    {
+      "id": "L099-084",
+      "en": "multivariate",
+      "vi": "đa biến; nhiều biến số",
+      "ipa": "/ˌmʌltiˈvæɹiɪt/"
+    },
+    {
+      "id": "L099-085",
+      "en": "nibble",
+      "vi": "nhấm nháp; nhâm nhi; sự cắn nhẹ",
+      "ipa": "/ˈnɪbəl/"
+    },
+    {
+      "id": "L099-086",
+      "en": "ferment",
+      "vi": "lên men; sự náo động; tình trạng bất ổn",
+      "ipa": "/fɚˈmɛnt/"
+    },
+    {
+      "id": "L099-087",
+      "en": "crayfish",
+      "vi": "tôm hùm đất",
+      "ipa": "/ˈkɹeɪfɪʃ/"
+    },
+    {
+      "id": "L099-088",
+      "en": "eroding",
+      "vi": "xói mòn (địa chất)",
+      "ipa": "/ɪˈɹoʊdɪŋ/"
+    },
+    {
+      "id": "L099-089",
+      "en": "deconstruction",
+      "vi": "thuyết giải cấu",
+      "ipa": "/dikənˈstɹʌkʃən/"
+    },
+    {
+      "id": "L099-090",
+      "en": "freshen",
+      "vi": "làm mới; làm tươi mới",
+      "ipa": "/ˈfɹɛʃən/"
+    },
+    {
+      "id": "L099-091",
+      "en": "lauder",
+      "vi": "người ca ngợi; người tán dương",
+      "ipa": "/ˈlɔdɚ/"
+    },
+    {
+      "id": "L099-092",
+      "en": "presumptuous",
+      "vi": "tự phụ, láo xược",
+      "ipa": "/pɹɪˈzʌmptʃəwəs/"
+    },
+    {
+      "id": "L099-093",
+      "en": "lunge",
+      "vi": "sự lao tới; cú nhào tới; đòn đâm (đấu kiếm)",
+      "ipa": "/lʌndʒ/"
+    },
+    {
+      "id": "L099-094",
+      "en": "detainee",
+      "vi": "người bị giam giữ; tù nhân",
+      "ipa": "/ˌditeɪˈni/"
+    },
+    {
+      "id": "L099-095",
+      "en": "townspeople",
+      "vi": "người dân thị trấn; dân phố",
+      "ipa": "/ˈtaʊnzˌpipəl/"
+    },
+    {
+      "id": "L099-096",
+      "en": "indict",
+      "vi": "truy tố, buộc tội",
+      "ipa": "/ˌɪnˈdaɪt/"
+    },
+    {
+      "id": "L099-097",
+      "en": "lancer",
+      "vi": "kỵ binh mang giáo",
+      "ipa": "/ˈlænsɚ/"
+    },
+    {
+      "id": "L099-098",
+      "en": "preconceived",
+      "vi": "định kiến; có sẵn",
+      "ipa": "/ˌpɹikənˈsivd/"
+    },
+    {
+      "id": "L099-099",
+      "en": "feasting",
+      "vi": "tiệc tùng; ăn uống linh đình",
+      "ipa": "/ˈfistɪŋ/"
+    },
+    {
+      "id": "L099-100",
+      "en": "erecting",
+      "vi": "việc dựng lên; xây dựng",
+      "ipa": "/ɪˈɹɛktɪŋ/"
+    },
+    {
+      "id": "L099-101",
+      "en": "flogging",
+      "vi": "đòn roi; sự đánh đòn",
+      "ipa": "/ˈflɑɡɪŋ/"
+    },
+    {
+      "id": "L099-102",
+      "en": "landau",
+      "vi": "xe ngựa bốn bánh mui xếp",
+      "ipa": "/ˈlænˌdaʊ/"
+    },
+    {
+      "id": "L099-103",
+      "en": "shoo",
+      "vi": "đuổi; xua (bằng cách la 'shoo')",
+      "ipa": "/ʃu/"
+    },
+    {
+      "id": "L099-104",
+      "en": "pagoda",
+      "vi": "bảo tháp; tháp chùa",
+      "ipa": "/pəˈɡoʊdə/"
+    },
+    {
+      "id": "L099-105",
+      "en": "pollack",
+      "vi": "cá minh thái (Đại Tây Dương); thịt cá minh thái",
+      "ipa": "/ˈpɑlək/"
+    },
+    {
+      "id": "L099-106",
+      "en": "wholesaler",
+      "vi": "nhà bán sỉ; người bán buôn",
+      "ipa": "/ˈhoʊlˌseɪlɚ/"
+    },
+    {
+      "id": "L099-107",
+      "en": "laurels",
+      "vi": "vinh dự; vòng nguyệt quế; danh dự",
+      "ipa": "/ˈlɔɹəlz/"
+    },
+    {
+      "id": "L099-108",
+      "en": "broadside",
+      "vi": "về phía mạn (tàu); theo hướng mạn (tàu); tờ rơi quảng cáo",
+      "ipa": "/ˈbɹɔdˌsaɪd/"
+    },
+    {
+      "id": "L099-109",
+      "en": "lighthearted",
+      "vi": "vui vẻ, thoải mái; hồn nhiên",
+      "ipa": "/ˈlaɪtˌhɑɹtɪd/"
+    },
+    {
+      "id": "L099-110",
+      "en": "inconsequential",
+      "vi": "không quan trọng, tầm thường; không logic, không hệ quả",
+      "ipa": "/ˌɪŋˌkɑnsəˈkwɛntʃəl/"
+    },
+    {
+      "id": "L099-111",
+      "en": "excelsior",
+      "vi": "dăm bào; phoi bào (dùng để đệm lót)",
+      "ipa": "/ɪkˈsɛlsiɚ/"
+    },
+    {
+      "id": "L099-112",
+      "en": "tosh",
+      "vi": "chuyện nhảm nhí; lời vô nghĩa",
+      "ipa": "/tɑʃ/"
+    },
+    {
+      "id": "L099-113",
+      "en": "handyman",
+      "vi": "thợ sửa chữa vặt; người làm lặt vặt",
+      "ipa": "/ˈhændiˌmæn/"
+    },
+    {
+      "id": "L099-114",
+      "en": "carnivorous",
+      "vi": "ăn thịt",
+      "ipa": "/kɑɹˈnɪvɚəs/"
+    },
+    {
+      "id": "L099-115",
+      "en": "ischemia",
+      "vi": "thiếu máu cục bộ",
+      "ipa": "/ˌɪˈskɛˌmiə/"
+    },
+    {
+      "id": "L099-116",
+      "en": "licorice",
+      "vi": "cam thảo",
+      "ipa": "/ˈlɪkɚɪʃ/"
+    },
+    {
+      "id": "L099-117",
+      "en": "probabilistic",
+      "vi": "(thuộc) xác suất; thuộc thuyết xác suất (Công giáo)",
+      "ipa": "/ˌpɹɑbəbɪˈlɪstək/"
+    },
+    {
+      "id": "L099-118",
+      "en": "quintet",
+      "vi": "ngũ tấu",
+      "ipa": "/kwɪnˈtɛt/"
+    },
+    {
+      "id": "L099-119",
+      "en": "thrombosis",
+      "vi": "chứng nghẽn mạch",
+      "ipa": "/θɹɑmˈboʊsəs/"
+    },
+    {
+      "id": "L099-120",
+      "en": "figurine",
+      "vi": "bức tượng nhỏ",
+      "ipa": "/ˌfɪɡjˈɚin/"
+    },
+    {
+      "id": "L099-121",
+      "en": "vex",
+      "vi": "làm bực mình; chọc tức; làm lo âu",
+      "ipa": "/vɛks/"
+    },
+    {
+      "id": "L099-122",
+      "en": "heretical",
+      "vi": "dị giáo; báng bổ",
+      "ipa": "/hˈɚɛtɪkəl/"
+    },
+    {
+      "id": "L099-123",
+      "en": "conveniences",
+      "vi": "tiện nghi; tiện ích",
+      "ipa": "/kənˈvinjənsɪz/"
+    },
+    {
+      "id": "L099-124",
+      "en": "nullify",
+      "vi": "vô hiệu hóa, hủy bỏ; vô hiệu hóa, triệt tiêu",
+      "ipa": "/ˈnʌləˌfaɪ/"
+    },
+    {
+      "id": "L099-125",
+      "en": "surly",
+      "vi": "cáu kỉnh; gắt gỏng; hằn học",
+      "ipa": "/ˈsɝli/"
+    },
+    {
+      "id": "L099-126",
+      "en": "absolution",
+      "vi": "sự xá tội, tha tội (trong tòa giải tội)",
+      "ipa": "/ˌæbsəˈluʃən/"
+    },
+    {
+      "id": "L099-127",
+      "en": "pounder",
+      "vi": "chày (đá/sắt); vật nặng X pound",
+      "ipa": "/ˈpaʊndɚ/"
+    },
+    {
+      "id": "L099-128",
+      "en": "immutable",
+      "vi": "bất biến, không thể thay đổi",
+      "ipa": "/ˌɪˈmjutəbəl/"
+    },
+    {
+      "id": "L099-129",
+      "en": "micron",
+      "vi": "micrômét",
+      "ipa": "/ˈmaɪˌkɹɑn/"
+    },
+    {
+      "id": "L099-130",
+      "en": "phalanx",
+      "vi": "phalanx",
+      "ipa": "/ˈfeɪlæŋks/"
+    },
+    {
+      "id": "L099-131",
+      "en": "midpoint",
+      "vi": "điểm giữa; trung điểm",
+      "ipa": "/ˈmɪdˌpɔɪnt/"
+    },
+    {
+      "id": "L099-132",
+      "en": "trier",
+      "vi": "người thử; người xét xử; thẩm phán xét xử",
+      "ipa": "/ˈtɹaɪɚ/"
+    },
+    {
+      "id": "L099-133",
+      "en": "bonny",
+      "vi": "xinh đẹp, dễ thương",
+      "ipa": "/ˈbɑni/"
+    },
+    {
+      "id": "L099-134",
+      "en": "vacationing",
+      "vi": "việc đi nghỉ; kỳ nghỉ",
+      "ipa": "/veɪˈkeɪʃənɪŋ/"
+    },
+    {
+      "id": "L099-135",
+      "en": "coinciding",
+      "vi": "trùng hợp; xảy ra đồng thời",
+      "ipa": "/ˌkoʊənˈsaɪdɪŋ/"
+    },
+    {
+      "id": "L099-136",
+      "en": "frostbite",
+      "vi": "cước",
+      "ipa": "/ˈfɹɔstˌbaɪt/"
+    },
+    {
+      "id": "L099-137",
+      "en": "sawdust",
+      "vi": "mùn cưa",
+      "ipa": "/ˈsɔˌdʌst/"
+    },
+    {
+      "id": "L099-138",
+      "en": "sprain",
+      "vi": "sự bong gân; sự trật khớp; bong gân",
+      "ipa": "/spɹeɪn/"
+    },
+    {
+      "id": "L099-139",
+      "en": "scoured",
+      "vi": "bị xói mòn; bị bào mòn",
+      "ipa": "/ˈskaʊɚd/"
+    },
+    {
+      "id": "L099-140",
+      "en": "puking",
+      "vi": "sự nôn, sự mửa",
+      "ipa": "/ˈpjuˌkɪŋ/"
+    },
+    {
+      "id": "L099-141",
+      "en": "scruffy",
+      "vi": "nhếch nhác; lôi thôi",
+      "ipa": "/ˈskɹʌfi/"
+    },
+    {
+      "id": "L099-142",
+      "en": "menagerie",
+      "vi": "bộ sưu tập động vật sống; vườn thú; nơi nuôi thú",
+      "ipa": "/məˈnædʒɚi/"
+    },
+    {
+      "id": "L099-143",
+      "en": "smother",
+      "vi": "đám đông hỗn độn; mớ hỗn độn; làn khói ngạt",
+      "ipa": "/ˈsmʌðɚ/"
+    },
+    {
+      "id": "L099-144",
+      "en": "emboldened",
+      "vi": "được khích lệ; trở nên dũng cảm",
+      "ipa": "/ɛmˈboʊldənd/"
+    },
+    {
+      "id": "L099-145",
+      "en": "smelter",
+      "vi": "nhà máy luyện kim; lò luyện",
+      "ipa": "/ˈsmɛltɚ/"
+    },
+    {
+      "id": "L099-146",
+      "en": "unbound",
+      "vi": "không bị trói; tự do; không đóng bìa (sách)",
+      "ipa": "/ənˈbaʊnd/"
+    },
+    {
+      "id": "L099-147",
+      "en": "rustling",
+      "vi": "xào xạc; lao xao; tiếng xào xạc",
+      "ipa": "/ˈɹʌslɪŋ/"
+    },
+    {
+      "id": "L099-148",
+      "en": "omnipotent",
+      "vi": "toàn năng",
+      "ipa": "/ɑmˈnɪpətənt/"
+    },
+    {
+      "id": "L099-149",
+      "en": "chromosomal",
+      "vi": "thuộc nhiễm sắc thể",
+      "ipa": "/ˈkɹoʊməˌsoʊməl/"
+    },
+    {
+      "id": "L099-150",
+      "en": "sewerage",
+      "vi": "nước thải; chất thải; ống thoát nước thải",
+      "ipa": "/ˈsuɚɪdʒ/"
+    },
+    {
+      "id": "L099-151",
+      "en": "shithead",
+      "vi": "đồ ngu; thằng ngu",
+      "ipa": "/ˈʃɪtˌhɛd/"
+    },
+    {
+      "id": "L099-152",
+      "en": "chiropractor",
+      "vi": "bác sĩ nắn xương; chuyên gia trị liệu thần kinh cột sống",
+      "ipa": "/ˈkaɪɹəˌpɹæktɚ/"
+    },
+    {
+      "id": "L099-153",
+      "en": "immorality",
+      "vi": "sự vô đạo đức, sự trái luân thường; hành vi vô đạo đức",
+      "ipa": "/ˌɪmˈɚælɪti/"
+    },
+    {
+      "id": "L099-154",
+      "en": "tarnish",
+      "vi": "vết xỉn; lớp ô-xít; làm xỉn màu",
+      "ipa": "/ˈtɑɹnɪʃ/"
+    },
+    {
+      "id": "L099-155",
+      "en": "zephyr",
+      "vi": "làn gió nhẹ; gió hiu hiu; thần gió Tây (thần thoại Hy Lạp)",
+      "ipa": "/ˈzɛfɚ/"
+    },
+    {
+      "id": "L099-156",
+      "en": "stepson",
+      "vi": "con trai riêng",
+      "ipa": "/ˈstɛpˌsʌn/"
+    },
+    {
+      "id": "L099-157",
+      "en": "exploitative",
+      "vi": "bóc lột; lợi dụng",
+      "ipa": "/ˌɛkˈsplɔɪtətɪv/"
+    },
+    {
+      "id": "L099-158",
+      "en": "evangelism",
+      "vi": "việc truyền giảng Phúc âm; công tác truyền giáo",
+      "ipa": "/ɪˈvændʒəˌlɪzəm/"
+    },
+    {
+      "id": "L099-159",
+      "en": "stateless",
+      "vi": "không quốc tịch",
+      "ipa": "/ˈsteɪtlɪs/"
+    },
+    {
+      "id": "L099-160",
+      "en": "welterweight",
+      "vi": "trọng lượng 28 pound (đua ngựa); võ sĩ quyền Anh hạng bán trung; đô vật hạng bán trung",
+      "ipa": "/ˈwɛltɚˌweɪt/"
+    },
+    {
+      "id": "L099-161",
+      "en": "trouser",
+      "vi": "quần (bộ phận của quần)",
+      "ipa": "/ˈtɹaʊzɚ/"
+    },
+    {
+      "id": "L099-162",
+      "en": "ambulatory",
+      "vi": "liên quan đến đi bộ; có thể đi lại được; hành lang có mái che",
+      "ipa": "/ˈæmbjələˌtɔɹi/"
+    },
+    {
+      "id": "L099-163",
+      "en": "inquisitor",
+      "vi": "người thẩm vấn khắt khe; quan tòa Tòa án Dị giáo",
+      "ipa": "/ˌɪnˈkwɪzətɚ/"
+    },
+    {
+      "id": "L099-164",
+      "en": "parallax",
+      "vi": "thị sai",
+      "ipa": "/ˈpɛɹəˌlæks/"
+    },
+    {
+      "id": "L099-165",
+      "en": "ramble",
+      "vi": "cuộc đi dạo vô định; nói lan man, viết lan man; đi lang thang",
+      "ipa": "/ˈɹæmbəl/"
+    },
+    {
+      "id": "L099-166",
+      "en": "untested",
+      "vi": "chưa thử nghiệm; chưa kiểm chứng",
+      "ipa": "/ənˈtɛstɪd/"
+    },
+    {
+      "id": "L099-167",
+      "en": "angler",
+      "vi": "kẻ mưu mô; kẻ thủ đoạn; người câu cá",
+      "ipa": "/ˈæŋɡlɚ/"
+    },
+    {
+      "id": "L099-168",
+      "en": "bequest",
+      "vi": "di chúc tài sản; di tặng",
+      "ipa": "/bɪˈkwɛst/"
+    },
+    {
+      "id": "L099-169",
+      "en": "oligarchy",
+      "vi": "chế độ đầu sỏ",
+      "ipa": "/ˈɑləˌɡɑɹki/"
+    },
+    {
+      "id": "L099-170",
+      "en": "amiable",
+      "vi": "tử tế; dễ thương; niềm nở",
+      "ipa": "/ˈeɪmiəbəl/"
+    },
+    {
+      "id": "L099-171",
+      "en": "monoclonal",
+      "vi": "đơn dòng; kháng thể đơn dòng",
+      "ipa": "/ˌmɑnəˈkloʊnəl/"
+    },
+    {
+      "id": "L099-172",
+      "en": "overpower",
+      "vi": "áp đảo, chế ngự; tràn ngập (cảm xúc)",
+      "ipa": "/ˌoʊvɚˈpaʊɚ/"
+    },
+    {
+      "id": "L099-173",
+      "en": "interceptor",
+      "vi": "máy bay tiêm kích đánh chặn",
+      "ipa": "/ˌɪntɚˈsɛptɚ/"
+    },
+    {
+      "id": "L099-174",
+      "en": "vaudeville",
+      "vi": "tạp kỹ; kịch tạp kỹ",
+      "ipa": "/ˈvɑdvɪl/"
+    },
+    {
+      "id": "L099-175",
+      "en": "rollover",
+      "vi": "chuyển quỹ hưu trí (miễn thuế)",
+      "ipa": "/ˈɹoʊˌloʊvɚ/"
+    },
+    {
+      "id": "L099-176",
+      "en": "immeasurable",
+      "vi": "vô bờ",
+      "ipa": "/ˌɪˈmɛʒˌɚæbəl/"
+    },
+    {
+      "id": "L099-177",
+      "en": "bungee",
+      "vi": "dây thun, dây bungee",
+      "ipa": "/ˈbʌndʒi/"
+    },
+    {
+      "id": "L099-178",
+      "en": "henna",
+      "vi": "henna (thuốc nhuộm màu nâu đỏ); nhuộm (tóc) bằng henna",
+      "ipa": "/ˈhɛnə/"
+    },
+    {
+      "id": "L099-179",
+      "en": "decayed",
+      "vi": "mục nát, thối rữa",
+      "ipa": "/dəˈkeɪd/"
+    },
+    {
+      "id": "L099-180",
+      "en": "smoothness",
+      "vi": "sự mịn màng; độ nhẵn; sự trôi chảy",
+      "ipa": "/ˈsmuðnəs/"
+    }
+  ]
+}

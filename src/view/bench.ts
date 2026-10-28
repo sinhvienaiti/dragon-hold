@@ -739,10 +739,10 @@ class GpuTimer {
 
 /** The GPU timer's mean, or null with the reason it is not trusted (no extension, ANGLE/Metal, longer than the frame). */
 function gpuReading(gpu: GpuTimer, frameMs: number, renderer: string): { gpuMeanMs: number | null; gpuNote: string | null } {
-  if (!gpu.available || gpu.samples.length === 0) return { gpuMeanMs: null, gpuNote: "không có bộ đếm GPU" };
+  if (!gpu.available || gpu.samples.length === 0) return { gpuMeanMs: null, gpuNote: "GPU timer unavailable" };
   const value = mean(gpu.samples);
-  if (/angle/i.test(renderer) && /metal/i.test(renderer)) return { gpuMeanMs: null, gpuNote: "không tin cậy trên ANGLE/Metal (đo được " + round2(value) + " ms)" };
-  if (value > frameMs * 1.05) return { gpuMeanMs: null, gpuNote: "không tin cậy: dài hơn cả khung (" + round2(value) + " ms)" };
+  if (/angle/i.test(renderer) && /metal/i.test(renderer)) return { gpuMeanMs: null, gpuNote: "unreliable on ANGLE/Metal (measured " + round2(value) + " ms)" };
+  if (value > frameMs * 1.05) return { gpuMeanMs: null, gpuNote: "unreliable: longer than frame (" + round2(value) + " ms)" };
   return { gpuMeanMs: round2(value), gpuNote: null };
 }
 

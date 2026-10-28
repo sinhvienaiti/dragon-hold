@@ -46,7 +46,7 @@ class DocumentStub {
   }
 }
 
-const hint = "Mới tập gõ: nên chơi mức Dễ, quái thưa và chậm hơn. ⇧↵ chọn tốc độ này và chơi mức Dễ.";
+const hint = "New typist? Try Easy for fewer, slower foes. ⇧↵ picks this speed and Easy.";
 
 function fixture() {
   const doc = new DocumentStub();
@@ -68,7 +68,7 @@ describe("speed card Easy suggestion (00 D33 (6))", () => {
     const f = fixture();
     f.open();
     expect(f.note.hidden).toBe(false);
-    expect(f.note.textContent).toBe(hint + " Chơi mức Dễ ở 15 WPM");
+    expect(f.note.textContent).toBe(hint + " Play Easy at 15 WPM");
     expect(f.note.children).toContain(f.button);
     f.card.handleAction("tilt-down");
     expect(f.note.hidden).toBe(false);
@@ -122,8 +122,8 @@ describe("speed card Easy suggestion (00 D33 (6))", () => {
     f.open();
     f.card.close();
     const onBack = vi.fn();
-    f.card.open(f.options, f.rowIndex(15), f.onPick, onBack, undefined, "Chọn tốc độ khác thì ải chơi lại từ đầu.");
-    expect(f.note.textContent).toBe("Chọn tốc độ khác thì ải chơi lại từ đầu.");
+    f.card.open(f.options, f.rowIndex(15), f.onPick, onBack, undefined, "A new speed restarts the stage.");
+    expect(f.note.textContent).toBe("A new speed restarts the stage.");
     expect(f.note.children).not.toContain(f.button);
     expect(f.card.handleAction("call-early")).toBe(false);
     f.button.fire("click");

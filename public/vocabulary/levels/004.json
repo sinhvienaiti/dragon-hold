@@ -1,0 +1,1093 @@
+{
+  "version": 1,
+  "level": 4,
+  "label": "A1 Foundation 004",
+  "entries": [
+    {
+      "id": "L004-001",
+      "en": "said",
+      "vi": "nói trên, đã nêu",
+      "ipa": "/sɛd/"
+    },
+    {
+      "id": "L004-002",
+      "en": "made",
+      "vi": "sản xuất; chế tạo; (giường) đã dọn",
+      "ipa": "/meɪd/"
+    },
+    {
+      "id": "L004-003",
+      "en": "years",
+      "vi": "nhiều năm; bao năm; tuổi già",
+      "ipa": "/jɪɹz/"
+    },
+    {
+      "id": "L004-004",
+      "en": "going",
+      "vi": "đang hoạt động; đang chạy; sự ra đi",
+      "ipa": "/ˈɡoʊɪŋ/"
+    },
+    {
+      "id": "L004-005",
+      "en": "days",
+      "vi": "những ngày tháng; đời người",
+      "ipa": "/deɪz/"
+    },
+    {
+      "id": "L004-006",
+      "en": "things",
+      "vi": "đồ đạc; quần áo",
+      "ipa": "/θɪŋz/"
+    },
+    {
+      "id": "L004-007",
+      "en": "men",
+      "vi": "nhân lực; nhân công",
+      "ipa": "/mɛn/"
+    },
+    {
+      "id": "L004-008",
+      "en": "based",
+      "vi": "đóng trụ sở tại; đặt căn cứ tại; có đế",
+      "ipa": "/beɪst/"
+    },
+    {
+      "id": "L004-009",
+      "en": "shit",
+      "vi": "cứt; chuyện nhảm nhí, trò tệ hại; chẳng đáng là bao, tí gì",
+      "ipa": "/ʃɪt/"
+    },
+    {
+      "id": "L004-010",
+      "en": "oh",
+      "vi": "tiểu bang Ohio (Hoa Kỳ)",
+      "ipa": "/oʊ/"
+    },
+    {
+      "id": "L004-011",
+      "en": "getting",
+      "vi": "sự nhận được, sự kiếm được",
+      "ipa": "/ˈɡɛtɪŋ/"
+    },
+    {
+      "id": "L004-012",
+      "en": "looking",
+      "vi": "trông có vẻ, có bề ngoài; sự nhìn, cái nhìn; sự tìm kiếm (bằng mắt)",
+      "ipa": "/ˈlʊkɪŋ/"
+    },
+    {
+      "id": "L004-013",
+      "en": "making",
+      "vi": "sự chế tạo; sự làm ra; tố chất",
+      "ipa": "/ˈmeɪkɪŋ/"
+    },
+    {
+      "id": "L004-014",
+      "en": "fuck",
+      "vi": "làm tình, đụ, chịch (tục); sự làm tình, sự đụ (tục)",
+      "ipa": "/fʌk/"
+    },
+    {
+      "id": "L004-015",
+      "en": "using",
+      "vi": "sự lợi dụng",
+      "ipa": "/ˈjuzɪŋ/"
+    },
+    {
+      "id": "L004-016",
+      "en": "needs",
+      "vi": "nhất thiết; không thể khác được",
+      "ipa": "/nidz/"
+    },
+    {
+      "id": "L004-017",
+      "en": "hours",
+      "vi": "giờ làm việc; hàng giờ, thời gian dài",
+      "ipa": "/ˈaʊɚz/"
+    },
+    {
+      "id": "L004-018",
+      "en": "john",
+      "vi": "nhà vệ sinh; phòng vệ sinh; Thánh Gioan",
+      "ipa": "/dʒɑn/"
+    },
+    {
+      "id": "L004-019",
+      "en": "coming",
+      "vi": "sắp tới, sắp đến; sự tiến đến, sự đến gần; sự xuất hiện được mong chờ",
+      "ipa": "/ˈkʌmɪŋ/"
+    },
+    {
+      "id": "L004-020",
+      "en": "wanted",
+      "vi": "mong muốn; được tìm kiếm; yêu thương, quý mến",
+      "ipa": "/ˈwɔntɪd/"
+    },
+    {
+      "id": "L004-021",
+      "en": "taken",
+      "vi": "được hiểu là; cảm thấy (khó chịu, ốm)",
+      "ipa": "/ˈteɪkən/"
+    },
+    {
+      "id": "L004-022",
+      "en": "non",
+      "vi": "không; phi; bất",
+      "ipa": "/nɑn/"
+    },
+    {
+      "id": "L004-023",
+      "en": "taking",
+      "vi": "quyến rũ; hấp dẫn; sự cầm lên",
+      "ipa": "/ˈteɪkɪŋ/"
+    },
+    {
+      "id": "L004-024",
+      "en": "saying",
+      "vi": "tục ngữ; ngạn ngữ; cách nói",
+      "ipa": "/ˈseɪɪŋ/"
+    },
+    {
+      "id": "L004-025",
+      "en": "held",
+      "vi": "bị chiếm giữ, bị kiểm soát",
+      "ipa": "/hɛld/"
+    },
+    {
+      "id": "L004-026",
+      "en": "playing",
+      "vi": "chơi (thể thao, trò chơi); chơi (nhạc cụ); diễn xuất",
+      "ipa": "/ˈpleɪɪŋ/"
+    },
+    {
+      "id": "L004-027",
+      "en": "minutes",
+      "vi": "biên bản (cuộc họp)",
+      "ipa": "/ˈmɪnəts/"
+    },
+    {
+      "id": "L004-028",
+      "en": "de",
+      "vi": "tiểu bang Delaware (Hoa Kỳ)",
+      "ipa": "/di/"
+    },
+    {
+      "id": "L004-029",
+      "en": "works",
+      "vi": "nhà máy, xưởng; toàn bộ, mọi thứ; việc làm đạo đức",
+      "ipa": "/wɝks/"
+    },
+    {
+      "id": "L004-030",
+      "en": "fucking",
+      "vi": "chết tiệt; khốn kiếp; vãi (tục)",
+      "ipa": "/ˈfʌkɪŋ/"
+    },
+    {
+      "id": "L004-031",
+      "en": "heard",
+      "vi": "nghe thấy",
+      "ipa": "/hɝd/"
+    },
+    {
+      "id": "L004-032",
+      "en": "co",
+      "vi": "khí CO, cacbon monoxit (khí độc); coban (nguyên tố kim loại); người từ chối nhập ngũ vì lý do lương tâm",
+      "ipa": "/koʊ/"
+    },
+    {
+      "id": "L004-033",
+      "en": "eyes",
+      "vi": "con mắt (cách nhìn nhận, đánh giá)",
+      "ipa": "/aɪz/"
+    },
+    {
+      "id": "L004-034",
+      "en": "words",
+      "vi": "lời nói, từ ngữ; lời, lời lẽ; lời bài hát",
+      "ipa": "/wɝdz/"
+    },
+    {
+      "id": "L004-035",
+      "en": "played",
+      "vi": "đã chơi (trận đấu)",
+      "ipa": "/pleɪd/"
+    },
+    {
+      "id": "L004-036",
+      "en": "won",
+      "vi": "bất bại; không thể bị đánh bại; đồng won (tiền Hàn Quốc)",
+      "ipa": "/wʌn/"
+    },
+    {
+      "id": "L004-037",
+      "en": "talking",
+      "vi": "cuộc nói chuyện, cuộc trò chuyện",
+      "ipa": "/ˈtɔkɪŋ/"
+    },
+    {
+      "id": "L004-038",
+      "en": "re",
+      "vi": "nguyên tố reni; thần Ra (thần mặt trời Ai Cập); nốt rê",
+      "ipa": "/ɹeɪ/"
+    },
+    {
+      "id": "L004-039",
+      "en": "services",
+      "vi": "dịch vụ",
+      "ipa": "/ˈsɝvəsəz/"
+    },
+    {
+      "id": "L004-040",
+      "en": "gone",
+      "vi": "đã chết, đã khuất; tiêu tan, biến mất; đã qua lâu rồi",
+      "ipa": "/ɡɔn/"
+    },
+    {
+      "id": "L004-041",
+      "en": "al",
+      "vi": "nhôm; bang Alabama (viết tắt)",
+      "ipa": "/æl/"
+    },
+    {
+      "id": "L004-042",
+      "en": "sent",
+      "vi": "đã gửi; đồng sent (đơn vị tiền Estonia)",
+      "ipa": "/sɛnt/"
+    },
+    {
+      "id": "L004-043",
+      "en": "needed",
+      "vi": "cần thiết, cần dùng",
+      "ipa": "/ˈnidəd/"
+    },
+    {
+      "id": "L004-044",
+      "en": "hands",
+      "vi": "nhân lực, nhân công; trong tay, dưới sự giám hộ (của ai)",
+      "ipa": "/hændz/"
+    },
+    {
+      "id": "L004-045",
+      "en": "according",
+      "vi": "theo như, phù hợp với; theo (lời của)",
+      "ipa": "/əˈkɔɹdɪŋ/"
+    },
+    {
+      "id": "L004-046",
+      "en": "center",
+      "vi": "trung tâm; trung tâm (tòa nhà cho hoạt động cụ thể); vị trí trung tâm (bóng chày)",
+      "ipa": "/ˈsɛntɚ/"
+    },
+    {
+      "id": "L004-047",
+      "en": "thinking",
+      "vi": "có tư duy; biết suy nghĩ; sự suy nghĩ",
+      "ipa": "/ˈθɪŋkɪŋ/"
+    },
+    {
+      "id": "L004-048",
+      "en": "higher",
+      "vi": "cao hơn, cấp cao hơn; (giáo dục) đại học và sau đại học",
+      "ipa": "/ˈhaɪɚ/"
+    },
+    {
+      "id": "L004-049",
+      "en": "felt",
+      "vi": "vải nỉ; dạ; kết lại thành nỉ",
+      "ipa": "/fɛlt/"
+    },
+    {
+      "id": "L004-050",
+      "en": "program",
+      "vi": "chương trình (phát thanh, truyền hình); chương trình, kế hoạch; chương trình (dịch vụ công)",
+      "ipa": "/ˈpɹoʊˌɡɹæm/"
+    },
+    {
+      "id": "L004-051",
+      "en": "tried",
+      "vi": "đã được thử thách; đáng tin cậy",
+      "ipa": "/tɹaɪd/"
+    },
+    {
+      "id": "L004-052",
+      "en": "english",
+      "vi": "thuộc nước Anh; thuộc người Anh; thuộc tiếng Anh",
+      "ipa": "/ˈɪŋɡlɪʃ/"
+    },
+    {
+      "id": "L004-053",
+      "en": "led",
+      "vi": "đi-ốt phát quang, đèn LED",
+      "ipa": "/lɛd/"
+    },
+    {
+      "id": "L004-054",
+      "en": "longer",
+      "vi": "lâu hơn, thêm nữa (thời gian); người khao khát, người mong mỏi",
+      "ipa": "/ˈlɔŋɡɚ/"
+    },
+    {
+      "id": "L004-055",
+      "en": "giving",
+      "vi": "hào phóng, rộng lượng; sự trao tặng, sự cho đi; sự truyền đạt (tin tức, lời hứa)",
+      "ipa": "/ˈɡɪvɪŋ/"
+    },
+    {
+      "id": "L004-056",
+      "en": "china",
+      "vi": "đồ sứ",
+      "ipa": "/ˈtʃaɪnə/"
+    },
+    {
+      "id": "L004-057",
+      "en": "lord",
+      "vi": "lãnh chúa; chúa tể; quý tộc",
+      "ipa": "/lɔɹd/"
+    },
+    {
+      "id": "L004-058",
+      "en": "built",
+      "vi": "(xà phòng) có thêm chất phụ gia tẩy rửa",
+      "ipa": "/bɪlt/"
+    },
+    {
+      "id": "L004-059",
+      "en": "received",
+      "vi": "được thừa nhận rộng rãi; (ngôn ngữ) chuẩn mực",
+      "ipa": "/ɹəˈsivd/"
+    },
+    {
+      "id": "L004-060",
+      "en": "terms",
+      "vi": "giá, phí, điều kiện thanh toán; quan hệ (giữa người hoặc nhóm)",
+      "ipa": "/tɝmz/"
+    },
+    {
+      "id": "L004-061",
+      "en": "born",
+      "vi": "được sinh ra; bẩm sinh; thiên bẩm",
+      "ipa": "/bɔɹn/"
+    },
+    {
+      "id": "L004-062",
+      "en": "ways",
+      "vi": "đường trượt (để hạ thủy tàu)",
+      "ipa": "/weɪz/"
+    },
+    {
+      "id": "L004-063",
+      "en": "la",
+      "vi": "(âm nhạc) nốt la; nguyên tố lantan; tiểu bang Louisiana",
+      "ipa": "/lɑ/"
+    },
+    {
+      "id": "L004-064",
+      "en": "turned",
+      "vi": "đã xoay, đã quay; (sữa) bị chua, hỏng",
+      "ipa": "/tɝnd/"
+    },
+    {
+      "id": "L004-065",
+      "en": "parts",
+      "vi": "vùng, miền, xứ",
+      "ipa": "/pɑɹts/"
+    },
+    {
+      "id": "L004-066",
+      "en": "okay",
+      "vi": "ổn, được, tạm ổn; ổn, tốt, tàm tạm; sự đồng ý, sự chấp thuận",
+      "ipa": "/ˌoʊˈkeɪ/"
+    },
+    {
+      "id": "L004-067",
+      "en": "decided",
+      "vi": "rõ rệt; dứt khoát",
+      "ipa": "/ˌdɪˈsaɪdɪd/"
+    },
+    {
+      "id": "L004-068",
+      "en": "sales",
+      "vi": "doanh thu; doanh số bán hàng",
+      "ipa": "/seɪlz/"
+    },
+    {
+      "id": "L004-069",
+      "en": "spent",
+      "vi": "kiệt sức; cạn năng lượng",
+      "ipa": "/spɛnt/"
+    },
+    {
+      "id": "L004-070",
+      "en": "moved",
+      "vi": "cảm động; xúc động",
+      "ipa": "/muvd/"
+    },
+    {
+      "id": "L004-071",
+      "en": "ass",
+      "vi": "mông đít; thằng ngu, đồ ngốc; con lừa",
+      "ipa": "/æs/"
+    },
+    {
+      "id": "L004-072",
+      "en": "seeing",
+      "vi": "sáng mắt; nhìn thấy được; thị giác",
+      "ipa": "/ˈsiɪŋ/"
+    },
+    {
+      "id": "L004-073",
+      "en": "published",
+      "vi": "đã xuất bản; đã công bố",
+      "ipa": "/ˈpʌblɪʃt/"
+    },
+    {
+      "id": "L004-074",
+      "en": "changed",
+      "vi": "đã thay đổi, bị biến đổi; (địa chất) bị biến chất",
+      "ipa": "/tʃeɪndʒd/"
+    },
+    {
+      "id": "L004-075",
+      "en": "kept",
+      "vi": "được giữ (lời hứa, hợp đồng)",
+      "ipa": "/kɛpt/"
+    },
+    {
+      "id": "L004-076",
+      "en": "waiting",
+      "vi": "đang chờ; đang đợi; sự chờ đợi",
+      "ipa": "/ˈweɪtɪŋ/"
+    },
+    {
+      "id": "L004-077",
+      "en": "loved",
+      "vi": "được yêu quý, được thương yêu",
+      "ipa": "/lʌvd/"
+    },
+    {
+      "id": "L004-078",
+      "en": "starting",
+      "vi": "(mắt) lồi ra, trợn trừng (vì sợ); khởi đầu, bắt đầu; lượt bắt đầu, lượt ra quân",
+      "ipa": "/ˈstɑɹtɪŋ/"
+    },
+    {
+      "id": "L004-079",
+      "en": "percent",
+      "vi": "phần trăm",
+      "ipa": "/pɚˈsɛnt/"
+    },
+    {
+      "id": "L004-080",
+      "en": "considered",
+      "vi": "có cân nhắc, thận trọng",
+      "ipa": "/kənˈsɪdɚd/"
+    },
+    {
+      "id": "L004-081",
+      "en": "sold",
+      "vi": "đã bán",
+      "ipa": "/soʊld/"
+    },
+    {
+      "id": "L004-082",
+      "en": "wow",
+      "vi": "trò đùa cực kỳ hài hước; làm kinh ngạc, gây ấn tượng mạnh",
+      "ipa": "/waʊ/"
+    },
+    {
+      "id": "L004-083",
+      "en": "costs",
+      "vi": "án phí; tiền bồi hoàn chi phí tố tụng",
+      "ipa": "/kɑsts/"
+    },
+    {
+      "id": "L004-084",
+      "en": "included",
+      "vi": "được gửi kèm, được bao gồm",
+      "ipa": "/ˌɪnˈkludəd/"
+    },
+    {
+      "id": "L004-085",
+      "en": "watching",
+      "vi": "sự quan sát, sự theo dõi",
+      "ipa": "/ˈwɑtʃɪŋ/"
+    },
+    {
+      "id": "L004-086",
+      "en": "posted",
+      "vi": "được niêm yết, dán công khai",
+      "ipa": "/ˈpoʊstɪd/"
+    },
+    {
+      "id": "L004-087",
+      "en": "required",
+      "vi": "cần thiết; bắt buộc",
+      "ipa": "/ɹiˈkwaɪɚd/"
+    },
+    {
+      "id": "L004-088",
+      "en": "earlier",
+      "vi": "sớm hơn; trước đây, sớm hơn",
+      "ipa": "/ˈɝliɚ/"
+    },
+    {
+      "id": "L004-089",
+      "en": "leaving",
+      "vi": "sự rời đi; sự khởi hành",
+      "ipa": "/ˈlivɪŋ/"
+    },
+    {
+      "id": "L004-090",
+      "en": "asking",
+      "vi": "sự hỏi xin; lời thỉnh cầu",
+      "ipa": "/ˈæskɪŋ/"
+    },
+    {
+      "id": "L004-091",
+      "en": "winning",
+      "vi": "chiến thắng; thắng cuộc; thu hút",
+      "ipa": "/ˈwɪnɪŋ/"
+    },
+    {
+      "id": "L004-092",
+      "en": "ended",
+      "vi": "đã kết thúc; chấm dứt",
+      "ipa": "/ˈɛndəd/"
+    },
+    {
+      "id": "L004-093",
+      "en": "calling",
+      "vi": "nghề nghiệp; nghiệp; thiên hướng",
+      "ipa": "/ˈkɔlɪŋ/"
+    },
+    {
+      "id": "L004-094",
+      "en": "designed",
+      "vi": "có chủ đích; được thiết kế",
+      "ipa": "/dɪˈzaɪnd/"
+    },
+    {
+      "id": "L004-095",
+      "en": "german",
+      "vi": "thuộc Đức; người Đức; tiếng Đức",
+      "ipa": "/ˈdʒɝmən/"
+    },
+    {
+      "id": "L004-096",
+      "en": "announced",
+      "vi": "được công bố; tuyên bố công khai",
+      "ipa": "/əˈnaʊnst/"
+    },
+    {
+      "id": "L004-097",
+      "en": "described",
+      "vi": "được mô tả; được miêu tả (chi tiết)",
+      "ipa": "/dɪˈskɹaɪbd/"
+    },
+    {
+      "id": "L004-098",
+      "en": "names",
+      "vi": "lời lăng mạ; sự chửi rủa",
+      "ipa": "/neɪmz/"
+    },
+    {
+      "id": "L004-099",
+      "en": "favorite",
+      "vi": "ưa thích nhất; được yêu thích nhất; được công chúng yêu thích",
+      "ipa": "/ˈfeɪvɚɪt/"
+    },
+    {
+      "id": "L004-100",
+      "en": "trump",
+      "vi": "(bài) quân chủ; (bài) chủ; bộ chủ",
+      "ipa": "/tɹʌmp/"
+    },
+    {
+      "id": "L004-101",
+      "en": "defense",
+      "vi": "sự phòng thủ; sự bảo vệ; (quân sự) phòng ngự",
+      "ipa": "/dɪˈfɛns/"
+    },
+    {
+      "id": "L004-102",
+      "en": "finished",
+      "vi": "kết thúc, hoàn tất; hoàn thiện (thành phẩm); xuất sắc, tinh tế (kỹ năng)",
+      "ipa": "/ˈfɪnɪʃt/"
+    },
+    {
+      "id": "L004-103",
+      "en": "continued",
+      "vi": "liên tục; không ngừng",
+      "ipa": "/kənˈtɪnjud/"
+    },
+    {
+      "id": "L004-104",
+      "en": "older",
+      "vi": "lớn tuổi hơn; già hơn; (người) lớn, cả (để phân biệt cha-con)",
+      "ipa": "/ˈoʊldɚ/"
+    },
+    {
+      "id": "L004-105",
+      "en": "reported",
+      "vi": "được báo cáo; được tường thuật",
+      "ipa": "/ˌɹiˈpɔɹtɪd/"
+    },
+    {
+      "id": "L004-106",
+      "en": "laws",
+      "vi": "Luật pháp (năm sách đầu của Kinh thánh Do Thái)",
+      "ipa": "/lɔz/"
+    },
+    {
+      "id": "L004-107",
+      "en": "lots",
+      "vi": "rất nhiều; lắm; vô số",
+      "ipa": "/lɑts/"
+    },
+    {
+      "id": "L004-108",
+      "en": "numbers",
+      "vi": "xổ số đề; số đề; sách Dân Số (Kinh Thánh)",
+      "ipa": "/ˈnʌmbɚz/"
+    },
+    {
+      "id": "L004-109",
+      "en": "details",
+      "vi": "thông tin chi tiết; tin mật",
+      "ipa": "/dɪˈteɪlz/"
+    },
+    {
+      "id": "L004-110",
+      "en": "telling",
+      "vi": "có tác động mạnh; đáng kể; có sức thuyết phục cao",
+      "ipa": "/ˈtɛlɪŋ/"
+    },
+    {
+      "id": "L004-111",
+      "en": "effects",
+      "vi": "đồ dùng cá nhân, tư trang",
+      "ipa": "/ɪˈfɛkts/"
+    },
+    {
+      "id": "L004-112",
+      "en": "supposed",
+      "vi": "có nhiệm vụ; phải; được cho là",
+      "ipa": "/səˈpoʊzd/"
+    },
+    {
+      "id": "L004-113",
+      "en": "conditions",
+      "vi": "điều kiện, hoàn cảnh; điều kiện thời tiết, tình trạng khí quyển",
+      "ipa": "/kənˈdɪʃənz/"
+    },
+    {
+      "id": "L004-114",
+      "en": "japan",
+      "vi": "nước Nhật Bản; đồ sơn mài Nhật Bản; sơn mài theo kiểu Nhật",
+      "ipa": "/dʒəˈpæn/"
+    },
+    {
+      "id": "L004-115",
+      "en": "peter",
+      "vi": "Thánh Phê-rô, Thánh Phi-e-rơ",
+      "ipa": "/ˈpitɚ/"
+    },
+    {
+      "id": "L004-116",
+      "en": "fell",
+      "vi": "tàn ác; dữ tợn; da thú (đã thuộc)",
+      "ipa": "/fɛl/"
+    },
+    {
+      "id": "L004-117",
+      "en": "rates",
+      "vi": "thuế tài sản địa phương",
+      "ipa": "/ɹeɪts/"
+    },
+    {
+      "id": "L004-118",
+      "en": "greater",
+      "vi": "lớn hơn; quan trọng hơn",
+      "ipa": "/ˈɡɹeɪtɚ/"
+    },
+    {
+      "id": "L004-119",
+      "en": "speaking",
+      "vi": "biết nói; nói được; sự nói",
+      "ipa": "/ˈspikɪŋ/"
+    },
+    {
+      "id": "L004-120",
+      "en": "google",
+      "vi": "tra Google; tìm kiếm trên Google",
+      "ipa": "/ˈɡuɡəl/"
+    },
+    {
+      "id": "L004-121",
+      "en": "driving",
+      "vi": "mạnh mẽ; đầy nghị lực; thúc đẩy",
+      "ipa": "/ˈdɹaɪvɪŋ/"
+    },
+    {
+      "id": "L004-122",
+      "en": "congress",
+      "vi": "Quốc hội (Mỹ); quốc hội; nghị viện",
+      "ipa": "/ˈkɑŋɡɹəs/"
+    },
+    {
+      "id": "L004-123",
+      "en": "holding",
+      "vi": "tài sản nắm giữ; cổ phần; sự nắm giữ, sự giữ lại",
+      "ipa": "/ˈhoʊldɪŋ/"
+    },
+    {
+      "id": "L004-124",
+      "en": "showing",
+      "vi": "buổi chiếu phim; buổi trưng bày, triển lãm",
+      "ipa": "/ˈʃoʊɪŋ/"
+    },
+    {
+      "id": "L004-125",
+      "en": "signed",
+      "vi": "có chữ ký; đã ký; ngôn ngữ ký hiệu",
+      "ipa": "/saɪnd/"
+    },
+    {
+      "id": "L004-126",
+      "en": "opened",
+      "vi": "đã mở; không niêm phong; mở (mắt, miệng)",
+      "ipa": "/ˈoʊpənd/"
+    },
+    {
+      "id": "L004-127",
+      "en": "placed",
+      "vi": "được đặt; tọa lạc; được xếp hạng",
+      "ipa": "/pleɪst/"
+    },
+    {
+      "id": "L004-128",
+      "en": "broke",
+      "vi": "hết tiền, cháy túi, không đồng xu",
+      "ipa": "/bɹoʊk/"
+    },
+    {
+      "id": "L004-129",
+      "en": "eating",
+      "vi": "sự ăn, việc ăn uống",
+      "ipa": "/ˈitɪŋ/"
+    },
+    {
+      "id": "L004-130",
+      "en": "tom",
+      "vi": "mèo đực; gà tây đực",
+      "ipa": "/tɑm/"
+    },
+    {
+      "id": "L004-131",
+      "en": "established",
+      "vi": "đã được thiết lập; có uy tín; chính thức",
+      "ipa": "/ɪˈstæblɪʃt/"
+    },
+    {
+      "id": "L004-132",
+      "en": "increased",
+      "vi": "tăng lên, gia tăng",
+      "ipa": "/ˌɪnˈkɹist/"
+    },
+    {
+      "id": "L004-133",
+      "en": "missed",
+      "vi": "bị bỏ lỡ; không được chú ý",
+      "ipa": "/mɪst/"
+    },
+    {
+      "id": "L004-134",
+      "en": "putting",
+      "vi": "cú đánh bóng trên green (golf)",
+      "ipa": "/ˈpʌtɪŋ/"
+    },
+    {
+      "id": "L004-135",
+      "en": "sitting",
+      "vi": "đang ngồi; bất động, dễ bị tấn công; buổi chụp ảnh, buổi ngồi vẽ",
+      "ipa": "/ˈsɪtɪŋ/"
+    },
+    {
+      "id": "L004-136",
+      "en": "learned",
+      "vi": "uyên bác; thông thái; có học thức cao",
+      "ipa": "/lɝnd/"
+    },
+    {
+      "id": "L004-137",
+      "en": "mid",
+      "vi": "ở giữa; trung",
+      "ipa": "/mɪd/"
+    },
+    {
+      "id": "L004-138",
+      "en": "stopped",
+      "vi": "nghẹt (mũi)",
+      "ipa": "/stɑpt/"
+    },
+    {
+      "id": "L004-139",
+      "en": "agreed",
+      "vi": "đồng ý; nhất trí",
+      "ipa": "/əˈɡɹid/"
+    },
+    {
+      "id": "L004-140",
+      "en": "ex",
+      "vi": "ích; xờ; xờ nhẹ",
+      "ipa": "/ɛks/"
+    },
+    {
+      "id": "L004-141",
+      "en": "raised",
+      "vi": "được nâng lên; cao hơn; có hoa văn nổi",
+      "ipa": "/ɹeɪzd/"
+    },
+    {
+      "id": "L004-142",
+      "en": "wearing",
+      "vi": "mệt mỏi; gây kiệt sức; mài mòn (địa chất)",
+      "ipa": "/ˈwɛɹɪŋ/"
+    },
+    {
+      "id": "L004-143",
+      "en": "fourth",
+      "vi": "thứ tư; người/vật thứ tư; một phần tư",
+      "ipa": "/fɔɹθ/"
+    },
+    {
+      "id": "L004-144",
+      "en": "arms",
+      "vi": "vũ khí; huy hiệu",
+      "ipa": "/ɑɹmz/"
+    },
+    {
+      "id": "L004-145",
+      "en": "located",
+      "vi": "tọa lạc; nằm ở; đặt tại",
+      "ipa": "/ˈloʊˌkeɪtəd/"
+    },
+    {
+      "id": "L004-146",
+      "en": "keeping",
+      "vi": "sự phù hợp, hài hòa; sự trông nom, bảo quản; sự giữ lại",
+      "ipa": "/ˈkipɪŋ/"
+    },
+    {
+      "id": "L004-147",
+      "en": "mike",
+      "vi": "micrô",
+      "ipa": "/maɪk/"
+    },
+    {
+      "id": "L004-148",
+      "en": "jack",
+      "vi": "cái kích; nâng lên bằng kích; săn bằng đèn (ban đêm)",
+      "ipa": "/dʒæk/"
+    },
+    {
+      "id": "L004-149",
+      "en": "forced",
+      "vi": "cưỡng bức; ép buộc; bắt buộc",
+      "ipa": "/fɔɹst/"
+    },
+    {
+      "id": "L004-150",
+      "en": "ed",
+      "vi": "rối loạn cương dương",
+      "ipa": "/ɛd/"
+    },
+    {
+      "id": "L004-151",
+      "en": "covered",
+      "vi": "được che phủ; có nắp đậy",
+      "ipa": "/ˈkʌvɚd/"
+    },
+    {
+      "id": "L004-152",
+      "en": "acting",
+      "vi": "tạm quyền; quyền; diễn xuất",
+      "ipa": "/ˈæktɪŋ/"
+    },
+    {
+      "id": "L004-153",
+      "en": "senate",
+      "vi": "thượng nghị viện",
+      "ipa": "/ˈsɛnət/"
+    },
+    {
+      "id": "L004-154",
+      "en": "twitter",
+      "vi": "tiếng hót líu lo; tiếng kêu chiêm chiếp; hót líu lo",
+      "ipa": "/ˈtwɪtɚ/"
+    },
+    {
+      "id": "L004-155",
+      "en": "larger",
+      "vi": "lớn hơn; to hơn",
+      "ipa": "/ˈlɑɹdʒɚ/"
+    },
+    {
+      "id": "L004-156",
+      "en": "out",
+      "vi": "ra ngoài, lộ ra; đi vắng, ra ngoài; mất, không còn trong tay",
+      "ipa": "/aʊt/"
+    },
+    {
+      "id": "L004-157",
+      "en": "well",
+      "vi": "khỏe mạnh; tốt, ổn thỏa; nên, tốt hơn là",
+      "ipa": "/wɛl/"
+    },
+    {
+      "id": "L004-158",
+      "en": "much",
+      "vi": "nhiều, lắm; rất, vô cùng; nhiều",
+      "ipa": "/mʌtʃ/"
+    },
+    {
+      "id": "L004-159",
+      "en": "may",
+      "vi": "tháng năm; cây táo gai",
+      "ipa": "/meɪ/"
+    },
+    {
+      "id": "L004-160",
+      "en": "leaders",
+      "vi": "lãnh đạo tập thể; ban lãnh đạo",
+      "ipa": "/ˈlidɚz/"
+    },
+    {
+      "id": "L004-161",
+      "en": "off",
+      "vi": "tắt; không hoạt động; dở",
+      "ipa": "/ɔf/"
+    },
+    {
+      "id": "L004-162",
+      "en": "down",
+      "vi": "xuống; xuống dưới; xuôi",
+      "ipa": "/daʊn/"
+    },
+    {
+      "id": "L004-163",
+      "en": "best",
+      "vi": "tốt nhất; hay nhất; tốt nhất (nên làm)",
+      "ipa": "/bɛst/"
+    },
+    {
+      "id": "L004-164",
+      "en": "selling",
+      "vi": "việc bán hàng; sự bán",
+      "ipa": "/ˈsɛlɪŋ/"
+    },
+    {
+      "id": "L004-165",
+      "en": "bitch",
+      "vi": "đĩ; phàn nàn; chửi rủa, nói xấu",
+      "ipa": "/bɪtʃ/"
+    },
+    {
+      "id": "L004-166",
+      "en": "own",
+      "vi": "của riêng; của chính mình; sở hữu",
+      "ipa": "/oʊn/"
+    },
+    {
+      "id": "L004-167",
+      "en": "end",
+      "vi": "đầu, cuối, tận cùng; sự kết thúc, hồi kết; phần cuối, đoạn kết",
+      "ipa": "/ɛnd/"
+    },
+    {
+      "id": "L004-168",
+      "en": "left",
+      "vi": "bên trái; còn lại, thừa; (thuận) tay trái",
+      "ipa": "/lɛft/"
+    },
+    {
+      "id": "L004-169",
+      "en": "top",
+      "vi": "đỉnh, phần trên cùng; chóp, đỉnh (núi); cao nhất, trên cùng, hàng đầu",
+      "ipa": "/tɑp/"
+    },
+    {
+      "id": "L004-170",
+      "en": "owned",
+      "vi": "có chủ",
+      "ipa": "/oʊnd/"
+    },
+    {
+      "id": "L004-171",
+      "en": "realize",
+      "vi": "nhận ra; thực hiện",
+      "ipa": "/ˈɹiəˌlaɪz/"
+    },
+    {
+      "id": "L004-172",
+      "en": "yet",
+      "vi": "vẫn chưa; còn chưa, vẫn còn; hơn nữa, còn",
+      "ipa": "/jɛt/"
+    },
+    {
+      "id": "L004-173",
+      "en": "white",
+      "vi": "trắng; (da) trắng; trong trắng",
+      "ipa": "/waɪt/"
+    },
+    {
+      "id": "L004-174",
+      "en": "smaller",
+      "vi": "nhỏ hơn; bé hơn",
+      "ipa": "/ˈsmɔlɚ/"
+    },
+    {
+      "id": "L004-175",
+      "en": "liked",
+      "vi": "được yêu thích; được ưa chuộng",
+      "ipa": "/laɪkt/"
+    },
+    {
+      "id": "L004-176",
+      "en": "black",
+      "vi": "đen; màu đen; (người) da đen",
+      "ipa": "/blæk/"
+    },
+    {
+      "id": "L004-177",
+      "en": "ago",
+      "vi": "trước; cách đây; trước đây",
+      "ipa": "/əˈɡoʊ/"
+    },
+    {
+      "id": "L004-178",
+      "en": "half",
+      "vi": "một nửa; nửa; hiệp (thể thao)",
+      "ipa": "/hæf/"
+    },
+    {
+      "id": "L004-179",
+      "en": "becoming",
+      "vi": "phù hợp; thích hợp; đúng mực",
+      "ipa": "/bɪˈkʌmɪŋ/"
+    },
+    {
+      "id": "L004-180",
+      "en": "guy",
+      "vi": "anh chàng, gã, thằng cha; dây néo, dây căng (lều); hình nộm Guy Fawkes",
+      "ipa": "/ɡaɪ/"
+    },
+    {
+      "id": "L004-181",
+      "en": "past",
+      "vi": "qua; ngang qua; quá khứ",
+      "ipa": "/pæst/"
+    }
+  ]
+}

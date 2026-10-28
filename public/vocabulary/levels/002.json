@@ -1,0 +1,907 @@
+{
+  "version": 1,
+  "level": 2,
+  "label": "Foundation 002",
+  "entries": [
+    {
+      "id": "L002-001",
+      "en": "early",
+      "vi": "sớm; trước giờ",
+      "ipa": "/ˈɝli/"
+    },
+    {
+      "id": "L002-002",
+      "en": "late",
+      "vi": "muộn, trễ",
+      "ipa": "/leɪt/"
+    },
+    {
+      "id": "L002-003",
+      "en": "always",
+      "vi": "luôn luôn; lúc nào cũng",
+      "ipa": "/ˈɔlˌweɪz/"
+    },
+    {
+      "id": "L002-004",
+      "en": "never",
+      "vi": "chưa bao giờ, không bao giờ",
+      "ipa": "/ˈnɛvɚ/"
+    },
+    {
+      "id": "L002-005",
+      "en": "often",
+      "vi": "thường; hay; thường xuyên",
+      "ipa": "/ˈɔfən/"
+    },
+    {
+      "id": "L002-006",
+      "en": "sometimes",
+      "vi": "thỉnh thoảng, đôi khi",
+      "ipa": "/səmˈtaɪmz/"
+    },
+    {
+      "id": "L002-007",
+      "en": "together",
+      "vi": "cùng nhau; với nhau",
+      "ipa": "/təˈɡɛðɚ/"
+    },
+    {
+      "id": "L002-008",
+      "en": "again",
+      "vi": "lại, lần nữa",
+      "ipa": "/əˈɡɛn/"
+    },
+    {
+      "id": "L002-009",
+      "en": "already",
+      "vi": "đã, rồi",
+      "ipa": "/ɔlˈɹɛdi/"
+    },
+    {
+      "id": "L002-010",
+      "en": "maybe",
+      "vi": "có lẽ, có thể",
+      "ipa": "/ˈmeɪbi/"
+    },
+    {
+      "id": "L002-011",
+      "en": "really",
+      "vi": "thực sự, thật sự",
+      "ipa": "/ˈɹɪli/"
+    },
+    {
+      "id": "L002-012",
+      "en": "important",
+      "vi": "quan trọng",
+      "ipa": "/ˌɪmˈpɔɹtənt/"
+    },
+    {
+      "id": "L002-013",
+      "en": "different",
+      "vi": "khác, khác biệt",
+      "ipa": "/ˈdɪfɚənt/"
+    },
+    {
+      "id": "L002-014",
+      "en": "possible",
+      "vi": "có thể (xảy ra/tồn tại)",
+      "ipa": "/ˈpɑsəbəl/"
+    },
+    {
+      "id": "L002-015",
+      "en": "simple",
+      "vi": "đơn giản, dễ dàng",
+      "ipa": "/ˈsɪmpəl/"
+    },
+    {
+      "id": "L002-016",
+      "en": "enough",
+      "vi": "đủ",
+      "ipa": "/ɪˈnʌf/"
+    },
+    {
+      "id": "L002-017",
+      "en": "sure",
+      "vi": "chắc chắn, không nghi ngờ",
+      "ipa": "/ʃʊɹ/"
+    },
+    {
+      "id": "L002-018",
+      "en": "free",
+      "vi": "miễn phí",
+      "ipa": "/fɹi/"
+    },
+    {
+      "id": "L002-019",
+      "en": "full",
+      "vi": "đầy",
+      "ipa": "/fʊl/"
+    },
+    {
+      "id": "L002-020",
+      "en": "empty",
+      "vi": "trống; rỗng",
+      "ipa": "/ˈɛmpti/"
+    },
+    {
+      "id": "L002-021",
+      "en": "clean",
+      "vi": "sạch; sạch sẽ",
+      "ipa": "/klin/"
+    },
+    {
+      "id": "L002-022",
+      "en": "dirty",
+      "vi": "bẩn; dơ",
+      "ipa": "/ˈdɝti/"
+    },
+    {
+      "id": "L002-023",
+      "en": "strong",
+      "vi": "mạnh, khỏe",
+      "ipa": "/stɹɔŋ/"
+    },
+    {
+      "id": "L002-024",
+      "en": "weak",
+      "vi": "yếu",
+      "ipa": "/wik/"
+    },
+    {
+      "id": "L002-025",
+      "en": "fast",
+      "vi": "nhanh; mau lẹ",
+      "ipa": "/fæst/"
+    },
+    {
+      "id": "L002-026",
+      "en": "slow",
+      "vi": "chậm; chậm chạp",
+      "ipa": "/sloʊ/"
+    },
+    {
+      "id": "L002-027",
+      "en": "high",
+      "vi": "cao",
+      "ipa": "/haɪ/"
+    },
+    {
+      "id": "L002-028",
+      "en": "low",
+      "vi": "thấp, kém",
+      "ipa": "/loʊ/"
+    },
+    {
+      "id": "L002-029",
+      "en": "long",
+      "vi": "dài",
+      "ipa": "/lɔŋ/"
+    },
+    {
+      "id": "L002-030",
+      "en": "short",
+      "vi": "ngắn",
+      "ipa": "/ʃɔɹt/"
+    },
+    {
+      "id": "L002-031",
+      "en": "beautiful",
+      "vi": "đẹp; xinh đẹp",
+      "ipa": "/ˈbjutəfəl/"
+    },
+    {
+      "id": "L002-032",
+      "en": "busy",
+      "vi": "bận; bận rộn",
+      "ipa": "/ˈbɪzi/"
+    },
+    {
+      "id": "L002-033",
+      "en": "ready",
+      "vi": "sẵn sàng, sẵn sàng để dùng",
+      "ipa": "/ˈɹɛdi/"
+    },
+    {
+      "id": "L002-034",
+      "en": "safe",
+      "vi": "an toàn",
+      "ipa": "/seɪf/"
+    },
+    {
+      "id": "L002-035",
+      "en": "same",
+      "vi": "giống; tương tự",
+      "ipa": "/seɪm/"
+    },
+    {
+      "id": "L002-036",
+      "en": "clear",
+      "vi": "rõ ràng, minh bạch",
+      "ipa": "/klɪɹ/"
+    },
+    {
+      "id": "L002-037",
+      "en": "change",
+      "vi": "thay đổi, làm cho thay đổi",
+      "ipa": "/tʃeɪndʒ/"
+    },
+    {
+      "id": "L002-038",
+      "en": "choose",
+      "vi": "chọn; lựa chọn",
+      "ipa": "/tʃuz/"
+    },
+    {
+      "id": "L002-039",
+      "en": "decide",
+      "vi": "quyết định",
+      "ipa": "/ˌdɪˈsaɪd/"
+    },
+    {
+      "id": "L002-040",
+      "en": "remember",
+      "vi": "nhớ; nhớ lại",
+      "ipa": "/ɹɪˈmɛmbɚ/"
+    },
+    {
+      "id": "L002-041",
+      "en": "forget",
+      "vi": "quên; không nhớ",
+      "ipa": "/fɚˈɡɛt/"
+    },
+    {
+      "id": "L002-042",
+      "en": "understand",
+      "vi": "hiểu; nắm được ý",
+      "ipa": "/ˌʌndɚˈstænd/"
+    },
+    {
+      "id": "L002-043",
+      "en": "explain",
+      "vi": "giải thích; giảng giải",
+      "ipa": "/ɪkˈspleɪn/"
+    },
+    {
+      "id": "L002-044",
+      "en": "show",
+      "vi": "cho thấy; chỉ ra",
+      "ipa": "/ʃoʊ/"
+    },
+    {
+      "id": "L002-045",
+      "en": "keep",
+      "vi": "giữ; giữ gìn",
+      "ipa": "/kip/"
+    },
+    {
+      "id": "L002-046",
+      "en": "put",
+      "vi": "đặt; để; đưa",
+      "ipa": "/pʊt/"
+    },
+    {
+      "id": "L002-047",
+      "en": "call",
+      "vi": "gọi điện; gọi",
+      "ipa": "/kɔl/"
+    },
+    {
+      "id": "L002-048",
+      "en": "try",
+      "vi": "cố gắng; thử",
+      "ipa": "/tɹaɪ/"
+    },
+    {
+      "id": "L002-049",
+      "en": "move",
+      "vi": "di chuyển; chuyển động",
+      "ipa": "/muv/"
+    },
+    {
+      "id": "L002-050",
+      "en": "wait",
+      "vi": "chờ, đợi",
+      "ipa": "/weɪt/"
+    },
+    {
+      "id": "L002-051",
+      "en": "stay",
+      "vi": "ở lại, lưu lại",
+      "ipa": "/steɪ/"
+    },
+    {
+      "id": "L002-052",
+      "en": "follow",
+      "vi": "đi theo; theo sau",
+      "ipa": "/ˈfɑloʊ/"
+    },
+    {
+      "id": "L002-053",
+      "en": "happen",
+      "vi": "xảy ra, xảy đến",
+      "ipa": "/ˈhæpən/"
+    },
+    {
+      "id": "L002-054",
+      "en": "believe",
+      "vi": "tin; tin tưởng",
+      "ipa": "/bɪˈliv/"
+    },
+    {
+      "id": "L002-055",
+      "en": "hope",
+      "vi": "hy vọng, mong",
+      "ipa": "/hoʊp/"
+    },
+    {
+      "id": "L002-056",
+      "en": "ask",
+      "vi": "hỏi, yêu cầu",
+      "ipa": "/æsk/"
+    },
+    {
+      "id": "L002-057",
+      "en": "buy",
+      "vi": "mua",
+      "ipa": "/baɪ/"
+    },
+    {
+      "id": "L002-058",
+      "en": "pay",
+      "vi": "trả tiền, thanh toán",
+      "ipa": "/peɪ/"
+    },
+    {
+      "id": "L002-059",
+      "en": "send",
+      "vi": "gửi; gửi đi",
+      "ipa": "/sɛnd/"
+    },
+    {
+      "id": "L002-060",
+      "en": "meet",
+      "vi": "gặp; gặp gỡ",
+      "ipa": "/mit/"
+    },
+    {
+      "id": "L002-061",
+      "en": "watch",
+      "vi": "xem, theo dõi",
+      "ipa": "/wɑtʃ/"
+    },
+    {
+      "id": "L002-062",
+      "en": "cook",
+      "vi": "nấu; nấu chín; nấu ăn",
+      "ipa": "/kʊk/"
+    },
+    {
+      "id": "L002-063",
+      "en": "sleep",
+      "vi": "ngủ",
+      "ipa": "/slip/"
+    },
+    {
+      "id": "L002-064",
+      "en": "wake",
+      "vi": "thức dậy",
+      "ipa": "/weɪk/"
+    },
+    {
+      "id": "L002-065",
+      "en": "drive",
+      "vi": "lái (xe)",
+      "ipa": "/dɹaɪv/"
+    },
+    {
+      "id": "L002-066",
+      "en": "walk",
+      "vi": "đi bộ",
+      "ipa": "/wɔk/"
+    },
+    {
+      "id": "L002-067",
+      "en": "run",
+      "vi": "chạy; chạy bộ",
+      "ipa": "/ɹʌn/"
+    },
+    {
+      "id": "L002-068",
+      "en": "sit",
+      "vi": "ngồi",
+      "ipa": "/sɪt/"
+    },
+    {
+      "id": "L002-069",
+      "en": "stand",
+      "vi": "đứng",
+      "ipa": "/stænd/"
+    },
+    {
+      "id": "L002-070",
+      "en": "turn",
+      "vi": "rẽ; quay; ngoặt",
+      "ipa": "/tɝn/"
+    },
+    {
+      "id": "L002-071",
+      "en": "bring",
+      "vi": "mang; đem; đưa",
+      "ipa": "/bɹɪŋ/"
+    },
+    {
+      "id": "L002-072",
+      "en": "leave",
+      "vi": "rời khỏi",
+      "ipa": "/liv/"
+    },
+    {
+      "id": "L002-073",
+      "en": "return",
+      "vi": "trở về, quay lại",
+      "ipa": "/ɹɪˈtɝn/"
+    },
+    {
+      "id": "L002-074",
+      "en": "build",
+      "vi": "xây dựng, lắp ráp",
+      "ipa": "/bɪld/"
+    },
+    {
+      "id": "L002-075",
+      "en": "create",
+      "vi": "tạo ra; tạo nên",
+      "ipa": "/kɹiˈeɪt/"
+    },
+    {
+      "id": "L002-076",
+      "en": "check",
+      "vi": "kiểm tra; kiểm",
+      "ipa": "/tʃɛk/"
+    },
+    {
+      "id": "L002-077",
+      "en": "plan",
+      "vi": "lên kế hoạch; trù tính",
+      "ipa": "/plæn/"
+    },
+    {
+      "id": "L002-078",
+      "en": "study",
+      "vi": "học; theo học",
+      "ipa": "/ˈstʌdi/"
+    },
+    {
+      "id": "L002-079",
+      "en": "teach",
+      "vi": "dạy; dạy học; dạy bảo; dạy dỗ",
+      "ipa": "/titʃ/"
+    },
+    {
+      "id": "L002-080",
+      "en": "travel",
+      "vi": "đi du lịch",
+      "ipa": "/ˈtɹævəl/"
+    },
+    {
+      "id": "L002-081",
+      "en": "visit",
+      "vi": "thăm, viếng thăm",
+      "ipa": "/ˈvɪzɪt/"
+    },
+    {
+      "id": "L002-082",
+      "en": "order",
+      "vi": "đặt hàng, gọi món",
+      "ipa": "/ˈɔɹdɚ/"
+    },
+    {
+      "id": "L002-083",
+      "en": "price",
+      "vi": "giá, giá cả",
+      "ipa": "/pɹaɪs/"
+    },
+    {
+      "id": "L002-084",
+      "en": "number",
+      "vi": "số lượng, con số",
+      "ipa": "/ˈnʌmbɚ/"
+    },
+    {
+      "id": "L002-085",
+      "en": "company",
+      "vi": "công ty, doanh nghiệp",
+      "ipa": "/ˈkʌmpəˌni/"
+    },
+    {
+      "id": "L002-086",
+      "en": "country",
+      "vi": "đất nước, quốc gia",
+      "ipa": "/ˈkʌntɹi/"
+    },
+    {
+      "id": "L002-087",
+      "en": "world",
+      "vi": "vũ trụ; thế giới; vạn vật",
+      "ipa": "/wɝld/"
+    },
+    {
+      "id": "L002-088",
+      "en": "video",
+      "vi": "video; băng ghi hình",
+      "ipa": "/ˈvɪdioʊ/"
+    },
+    {
+      "id": "L002-089",
+      "en": "message",
+      "vi": "tin nhắn, thông điệp",
+      "ipa": "/ˈmɛsədʒ/"
+    },
+    {
+      "id": "L002-090",
+      "en": "result",
+      "vi": "kết quả; hậu quả",
+      "ipa": "/ɹɪˈzʌlt/"
+    },
+    {
+      "id": "L002-091",
+      "en": "example",
+      "vi": "ví dụ; trường hợp điển hình",
+      "ipa": "/ɪɡˈzæmpəl/"
+    },
+    {
+      "id": "L002-092",
+      "en": "course",
+      "vi": "khóa học",
+      "ipa": "/kɔɹs/"
+    },
+    {
+      "id": "L002-093",
+      "en": "level",
+      "vi": "mức độ; trình độ; cấp độ",
+      "ipa": "/ˈlɛvəl/"
+    },
+    {
+      "id": "L002-094",
+      "en": "first name",
+      "vi": "tên",
+      "ipa": "/fɝst neɪm/"
+    },
+    {
+      "id": "L002-095",
+      "en": "high school",
+      "vi": "trường trung học phổ thông; trường cấp ba",
+      "ipa": "/haɪ skul/"
+    },
+    {
+      "id": "L002-096",
+      "en": "video game",
+      "vi": "trò chơi điện tử",
+      "ipa": "/ˈvɪdioʊ ɡeɪm/"
+    },
+    {
+      "id": "L002-097",
+      "en": "area",
+      "vi": "khu vực; vùng",
+      "ipa": "/ˈɛɹiə/"
+    },
+    {
+      "id": "L002-098",
+      "en": "fact",
+      "vi": "sự thật, sự kiện",
+      "ipa": "/fækt/"
+    },
+    {
+      "id": "L002-099",
+      "en": "chance",
+      "vi": "cơ hội; khả năng",
+      "ipa": "/tʃæns/"
+    },
+    {
+      "id": "L002-100",
+      "en": "cost",
+      "vi": "chi phí, giá thành",
+      "ipa": "/kɑst/"
+    },
+    {
+      "id": "L002-101",
+      "en": "in",
+      "vi": "vào, vào trong",
+      "ipa": "/ɪn/"
+    },
+    {
+      "id": "L002-102",
+      "en": "on",
+      "vi": "đang hoạt động; tiếp tục",
+      "ipa": "/ɑn/"
+    },
+    {
+      "id": "L002-103",
+      "en": "so",
+      "vi": "như vậy; rất",
+      "ipa": "/soʊ/"
+    },
+    {
+      "id": "L002-104",
+      "en": "up",
+      "vi": "lên trên",
+      "ipa": "/ʌp/"
+    },
+    {
+      "id": "L002-105",
+      "en": "after",
+      "vi": "sau; sau đó",
+      "ipa": "/ˈæftɚ/"
+    },
+    {
+      "id": "L002-106",
+      "en": "over",
+      "vi": "qua, sang bên kia",
+      "ipa": "/ˈoʊvɚ/"
+    },
+    {
+      "id": "L002-107",
+      "en": "most",
+      "vi": "nhất",
+      "ipa": "/moʊst/"
+    },
+    {
+      "id": "L002-108",
+      "en": "even",
+      "vi": "thậm chí, ngay cả",
+      "ipa": "/ˈivɪn/"
+    },
+    {
+      "id": "L002-109",
+      "en": "still",
+      "vi": "vẫn; vẫn còn",
+      "ipa": "/stɪl/"
+    },
+    {
+      "id": "L002-110",
+      "en": "part",
+      "vi": "phần, bộ phận",
+      "ipa": "/pɑɹt/"
+    },
+    {
+      "id": "L002-111",
+      "en": "state",
+      "vi": "trạng thái; bang",
+      "ipa": "/steɪt/"
+    },
+    {
+      "id": "L002-112",
+      "en": "around",
+      "vi": "quanh đây, gần đây",
+      "ipa": "/ɚˈaʊnd/"
+    },
+    {
+      "id": "L002-113",
+      "en": "next",
+      "vi": "lần sau, tiếp theo",
+      "ipa": "/nɛkst/"
+    },
+    {
+      "id": "L002-114",
+      "en": "ever",
+      "vi": "đã từng; bao giờ",
+      "ipa": "/ˈɛvɚ/"
+    },
+    {
+      "id": "L002-115",
+      "en": "lot",
+      "vi": "nhiều, vô số (theo sau bởi 'of')",
+      "ipa": "/lɑt/"
+    },
+    {
+      "id": "L002-116",
+      "en": "set",
+      "vi": "bộ",
+      "ipa": "/sɛt/"
+    },
+    {
+      "id": "L002-117",
+      "en": "thought",
+      "vi": "ý nghĩ, tư tưởng",
+      "ipa": "/θɔt/"
+    },
+    {
+      "id": "L002-118",
+      "en": "almost",
+      "vi": "gần như, suýt, hầu hết",
+      "ipa": "/ˈɔlˌmoʊst/"
+    },
+    {
+      "id": "L002-119",
+      "en": "system",
+      "vi": "hệ thống",
+      "ipa": "/ˈsɪstəm/"
+    },
+    {
+      "id": "L002-120",
+      "en": "power",
+      "vi": "quyền lực; sức mạnh",
+      "ipa": "/ˈpaʊɚ/"
+    },
+    {
+      "id": "L002-121",
+      "en": "actually",
+      "vi": "thực sự; thực tế là",
+      "ipa": "/ˈækˌtʃuəli/"
+    },
+    {
+      "id": "L002-122",
+      "en": "less",
+      "vi": "ít hơn, kém hơn",
+      "ipa": "/lɛs/"
+    },
+    {
+      "id": "L002-123",
+      "en": "law",
+      "vi": "luật pháp, pháp luật",
+      "ipa": "/lɔ/"
+    },
+    {
+      "id": "L002-124",
+      "en": "whole",
+      "vi": "toàn bộ, toàn thể",
+      "ipa": "/hoʊl/"
+    },
+    {
+      "id": "L002-125",
+      "en": "court",
+      "vi": "tòa án",
+      "ipa": "/kɔɹt/"
+    },
+    {
+      "id": "L002-126",
+      "en": "single",
+      "vi": "đơn; độc nhất; một; riêng lẻ",
+      "ipa": "/ˈsɪŋɡəl/"
+    },
+    {
+      "id": "L002-127",
+      "en": "death",
+      "vi": "cái chết, sự qua đời",
+      "ipa": "/dɛθ/"
+    },
+    {
+      "id": "L002-128",
+      "en": "university",
+      "vi": "trường đại học",
+      "ipa": "/ˌjunəˈvɝsəti/"
+    },
+    {
+      "id": "L002-129",
+      "en": "matter",
+      "vi": "quan trọng; có ý nghĩa",
+      "ipa": "/ˈmætɚ/"
+    },
+    {
+      "id": "L002-130",
+      "en": "pretty",
+      "vi": "khá; tương đối",
+      "ipa": "/ˈpɹɪti/"
+    },
+    {
+      "id": "L002-131",
+      "en": "air",
+      "vi": "không khí",
+      "ipa": "/ɛɹ/"
+    },
+    {
+      "id": "L002-132",
+      "en": "bit",
+      "vi": "một chút; mẩu nhỏ",
+      "ipa": "/bɪt/"
+    },
+    {
+      "id": "L002-133",
+      "en": "probably",
+      "vi": "có lẽ; hẳn là",
+      "ipa": "/ˈpɹɑbəˌbli/"
+    },
+    {
+      "id": "L002-134",
+      "en": "international",
+      "vi": "quốc tế",
+      "ipa": "/ˌɪntɚˈnæʃənəl/"
+    },
+    {
+      "id": "L002-135",
+      "en": "human",
+      "vi": "thuộc về con người",
+      "ipa": "/ˈhjumən/"
+    },
+    {
+      "id": "L002-136",
+      "en": "police",
+      "vi": "cảnh sát, công an",
+      "ipa": "/pəˈlis/"
+    },
+    {
+      "id": "L002-137",
+      "en": "deal",
+      "vi": "thỏa thuận; giao dịch",
+      "ipa": "/dil/"
+    },
+    {
+      "id": "L002-138",
+      "en": "rather",
+      "vi": "khá, hơi",
+      "ipa": "/ˈɹæðɚ/"
+    },
+    {
+      "id": "L002-139",
+      "en": "third",
+      "vi": "thứ ba",
+      "ipa": "/θɝd/"
+    },
+    {
+      "id": "L002-140",
+      "en": "further",
+      "vi": "xa hơn, thêm nữa",
+      "ipa": "/ˈfɝðɚ/"
+    },
+    {
+      "id": "L002-141",
+      "en": "market",
+      "vi": "thị trường; chợ",
+      "ipa": "/ˈmɑɹkət/"
+    },
+    {
+      "id": "L002-142",
+      "en": "quite",
+      "vi": "khá; hoàn toàn",
+      "ipa": "/kwaɪt/"
+    },
+    {
+      "id": "L002-143",
+      "en": "experience",
+      "vi": "kinh nghiệm; trải nghiệm",
+      "ipa": "/ɪkˈspɪɹiəns/"
+    },
+    {
+      "id": "L002-144",
+      "en": "across",
+      "vi": "qua; sang bên kia",
+      "ipa": "/əˈkɹɔs/"
+    },
+    {
+      "id": "L002-145",
+      "en": "instead",
+      "vi": "thay vào đó, thay vì thế",
+      "ipa": "/ˌɪnˈstɛd/"
+    },
+    {
+      "id": "L002-146",
+      "en": "space",
+      "vi": "không gian; khoảng trống",
+      "ipa": "/speɪs/"
+    },
+    {
+      "id": "L002-147",
+      "en": "likely",
+      "vi": "có khả năng; có vẻ như",
+      "ipa": "/ˈlaɪkli/"
+    },
+    {
+      "id": "L002-148",
+      "en": "perfect",
+      "vi": "hoàn hảo; hoàn toàn",
+      "ipa": "/pɚˈfɛkt/"
+    },
+    {
+      "id": "L002-149",
+      "en": "couple",
+      "vi": "đôi; cặp đôi; một vài",
+      "ipa": "/ˈkʌpəl/"
+    },
+    {
+      "id": "L002-150",
+      "en": "dead",
+      "vi": "chết",
+      "ipa": "/dɛd/"
+    }
+  ]
+}

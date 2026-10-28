@@ -78,7 +78,7 @@ function foeInfo(foe: FoeId): Omit<FoeTally, "count" | "elite"> {
  * "Blight Wolf"; owner 27/10, English game nouns); a general is "Tướng".
  */
 export function shortFoeName(tally: Pick<FoeTally, "nameVi" | "general">): string {
-  if (tally.general) return "Tướng";
+  if (tally.general) return "Gen.";
   return tally.nameVi;
 }
 
@@ -125,10 +125,10 @@ export function summarizeWave(stage: StageDef, map: MapDef, n: number): WaveSumm
 /** The wave-start banner line (05 §4.6): "Đợt 7 · 2 đường · có tướng địch"; the last wave is "Đợt cuối" (test pass 27/10). */
 export function bannerText(summary: WaveSummary): string {
   const ground = summary.lanes.filter((lane) => !lane.sky && lane.count > 0).length;
-  const parts = [summary.n === summary.waves && summary.waves > 1 ? "Đợt cuối" : "Đợt " + summary.n];
-  if (ground > 0) parts.push(ground + " đường");
-  if (summary.flyers > 0) parts.push("có quái bay");
-  if (summary.generals.length > 0) parts.push("có tướng địch");
+  const parts = [summary.n === summary.waves && summary.waves > 1 ? "Last wave" : "Wave " + summary.n];
+  if (ground > 0) parts.push(ground + " lanes");
+  if (summary.flyers > 0) parts.push("with flyers");
+  if (summary.generals.length > 0) parts.push("with generals");
   return parts.join(" · ");
 }
 
@@ -148,7 +148,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
   head.append(title, warns);
   const lanesNode = el(doc, "div", "dh-lanes");
   const beat = el(doc, "div", "dh-beat");
-  beat.title = "Nhịp đợt: khối sáng là đỉnh, chấm là lúc từng toán vào";
+  beat.title = "Wave pace: bright blocks mark peaks; dots mark group arrivals";
   const foot = el(doc, "div", "dh-wave-card__foot");
   const callButton = uiButton(doc, "dh-call-early", () => callEarly());
   const startButton = uiButton(doc, "dh-start", () => start());
@@ -249,10 +249,10 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
         if (lane.sky) name.innerHTML = `<span class="dh-icon">${icon("wing")}</span>`;
         name.append(lane.nameVi);
         const foes = el(doc, "span", "dh-lane__foes");
-        if (lane.foes.length === 0) foes.append(el(doc, "span", "dh-wave-card__hint", "Yên"));
+        if (lane.foes.length === 0) foes.append(el(doc, "span", "dh-wave-card__hint", "Clear"));
         for (const tally of lane.foes) {
           const chip = el(doc, "span", "dh-foe" + (tally.general ? " is-general" : ""));
-          chip.title = tally.code + " " + tally.nameVi + (tally.general ? " · tướng địch" : "") + (tally.flyer ? " · bay" : "");
+          chip.title = tally.code + " " + tally.nameVi + (tally.general ? " · general" : "") + (tally.flyer ? " · flying" : "");
           chip.innerHTML =
             (tally.general ? `<span class="dh-icon dh-foe__mark">${icon("crown")}</span>` : "") +
             `<span class="dh-icon">${foeIcon(tally.gait, tally.color)}</span>` +
@@ -270,24 +270,24 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       const skyNames = summary.lanes.filter((lane) => lane.sky && lane.count > 0).map((lane) => lane.nameVi);
       const warn = el(doc, "span", "dh-warn");
       warn.dataset.warn = "flyer";
-      warn.title = "Quái bay ×" + summary.flyers + (skyNames.length ? " trên " + skyNames.join(", ") : "") + ": bẫy sàn không trúng, dùng Net Launcher";
+      warn.title = "Flyers ×" + summary.flyers + (skyNames.length ? " on " + skyNames.join(", ") : "") + ": ground traps cannot hit them; use Net Launcher";
       warn.innerHTML = `<span class="dh-icon">${icon("wing")}</span>`;
-      warn.append("Quái bay ", countNode(summary.flyers));
+      warn.append("Flyers ", countNode(summary.flyers));
       warnNodes.push(warn);
     }
     if (summary.generals.length > 0) {
       const warn = el(doc, "span", "dh-warn");
       warn.dataset.warn = "general";
-      warn.title = "Tướng địch: " + summary.generals.map((general) => GENERALS[general].nameVi).join(", ");
+      warn.title = "General: " + summary.generals.map((general) => GENERALS[general].nameVi).join(", ");
       warn.innerHTML = `<span class="dh-icon">${icon("crown")}</span>`;
-      if (summary.generals.length > 1) warn.append("Tướng ", countNode(summary.generals.length));
-      else warn.append("Tướng địch");
+      if (summary.generals.length > 1) warn.append("Gen. ", countNode(summary.generals.length));
+      else warn.append("General");
       warnNodes.push(warn);
     }
     // "Đợt thở" (02 §5.1) is the design's word; on the card it read as "a breathing wave", so the player sees "Đợt nhẹ".
     if (summary.breather) {
-      const warn = el(doc, "span", "dh-warn", "Đợt nhẹ");
-      warn.title = "Đợt nhẹ hơn sau tướng địch: quái đến thưa hơn, kịp bày lại binh";
+      const warn = el(doc, "span", "dh-warn", "Breather");
+      warn.title = "Lighter wave after a general: fewer foes, time to regroup";
       warnNodes.push(warn);
     }
     warns.replaceChildren(...warnNodes);
@@ -345,28 +345,28 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       const summary = summarizeWave(w.stage, w.map, n);
       if (summary) render(summary);
     }
-    setText(title, "Đợt " + n + "/" + w.stage.waves.length);
+    setText(title, "Wave " + n + "/" + w.stage.waves.length);
     setClass(card, "is-warning", phase === "warning");
     const left = phaseTicksLeft(w);
     let whenHtml = "";
-    if (phase === "prep") whenHtml = "Bày binh";
-    else if (phase === "warning") whenHtml = `tới sau <b>${clockSeconds(left ?? 0)} s</b>`;
-    else whenHtml = left === null ? "chờ bạn" : `sau <b>${clockSeconds(left)} s</b>`;
+    if (phase === "prep") whenHtml = "Deploy";
+    else if (phase === "warning") whenHtml = `in <b>${clockSeconds(left ?? 0)} s</b>`;
+    else whenHtml = left === null ? "ready" : `in <b>${clockSeconds(left)} s</b>`;
     if (when.innerHTML !== whenHtml) when.innerHTML = whenHtml;
 
     const easyBreak = phase === "break" && left === null;
     setShown(startButton, phase === "prep" || easyBreak);
-    const startHtml = `<span class="dh-key">${keyLabel("enter")}</span>` + (phase === "prep" ? "Bắt đầu ải" : "Vào đợt " + n);
+    const startHtml = `<span class="dh-key">${keyLabel("enter")}</span>` + (phase === "prep" ? "Start" : "Wave " + n);
     if (startButton.innerHTML !== startHtml) startButton.innerHTML = startHtml;
     setShown(callButton, phase === "break" && !easyBreak);
     if (phase === "break" && left !== null) {
       // The stage's call-early gold can run out (00 §4.9's 15 % pool): then only the rage is offered (test pass 27/10).
       const bonus = callEarlyBonus(left, callEarlyRoom(w));
       const gains = [...(bonus > 0 ? [`<span class="dh-bonus">+${bonus} Gold</span>`] : []), ...(w.stage.unlocks.rage ? [`+${RAGE.callEarlyX10 / 10} Dragon Rage`] : [])];
-      const callHtml = `<span class="dh-key">${keyLabel("call-early")}</span>Gọi sớm` + (gains.length > 0 ? " " + gains.join(" · ") : "");
+      const callHtml = `<span class="dh-key">${keyLabel("call-early")}</span>Call early` + (gains.length > 0 ? " " + gains.join(" · ") : "");
       if (callButton.innerHTML !== callHtml) callButton.innerHTML = callHtml;
     }
-    const hintText = phase === "warning" ? "Quái sắp vào từ các đường sáng" : phase === "prep" ? "Đặt bẫy, lính, nhà trước" : "";
+    const hintText = phase === "warning" ? "Foes will enter along the lit lanes" : phase === "prep" ? "Place traps, units, houses first" : "";
     setText(hint, hintText);
     setShown(hint, hintText !== "");
     place();
@@ -377,7 +377,7 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
     for (const event of events) {
       if (event.type !== "wave-start") continue;
       const summary = summarizeWave(w.stage, w.map, event.wave);
-      setText(bannerTitle, summary ? bannerText(summary) : "Đợt " + event.wave);
+      setText(bannerTitle, summary ? bannerText(summary) : "Wave " + event.wave);
       // The last wave's banner is larger and stays twice as long.
       const final = event.wave === w.stage.waves.length && w.stage.waves.length > 1;
       setClass(banner, "is-final", final);
