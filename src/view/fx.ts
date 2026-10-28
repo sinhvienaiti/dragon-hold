@@ -670,7 +670,7 @@ const WORD_FX = {
    * Light peak (candela, decay 2, reach 14 m) on a release and the share of it the charge holds while typing (kept
    * low so the release frame jumps against the frame before it: judge 1a, +0.12 luma at the flash over the charge).
    */
-  lightPeak: 110,
+  lightPeak: 85,
   lightCharge: 0.08,
   /** An abandoned charge holds this long after the last letter, then fades (s). */
   chargeHoldS: 1.4,
@@ -928,7 +928,7 @@ export class FxCore {
     this.flares.flare(at, 1.3 * s * g, FX_COLORS.flashCore, 3.6 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, lift);
     this.flares.flare(at, 3.6 * s * g, FX_COLORS.ember, 1.55 * heat * soft, WORD_FX.flashS + 1 / 60, WORD_FX.flashHoldS, 0.15, 1, lift);
     // L11: a wide, low gold glow round the mouth for 2 frames, so the release brightens the dais against the gather.
-    this.flares.flare(at, 4.2 * s * g, FX_COLORS.fireHot, 0.35 * heat * soft, 4 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
+    this.flares.flare(at, 3.6 * s * g, FX_COLORS.fireHot, 0.25 * heat * soft, 4 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
     this.flares.flare(this.u.copy(at).addScaledVector(this.w, 0.5 * s), 1.4 * s * g, hot, (strong ? 0.9 : 0.8) * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
     // Dark soot at the jet's root and edges, in from frame 2, gone by frame 8 (§3.5 rule 4: dark under the bright).
     const sideX = -uz;
@@ -1777,8 +1777,10 @@ export class FxCore {
       this.puffs.spawn(at.x, at.y, at.z, (0.25 + 0.5 * level + 0.1 * pulse) * rk * flicker, 1 / 30, FX_COLORS.chargeBall, 0.9, { fadeIn: 0.001, hold: 1 / 30, spin: 4, rot: this.random() * TAU, shape: PUFF_FIRE });
       // The core 0.4 → 1.2 m × √k; the halo 2.75× it and dim, so the core's hue (gold, or teal) reads inside it.
       const core = (0.4 + 0.8 * level + 0.15 * pulse) * rk;
-      this.flares.draw(at, core * 2.75, FX_COLORS.ember, (0.5 + 0.35 * level + 0.4 * pulse) * flicker * soft, 1, lift);
-      this.flares.draw(at, core, this.chargeTint(), (2.0 + 1.6 * level + 0.8 * pulse) * flicker * soft, 1, lift);
+      this.flares.draw(at, core * 2.75, FX_COLORS.ember, (0.45 + 0.3 * level + 0.4 * pulse) * flicker * soft, 1, lift);
+      // The core reads as a disc, not a dot: a wider mid layer in the core's hue under its hot centre.
+      this.flares.draw(at, core * 1.7, this.chargeTint(), (0.7 + 0.6 * level + 0.3 * pulse) * flicker * soft, 1, lift);
+      this.flares.draw(at, core, this.chargeTint(), (2.2 + 2.0 * level + 0.8 * pulse) * flicker * soft, 1, lift);
       if (this.random() < (12 + 30 * level) * dt) {
         const angle = this.rand(0, TAU);
         this.u.set(Math.cos(angle) * this.rand(0.4, 1.2), this.rand(2.2, 3.8), Math.sin(angle) * this.rand(0.4, 1.2)).multiplyScalar(rk);
