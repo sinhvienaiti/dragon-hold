@@ -17,6 +17,11 @@ export const FX_COLORS = {
   flashCore: new THREE.Color("#fff4e2"),
   /** The darkest of the fire ramp: the body under the release flash, so the white-hot core has a dark edge on the sunlit dais. */
   fireDark: new THREE.Color("#a8321a"),
+  /** The middle of the word release's fire ball and of the gathering charge (the shader ramps it to red and a dark rim). */
+  releaseBall: new THREE.Color("#ffb347"),
+  chargeBall: new THREE.Color("#ff9a3c"),
+  /** Steam where a word bolt lands on water (no scorch there). */
+  steam: new THREE.Color("#d9d6cf"),
   teal: new THREE.Color("#7ff5e0"),
   ember: new THREE.Color("#ff7a32"),
   smoke: new THREE.Color("#5a5650"),

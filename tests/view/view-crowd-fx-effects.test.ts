@@ -206,7 +206,8 @@ describe("view fx", () => {
     expect(after.glows).toBeGreaterThan(before.glows);
     expect(after.charge).toBeGreaterThan(before.charge);
     expect(after.flares).toBeGreaterThan(0);
-    expect(after.sparks).toBeGreaterThanOrEqual(before.sparks + 3);
+    // Embers flying in as stretched sparks (round 3: round motes did not read at 720p).
+    expect(after.streaks).toBeGreaterThanOrEqual(before.streaks + 3);
     core.dispose();
   });
 
@@ -279,6 +280,29 @@ describe("view fx", () => {
     at(0.7);
     expect(core.stats().marks).toBe(0);
     core.dispose();
+  });
+
+  it("never lays a word scorch on the river: slides it to dry ground on the shot's line, or steams (judge 1a round 2)", () => {
+    const eye = new THREE.Vector3(0, 60, 60);
+    const land = (wetAt: (x: number, z: number) => boolean): FxCore => {
+      const core = new FxCore("high", { locator: fixed(0, 1, -15), wetAt });
+      core.launchBolt(new THREE.Vector3(0, 4, -1), { slot: 0, serial: 6, x: 0, y: 1, z: -15 }, false);
+      core.landBolt(6, 1, new THREE.Vector3(0, 1, -15), 0, -1);
+      for (let k = 0; k < 40 && core.stats().marks === 0; k += 1) core.update(1 / 60, k / 60, eye, 600);
+      for (let k = 0; k < 3; k += 1) core.update(1 / 60, 1, eye, 600);
+      return core;
+    };
+    // Water from the dais side up to just past the struck foe: the scorch goes past it, onto the first dry spot.
+    const past = land((_x, z) => z > -15.2);
+    expect(past.stats().marks).toBe(1);
+    expect(past.scorchPoint.z).toBeLessThan(-15.4);
+    past.dispose();
+    // All water: no scorch, steam instead.
+    const wet = land(() => true);
+    expect(wet.stats().marks).toBe(0);
+    expect(wet.scorchPoint.lengthSq()).toBe(0);
+    expect(wet.stats().puffs).toBeGreaterThan(0);
+    wet.dispose();
   });
 
   it("charges the mouth a step a letter, spends it on the release, lets an abandoned word go", () => {
