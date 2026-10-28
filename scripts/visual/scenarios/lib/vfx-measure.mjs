@@ -176,3 +176,56 @@ export function headSize(img, base, center, dir, { delta = 0.18, reach = 90 } = 
   }
   return { along: Math.round(alongMax - alongMin + 1), across: Math.round(acrossMax - acrossMin + 1), pixels };
 }
+
+/**
+ * The blob round `center` that a flash or a bolt head lights (VFX_STANDARD §3.5 rule 6: the mouth flash ≥ 1.5× the
+ * head): pixels at sRGB luma ≥ `level` that gained ≥ `gain` over `base`, 4-connected to such a pixel within 6 px of
+ * `center`, within `reach` px. `level` 0.9 keeps the white-hot core; `level` 0 with a larger `gain` the lit body.
+ * Returns { area, diameter (of a disc of that area), w, h } or null when nothing round the centre qualifies.
+ */
+export function brightBlob(img, base, center, { level = 0.9, gain = 0.08, reach = 80 } = {}) {
+  const cx = Math.round(center.x);
+  const cy = Math.round(center.y);
+  const ok = (x, y) => {
+    const i = y * img.w + x;
+    const l = luma(img, i);
+    return l >= level && l - luma(base, i) >= gain;
+  };
+  let start = null;
+  let best = -1;
+  for (let y = cy - 6; y <= cy + 6; y += 1) {
+    for (let x = cx - 6; x <= cx + 6; x += 1) {
+      if (x < 0 || y < 0 || x >= img.w || y >= img.h || !ok(x, y)) continue;
+      const l = luma(img, y * img.w + x);
+      if (l > best) {
+        best = l;
+        start = [x, y];
+      }
+    }
+  }
+  if (start === null) return null;
+  const seen = new Uint8Array(img.w * img.h);
+  const stack = [start];
+  seen[start[1] * img.w + start[0]] = 1;
+  let area = 0;
+  let x0 = start[0];
+  let x1 = start[0];
+  let y0 = start[1];
+  let y1 = start[1];
+  while (stack.length > 0) {
+    const [x, y] = stack.pop();
+    area += 1;
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= img.w || ny >= img.h || Math.hypot(nx - cx, ny - cy) > reach) continue;
+      const k = ny * img.w + nx;
+      if (seen[k] || !ok(nx, ny)) continue;
+      seen[k] = 1;
+      stack.push([nx, ny]);
+    }
+  }
+  return { area, diameter: +(2 * Math.sqrt(area / Math.PI)).toFixed(1), w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}

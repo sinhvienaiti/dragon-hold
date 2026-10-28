@@ -16,7 +16,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { badResources, BASE, press } from "./lib/dh.mjs";
-import { beside, brightestGain, clip, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
+import { beside, brightBlob, brightestGain, clip, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
 
 const LABEL = process.env.LABEL ?? "after";
 const OUT = resolve(process.env.OUT_DIR ?? join("tmp/vfx", LABEL));
@@ -67,7 +67,9 @@ const META = `(() => {
     .map((t) => t.querySelector('.dh-tag__body')).filter(Boolean).map((b) => { const r = b.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }).filter((r) => r[2] > 4 && r[3] > 4);
   const heads = core && core.boltHeads ? core.boltHeads().map((p) => d.project(p.x, p.y, p.z)) : [];
   const flash = core && core.releasePoint ? d.project(core.releasePoint.x, core.releasePoint.y, core.releasePoint.z) : null;
-  return { tick: s.tick, phase: s.phase, stats: core && core.stats ? core.stats() : null, light: core && core.mouthLightLevel !== undefined ? core.mouthLightLevel : null, drawCalls: d.perf().drawCalls, tags, heads, flash };
+  const sp = core && core.scorchPoint;
+  const scorch = sp && (sp.x !== 0 || sp.z !== 0) ? d.project(sp.x, sp.y, sp.z) : null;
+  return { tick: s.tick, phase: s.phase, stats: core && core.stats ? core.stats() : null, light: core && core.mouthLightLevel !== undefined ? core.mouthLightLevel : null, drawCalls: d.perf().drawCalls, tags, heads, flash, scorch };
 })()`;
 
 export const step = (page, n = 1) => page.eval("window.__clock.step(" + n + ")");
@@ -201,8 +203,11 @@ async function capture(page, [w, h], cam, ground) {
   return { dir, opened, picked, view, crop, frames, grades: end.grades };
 }
 
-/** Measures of one capture (VFX_STANDARD §5.6); exported so a capture on disk can be measured again (its meta.json). */
-export function measure(run, h) {
+/**
+ * Measures of one capture (VFX_STANDARD §5.6); exported so a capture on disk can be measured again (its meta.json).
+ * `scorchAt` (screen px): where to read the scorch when the build does not report it (a BEFORE run, same scene).
+ */
+export function measure(run, h, { scorchAt = null } = {}) {
   const frames = run.frames;
   const s = h / 720;
   const pre = frames.find((f) => f.name === "pre");
@@ -223,6 +228,48 @@ export function measure(run, h) {
   const base = meanLuma(readRgb(frames.find((f) => f.name === "a-00").png), roi);
   const series = dense.slice(0, 8).map((f) => +(meanLuma(readRgb(f.png), roi) - base).toFixed(4));
   const peak = Math.max(...series);
+  // The release against the frame before it (judge 1a): the cell, and a 120 × 90 px box (at 720p) on the dais.
+  const preCell = meanLuma(preImg, roi);
+  const box = { x: spot.x - 60 * s, y: spot.y - 45 * s, w: 120 * s, h: 90 * s };
+  const preBox = meanLuma(preImg, box);
+  const overPre = {
+    cell: dense.slice(0, 4).map((f) => +(meanLuma(readRgb(f.png), roi) - preCell).toFixed(4)),
+    box: dense.slice(0, 4).map((f) => +(meanLuma(readRgb(f.png), box) - preBox).toFixed(4)),
+    preCell: +preCell.toFixed(4),
+  };
+  // Flash against the bolt head (§3.5 rule 6: ≥ 1.5×): the white-hot core (luma ≥ 0.9) and the lit body (gain
+  // ≥ 0.15) round the release point at f0, and round the head in flight (f3–f8, median), both over a-00.
+  const a00 = readRgb(frames.find((f) => f.name === "a-00").png);
+  const reach = Math.round(80 * s);
+  const blob = (img, at) => ({ core: brightBlob(img, a00, at, { level: 0.9, gain: 0.08, reach }), body: brightBlob(img, a00, at, { level: 0, gain: 0.15, reach }) });
+  const flashBlob = blob(f0, spot);
+  const headBlobs = dense.slice(3, 9).filter((f) => f.heads?.[0]?.visible).map((f) => ({ frame: f.name, ...blob(readRgb(f.png), f.heads[0]) }));
+  const median = (values) => {
+    const v = values.filter((x) => typeof x === "number").sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)] : null;
+  };
+  const headCore = median(headBlobs.map((b) => b.core?.diameter));
+  const headBody = median(headBlobs.map((b) => b.body?.diameter));
+  const ratio = (a, b) => (a && b ? +(a / b).toFixed(2) : null);
+  const flashVsHead = {
+    flashCore: flashBlob.core?.diameter ?? null,
+    flashBody: flashBlob.body?.diameter ?? null,
+    headCore,
+    headBody,
+    coreRatio: ratio(flashBlob.core?.diameter, headCore),
+    bodyRatio: ratio(flashBlob.body?.diameter, headBody),
+  };
+  // F: the scorch's darkening of the ground (a-00 minus the frame, a 14 px cell at 720p) frame by frame from f20.
+  const scorchPx = scorchAt ?? frames.at(-1)?.scorch ?? null;
+  let scorch = null;
+  if (scorchPx && (scorchPx.visible ?? true)) {
+    const sc = Math.round(14 * s);
+    const cellBox = { x: scorchPx.x - sc / 2, y: scorchPx.y - sc / 2, w: sc, h: sc };
+    const ground = meanLuma(a00, cellBox);
+    const rows = frames.filter((f) => /^f\d{3}$/.test(f.name) && Number(f.name.slice(1)) >= 20).map((f) => ({ frame: f.name, ms: Math.round((Number(f.name.slice(1)) * 1000) / 60), drop: +(ground - meanLuma(readRgb(f.png), cellBox)).toFixed(4) }));
+    const seen = rows.filter((r) => r.drop >= 0.12);
+    scorch = { at: { x: Math.round(scorchPx.x), y: Math.round(scorchPx.y) }, ground: +ground.toFixed(4), rows, visibleUntilMs: seen.length ? seen.at(-1).ms : 0 };
+  }
   const effect = frames.filter((f) => f.name !== "a-00");
   let whiteMax = 0;
   let whiteAt = null;
@@ -249,7 +296,8 @@ export function measure(run, h) {
   const sized = heads.filter((head) => head.along !== undefined);
   return {
     head: { frames: heads, minAlong: sized.length ? Math.min(...sized.map((x) => x.along)) : null, minAcross: sized.length ? Math.min(...sized.map((x) => x.across)) : null },
-    flash: { roi, series, firstOverPeak: peak > 0 ? +(series[0] / peak).toFixed(3) : null },
+    flash: { roi, series, firstOverPeak: peak > 0 ? +(series[0] / peak).toFixed(3) : null, overPre, vsHead: flashVsHead, heads: headBlobs },
+    scorch,
     light: { series: lights, firstOverPeak: lightPeak > 0 ? +((lights[0] ?? 0) / lightPeak).toFixed(3) : null },
     whiteOutMaxPct: +(whiteMax * 100).toFixed(2),
     whiteOutAt: whiteAt,
