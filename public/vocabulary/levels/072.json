@@ -1,0 +1,1093 @@
+{
+  "version": 1,
+  "level": 72,
+  "label": "C1 Advanced 072",
+  "entries": [
+    {
+      "id": "L072-001",
+      "en": "inclusion",
+      "vi": "sự bao gồm; sự đưa vào; sự bao hàm",
+      "ipa": "/ˌɪnˈkluʒən/"
+    },
+    {
+      "id": "L072-002",
+      "en": "suburban",
+      "vi": "ngoại ô",
+      "ipa": "/səˈbɝbən/"
+    },
+    {
+      "id": "L072-003",
+      "en": "stagnation",
+      "vi": "đình đốn; đình trệ; đình trệ kinh tế",
+      "ipa": "/stæɡˈneɪʃən/"
+    },
+    {
+      "id": "L072-004",
+      "en": "immense",
+      "vi": "to lớn, bao la, mênh mông",
+      "ipa": "/ˌɪˈmɛns/"
+    },
+    {
+      "id": "L072-005",
+      "en": "exterior",
+      "vi": "mặt ngoài; bên ngoài; ngoại thất",
+      "ipa": "/ɪkˈstɪɹiɚ/"
+    },
+    {
+      "id": "L072-006",
+      "en": "unqualified",
+      "vi": "tuyệt đối; không hạn chế; không đủ tiêu chuẩn",
+      "ipa": "/ənˈkwɑlɪˌfaɪd/"
+    },
+    {
+      "id": "L072-007",
+      "en": "padding",
+      "vi": "đệm, lớp đệm, vật liệu độn",
+      "ipa": "/ˈpædɪŋ/"
+    },
+    {
+      "id": "L072-008",
+      "en": "succession",
+      "vi": "sự kế tiếp, chuỗi; dãy, hàng loạt",
+      "ipa": "/səkˈsɛʃən/"
+    },
+    {
+      "id": "L072-009",
+      "en": "irony",
+      "vi": "giống thép; giống gang",
+      "ipa": "/ˈaɪɹəni/"
+    },
+    {
+      "id": "L072-010",
+      "en": "fraction",
+      "vi": "phần; tỷ lệ; phân số",
+      "ipa": "/ˈfɹækʃən/"
+    },
+    {
+      "id": "L072-011",
+      "en": "sitter",
+      "vi": "người ngồi; người trông trẻ",
+      "ipa": "/ˈsɪtɚ/"
+    },
+    {
+      "id": "L072-012",
+      "en": "thaw",
+      "vi": "sự tan băng; sự tan chảy; thời tiết tan băng",
+      "ipa": "/θɔ/"
+    },
+    {
+      "id": "L072-013",
+      "en": "nativity",
+      "vi": "sự ra đời, sự sinh ra; Lễ Giáng sinh, sự giáng sinh của Chúa Giêsu",
+      "ipa": "/nəˈtɪvəti/"
+    },
+    {
+      "id": "L072-014",
+      "en": "philharmonic",
+      "vi": "giao hưởng (dàn nhạc); yêu nhạc, mến nhạc; dàn nhạc giao hưởng",
+      "ipa": "/ˌfɪlˌhɑɹˈmɑnɪk/"
+    },
+    {
+      "id": "L072-015",
+      "en": "rename",
+      "vi": "đổi tên",
+      "ipa": "/ɹiˈneɪm/"
+    },
+    {
+      "id": "L072-016",
+      "en": "pioneer",
+      "vi": "khai phá; mở đường",
+      "ipa": "/ˌpaɪəˈnɪɹ/"
+    },
+    {
+      "id": "L072-017",
+      "en": "indexing",
+      "vi": "sự lập chỉ mục; việc đánh chỉ mục",
+      "ipa": "/ˈɪndɛksɪŋ/"
+    },
+    {
+      "id": "L072-018",
+      "en": "entangled",
+      "vi": "vướng vào; sa lầy vào; bị rối",
+      "ipa": "/ɛnˈtæŋɡəld/"
+    },
+    {
+      "id": "L072-019",
+      "en": "substantially",
+      "vi": "đáng kể; về cơ bản; vững chắc",
+      "ipa": "/səbˈstænʃəli/"
+    },
+    {
+      "id": "L072-020",
+      "en": "hopelessly",
+      "vi": "tuyệt vọng; không còn hy vọng",
+      "ipa": "/ˈhoʊpləsli/"
+    },
+    {
+      "id": "L072-021",
+      "en": "salvation",
+      "vi": "sự cứu rỗi",
+      "ipa": "/sælˈveɪʃən/"
+    },
+    {
+      "id": "L072-022",
+      "en": "disabling",
+      "vi": "gây tàn tật; làm mất khả năng; tước quyền hợp pháp",
+      "ipa": "/dɪˈseɪbəlɪŋ/"
+    },
+    {
+      "id": "L072-023",
+      "en": "fireball",
+      "vi": "quả cầu lửa (thiên thạch); người tràn đầy năng lượng; quả cầu lửa",
+      "ipa": "/ˈfaɪɚˌbɔl/"
+    },
+    {
+      "id": "L072-024",
+      "en": "violet",
+      "vi": "màu tím; tím",
+      "ipa": "/ˈvaɪəlɪt/"
+    },
+    {
+      "id": "L072-025",
+      "en": "academically",
+      "vi": "về mặt học thuật; về phương diện học tập",
+      "ipa": "/ˌækəˈdɛmɪkli/"
+    },
+    {
+      "id": "L072-026",
+      "en": "anemia",
+      "vi": "thiếu máu",
+      "ipa": "/əˈnimiə/"
+    },
+    {
+      "id": "L072-027",
+      "en": "impunity",
+      "vi": "sự miễn phạt; sự thoát khỏi hậu quả",
+      "ipa": "/ˌɪmˈpjunɪti/"
+    },
+    {
+      "id": "L072-028",
+      "en": "samba",
+      "vi": "điệu samba (nhảy); nhạc samba; cây samba (cây to Tây Phi)",
+      "ipa": "/ˈsɑmbə/"
+    },
+    {
+      "id": "L072-029",
+      "en": "jokingly",
+      "vi": "nói đùa; đùa cợt",
+      "ipa": "/ˈdʒoʊkɪŋli/"
+    },
+    {
+      "id": "L072-030",
+      "en": "sadistic",
+      "vi": "tàn bạo (thích gây đau đớn); thích hành hạ",
+      "ipa": "/səˈdɪstɪk/"
+    },
+    {
+      "id": "L072-031",
+      "en": "withdrawn",
+      "vi": "sống nội tâm; kín đáo; sống ẩn dật",
+      "ipa": "/wɪθˈdɹɔn/"
+    },
+    {
+      "id": "L072-032",
+      "en": "bouncy",
+      "vi": "đàn hồi; nảy; hoạt bát",
+      "ipa": "/ˈbaʊnsi/"
+    },
+    {
+      "id": "L072-033",
+      "en": "vicious",
+      "vi": "hung ác, tàn bạo; đồi bại, xấu xa; đáng chê trách, nghiêm trọng",
+      "ipa": "/ˈvɪʃəs/"
+    },
+    {
+      "id": "L072-034",
+      "en": "perilous",
+      "vi": "nguy hiểm, hiểm nghèo",
+      "ipa": "/ˈpɛɹələs/"
+    },
+    {
+      "id": "L072-035",
+      "en": "consultation",
+      "vi": "sự tham khảo",
+      "ipa": "/ˌkɑnsəlˈteɪʃən/"
+    },
+    {
+      "id": "L072-036",
+      "en": "shelling",
+      "vi": "sự bắn pháo dữ dội; sự oanh tạc",
+      "ipa": "/ˈʃɛlɪŋ/"
+    },
+    {
+      "id": "L072-037",
+      "en": "juvenile",
+      "vi": "thiếu niên, vị thành niên; non nớt, trẻ con; trẻ vị thành niên",
+      "ipa": "/ˈdʒuvənəl/"
+    },
+    {
+      "id": "L072-038",
+      "en": "likelihood",
+      "vi": "khả năng; xác suất",
+      "ipa": "/ˈlaɪkliˌhʊd/"
+    },
+    {
+      "id": "L072-039",
+      "en": "melanoma",
+      "vi": "u hắc tố, ung thư hắc tố",
+      "ipa": "/ˌmɛləˈnoʊmə/"
+    },
+    {
+      "id": "L072-040",
+      "en": "mobilize",
+      "vi": "huy động, điều động; động viên (quân đội)",
+      "ipa": "/ˈmoʊbəˌlaɪz/"
+    },
+    {
+      "id": "L072-041",
+      "en": "makeshift",
+      "vi": "tạm thời; chắp vá; vật thay thế tạm thời",
+      "ipa": "/ˈmeɪkˌʃɪft/"
+    },
+    {
+      "id": "L072-042",
+      "en": "uttered",
+      "vi": "được nói ra; được phát biểu",
+      "ipa": "/ˈʌtɚd/"
+    },
+    {
+      "id": "L072-043",
+      "en": "beggar",
+      "vi": "ăn xin; ăn mày; bị gậy",
+      "ipa": "/ˈbɛɡɚ/"
+    },
+    {
+      "id": "L072-044",
+      "en": "veterinarian",
+      "vi": "thầy thuốc thú y; bác sĩ thú y",
+      "ipa": "/ˌvɛtɹəˈnɛɹiən/"
+    },
+    {
+      "id": "L072-045",
+      "en": "bliss",
+      "vi": "niềm hạnh phúc tột độ; sự sung sướng",
+      "ipa": "/blɪs/"
+    },
+    {
+      "id": "L072-046",
+      "en": "adventurer",
+      "vi": "người ưa mạo hiểm; nhà thám hiểm",
+      "ipa": "/ædˈvɛntʃɚɚ/"
+    },
+    {
+      "id": "L072-047",
+      "en": "felon",
+      "vi": "kẻ trọng tội; nhọt đầu ngón tay/chân",
+      "ipa": "/ˈfɛlən/"
+    },
+    {
+      "id": "L072-048",
+      "en": "plastered",
+      "vi": "được trát vữa; say khướt; (tóc) bóng nhờn",
+      "ipa": "/ˈplæstɚd/"
+    },
+    {
+      "id": "L072-049",
+      "en": "obscure",
+      "vi": "mờ mịt; tối tăm; tối nghĩa",
+      "ipa": "/əbˈskjʊɹ/"
+    },
+    {
+      "id": "L072-050",
+      "en": "stalling",
+      "vi": "sự trì hoãn; chiến thuật kéo dài thời gian",
+      "ipa": "/ˈstɔlɪŋ/"
+    },
+    {
+      "id": "L072-051",
+      "en": "unloaded",
+      "vi": "không có đạn; đã tháo đạn (vũ khí)",
+      "ipa": "/ənˈloʊdɪd/"
+    },
+    {
+      "id": "L072-052",
+      "en": "revising",
+      "vi": "sự sửa lại, sự viết lại",
+      "ipa": "/ɹɪˈvaɪzɪŋ/"
+    },
+    {
+      "id": "L072-053",
+      "en": "hilly",
+      "vi": "nhiều đồi; gò đồi",
+      "ipa": "/ˈhɪli/"
+    },
+    {
+      "id": "L072-054",
+      "en": "speculation",
+      "vi": "suy đoán; phỏng đoán; giả thuyết",
+      "ipa": "/ˌspɛkjəˈleɪʃən/"
+    },
+    {
+      "id": "L072-055",
+      "en": "croft",
+      "vi": "trang trại nhỏ (ở Scotland)",
+      "ipa": "/kɹɔft/"
+    },
+    {
+      "id": "L072-056",
+      "en": "insolvency",
+      "vi": "sự mất khả năng thanh toán",
+      "ipa": "/ˌɪnˈsɑlvənsi/"
+    },
+    {
+      "id": "L072-057",
+      "en": "laughable",
+      "vi": "lố bịch; buồn cười; hài hước",
+      "ipa": "/ˈlæfəbəl/"
+    },
+    {
+      "id": "L072-058",
+      "en": "restitution",
+      "vi": "bồi thường; sự phục hồi, sự trả lại nguyên trạng; sự hoàn lại, sự trả lại",
+      "ipa": "/ˌɹɛstɪˈtuʃən/"
+    },
+    {
+      "id": "L072-059",
+      "en": "terminus",
+      "vi": "ga cuối; điểm cuối; mục tiêu cuối cùng",
+      "ipa": "/ˈtɝmɪnəs/"
+    },
+    {
+      "id": "L072-060",
+      "en": "repulsive",
+      "vi": "gớm ghiếc, đáng ghê tởm; xấu xí kinh khủng; có khả năng đẩy lùi (vật lý)",
+      "ipa": "/ɹiˈpʌlsɪv/"
+    },
+    {
+      "id": "L072-061",
+      "en": "popularly",
+      "vi": "phổ biến; đại chúng",
+      "ipa": "/ˈpɑpjəlɚli/"
+    },
+    {
+      "id": "L072-062",
+      "en": "leech",
+      "vi": "đỉa; hút máu; trích máu",
+      "ipa": "/litʃ/"
+    },
+    {
+      "id": "L072-063",
+      "en": "lei",
+      "vi": "vòng hoa (đeo cổ)",
+      "ipa": "/leɪ/"
+    },
+    {
+      "id": "L072-064",
+      "en": "digger",
+      "vi": "thợ đào; máy đào, máy xúc",
+      "ipa": "/ˈdɪɡɚ/"
+    },
+    {
+      "id": "L072-065",
+      "en": "tripod",
+      "vi": "giá ba chân",
+      "ipa": "/ˈtɹaɪˌpɑd/"
+    },
+    {
+      "id": "L072-066",
+      "en": "deflect",
+      "vi": "làm chệch hướng; làm lệch; ngăn chặn",
+      "ipa": "/dɪˈflɛkt/"
+    },
+    {
+      "id": "L072-067",
+      "en": "clinched",
+      "vi": "siết chặt; bóp chặt",
+      "ipa": "/klɪntʃt/"
+    },
+    {
+      "id": "L072-068",
+      "en": "geothermal",
+      "vi": "địa nhiệt",
+      "ipa": "/ˌdʒioʊˈθɝməl/"
+    },
+    {
+      "id": "L072-069",
+      "en": "demographic",
+      "vi": "thuộc về nhân khẩu học; số liệu nhân khẩu học",
+      "ipa": "/ˌdɛməˈɡɹæfɪk/"
+    },
+    {
+      "id": "L072-070",
+      "en": "dispersion",
+      "vi": "sự phân tán, sự tản mát; sự phân bố; độ phân tán",
+      "ipa": "/dɪˈspɝʒən/"
+    },
+    {
+      "id": "L072-071",
+      "en": "tampering",
+      "vi": "sự can thiệp trái phép; sự giả mạo",
+      "ipa": "/ˈtæmpɚɪŋ/"
+    },
+    {
+      "id": "L072-072",
+      "en": "madly",
+      "vi": "vô cùng, cực kỳ; một cách điên cuồng; một cách mất trí",
+      "ipa": "/ˈmædli/"
+    },
+    {
+      "id": "L072-073",
+      "en": "premise",
+      "vi": "tiền đề; đưa ra (giả định, giải thích); viết lời tựa",
+      "ipa": "/ˈpɹɛmɪs/"
+    },
+    {
+      "id": "L072-074",
+      "en": "strap",
+      "vi": "dây đai, dây da; quai (xe buýt, tàu); dây đeo (túi, ba lô)",
+      "ipa": "/stɹæp/"
+    },
+    {
+      "id": "L072-075",
+      "en": "unattended",
+      "vi": "không được trông coi; không có người đi cùng; không có bảo vệ",
+      "ipa": "/ənəˈtɛndɪd/"
+    },
+    {
+      "id": "L072-076",
+      "en": "nifty",
+      "vi": "tuyệt vời; đẹp mắt; hay",
+      "ipa": "/ˈnɪfti/"
+    },
+    {
+      "id": "L072-077",
+      "en": "devour",
+      "vi": "ngấu nghiến, ăn hết sạch; thiêu hủy, phá hủy; say mê thưởng thức (sách, phim)",
+      "ipa": "/dɪˈvaʊɚ/"
+    },
+    {
+      "id": "L072-078",
+      "en": "grate",
+      "vi": "ghi lò; vỉ lò sưởi; song sắt",
+      "ipa": "/ɡɹeɪt/"
+    },
+    {
+      "id": "L072-079",
+      "en": "pom",
+      "vi": "người Anh (nghĩa miệt thị)",
+      "ipa": "/pɔm/"
+    },
+    {
+      "id": "L072-080",
+      "en": "overdrive",
+      "vi": "trạng thái quá tải, trạng thái làm việc quá sức; số truyền tăng, số overdrive; làm việc quá sức, bắt làm việc quá sức",
+      "ipa": "/ˈoʊvɚˌdɹaɪv/"
+    },
+    {
+      "id": "L072-081",
+      "en": "circumference",
+      "vi": "chu vi; đường tròn; độ dài chu vi",
+      "ipa": "/ˌsɝˈkʌmfɹəns/"
+    },
+    {
+      "id": "L072-082",
+      "en": "desolate",
+      "vi": "hoang vắng; tiêu điều; đau khổ",
+      "ipa": "/ˈdɛsələt/"
+    },
+    {
+      "id": "L072-083",
+      "en": "inherent",
+      "vi": "vốn có, cố hữu; bẩm sinh; tiềm ẩn",
+      "ipa": "/ɪnˈhɪɹənt/"
+    },
+    {
+      "id": "L072-084",
+      "en": "buffer",
+      "vi": "bộ nhớ đệm; vùng nhớ đệm; bộ đệm",
+      "ipa": "/ˈbʌfɚ/"
+    },
+    {
+      "id": "L072-085",
+      "en": "masturbate",
+      "vi": "thủ dâm; tự sướng; quay tay",
+      "ipa": "/ˈmæstɚˌbeɪt/"
+    },
+    {
+      "id": "L072-086",
+      "en": "elevation",
+      "vi": "đỉnh cao; mức cao nhất; sự nâng lên",
+      "ipa": "/ˌɛləˈveɪʃən/"
+    },
+    {
+      "id": "L072-087",
+      "en": "custard",
+      "vi": "sữa trứng; kem sữa trứng; món sữa trứng",
+      "ipa": "/ˈkʌstɚd/"
+    },
+    {
+      "id": "L072-088",
+      "en": "exploratory",
+      "vi": "thăm dò; khám phá",
+      "ipa": "/ɪkˈsplɔɹəˌtɔɹi/"
+    },
+    {
+      "id": "L072-089",
+      "en": "discourse",
+      "vi": "bài diễn thuyết; luận văn; bài giảng (tôn giáo)",
+      "ipa": "/ˈdɪskɔɹs/"
+    },
+    {
+      "id": "L072-090",
+      "en": "unquestionably",
+      "vi": "không còn nghi ngờ; chắc chắn; không thể tranh cãi",
+      "ipa": "/ənˈkwɛstʃənəbli/"
+    },
+    {
+      "id": "L072-091",
+      "en": "seine",
+      "vi": "lưới kéo; lưới vây; sông Seine",
+      "ipa": "/seɪn/"
+    },
+    {
+      "id": "L072-092",
+      "en": "shawl",
+      "vi": "khăn choàng",
+      "ipa": "/ʃɔl/"
+    },
+    {
+      "id": "L072-093",
+      "en": "chauffeur",
+      "vi": "tài xế; lái xe (đưa ai đó)",
+      "ipa": "/ʃoʊˈfɝ/"
+    },
+    {
+      "id": "L072-094",
+      "en": "infertility",
+      "vi": "vô sinh",
+      "ipa": "/ˌɪnfɚˈtɪlɪˌti/"
+    },
+    {
+      "id": "L072-095",
+      "en": "prop",
+      "vi": "cái chống; vật chống đỡ; đạo cụ",
+      "ipa": "/pɹɑp/"
+    },
+    {
+      "id": "L072-096",
+      "en": "stretching",
+      "vi": "bài tập giãn cơ; động tác vươn người; sự kéo dài",
+      "ipa": "/ˈstɹɛtʃɪŋ/"
+    },
+    {
+      "id": "L072-097",
+      "en": "polytechnic",
+      "vi": "trường bách khoa",
+      "ipa": "/ˌpɑlɪˈtɛknɪk/"
+    },
+    {
+      "id": "L072-098",
+      "en": "turnpike",
+      "vi": "đường thu phí; xa lộ thu phí; cổng thu phí (lịch sử)",
+      "ipa": "/ˈtɝnˌpaɪk/"
+    },
+    {
+      "id": "L072-099",
+      "en": "hydration",
+      "vi": "sự hydrat hóa; sự kết hợp với nước",
+      "ipa": "/haɪˈdɹeɪʃən/"
+    },
+    {
+      "id": "L072-100",
+      "en": "circulation",
+      "vi": "số phát hành; tuần hoàn (máu); số sách được mượn",
+      "ipa": "/ˈsɝkjəˌleɪʃən/"
+    },
+    {
+      "id": "L072-101",
+      "en": "garnet",
+      "vi": "ngọc hồng lựu",
+      "ipa": "/ˈɡɑɹnət/"
+    },
+    {
+      "id": "L072-102",
+      "en": "prospective",
+      "vi": "tiềm năng; tương lai; dự kiến",
+      "ipa": "/pɹəˈspɛktɪv/"
+    },
+    {
+      "id": "L072-103",
+      "en": "piazza",
+      "vi": "quảng trường",
+      "ipa": "/pˈiæzə/"
+    },
+    {
+      "id": "L072-104",
+      "en": "centrist",
+      "vi": "trung dung; trung hòa; người theo chủ nghĩa trung dung",
+      "ipa": "/ˈsɛntɹɪst/"
+    },
+    {
+      "id": "L072-105",
+      "en": "render",
+      "vi": "làm cho, khiến cho; cung cấp, trao; thể hiện, diễn giải",
+      "ipa": "/ˈɹɛndɚ/"
+    },
+    {
+      "id": "L072-106",
+      "en": "twitch",
+      "vi": "cơn giật cơ, máy cơ; giật, co giật; giật giật, máy",
+      "ipa": "/twɪtʃ/"
+    },
+    {
+      "id": "L072-107",
+      "en": "waterway",
+      "vi": "đường thủy; đường sông; thủy lộ",
+      "ipa": "/ˈwɔtɚˌweɪ/"
+    },
+    {
+      "id": "L072-108",
+      "en": "coliseum",
+      "vi": "nhà hát lớn; trường đấu lớn",
+      "ipa": "/ˌkɑləˈsiəm/"
+    },
+    {
+      "id": "L072-109",
+      "en": "animosity",
+      "vi": "thù hận; ác cảm mạnh",
+      "ipa": "/ˌænəˈmɑsəti/"
+    },
+    {
+      "id": "L072-110",
+      "en": "vulture",
+      "vi": "kền kền",
+      "ipa": "/ˈvʌltʃɚ/"
+    },
+    {
+      "id": "L072-111",
+      "en": "capacitor",
+      "vi": "tụ điện",
+      "ipa": "/kəˈpæsətɚ/"
+    },
+    {
+      "id": "L072-112",
+      "en": "anecdotal",
+      "vi": "mang tính giai thoại; hay kể chuyện; thích giai thoại",
+      "ipa": "/ˌænəkˈdoʊtəl/"
+    },
+    {
+      "id": "L072-113",
+      "en": "autoimmune",
+      "vi": "tự miễn (bệnh do hệ miễn dịch tấn công cơ thể)",
+      "ipa": "/ˌɔˈtɔɪmjun/"
+    },
+    {
+      "id": "L072-114",
+      "en": "reconciled",
+      "vi": "được hòa giải; được dung hòa",
+      "ipa": "/ˈɹɛkənˌsaɪld/"
+    },
+    {
+      "id": "L072-115",
+      "en": "refreshing",
+      "vi": "sảng khoái; tiếp thêm sinh lực; mới mẻ",
+      "ipa": "/ɹɪˈfɹɛʃɪŋ/"
+    },
+    {
+      "id": "L072-116",
+      "en": "valet",
+      "vi": "người hầu phòng; quản gia; làm người hầu phòng",
+      "ipa": "/væˈleɪ/"
+    },
+    {
+      "id": "L072-117",
+      "en": "passer",
+      "vi": "người qua đường; thí sinh đỗ (kỳ thi); người cải trang",
+      "ipa": "/ˈpæsɚ/"
+    },
+    {
+      "id": "L072-118",
+      "en": "flammable",
+      "vi": "dễ cháy",
+      "ipa": "/ˈflæməbəl/"
+    },
+    {
+      "id": "L072-119",
+      "en": "credibility",
+      "vi": "uy tín, độ tin cậy",
+      "ipa": "/ˌkɹɛdəˈbɪlɪti/"
+    },
+    {
+      "id": "L072-120",
+      "en": "carpenter",
+      "vi": "thợ mộc; làm nghề mộc; làm thợ mộc",
+      "ipa": "/ˈkɑɹpəntɚ/"
+    },
+    {
+      "id": "L072-121",
+      "en": "pickled",
+      "vi": "ngâm chua; muối chua",
+      "ipa": "/ˈpɪkəld/"
+    },
+    {
+      "id": "L072-122",
+      "en": "cavalier",
+      "vi": "ngạo mạn; thờ ơ khinh thường; người hào hoa",
+      "ipa": "/ˌkævəˈlɪɹ/"
+    },
+    {
+      "id": "L072-123",
+      "en": "contiguous",
+      "vi": "tiếp giáp; liền kề; liên tục",
+      "ipa": "/kənˈtɪɡjuəs/"
+    },
+    {
+      "id": "L072-124",
+      "en": "clergyman",
+      "vi": "mục sư",
+      "ipa": "/ˈklɝdʒimən/"
+    },
+    {
+      "id": "L072-125",
+      "en": "councilman",
+      "vi": "ủy viên hội đồng (nam)",
+      "ipa": "/ˈkaʊnsəlmən/"
+    },
+    {
+      "id": "L072-126",
+      "en": "uniformed",
+      "vi": "mặc đồng phục",
+      "ipa": "/ˈjunəˌfɔɹmd/"
+    },
+    {
+      "id": "L072-127",
+      "en": "streamline",
+      "vi": "tinh giản; hiện đại hoá",
+      "ipa": "/ˈstɹimˌlaɪn/"
+    },
+    {
+      "id": "L072-128",
+      "en": "naive",
+      "vi": "ngờ nghệch; ngây thơ; nai",
+      "ipa": "/ˌnˈaɪiv/"
+    },
+    {
+      "id": "L072-129",
+      "en": "bypass",
+      "vi": "tránh; lẩn tránh; né",
+      "ipa": "/ˈbaɪˌpæs/"
+    },
+    {
+      "id": "L072-130",
+      "en": "stoke",
+      "vi": "châm thêm (củi, than); cời lửa",
+      "ipa": "/stoʊk/"
+    },
+    {
+      "id": "L072-131",
+      "en": "psychiatric",
+      "vi": "thuộc tâm thần học; tâm thần",
+      "ipa": "/ˌsaɪkˈiætɹɪk/"
+    },
+    {
+      "id": "L072-132",
+      "en": "baggy",
+      "vi": "rộng thùng thình, phồng",
+      "ipa": "/ˈbæɡi/"
+    },
+    {
+      "id": "L072-133",
+      "en": "lust",
+      "vi": "ham muốn; tham muốn; ham muốn, thèm khát",
+      "ipa": "/lʌst/"
+    },
+    {
+      "id": "L072-134",
+      "en": "citation",
+      "vi": "tuyên dương; bằng khen; sự trích dẫn",
+      "ipa": "/saɪˈteɪʃən/"
+    },
+    {
+      "id": "L072-135",
+      "en": "alignment",
+      "vi": "sự căn chỉnh; sự sắp thẳng hàng; liên minh",
+      "ipa": "/əˈlaɪnmənt/"
+    },
+    {
+      "id": "L072-136",
+      "en": "commandment",
+      "vi": "điều răn; giới luật",
+      "ipa": "/kəˈmændmənt/"
+    },
+    {
+      "id": "L072-137",
+      "en": "faction",
+      "vi": "đảng phái",
+      "ipa": "/ˈfækʃən/"
+    },
+    {
+      "id": "L072-138",
+      "en": "congested",
+      "vi": "sung huyết; tắc nghẽn (máu)",
+      "ipa": "/kənˈdʒɛstəd/"
+    },
+    {
+      "id": "L072-139",
+      "en": "hardness",
+      "vi": "độ cứng; độ cứng (của nước); sự cứng rắn",
+      "ipa": "/ˈhɑɹdnəs/"
+    },
+    {
+      "id": "L072-140",
+      "en": "undertaker",
+      "vi": "người lo tang lễ; nhà mai táng",
+      "ipa": "/ˈʌndɚˌteɪkɚ/"
+    },
+    {
+      "id": "L072-141",
+      "en": "penitentiary",
+      "vi": "thuộc về trại giam, thuộc về cải tạo; thuộc về sám hối, thuộc về ăn năn; trại giam, nhà tù",
+      "ipa": "/ˌpɛnɪˈtɛntʃɚi/"
+    },
+    {
+      "id": "L072-142",
+      "en": "humbly",
+      "vi": "khiêm tốn; một cách khiêm nhường; keo kiệt",
+      "ipa": "/ˈhʌmbli/"
+    },
+    {
+      "id": "L072-143",
+      "en": "disgraced",
+      "vi": "bị thất sủng; ô nhục",
+      "ipa": "/dɪsˈɡɹeɪst/"
+    },
+    {
+      "id": "L072-144",
+      "en": "rendering",
+      "vi": "sự trình diễn; thể hiện; sự giải thích",
+      "ipa": "/ˈɹɛndɚɪŋ/"
+    },
+    {
+      "id": "L072-145",
+      "en": "stray",
+      "vi": "đi lạc, lang thang (vật nuôi); rải rác, lẻ tẻ; vật nuôi đi lạc",
+      "ipa": "/stɹeɪ/"
+    },
+    {
+      "id": "L072-146",
+      "en": "shroud",
+      "vi": "vải liệm; liệm",
+      "ipa": "/ʃɹaʊd/"
+    },
+    {
+      "id": "L072-147",
+      "en": "pornographic",
+      "vi": "khiêu dâm",
+      "ipa": "/ˌpɔɹnəˈɡɹæfɪk/"
+    },
+    {
+      "id": "L072-148",
+      "en": "classy",
+      "vi": "sang trọng; thanh lịch",
+      "ipa": "/ˈklæsi/"
+    },
+    {
+      "id": "L072-149",
+      "en": "privileged",
+      "vi": "có đặc quyền; đặc ân; được miễn trừ",
+      "ipa": "/ˈpɹɪvlədʒd/"
+    },
+    {
+      "id": "L072-150",
+      "en": "contested",
+      "vi": "bị tranh chấp; gây tranh cãi",
+      "ipa": "/kənˈtɛstəd/"
+    },
+    {
+      "id": "L072-151",
+      "en": "inertia",
+      "vi": "quán tính",
+      "ipa": "/ˌɪˈnɝʃə/"
+    },
+    {
+      "id": "L072-152",
+      "en": "slack",
+      "vi": "lỏng, chùng; (nước) chảy chậm; lỏng lẻo",
+      "ipa": "/slæk/"
+    },
+    {
+      "id": "L072-153",
+      "en": "traumatic",
+      "vi": "gây chấn thương; gây sang chấn",
+      "ipa": "/tɹɔˈmætɪk/"
+    },
+    {
+      "id": "L072-154",
+      "en": "maternal",
+      "vi": "của mẹ; từ mẹ; về phía mẹ",
+      "ipa": "/məˈtɝnəl/"
+    },
+    {
+      "id": "L072-155",
+      "en": "atmospheric",
+      "vi": "thuộc về khí quyển; không khí",
+      "ipa": "/ˌætməˈsfɛɹɪk/"
+    },
+    {
+      "id": "L072-156",
+      "en": "disillusioned",
+      "vi": "vỡ mộng; thất vọng",
+      "ipa": "/ˌdɪsɪˈluʒənd/"
+    },
+    {
+      "id": "L072-157",
+      "en": "equivalence",
+      "vi": "sự tương đương, sự ngang nhau",
+      "ipa": "/ɪˈkwɪvələns/"
+    },
+    {
+      "id": "L072-158",
+      "en": "credible",
+      "vi": "đáng tin; có thể tin được; cả tin (dùng sai)",
+      "ipa": "/ˈkɹɛdəbəl/"
+    },
+    {
+      "id": "L072-159",
+      "en": "orphaned",
+      "vi": "mồ côi",
+      "ipa": "/ˈɔɹfənd/"
+    },
+    {
+      "id": "L072-160",
+      "en": "cranberry",
+      "vi": "cây nam việt quất; quả nam việt quất",
+      "ipa": "/ˈkɹænˌbɛɹi/"
+    },
+    {
+      "id": "L072-161",
+      "en": "wiener",
+      "vi": "xúc xích; lạp xưởng",
+      "ipa": "/ˈwinɚ/"
+    },
+    {
+      "id": "L072-162",
+      "en": "injustice",
+      "vi": "sự bất công",
+      "ipa": "/ˌɪnˈdʒʌstɪs/"
+    },
+    {
+      "id": "L072-163",
+      "en": "esoteric",
+      "vi": "bí truyền, thâm thúy",
+      "ipa": "/ˌɛsəˈtɛɹɪk/"
+    },
+    {
+      "id": "L072-164",
+      "en": "mathematically",
+      "vi": "về mặt toán học, một cách toán học",
+      "ipa": "/ˌmæθəˈmætɪkəli/"
+    },
+    {
+      "id": "L072-165",
+      "en": "palladium",
+      "vi": "palađi",
+      "ipa": "/pəˈleɪdiəm/"
+    },
+    {
+      "id": "L072-166",
+      "en": "ravaged",
+      "vi": "bị tàn phá; bị cướp phá",
+      "ipa": "/ˈɹævɪdʒd/"
+    },
+    {
+      "id": "L072-167",
+      "en": "gabby",
+      "vi": "ba hoa, lắm mồm",
+      "ipa": "/ˈɡæbi/"
+    },
+    {
+      "id": "L072-168",
+      "en": "carte",
+      "vi": "thực đơn (à la carte)",
+      "ipa": "/kɑɹt/"
+    },
+    {
+      "id": "L072-169",
+      "en": "cliche",
+      "vi": "sáo ngữ, lối nói sáo mòn",
+      "ipa": "/kliˈʃeɪ/"
+    },
+    {
+      "id": "L072-170",
+      "en": "apt",
+      "vi": "có khuynh hướng, dễ; dễ bị, hay; thông minh, nhanh trí",
+      "ipa": "/æpt/"
+    },
+    {
+      "id": "L072-171",
+      "en": "doughnut",
+      "vi": "bánh rán",
+      "ipa": "/ˈdoʊˌnʌt/"
+    },
+    {
+      "id": "L072-172",
+      "en": "throughput",
+      "vi": "thông lượng; năng suất (hệ thống)",
+      "ipa": "/ˈθɹuˌpʊt/"
+    },
+    {
+      "id": "L072-173",
+      "en": "horticulture",
+      "vi": "nghề làm vườn",
+      "ipa": "/ˈhɔɹtɪˌkʌltʃɚ/"
+    },
+    {
+      "id": "L072-174",
+      "en": "unsigned",
+      "vi": "không có chữ ký",
+      "ipa": "/ənˈsaɪnd/"
+    },
+    {
+      "id": "L072-175",
+      "en": "shilling",
+      "vi": "shilling (đơn vị tiền tệ Uganda, Tanzania, Somalia)",
+      "ipa": "/ˈʃɪlɪŋ/"
+    },
+    {
+      "id": "L072-176",
+      "en": "ballast",
+      "vi": "vật dằn, chấn lưu; đá ba lát (đường sắt); yếu tố ổn định (tinh thần, tính cách)",
+      "ipa": "/ˈbæləst/"
+    },
+    {
+      "id": "L072-177",
+      "en": "vendetta",
+      "vi": "thù máu",
+      "ipa": "/vɛnˈdɛtə/"
+    },
+    {
+      "id": "L072-178",
+      "en": "pathogen",
+      "vi": "mầm bệnh",
+      "ipa": "/ˈpæθədʒən/"
+    },
+    {
+      "id": "L072-179",
+      "en": "calibrated",
+      "vi": "được chia độ; đã hiệu chuẩn",
+      "ipa": "/ˈkæləˌbɹeɪtəd/"
+    },
+    {
+      "id": "L072-180",
+      "en": "fable",
+      "vi": "ngụ ngôn",
+      "ipa": "/ˈfeɪbəl/"
+    },
+    {
+      "id": "L072-181",
+      "en": "curt",
+      "vi": "cộc lốc, cụt lủn; ngắn gọn súc tích",
+      "ipa": "/kɝt/"
+    }
+  ]
+}

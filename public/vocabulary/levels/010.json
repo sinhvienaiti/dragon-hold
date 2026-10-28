@@ -1,0 +1,1093 @@
+{
+  "version": 1,
+  "level": 10,
+  "label": "A1 Foundation 010",
+  "entries": [
+    {
+      "id": "L010-001",
+      "en": "upcoming",
+      "vi": "sắp tới; sắp diễn ra",
+      "ipa": "/ˈʌpˌkʌmɪŋ/"
+    },
+    {
+      "id": "L010-002",
+      "en": "defending",
+      "vi": "phòng thủ; phòng ngự",
+      "ipa": "/dɪˈfɛndɪŋ/"
+    },
+    {
+      "id": "L010-003",
+      "en": "vase",
+      "vi": "lọ hoa; bình; lọ",
+      "ipa": "/veɪs/"
+    },
+    {
+      "id": "L010-004",
+      "en": "mi",
+      "vi": "mi",
+      "ipa": "/mi/"
+    },
+    {
+      "id": "L010-005",
+      "en": "nuts",
+      "vi": "điên rồ; gàn dở",
+      "ipa": "/nʌts/"
+    },
+    {
+      "id": "L010-006",
+      "en": "listing",
+      "vi": "danh sách, bản liệt kê; sự liệt kê, sự lập danh sách",
+      "ipa": "/ˈlɪstɪŋ/"
+    },
+    {
+      "id": "L010-007",
+      "en": "boards",
+      "vi": "sân khấu; thành ván (sân khúc côn cầu trên băng)",
+      "ipa": "/bɔɹdz/"
+    },
+    {
+      "id": "L010-008",
+      "en": "congratulations",
+      "vi": "lời chúc mừng; sự khen ngợi",
+      "ipa": "/kənˌɡɹætʃəˈleɪʃənz/"
+    },
+    {
+      "id": "L010-009",
+      "en": "communist",
+      "vi": "cộng sản; người cộng sản",
+      "ipa": "/ˈkɑmjənəst/"
+    },
+    {
+      "id": "L010-010",
+      "en": "murdered",
+      "vi": "bị sát hại, bị giết",
+      "ipa": "/ˈmɝdɚd/"
+    },
+    {
+      "id": "L010-011",
+      "en": "pregnancy",
+      "vi": "sự có thai",
+      "ipa": "/ˈpɹɛɡnənsi/"
+    },
+    {
+      "id": "L010-012",
+      "en": "clay",
+      "vi": "đất sét; sét; đất nện",
+      "ipa": "/kleɪ/"
+    },
+    {
+      "id": "L010-013",
+      "en": "requested",
+      "vi": "được yêu cầu; được thỉnh cầu",
+      "ipa": "/ɹɪˈkwɛstɪd/"
+    },
+    {
+      "id": "L010-014",
+      "en": "arsenal",
+      "vi": "kho vũ khí; kho đạn dược",
+      "ipa": "/ˈɑɹsənəl/"
+    },
+    {
+      "id": "L010-015",
+      "en": "instructions",
+      "vi": "hướng dẫn sử dụng, chỉ dẫn",
+      "ipa": "/ˌɪnˈstɹʌkʃənz/"
+    },
+    {
+      "id": "L010-016",
+      "en": "alien",
+      "vi": "người nước ngoài; người ngoại quốc; người ngoài hành tinh",
+      "ipa": "/ˈeɪliən/"
+    },
+    {
+      "id": "L010-017",
+      "en": "suspended",
+      "vi": "lơ lửng; huyền phù",
+      "ipa": "/səˈspɛndɪd/"
+    },
+    {
+      "id": "L010-018",
+      "en": "occupied",
+      "vi": "đang sử dụng, có người; bị chiếm đóng; có người ở",
+      "ipa": "/ˈɑkjəˌpaɪd/"
+    },
+    {
+      "id": "L010-019",
+      "en": "footage",
+      "vi": "cảnh quay, thước phim; phí tính theo foot dài",
+      "ipa": "/ˈfʊtɪdʒ/"
+    },
+    {
+      "id": "L010-020",
+      "en": "ruled",
+      "vi": "bị cai trị; bị thống trị",
+      "ipa": "/ɹuld/"
+    },
+    {
+      "id": "L010-021",
+      "en": "loop",
+      "vi": "đường nhánh; thòng lọng; di chuyển theo vòng tròn",
+      "ipa": "/lup/"
+    },
+    {
+      "id": "L010-022",
+      "en": "triple",
+      "vi": "ba lần; cú đánh ba chạy (bóng chày); bộ ba",
+      "ipa": "/ˈtɹɪpəl/"
+    },
+    {
+      "id": "L010-023",
+      "en": "arranged",
+      "vi": "được sắp xếp; được dàn xếp trước; được bố trí cho có hiệu quả",
+      "ipa": "/ɚˈeɪndʒd/"
+    },
+    {
+      "id": "L010-024",
+      "en": "ongoing",
+      "vi": "đang diễn ra, đang tiếp diễn",
+      "ipa": "/ˈɑnˌɡoʊɪŋ/"
+    },
+    {
+      "id": "L010-025",
+      "en": "struggling",
+      "vi": "đang chật vật; đang đấu tranh (thoát nghèo)",
+      "ipa": "/ˈstɹʌɡəlɪŋ/"
+    },
+    {
+      "id": "L010-026",
+      "en": "sole",
+      "vi": "bàn chân; duy nhất, độc nhất; một mình",
+      "ipa": "/soʊl/"
+    },
+    {
+      "id": "L010-027",
+      "en": "touched",
+      "vi": "được chạm vào, tiếp xúc; cảm động, xúc động; hơi điên, không bình thường",
+      "ipa": "/tʌtʃt/"
+    },
+    {
+      "id": "L010-028",
+      "en": "encouraged",
+      "vi": "được khích lệ, được động viên",
+      "ipa": "/ɛnˈkɝɪdʒd/"
+    },
+    {
+      "id": "L010-029",
+      "en": "bass",
+      "vi": "ghi-ta bass; trầm (âm thanh); bass (nhạc)",
+      "ipa": "/bæs/"
+    },
+    {
+      "id": "L010-030",
+      "en": "graham",
+      "vi": "bột mì nguyên cám",
+      "ipa": "/ˈɡɹeɪəm/"
+    },
+    {
+      "id": "L010-031",
+      "en": "butt",
+      "vi": "mông; đít; tiếp giáp",
+      "ipa": "/bʌt/"
+    },
+    {
+      "id": "L010-032",
+      "en": "attending",
+      "vi": "sự chú ý, sự tập trung; sự có mặt, sự tham dự",
+      "ipa": "/əˈtɛndɪŋ/"
+    },
+    {
+      "id": "L010-033",
+      "en": "waitress",
+      "vi": "chị hầu bàn; phục vụ bàn",
+      "ipa": "/ˈweɪtɹəs/"
+    },
+    {
+      "id": "L010-034",
+      "en": "funded",
+      "vi": "được cấp vốn; có tài trợ",
+      "ipa": "/ˈfʌndəd/"
+    },
+    {
+      "id": "L010-035",
+      "en": "dual",
+      "vi": "kép; đôi; hai mặt",
+      "ipa": "/ˈduəl/"
+    },
+    {
+      "id": "L010-036",
+      "en": "failing",
+      "vi": "yếu kém; không đạt; khuyết điểm",
+      "ipa": "/ˈfeɪlɪŋ/"
+    },
+    {
+      "id": "L010-037",
+      "en": "default",
+      "vi": "mặc định; vỡ nợ; không trả (nợ)",
+      "ipa": "/dɪˈfɔlt/"
+    },
+    {
+      "id": "L010-038",
+      "en": "gulf",
+      "vi": "vịnh",
+      "ipa": "/ɡʌlf/"
+    },
+    {
+      "id": "L010-039",
+      "en": "goodbye",
+      "vi": "câu tạm biệt; lời tạm biệt; việc tạm biệt",
+      "ipa": "/ˌɡʊdˈbaɪ/"
+    },
+    {
+      "id": "L010-040",
+      "en": "odds",
+      "vi": "khả năng",
+      "ipa": "/ɑdz/"
+    },
+    {
+      "id": "L010-041",
+      "en": "collective",
+      "vi": "tập thể; chung, tổng thể; tập thể (sở hữu tập thể)",
+      "ipa": "/kəˈlɛktɪv/"
+    },
+    {
+      "id": "L010-042",
+      "en": "ruling",
+      "vi": "cầm quyền, thống trị; phán quyết (của tòa án)",
+      "ipa": "/ˈɹulɪŋ/"
+    },
+    {
+      "id": "L010-043",
+      "en": "derived",
+      "vi": "bắt nguồn; phái sinh; có nguồn gốc",
+      "ipa": "/dˈɚaɪvd/"
+    },
+    {
+      "id": "L010-044",
+      "en": "finishing",
+      "vi": "lớp hoàn thiện; nước sơn; sự hoàn thành",
+      "ipa": "/ˈfɪnɪʃɪŋ/"
+    },
+    {
+      "id": "L010-045",
+      "en": "galaxy",
+      "vi": "thiên hà",
+      "ipa": "/ˈɡæləksi/"
+    },
+    {
+      "id": "L010-046",
+      "en": "stocks",
+      "vi": "đà tàu; giàn đỡ tàu; giá cố định thú (khi khám, đóng móng)",
+      "ipa": "/stɑks/"
+    },
+    {
+      "id": "L010-047",
+      "en": "allies",
+      "vi": "phe Đồng minh (Thế chiến II); phe Đồng minh (Thế chiến I); các nước đồng minh",
+      "ipa": "/ˈælaɪz/"
+    },
+    {
+      "id": "L010-048",
+      "en": "attacking",
+      "vi": "có tính tấn công; hiếu chiến",
+      "ipa": "/əˈtækɪŋ/"
+    },
+    {
+      "id": "L010-049",
+      "en": "dialogue",
+      "vi": "(cuộc) đối thoại; sự hội thoại",
+      "ipa": "/ˈdaɪəˌlɔɡ/"
+    },
+    {
+      "id": "L010-050",
+      "en": "equipped",
+      "vi": "được trang bị; có đầy đủ",
+      "ipa": "/ɪˈkwɪpt/"
+    },
+    {
+      "id": "L010-051",
+      "en": "sized",
+      "vi": "có kích thước...; được hồ (vải, giấy)",
+      "ipa": "/saɪzd/"
+    },
+    {
+      "id": "L010-052",
+      "en": "petition",
+      "vi": "sự cầu xin; kiến nghị; thỉnh cầu",
+      "ipa": "/pəˈtɪʃən/"
+    },
+    {
+      "id": "L010-053",
+      "en": "distinct",
+      "vi": "khác biệt, riêng biệt; rõ ràng, rành mạch; riêng lẻ, tách biệt",
+      "ipa": "/dɪˈstɪŋkt/"
+    },
+    {
+      "id": "L010-054",
+      "en": "feeding",
+      "vi": "sự ăn; sự kiếm ăn; sự cho ăn",
+      "ipa": "/ˈfidɪŋ/"
+    },
+    {
+      "id": "L010-055",
+      "en": "distributed",
+      "vi": "được phân bố, được rải rác",
+      "ipa": "/dɪˈstɹɪbjətəd/"
+    },
+    {
+      "id": "L010-056",
+      "en": "stopping",
+      "vi": "thanh nối (kim loại); bấm (dây đàn)",
+      "ipa": "/ˈstɑpɪŋ/"
+    },
+    {
+      "id": "L010-057",
+      "en": "followers",
+      "vi": "những người theo dõi; tín đồ; người hâm mộ",
+      "ipa": "/ˈfɑloʊɚz/"
+    },
+    {
+      "id": "L010-058",
+      "en": "mars",
+      "vi": "sao Hỏa; thần Mars (thần chiến tranh)",
+      "ipa": "/mɑɹz/"
+    },
+    {
+      "id": "L010-059",
+      "en": "protecting",
+      "vi": "bảo vệ; che chở",
+      "ipa": "/pɹəˈtɛktɪŋ/"
+    },
+    {
+      "id": "L010-060",
+      "en": "backed",
+      "vi": "có lưng; có nền; có lớp phủ chống sáng (phim ảnh)",
+      "ipa": "/bækt/"
+    },
+    {
+      "id": "L010-061",
+      "en": "expanded",
+      "vi": "mở rộng; phát triển; nở ra",
+      "ipa": "/ɪkˈspændəd/"
+    },
+    {
+      "id": "L010-062",
+      "en": "accounting",
+      "vi": "kế toán, ngành kế toán; hệ thống kế toán; lời giải thích thuyết phục",
+      "ipa": "/əˈkaʊntɪŋ/"
+    },
+    {
+      "id": "L010-063",
+      "en": "knight",
+      "vi": "hiệp sĩ; mã; phong tước hiệp sĩ",
+      "ipa": "/naɪt/"
+    },
+    {
+      "id": "L010-064",
+      "en": "snowy",
+      "vi": "đầy tuyết; có tuyết; phủ đầy tuyết",
+      "ipa": "/ˈsnoʊi/"
+    },
+    {
+      "id": "L010-065",
+      "en": "breathing",
+      "vi": "sự hô hấp; đang thở; còn sống",
+      "ipa": "/ˈbɹiðɪŋ/"
+    },
+    {
+      "id": "L010-066",
+      "en": "ted",
+      "vi": "thanh niên ăn mặc kiểu Edwardian (thập niên 1950-60)",
+      "ipa": "/tɛd/"
+    },
+    {
+      "id": "L010-067",
+      "en": "yea",
+      "vi": "không chỉ vậy mà còn; có, đồng ý",
+      "ipa": "/jeɪ/"
+    },
+    {
+      "id": "L010-068",
+      "en": "separated",
+      "vi": "tách biệt, xa cách; cách nhau, rời rạc; tách rời (khớp)",
+      "ipa": "/ˈsɛpˌɚeɪtɪd/"
+    },
+    {
+      "id": "L010-069",
+      "en": "firing",
+      "vi": "sự bắn; sự nổ súng; sự xả súng",
+      "ipa": "/ˈfaɪɹɪŋ/"
+    },
+    {
+      "id": "L010-070",
+      "en": "aids",
+      "vi": "AIDS, bệnh AIDS",
+      "ipa": "/eɪdz/"
+    },
+    {
+      "id": "L010-071",
+      "en": "stays",
+      "vi": "áo nịt ngực; áo corset",
+      "ipa": "/steɪz/"
+    },
+    {
+      "id": "L010-072",
+      "en": "alpha",
+      "vi": "chính, hàng đầu; (phần mềm) giai đoạn alpha; chữ alpha",
+      "ipa": "/ˈælfə/"
+    },
+    {
+      "id": "L010-073",
+      "en": "constitutional",
+      "vi": "hợp hiến; theo hiến pháp; cốt yếu",
+      "ipa": "/ˌkɑnstəˈtuʃənəl/"
+    },
+    {
+      "id": "L010-074",
+      "en": "composed",
+      "vi": "bình tĩnh; điềm tĩnh",
+      "ipa": "/kəmˈpoʊzd/"
+    },
+    {
+      "id": "L010-075",
+      "en": "anime",
+      "vi": "hoạt hình Nhật Bản; hoạt họa Nhật Bản",
+      "ipa": "/ˌænɪˈmeɪ/"
+    },
+    {
+      "id": "L010-076",
+      "en": "printing",
+      "vi": "in ấn",
+      "ipa": "/ˈpɹɪntɪŋ/"
+    },
+    {
+      "id": "L010-077",
+      "en": "editing",
+      "vi": "biên tập; hiệu đính",
+      "ipa": "/ˈɛdətɪŋ/"
+    },
+    {
+      "id": "L010-078",
+      "en": "repeated",
+      "vi": "lặp đi lặp lại",
+      "ipa": "/ɹɪˈpitɪd/"
+    },
+    {
+      "id": "L010-079",
+      "en": "framework",
+      "vi": "khung, cấu trúc, khuôn khổ; khung đỡ, giàn; mô hình khái niệm",
+      "ipa": "/ˈfɹeɪmˌwɝk/"
+    },
+    {
+      "id": "L010-080",
+      "en": "cooper",
+      "vi": "đóng thùng; làm thùng",
+      "ipa": "/ˈkupɚ/"
+    },
+    {
+      "id": "L010-081",
+      "en": "khan",
+      "vi": "hãn; khả hãn",
+      "ipa": "/kɑn/"
+    },
+    {
+      "id": "L010-082",
+      "en": "judgment",
+      "vi": "sự đánh giá; nhận định; sự phán xét",
+      "ipa": "/ˈdʒʌdʒmənt/"
+    },
+    {
+      "id": "L010-083",
+      "en": "li",
+      "vi": "lí; năm mươi mốt",
+      "ipa": "/li/"
+    },
+    {
+      "id": "L010-084",
+      "en": "credits",
+      "vi": "danh đề (phim)",
+      "ipa": "/ˈkɹɛdɪts/"
+    },
+    {
+      "id": "L010-085",
+      "en": "jerry",
+      "vi": "tên gọi miệt thị người Đức",
+      "ipa": "/ˈdʒɛɹi/"
+    },
+    {
+      "id": "L010-086",
+      "en": "offense",
+      "vi": "sự xúc phạm; hành vi khiếm nhã; sự khó chịu",
+      "ipa": "/əˈfɛns/"
+    },
+    {
+      "id": "L010-087",
+      "en": "gathered",
+      "vi": "tụ tập; tập trung",
+      "ipa": "/ˈɡæðɚd/"
+    },
+    {
+      "id": "L010-088",
+      "en": "franchise",
+      "vi": "nhượng quyền thương mại; cơ sở nhượng quyền; quyền bầu cử",
+      "ipa": "/ˈfɹænˌtʃaɪz/"
+    },
+    {
+      "id": "L010-089",
+      "en": "representation",
+      "vi": "sự đại diện",
+      "ipa": "/ˌɹɛpɹəzɛnˈteɪʃən/"
+    },
+    {
+      "id": "L010-090",
+      "en": "auction",
+      "vi": "bán đấu giá; đấu giá",
+      "ipa": "/ˈɑkʃən/"
+    },
+    {
+      "id": "L010-091",
+      "en": "peoples",
+      "vi": "các dân tộc",
+      "ipa": "/ˈpipəlz/"
+    },
+    {
+      "id": "L010-092",
+      "en": "biscuit",
+      "vi": "bánh quy",
+      "ipa": "/ˈbɪskət/"
+    },
+    {
+      "id": "L010-093",
+      "en": "counting",
+      "vi": "sự đếm; việc đếm",
+      "ipa": "/ˈkaʊntɪŋ/"
+    },
+    {
+      "id": "L010-094",
+      "en": "mounted",
+      "vi": "được gắn; được lắp; được trang trí",
+      "ipa": "/ˈmaʊntəd/"
+    },
+    {
+      "id": "L010-095",
+      "en": "pissed",
+      "vi": "bực mình; tức giận; say khướt",
+      "ipa": "/pɪst/"
+    },
+    {
+      "id": "L010-096",
+      "en": "foreigner",
+      "vi": "người nước ngoài; người ngoại quốc",
+      "ipa": "/ˈfɔɹənɚ/"
+    },
+    {
+      "id": "L010-097",
+      "en": "ruined",
+      "vi": "bị hủy hoại; bị phá hủy; bị phá sản",
+      "ipa": "/ˈɹuənd/"
+    },
+    {
+      "id": "L010-098",
+      "en": "ignored",
+      "vi": "bị phớt lờ; bị lờ đi",
+      "ipa": "/ˌɪɡˈnɔɹd/"
+    },
+    {
+      "id": "L010-099",
+      "en": "loaded",
+      "vi": "chất đầy; nạp đạn; có ẩn ý",
+      "ipa": "/ˈloʊdɪd/"
+    },
+    {
+      "id": "L010-100",
+      "en": "warren",
+      "vi": "hang thỏ",
+      "ipa": "/ˈwɔɹən/"
+    },
+    {
+      "id": "L010-101",
+      "en": "integrated",
+      "vi": "tích hợp; hợp nhất; không phân biệt",
+      "ipa": "/ˈɪntəˌɡɹeɪtəd/"
+    },
+    {
+      "id": "L010-102",
+      "en": "executed",
+      "vi": "bị xử tử; bị hành quyết",
+      "ipa": "/ˈɛksəˌkjutɪd/"
+    },
+    {
+      "id": "L010-103",
+      "en": "interviewer",
+      "vi": "người phỏng vấn",
+      "ipa": "/ˈɪntɚˌvjuɚ/"
+    },
+    {
+      "id": "L010-104",
+      "en": "mama",
+      "vi": "má, mẹ (thân mật); tên gọi của nữ thần Ninkhursag",
+      "ipa": "/ˈmɑmə/"
+    },
+    {
+      "id": "L010-105",
+      "en": "addressed",
+      "vi": "có ghi địa chỉ",
+      "ipa": "/əˈdɹɛst/"
+    },
+    {
+      "id": "L010-106",
+      "en": "handled",
+      "vi": "có tay cầm",
+      "ipa": "/ˈhændəld/"
+    },
+    {
+      "id": "L010-107",
+      "en": "pat",
+      "vi": "có vẻ hợp lý (nhưng hời hợt); thích hợp; đúng lúc",
+      "ipa": "/pæt/"
+    },
+    {
+      "id": "L010-108",
+      "en": "pussy",
+      "vi": "lồn; có mủ; mưng mủ",
+      "ipa": "/ˈpʊsi/"
+    },
+    {
+      "id": "L010-109",
+      "en": "guardian",
+      "vi": "người giám hộ; người bảo vệ",
+      "ipa": "/ˈɡɑɹdiən/"
+    },
+    {
+      "id": "L010-110",
+      "en": "traveling",
+      "vi": "sự đi lại; việc du lịch",
+      "ipa": "/ˈtɹævəlɪŋ/"
+    },
+    {
+      "id": "L010-111",
+      "en": "parallel",
+      "vi": "song song; đồng thời; sự tương tự",
+      "ipa": "/ˈpɛɹəˌlɛl/"
+    },
+    {
+      "id": "L010-112",
+      "en": "sooner",
+      "vi": "sớm hơn; thà; hơn là",
+      "ipa": "/ˈsunɚ/"
+    },
+    {
+      "id": "L010-113",
+      "en": "ai",
+      "vi": "trí tuệ nhân tạo; Cơ quan Tình báo Lục quân Mỹ; con lười ba ngón",
+      "ipa": "/aɪ/"
+    },
+    {
+      "id": "L010-114",
+      "en": "er",
+      "vi": "eri (nguyên tố đất hiếm); phòng cấp cứu",
+      "ipa": "/ɚ/"
+    },
+    {
+      "id": "L010-115",
+      "en": "arguing",
+      "vi": "sự tranh luận, cuộc cãi vã",
+      "ipa": "/ˈɑɹɡjuɪŋ/"
+    },
+    {
+      "id": "L010-116",
+      "en": "landed",
+      "vi": "có đất; sở hữu đất đai",
+      "ipa": "/ˈlændəd/"
+    },
+    {
+      "id": "L010-117",
+      "en": "powered",
+      "vi": "chạy bằng; có động cơ",
+      "ipa": "/ˈpaʊɚd/"
+    },
+    {
+      "id": "L010-118",
+      "en": "wages",
+      "vi": "sự đền đáp; quả báo",
+      "ipa": "/ˈweɪdʒəz/"
+    },
+    {
+      "id": "L010-119",
+      "en": "implementation",
+      "vi": "sự thực hiện, sự thi hành; sự triển khai, sự áp dụng",
+      "ipa": "/ˌɪmpləmɛnˈteɪʃən/"
+    },
+    {
+      "id": "L010-120",
+      "en": "cock",
+      "vi": "cò súng; vòi nước, van; dương vật (tục tĩu)",
+      "ipa": "/kɑk/"
+    },
+    {
+      "id": "L010-121",
+      "en": "nelson",
+      "vi": "đòn khóa Nelson (vật)",
+      "ipa": "/ˈnɛlsən/"
+    },
+    {
+      "id": "L010-122",
+      "en": "spectrum",
+      "vi": "quang phổ",
+      "ipa": "/ˈspɛktɹəm/"
+    },
+    {
+      "id": "L010-123",
+      "en": "measured",
+      "vi": "có nhịp điệu đều đặn; thận trọng; có suy tính",
+      "ipa": "/ˈmɛʒɚd/"
+    },
+    {
+      "id": "L010-124",
+      "en": "seventh",
+      "vi": "thứ bảy; một phần bảy; quãng bảy (âm nhạc)",
+      "ipa": "/ˈsɛvənθ/"
+    },
+    {
+      "id": "L010-125",
+      "en": "fastest",
+      "vi": "nhanh nhất",
+      "ipa": "/ˈfæstəst/"
+    },
+    {
+      "id": "L010-126",
+      "en": "classified",
+      "vi": "được phân loại; mật (thông tin, tài liệu); quảng cáo nhỏ",
+      "ipa": "/ˈklæsəˌfaɪd/"
+    },
+    {
+      "id": "L010-127",
+      "en": "terry",
+      "vi": "vải bông xốp; vải khăn",
+      "ipa": "/ˈtɛɹi/"
+    },
+    {
+      "id": "L010-128",
+      "en": "focusing",
+      "vi": "sự tập trung; sự lấy nét",
+      "ipa": "/ˈfoʊkəsɪŋ/"
+    },
+    {
+      "id": "L010-129",
+      "en": "gathering",
+      "vi": "cuộc tụ họp; sự tập hợp",
+      "ipa": "/ˈɡæðɚɪŋ/"
+    },
+    {
+      "id": "L010-130",
+      "en": "asset",
+      "vi": "tài sản quý, lợi thế",
+      "ipa": "/ˈæˌsɛt/"
+    },
+    {
+      "id": "L010-131",
+      "en": "conspiracy",
+      "vi": "cuộc âm mưu; cuộc mưu hại",
+      "ipa": "/kənˈspɪɹəsi/"
+    },
+    {
+      "id": "L010-132",
+      "en": "tribute",
+      "vi": "triều cống",
+      "ipa": "/ˈtɹɪbjut/"
+    },
+    {
+      "id": "L010-133",
+      "en": "accompanied",
+      "vi": "có người đi cùng; có nhạc đệm",
+      "ipa": "/əˈkʌmpənid/"
+    },
+    {
+      "id": "L010-134",
+      "en": "blessed",
+      "vi": "hạnh phúc",
+      "ipa": "/blɛst/"
+    },
+    {
+      "id": "L010-135",
+      "en": "tracking",
+      "vi": "sự lần theo dấu vết; sự truy tìm",
+      "ipa": "/ˈtɹækɪŋ/"
+    },
+    {
+      "id": "L010-136",
+      "en": "experimental",
+      "vi": "thí nghiệm; thực nghiệm; thử nghiệm",
+      "ipa": "/ɪkˌspɛɹɪˈmɛntəl/"
+    },
+    {
+      "id": "L010-137",
+      "en": "beats",
+      "vi": "thế hệ Beat (văn hóa thanh niên Mỹ thập niên 1950)",
+      "ipa": "/bits/"
+    },
+    {
+      "id": "L010-138",
+      "en": "bobby",
+      "vi": "cảnh sát Anh (thân mật)",
+      "ipa": "/ˈbɑbi/"
+    },
+    {
+      "id": "L010-139",
+      "en": "inquiry",
+      "vi": "sự tìm hiểu; câu hỏi; cuộc điều tra",
+      "ipa": "/ˌɪnˈkwaɪˌɹi/"
+    },
+    {
+      "id": "L010-140",
+      "en": "recovered",
+      "vi": "bình phục; hồi phục; tìm lại được",
+      "ipa": "/ɹəˈkʌvɚd/"
+    },
+    {
+      "id": "L010-141",
+      "en": "ho",
+      "vi": "đĩ; phò",
+      "ipa": "/hoʊ/"
+    },
+    {
+      "id": "L010-142",
+      "en": "mainstream",
+      "vi": "dòng chính; xu hướng chủ đạo",
+      "ipa": "/ˈmeɪnˌstɹim/"
+    },
+    {
+      "id": "L010-143",
+      "en": "backing",
+      "vi": "sự ủng hộ, hậu thuẫn; lớp lót, lớp gia cố; nguồn tài trợ",
+      "ipa": "/ˈbækɪŋ/"
+    },
+    {
+      "id": "L010-144",
+      "en": "warrant",
+      "vi": "lệnh (bắt, khám xét); chứng quyền (tài chính); sự bảo đảm",
+      "ipa": "/ˈwɔɹənt/"
+    },
+    {
+      "id": "L010-145",
+      "en": "mills",
+      "vi": "kiến trúc sư Mills (người Mỹ)",
+      "ipa": "/mɪlz/"
+    },
+    {
+      "id": "L010-146",
+      "en": "loads",
+      "vi": "nhiều; vô số; hàng đống",
+      "ipa": "/loʊdz/"
+    },
+    {
+      "id": "L010-147",
+      "en": "occasions",
+      "vi": "việc cần làm; công việc phải giải quyết",
+      "ipa": "/əˈkeɪʒənz/"
+    },
+    {
+      "id": "L010-148",
+      "en": "civilian",
+      "vi": "người thường; thường dân; dân thường",
+      "ipa": "/səˈvɪljən/"
+    },
+    {
+      "id": "L010-149",
+      "en": "municipal",
+      "vi": "thuộc đô thị; thành phố; thuộc chính quyền thành phố",
+      "ipa": "/mjuˈnɪsəpəl/"
+    },
+    {
+      "id": "L010-150",
+      "en": "ultra",
+      "vi": "cực đoan; quá khích",
+      "ipa": "/ˈʌltɹə/"
+    },
+    {
+      "id": "L010-151",
+      "en": "hamburger",
+      "vi": "hăm-bơ-gơ; hem-bơ-gơ",
+      "ipa": "/ˈhæmbɚɡɚ/"
+    },
+    {
+      "id": "L010-152",
+      "en": "treasury",
+      "vi": "kho bạc; ngân khố; công khố",
+      "ipa": "/ˈtɹɛʒɚi/"
+    },
+    {
+      "id": "L010-153",
+      "en": "modified",
+      "vi": "đã sửa đổi; biến đổi; tầm thường",
+      "ipa": "/ˈmɑdəˌfaɪd/"
+    },
+    {
+      "id": "L010-154",
+      "en": "assuming",
+      "vi": "tự phụ, hợm hĩnh",
+      "ipa": "/əˈsumɪŋ/"
+    },
+    {
+      "id": "L010-155",
+      "en": "democrat",
+      "vi": "nhà dân chủ",
+      "ipa": "/ˈdɛməˌkɹæt/"
+    },
+    {
+      "id": "L010-156",
+      "en": "blown",
+      "vi": "bị thổi; bị đẩy đi; thở hổn hển",
+      "ipa": "/bloʊn/"
+    },
+    {
+      "id": "L010-157",
+      "en": "unity",
+      "vi": "sự thống nhất; sự đoàn kết; tính toàn vẹn",
+      "ipa": "/ˈjunəti/"
+    },
+    {
+      "id": "L010-158",
+      "en": "chips",
+      "vi": "khoai tây chiên",
+      "ipa": "/tʃɪps/"
+    },
+    {
+      "id": "L010-159",
+      "en": "bookstore",
+      "vi": "hiệu sách, cửa hàng sách",
+      "ipa": "/ˈbʊkˌstɔɹ/"
+    },
+    {
+      "id": "L010-160",
+      "en": "jumping",
+      "vi": "sự nhảy; hành động nhảy; môn nhảy (thể thao)",
+      "ipa": "/ˈdʒʌmpɪŋ/"
+    },
+    {
+      "id": "L010-161",
+      "en": "custody",
+      "vi": "sự giam giữ; sự bắt giữ; tình trạng bị giam",
+      "ipa": "/ˈkʌstədi/"
+    },
+    {
+      "id": "L010-162",
+      "en": "batman",
+      "vi": "lính hầu (phục vụ sĩ quan Anh)",
+      "ipa": "/ˈbætˌmæn/"
+    },
+    {
+      "id": "L010-163",
+      "en": "beaten",
+      "vi": "được dát mỏng; đã mòn; nhẵn thín (đường)",
+      "ipa": "/ˈbitən/"
+    },
+    {
+      "id": "L010-164",
+      "en": "abortion",
+      "vi": "sự phá thai",
+      "ipa": "/əˈbɔɹʃən/"
+    },
+    {
+      "id": "L010-165",
+      "en": "ken",
+      "vi": "tầm hiểu biết; phạm vi nhận thức; tầm nhìn",
+      "ipa": "/kɛn/"
+    },
+    {
+      "id": "L010-166",
+      "en": "lied",
+      "vi": "lied (bài hát nghệ thuật Đức thế kỷ 19)",
+      "ipa": "/laɪd/"
+    },
+    {
+      "id": "L010-167",
+      "en": "consistently",
+      "vi": "một cách nhất quán; kiên định",
+      "ipa": "/kənˈsɪstəntli/"
+    },
+    {
+      "id": "L010-168",
+      "en": "arc",
+      "vi": "vòng cung; uốn cong",
+      "ipa": "/ɑɹk/"
+    },
+    {
+      "id": "L010-169",
+      "en": "federation",
+      "vi": "liên bang; liên đoàn; liên hiệp",
+      "ipa": "/ˌfɛdˈɚeɪʃən/"
+    },
+    {
+      "id": "L010-170",
+      "en": "quarters",
+      "vi": "nơi ở, chỗ ở, khu nhà ở",
+      "ipa": "/ˈkwɔɹtɚz/"
+    },
+    {
+      "id": "L010-171",
+      "en": "stealing",
+      "vi": "sự trộm cắp; hành vi ăn cắp; sự lén lút di chuyển",
+      "ipa": "/ˈstilɪŋ/"
+    },
+    {
+      "id": "L010-172",
+      "en": "apron",
+      "vi": "tạp dề",
+      "ipa": "/ˈeɪpɹən/"
+    },
+    {
+      "id": "L010-173",
+      "en": "stole",
+      "vi": "khăn choàng vai (nữ)",
+      "ipa": "/stoʊl/"
+    },
+    {
+      "id": "L010-174",
+      "en": "beta",
+      "vi": "bêta",
+      "ipa": "/ˈbeɪtə/"
+    },
+    {
+      "id": "L010-175",
+      "en": "celebrated",
+      "vi": "nổi tiếng, lừng danh; lừng lẫy, hiển hách",
+      "ipa": "/ˈsɛləˌbɹeɪtɪd/"
+    },
+    {
+      "id": "L010-176",
+      "en": "longest",
+      "vi": "lâu nhất; dài nhất",
+      "ipa": "/ˈlɔŋɡəst/"
+    },
+    {
+      "id": "L010-177",
+      "en": "viewers",
+      "vi": "khán giả (truyền hình); người xem",
+      "ipa": "/ˈvjuɚz/"
+    },
+    {
+      "id": "L010-178",
+      "en": "charlotte",
+      "vi": "thành phố Charlotte (Bắc Carolina); bánh charlotte (bánh tráng miệng)",
+      "ipa": "/ˈʃɑɹlət/"
+    },
+    {
+      "id": "L010-179",
+      "en": "certified",
+      "vi": "được chứng nhận, được cấp giấy phép; có chứng chỉ, được công nhận; bị xác nhận là mất trí",
+      "ipa": "/ˈsɝtəˌfaɪd/"
+    },
+    {
+      "id": "L010-180",
+      "en": "advocate",
+      "vi": "người ủng hộ; người biện hộ; luật sư biện hộ",
+      "ipa": "/ˈædvəkət/"
+    },
+    {
+      "id": "L010-181",
+      "en": "closest",
+      "vi": "gần nhất",
+      "ipa": "/ˈkloʊsəst/"
+    }
+  ]
+}

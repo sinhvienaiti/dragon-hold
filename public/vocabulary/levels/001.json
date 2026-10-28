@@ -1,0 +1,907 @@
+{
+  "version": 1,
+  "level": 1,
+  "label": "Foundation 001",
+  "entries": [
+    {
+      "id": "L001-001",
+      "en": "good",
+      "vi": "tốt; hay",
+      "ipa": "/ɡʊd/"
+    },
+    {
+      "id": "L001-002",
+      "en": "bad",
+      "vi": "tệ, xấu, tồi, dở",
+      "ipa": "/bæd/"
+    },
+    {
+      "id": "L001-003",
+      "en": "big",
+      "vi": "to, lớn",
+      "ipa": "/bɪɡ/"
+    },
+    {
+      "id": "L001-004",
+      "en": "small",
+      "vi": "nhỏ; bé",
+      "ipa": "/smɔl/"
+    },
+    {
+      "id": "L001-005",
+      "en": "old",
+      "vi": "già; lớn tuổi",
+      "ipa": "/oʊld/"
+    },
+    {
+      "id": "L001-006",
+      "en": "young",
+      "vi": "trẻ; non; còn nhỏ",
+      "ipa": "/jʌŋ/"
+    },
+    {
+      "id": "L001-007",
+      "en": "new",
+      "vi": "mới",
+      "ipa": "/nu/"
+    },
+    {
+      "id": "L001-008",
+      "en": "happy",
+      "vi": "vui vẻ; hạnh phúc",
+      "ipa": "/ˈhæpi/"
+    },
+    {
+      "id": "L001-009",
+      "en": "sad",
+      "vi": "buồn; buồn bã; buồn rầu",
+      "ipa": "/sæd/"
+    },
+    {
+      "id": "L001-010",
+      "en": "hot",
+      "vi": "nóng, nóng bức",
+      "ipa": "/hɑt/"
+    },
+    {
+      "id": "L001-011",
+      "en": "cold",
+      "vi": "lạnh; rét",
+      "ipa": "/koʊld/"
+    },
+    {
+      "id": "L001-012",
+      "en": "easy",
+      "vi": "dễ; dễ dàng",
+      "ipa": "/ˈizi/"
+    },
+    {
+      "id": "L001-013",
+      "en": "hard",
+      "vi": "khó, khó khăn",
+      "ipa": "/hɑɹd/"
+    },
+    {
+      "id": "L001-014",
+      "en": "right",
+      "vi": "đúng, chính xác",
+      "ipa": "/ɹaɪt/"
+    },
+    {
+      "id": "L001-015",
+      "en": "wrong",
+      "vi": "sai",
+      "ipa": "/ɹɔŋ/"
+    },
+    {
+      "id": "L001-016",
+      "en": "please",
+      "vi": "xin; làm ơn; xin vui lòng",
+      "ipa": "/pliz/"
+    },
+    {
+      "id": "L001-017",
+      "en": "no",
+      "vi": "không (từ chối, phủ nhận)",
+      "ipa": "/noʊ/"
+    },
+    {
+      "id": "L001-018",
+      "en": "thanks",
+      "vi": "lời cảm ơn; sự biết ơn",
+      "ipa": "/θæŋks/"
+    },
+    {
+      "id": "L001-019",
+      "en": "day",
+      "vi": "ngày; một ngày đêm",
+      "ipa": "/deɪ/"
+    },
+    {
+      "id": "L001-020",
+      "en": "night",
+      "vi": "đêm, ban đêm",
+      "ipa": "/naɪt/"
+    },
+    {
+      "id": "L001-021",
+      "en": "morning",
+      "vi": "buổi sáng",
+      "ipa": "/ˈmɔɹnɪŋ/"
+    },
+    {
+      "id": "L001-022",
+      "en": "afternoon",
+      "vi": "buổi chiều; chiều",
+      "ipa": "/ˌæftɚˈnun/"
+    },
+    {
+      "id": "L001-023",
+      "en": "evening",
+      "vi": "chiều tối",
+      "ipa": "/ˈivnɪŋ/"
+    },
+    {
+      "id": "L001-024",
+      "en": "time",
+      "vi": "thời gian; thì giờ",
+      "ipa": "/taɪm/"
+    },
+    {
+      "id": "L001-025",
+      "en": "year",
+      "vi": "năm",
+      "ipa": "/jɪɹ/"
+    },
+    {
+      "id": "L001-026",
+      "en": "week",
+      "vi": "tuần, tuần lễ",
+      "ipa": "/wik/"
+    },
+    {
+      "id": "L001-027",
+      "en": "today",
+      "vi": "hôm nay",
+      "ipa": "/təˈdeɪ/"
+    },
+    {
+      "id": "L001-028",
+      "en": "home",
+      "vi": "nhà, chỗ ở, nơi ở",
+      "ipa": "/hoʊm/"
+    },
+    {
+      "id": "L001-029",
+      "en": "house",
+      "vi": "nhà, căn nhà",
+      "ipa": "/haʊs/"
+    },
+    {
+      "id": "L001-030",
+      "en": "room",
+      "vi": "phòng; căn phòng",
+      "ipa": "/ɹum/"
+    },
+    {
+      "id": "L001-031",
+      "en": "school",
+      "vi": "trường học, trường",
+      "ipa": "/skul/"
+    },
+    {
+      "id": "L001-032",
+      "en": "work",
+      "vi": "công việc, việc làm",
+      "ipa": "/wɝk/"
+    },
+    {
+      "id": "L001-033",
+      "en": "job",
+      "vi": "công việc; nghề nghiệp",
+      "ipa": "/dʒɑb/"
+    },
+    {
+      "id": "L001-034",
+      "en": "family",
+      "vi": "gia đình",
+      "ipa": "/ˈfæməli/"
+    },
+    {
+      "id": "L001-035",
+      "en": "friend",
+      "vi": "bạn, người bạn thân",
+      "ipa": "/fɹɛnd/"
+    },
+    {
+      "id": "L001-036",
+      "en": "people",
+      "vi": "người, người ta",
+      "ipa": "/ˈpipəl/"
+    },
+    {
+      "id": "L001-037",
+      "en": "person",
+      "vi": "người, con người",
+      "ipa": "/ˈpɝsən/"
+    },
+    {
+      "id": "L001-038",
+      "en": "man",
+      "vi": "đàn ông",
+      "ipa": "/mæn/"
+    },
+    {
+      "id": "L001-039",
+      "en": "woman",
+      "vi": "phụ nữ, đàn bà",
+      "ipa": "/ˈwʊmən/"
+    },
+    {
+      "id": "L001-040",
+      "en": "child",
+      "vi": "đứa trẻ, đứa bé",
+      "ipa": "/tʃaɪld/"
+    },
+    {
+      "id": "L001-041",
+      "en": "mother",
+      "vi": "mẹ, má",
+      "ipa": "/ˈmʌðɚ/"
+    },
+    {
+      "id": "L001-042",
+      "en": "father",
+      "vi": "cha; bố; ba",
+      "ipa": "/ˈfɑðɚ/"
+    },
+    {
+      "id": "L001-043",
+      "en": "brother",
+      "vi": "anh (em) trai",
+      "ipa": "/ˈbɹʌðɚ/"
+    },
+    {
+      "id": "L001-044",
+      "en": "sister",
+      "vi": "chị gái; em gái",
+      "ipa": "/ˈsɪstɚ/"
+    },
+    {
+      "id": "L001-045",
+      "en": "name",
+      "vi": "tên; tên gọi",
+      "ipa": "/neɪm/"
+    },
+    {
+      "id": "L001-046",
+      "en": "book",
+      "vi": "sách; quyển sách",
+      "ipa": "/bʊk/"
+    },
+    {
+      "id": "L001-047",
+      "en": "word",
+      "vi": "từ",
+      "ipa": "/wɝd/"
+    },
+    {
+      "id": "L001-048",
+      "en": "question",
+      "vi": "câu hỏi",
+      "ipa": "/ˈkwɛstʃən/"
+    },
+    {
+      "id": "L001-049",
+      "en": "answer",
+      "vi": "câu trả lời; lời đáp",
+      "ipa": "/ˈænsɚ/"
+    },
+    {
+      "id": "L001-050",
+      "en": "idea",
+      "vi": "ý tưởng, ý niệm",
+      "ipa": "/aɪˈdiə/"
+    },
+    {
+      "id": "L001-051",
+      "en": "problem",
+      "vi": "vấn đề, rắc rối, khó khăn",
+      "ipa": "/ˈpɹɑbləm/"
+    },
+    {
+      "id": "L001-052",
+      "en": "water",
+      "vi": "nước",
+      "ipa": "/ˈwɔtɚ/"
+    },
+    {
+      "id": "L001-053",
+      "en": "food",
+      "vi": "thức ăn, đồ ăn",
+      "ipa": "/fud/"
+    },
+    {
+      "id": "L001-054",
+      "en": "money",
+      "vi": "tiền; tiền bạc",
+      "ipa": "/ˈmʌni/"
+    },
+    {
+      "id": "L001-055",
+      "en": "car",
+      "vi": "xe hơi; ô tô",
+      "ipa": "/kɑɹ/"
+    },
+    {
+      "id": "L001-056",
+      "en": "city",
+      "vi": "thành phố; đô thị",
+      "ipa": "/ˈsɪti/"
+    },
+    {
+      "id": "L001-057",
+      "en": "place",
+      "vi": "địa điểm, nơi, chỗ",
+      "ipa": "/pleɪs/"
+    },
+    {
+      "id": "L001-058",
+      "en": "road",
+      "vi": "đường; đường sá",
+      "ipa": "/ɹoʊd/"
+    },
+    {
+      "id": "L001-059",
+      "en": "phone",
+      "vi": "điện thoại",
+      "ipa": "/foʊn/"
+    },
+    {
+      "id": "L001-060",
+      "en": "game",
+      "vi": "trò chơi; cuộc thi đấu",
+      "ipa": "/ɡeɪm/"
+    },
+    {
+      "id": "L001-061",
+      "en": "music",
+      "vi": "âm nhạc",
+      "ipa": "/ˈmjuzɪk/"
+    },
+    {
+      "id": "L001-062",
+      "en": "story",
+      "vi": "truyện, câu chuyện",
+      "ipa": "/ˈstɔɹi/"
+    },
+    {
+      "id": "L001-063",
+      "en": "care",
+      "vi": "sự chăm sóc, săn sóc",
+      "ipa": "/kɛɹ/"
+    },
+    {
+      "id": "L001-064",
+      "en": "kind",
+      "vi": "loại, hạng, kiểu",
+      "ipa": "/kaɪnd/"
+    },
+    {
+      "id": "L001-065",
+      "en": "news",
+      "vi": "tin tức, tin",
+      "ipa": "/nuz/"
+    },
+    {
+      "id": "L001-066",
+      "en": "team",
+      "vi": "đội, nhóm",
+      "ipa": "/tim/"
+    },
+    {
+      "id": "L001-067",
+      "en": "group",
+      "vi": "nhóm, tập hợp",
+      "ipa": "/ɡɹup/"
+    },
+    {
+      "id": "L001-068",
+      "en": "health",
+      "vi": "sức khỏe",
+      "ipa": "/hɛlθ/"
+    },
+    {
+      "id": "L001-069",
+      "en": "go",
+      "vi": "đi; di chuyển",
+      "ipa": "/ɡoʊ/"
+    },
+    {
+      "id": "L001-070",
+      "en": "come",
+      "vi": "đến, tới",
+      "ipa": "/kʌm/"
+    },
+    {
+      "id": "L001-071",
+      "en": "get",
+      "vi": "lấy; nhận; mua",
+      "ipa": "/ɡɛt/"
+    },
+    {
+      "id": "L001-072",
+      "en": "make",
+      "vi": "làm, tạo ra, khiến cho",
+      "ipa": "/meɪk/"
+    },
+    {
+      "id": "L001-073",
+      "en": "take",
+      "vi": "thực hiện; làm",
+      "ipa": "/teɪk/"
+    },
+    {
+      "id": "L001-074",
+      "en": "give",
+      "vi": "đưa, cho, tặng",
+      "ipa": "/ɡɪv/"
+    },
+    {
+      "id": "L001-075",
+      "en": "see",
+      "vi": "thấy; nhìn thấy",
+      "ipa": "/si/"
+    },
+    {
+      "id": "L001-076",
+      "en": "look",
+      "vi": "nhìn; xem",
+      "ipa": "/lʊk/"
+    },
+    {
+      "id": "L001-077",
+      "en": "know",
+      "vi": "biết",
+      "ipa": "/noʊ/"
+    },
+    {
+      "id": "L001-078",
+      "en": "think",
+      "vi": "nghĩ, suy nghĩ",
+      "ipa": "/θɪŋk/"
+    },
+    {
+      "id": "L001-079",
+      "en": "want",
+      "vi": "muốn; mong muốn",
+      "ipa": "/wɑnt/"
+    },
+    {
+      "id": "L001-080",
+      "en": "need",
+      "vi": "cần",
+      "ipa": "/nid/"
+    },
+    {
+      "id": "L001-081",
+      "en": "like",
+      "vi": "thích",
+      "ipa": "/laɪk/"
+    },
+    {
+      "id": "L001-082",
+      "en": "love",
+      "vi": "yêu, thương, yêu thương",
+      "ipa": "/lʌv/"
+    },
+    {
+      "id": "L001-083",
+      "en": "help",
+      "vi": "giúp đỡ, trợ giúp",
+      "ipa": "/hɛlp/"
+    },
+    {
+      "id": "L001-084",
+      "en": "find",
+      "vi": "tìm thấy; phát hiện ra",
+      "ipa": "/faɪnd/"
+    },
+    {
+      "id": "L001-085",
+      "en": "read",
+      "vi": "đọc",
+      "ipa": "/rid/"
+    },
+    {
+      "id": "L001-086",
+      "en": "write",
+      "vi": "viết; sáng tác",
+      "ipa": "/ɹaɪt/"
+    },
+    {
+      "id": "L001-087",
+      "en": "speak",
+      "vi": "nói",
+      "ipa": "/spik/"
+    },
+    {
+      "id": "L001-088",
+      "en": "listen",
+      "vi": "lắng nghe; nghe",
+      "ipa": "/ˈlɪsən/"
+    },
+    {
+      "id": "L001-089",
+      "en": "learn",
+      "vi": "học, học hỏi",
+      "ipa": "/lɝn/"
+    },
+    {
+      "id": "L001-090",
+      "en": "play",
+      "vi": "chơi",
+      "ipa": "/pleɪ/"
+    },
+    {
+      "id": "L001-091",
+      "en": "start",
+      "vi": "bắt đầu, khởi đầu",
+      "ipa": "/stɑɹt/"
+    },
+    {
+      "id": "L001-092",
+      "en": "stop",
+      "vi": "dừng lại; đỗ lại",
+      "ipa": "/stɑp/"
+    },
+    {
+      "id": "L001-093",
+      "en": "open",
+      "vi": "mở; mở ra",
+      "ipa": "/ˈoʊpən/"
+    },
+    {
+      "id": "L001-094",
+      "en": "close",
+      "vi": "đóng, khép",
+      "ipa": "/kloʊz/"
+    },
+    {
+      "id": "L001-095",
+      "en": "eat",
+      "vi": "ăn",
+      "ipa": "/it/"
+    },
+    {
+      "id": "L001-096",
+      "en": "drink",
+      "vi": "uống",
+      "ipa": "/dɹɪŋk/"
+    },
+    {
+      "id": "L001-097",
+      "en": "live",
+      "vi": "sống; cư trú",
+      "ipa": "/lɪv/"
+    },
+    {
+      "id": "L001-098",
+      "en": "feel",
+      "vi": "cảm thấy, sờ thấy",
+      "ipa": "/fil/"
+    },
+    {
+      "id": "L001-099",
+      "en": "say",
+      "vi": "nói; nói ra",
+      "ipa": "/seɪ/"
+    },
+    {
+      "id": "L001-100",
+      "en": "tell",
+      "vi": "nói, kể",
+      "ipa": "/tɛl/"
+    },
+    {
+      "id": "L001-101",
+      "en": "not",
+      "vi": "không; chẳng",
+      "ipa": "/nɑt/"
+    },
+    {
+      "id": "L001-102",
+      "en": "just",
+      "vi": "chỉ; vừa đủ",
+      "ipa": "/dʒʌst/"
+    },
+    {
+      "id": "L001-103",
+      "en": "about",
+      "vi": "khoảng; xấp xỉ",
+      "ipa": "/əˈbaʊt/"
+    },
+    {
+      "id": "L001-104",
+      "en": "there",
+      "vi": "ở đó; tại đó",
+      "ipa": "/ðɛɹ/"
+    },
+    {
+      "id": "L001-105",
+      "en": "also",
+      "vi": "cũng, còn",
+      "ipa": "/ˈɔlsoʊ/"
+    },
+    {
+      "id": "L001-106",
+      "en": "now",
+      "vi": "bây giờ; hiện nay",
+      "ipa": "/naʊ/"
+    },
+    {
+      "id": "L001-107",
+      "en": "only",
+      "vi": "chỉ; mỗi",
+      "ipa": "/ˈoʊnli/"
+    },
+    {
+      "id": "L001-108",
+      "en": "first",
+      "vi": "đầu tiên; trước nhất",
+      "ipa": "/fɝst/"
+    },
+    {
+      "id": "L001-109",
+      "en": "then",
+      "vi": "lúc đó, hồi ấy",
+      "ipa": "/ðɛn/"
+    },
+    {
+      "id": "L001-110",
+      "en": "way",
+      "vi": "cách, cách thức",
+      "ipa": "/weɪ/"
+    },
+    {
+      "id": "L001-111",
+      "en": "very",
+      "vi": "rất, lắm, vô cùng",
+      "ipa": "/ˈvɛɹi/"
+    },
+    {
+      "id": "L001-112",
+      "en": "here",
+      "vi": "ở đây",
+      "ipa": "/hiɹ/"
+    },
+    {
+      "id": "L001-113",
+      "en": "too",
+      "vi": "quá; quá mức",
+      "ipa": "/tu/"
+    },
+    {
+      "id": "L001-114",
+      "en": "before",
+      "vi": "trước; trước đây",
+      "ipa": "/bɪˈfɔɹ/"
+    },
+    {
+      "id": "L001-115",
+      "en": "life",
+      "vi": "cuộc sống; đời sống",
+      "ipa": "/laɪf/"
+    },
+    {
+      "id": "L001-116",
+      "en": "great",
+      "vi": "to lớn, vĩ đại",
+      "ipa": "/ɡɹeɪt/"
+    },
+    {
+      "id": "L001-117",
+      "en": "use",
+      "vi": "sử dụng; dùng",
+      "ipa": "/jus/"
+    },
+    {
+      "id": "L001-118",
+      "en": "better",
+      "vi": "tốt hơn; khá hơn",
+      "ipa": "/ˈbɛtɚ/"
+    },
+    {
+      "id": "L001-119",
+      "en": "little",
+      "vi": "nhỏ, ít, bé",
+      "ipa": "/ˈlɪtəl/"
+    },
+    {
+      "id": "L001-120",
+      "en": "thing",
+      "vi": "điều; thứ",
+      "ipa": "/θɪŋ/"
+    },
+    {
+      "id": "L001-121",
+      "en": "away",
+      "vi": "ra xa, đi khỏi",
+      "ipa": "/əˈweɪ/"
+    },
+    {
+      "id": "L001-122",
+      "en": "let",
+      "vi": "cho phép; khiến cho",
+      "ipa": "/lɛt/"
+    },
+    {
+      "id": "L001-123",
+      "en": "real",
+      "vi": "thực tế, có thật",
+      "ipa": "/ɹil/"
+    },
+    {
+      "id": "L001-124",
+      "en": "case",
+      "vi": "trường hợp, ca",
+      "ipa": "/keɪs/"
+    },
+    {
+      "id": "L001-125",
+      "en": "point",
+      "vi": "điểm; ý chính",
+      "ipa": "/pɔɪnt/"
+    },
+    {
+      "id": "L001-126",
+      "en": "mean",
+      "vi": "có nghĩa là",
+      "ipa": "/min/"
+    },
+    {
+      "id": "L001-127",
+      "en": "once",
+      "vi": "một lần",
+      "ipa": "/wʌns/"
+    },
+    {
+      "id": "L001-128",
+      "en": "side",
+      "vi": "bên; phía",
+      "ipa": "/saɪd/"
+    },
+    {
+      "id": "L001-129",
+      "en": "later",
+      "vi": "sau đó, lát nữa",
+      "ipa": "/ˈleɪtɚ/"
+    },
+    {
+      "id": "L001-130",
+      "en": "line",
+      "vi": "đường kẻ, vạch, nét",
+      "ipa": "/laɪn/"
+    },
+    {
+      "id": "L001-131",
+      "en": "thank",
+      "vi": "cảm ơn, cám ơn",
+      "ipa": "/θæŋk/"
+    },
+    {
+      "id": "L001-132",
+      "en": "talk",
+      "vi": "nói chuyện, trò chuyện",
+      "ipa": "/tɔk/"
+    },
+    {
+      "id": "L001-133",
+      "en": "history",
+      "vi": "lịch sử",
+      "ipa": "/ˈhɪstɚi/"
+    },
+    {
+      "id": "L001-134",
+      "en": "girl",
+      "vi": "cô gái; con gái",
+      "ipa": "/ɡɝl/"
+    },
+    {
+      "id": "L001-135",
+      "en": "nice",
+      "vi": "dễ chịu; đẹp",
+      "ipa": "/naɪs/"
+    },
+    {
+      "id": "L001-136",
+      "en": "special",
+      "vi": "đặc biệt, riêng biệt",
+      "ipa": "/ˈspɛʃəl/"
+    },
+    {
+      "id": "L001-137",
+      "en": "future",
+      "vi": "tương lai",
+      "ipa": "/ˈfjutʃɚ/"
+    },
+    {
+      "id": "L001-138",
+      "en": "soon",
+      "vi": "sớm, chẳng bao lâu nữa",
+      "ipa": "/sun/"
+    },
+    {
+      "id": "L001-139",
+      "en": "fire",
+      "vi": "lửa",
+      "ipa": "/ˈfaɪɚ/"
+    },
+    {
+      "id": "L001-140",
+      "en": "fun",
+      "vi": "niềm vui, trò vui",
+      "ipa": "/fʌn/"
+    },
+    {
+      "id": "L001-141",
+      "en": "art",
+      "vi": "nghệ thuật; mỹ thuật",
+      "ipa": "/ɑɹt/"
+    },
+    {
+      "id": "L001-142",
+      "en": "list",
+      "vi": "danh sách, bản liệt kê",
+      "ipa": "/lɪst/"
+    },
+    {
+      "id": "L001-143",
+      "en": "son",
+      "vi": "con trai",
+      "ipa": "/sʌn/"
+    },
+    {
+      "id": "L001-144",
+      "en": "baby",
+      "vi": "em bé",
+      "ipa": "/ˈbeɪbi/"
+    },
+    {
+      "id": "L001-145",
+      "en": "field",
+      "vi": "cánh đồng, đồng ruộng",
+      "ipa": "/fild/"
+    },
+    {
+      "id": "L001-146",
+      "en": "town",
+      "vi": "thị trấn",
+      "ipa": "/taʊn/"
+    },
+    {
+      "id": "L001-147",
+      "en": "hear",
+      "vi": "nghe, nghe thấy",
+      "ipa": "/hiɹ/"
+    },
+    {
+      "id": "L001-148",
+      "en": "summer",
+      "vi": "mùa hè, mùa hạ",
+      "ipa": "/ˈsʌmɚ/"
+    },
+    {
+      "id": "L001-149",
+      "en": "wife",
+      "vi": "vợ; người vợ",
+      "ipa": "/waɪf/"
+    },
+    {
+      "id": "L001-150",
+      "en": "date",
+      "vi": "ngày (trong tháng)",
+      "ipa": "/deɪt/"
+    }
+  ]
+}
