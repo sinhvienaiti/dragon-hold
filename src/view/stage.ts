@@ -541,7 +541,7 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
 
   view.__dhTerrain = {
     info: () => ({
-      ready: frames > 2 && propsSettled && (world.loadStats.baked || mapSwitch("bake") === "0" || quality === "low"),
+      ready: frames > 2 && propsSettled && (world.loadStats.baked || mapSwitch("bake") === "0"),
       load: world.loadStats,
       frames,
       frameMs,

@@ -26,7 +26,7 @@ import { DH_GLSL, fbm, GROUND_PARS, PINE_RIVER_GROUND, type HeightField, type Pa
 /** Mask square half side around the dais and texel size, metres. */
 export const PAINT_MASK = { halfM: 52, cellM: 0.25 } as const;
 
-/** The baked ground colour target: texels a side (2048 over 104 m is about 5 cm a texel). */
+/** The baked ground colour target: texels a side (2048 over 104 m is about 5 cm a texel; Low takes half). */
 export const GROUND_BAKE_SIZE = 2048;
 
 /** Ground tiles: file, metres per repeat, linear mean colour (measured once with ImageMagick, -colorspace RGB). */
@@ -428,10 +428,11 @@ export function buildGroundPaint(field: HeightField, layout: MapLayout, quality:
   let target: THREE.WebGLRenderTarget | null = null;
   let lastSplit: { prepMs: number; compileMs: number; renderMs: number } | null = null;
   const bake = async (renderer: THREE.WebGLRenderer, look: PaintLook): Promise<number | null> => {
-    if (mapSwitch("bake") === "0" || quality === "low") return null;
+    if (mapSwitch("bake") === "0") return null;
     const t = performance.now();
     const geo = fieldTextures(field);
-    const size = GROUND_BAKE_SIZE;
+    // Low bakes too (the live paint costs far more a frame than one bake), at half the texels.
+    const size = quality === "low" ? GROUND_BAKE_SIZE / 2 : GROUND_BAKE_SIZE;
     target?.dispose();
     target = new THREE.WebGLRenderTarget(size, size, {
       type: THREE.UnsignedByteType,
