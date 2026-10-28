@@ -125,7 +125,9 @@ describe("view-terrain scatter", () => {
     for (const bush of plan.bushes) {
       const lane = field.laneAt(bush.x, bush.z);
       expect(lane.dist - lane.half).toBeGreaterThanOrEqual(SCATTER_CLEAR.bushLane);
-      expect(field.riverEdge(bush.x, bush.z)).toBeGreaterThanOrEqual(SCATTER_CLEAR.bushWater);
+      // Map pilot A2: reeds stand at the waterline (the pond's far shore, slow river reaches), never out in the water.
+      if (bush.proto === "props/pine-river-reed-clump") expect(field.riverEdge(bush.x, bush.z)).toBeGreaterThanOrEqual(-0.3);
+      else expect(field.riverEdge(bush.x, bush.z)).toBeGreaterThanOrEqual(SCATTER_CLEAR.bushWater);
       for (const slot of map.slots) expect(Math.hypot(bush.x - slot.pos[0], bush.z - slot.pos[1])).toBeGreaterThanOrEqual(SCATTER_CLEAR.bushSlot);
     }
     for (const rock of plan.rocks) {

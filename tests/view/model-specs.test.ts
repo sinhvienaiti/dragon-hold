@@ -33,9 +33,9 @@ describe("M0b model specs", () => {
       expect(preset.kinds, key).toContain(kind);
       expect(preset.models[key], key).toBeDefined();
     }
-    // 24 owner sources, each read once.
+    // 24 owner sources of M0b and 8 of Tripo round 3 (map kit, 28/10), each read once.
     const sources = Object.values(preset.models).map((entry) => entry.source);
-    expect(new Set(sources).size).toBe(24);
+    expect(new Set(sources).size).toBe(32);
     expect(Object.keys(preset.models).sort()).toEqual([...new Set(manifests)].sort());
   });
 
@@ -64,6 +64,8 @@ describe("M0b model specs", () => {
       const total = PROP_SPECS.filter((prop) => prop.kind === kind).reduce((sum, prop) => sum + prop.share, 0);
       expect(total, kind).toBeCloseTo(1, 5);
     }
+    // Map dressing (lanterns, fences, the jetty) is placed by the layout only.
+    for (const prop of PROP_SPECS.filter((entry) => entry.kind === "dress")) expect(prop.share, prop.manifest).toBe(0);
     // The violet crown only far from the paths (05 §2.2).
     expect(PROP_SPECS.find((prop) => prop.manifest.endsWith("tree-violet"))!.laneGapMin).toBeGreaterThan(0);
   });
