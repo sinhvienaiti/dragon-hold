@@ -20,7 +20,7 @@ import type { Quality } from "../app/contracts";
 import type { MapDef } from "../content/types";
 import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
 import type { PropModel } from "./models";
-import type { LayoutItem } from "./layout";
+import { homeViewUv, LAYOUT_RULES, type LayoutItem } from "./layout";
 import { bakeImpostors, farRing, type FarItem, type ImpostorAtlas } from "./impostor";
 import { mapSwitch } from "./paint";
 import { hash2, Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
@@ -76,7 +76,7 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
     "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhTrunk = 1.0 - smoothstep(0.3, 0.42, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.276, 0.204, 0.555) * (dhL / 0.264) * 1.1, 0.85 * (1.0 - dhTrunk)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76) * (0.45 + dhL), dhTrunk * 0.6);",
   // V13 (map pilot): pine needles toward hue 120–150, the top a step lighter, so the forest is no dark teal wall.
   "props/pine-river-pine-tall":
-    "float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhTop = smoothstep(0.3, 1.0, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.0, 1.12, 0.78) * (1.14 + 0.36 * dhTop), dhLeaf);",
+    "float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhTop = smoothstep(0.3, 1.0, vDhLocal.y); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.0, 1.12, 0.78) * (1.24 + 0.42 * dhTop), dhLeaf);",
   // K07 (moss close to the withered #C8D24A) is gone with the moss: rocks are pale stone (map pilot V10, V13).
   "props/pine-river-rock-boulder": STONE_PAINT,
   "props/pine-river-rock-slab": STONE_PAINT,
@@ -94,17 +94,18 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
 };
 
 /**
- * V7 (map pilot): warm crowns from the round tree, maple red to orange by place; the trunk stays.
+ * V7 (map pilot): warm crowns from the round tree, maple red to rust by place (FB-09, A2: hue 10–20° lit, so
+ * every warm crown is the same accent family, never a bright orange beside the red); the trunk stays.
  * Albedo kept at S ≤ 0.7, V ≤ 0.7 (lit, the sunny side reads red-orange like the reference's maples);
  * ΔE2000 ≥ 20 from #FF4A4A, #FFB020, #FFC83A and the withered #C8D24A (darker and less saturated).
  */
 const WARM_CROWN =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhOrange = smoothstep(0.38, 0.62, dhNoise(vDhWorld.xz * 0.05 + 3.0)); vec3 dhDark = mix(vec3(0.2, 0.035, 0.018), vec3(0.24, 0.07, 0.016), dhOrange); vec3 dhLight = mix(vec3(0.42, 0.075, 0.035), vec3(0.45, 0.16, 0.035), dhOrange); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.3, dhL)), dhLeaf);";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhOrange = smoothstep(0.38, 0.62, dhNoise(vDhWorld.xz * 0.05 + 3.0)); vec3 dhDark = mix(vec3(0.2, 0.035, 0.018), vec3(0.24, 0.052, 0.016), dhOrange); vec3 dhLight = mix(vec3(0.42, 0.075, 0.035), vec3(0.45, 0.105, 0.033), dhOrange); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.3, dhL)), dhLeaf);";
 
 
 
-/** Mip bias of foliage colour maps (map pilot). */
-const FOLIAGE_MAP_BIAS = 1.8;
+/** Mip bias of foliage colour maps (map pilot; A2: a step softer, leaf masses over leaf noise). */
+const FOLIAGE_MAP_BIAS = 2.7;
 
 /** A placed placeholder, metres. `size`: height for pines, crown radius for round trees and bushes, rock radius. */
 export interface ScatterItem {
@@ -169,8 +170,17 @@ const CROWN_NEAR = ["#6f9a4f", "#5a8a5c", "#82a656", "#4f7f60"] as const;
 const CROWN_FAR = ["#8e7cc3", "#6c8fd1", "#7d7fb8", "#8a82b4"] as const;
 /** Props too small to cast a useful shadow (MAP_FACTORY 4.2: clutter casts none). */
 const SMALL_PROPS = new Set(["props/pine-river-river-stones", "props/pine-river-stump", "props/pine-river-log", "props/pine-river-rock-slab", "props/pine-river-grass-tuft", "props/pine-river-wildflower-clump"]);
-/** Map spike: share of forest-ring crowns (≥ 9 m off a lane edge) that turn violet (M0b 0.4; the reference keeps accents near 5–10 % of crowns). */
-const FAR_CROWN_SHARE = 0.18;
+/** Map spike: share of forest-ring crowns (≥ 9 m off a lane edge) that turn violet (M0b 0.4; spike 0.18; FB-08, A2: ≤ 0.08). */
+const FAR_CROWN_SHARE = 0.07;
+/** FB-08 (A2): violet crowns this far apart (and from the layout's), so the accent never repeats at every angle. */
+const VIOLET_GAP_M = 26;
+/** FB-09 (A2): warm crowns at the forest edge this far from each other and from a violet crown, and from the sky lane. */
+const WARM_GAP_M = 16;
+const WARM_VIOLET_GAP_M = 16;
+const WARM_SKY_M = 10;
+/** FB-03 (A2): the first metres past the forest edge are thinned (a ragged, lit fringe, not a wall). */
+const FRINGE_M = 7;
+const FRINGE_SKIP = 0.4;
 /** Far crown colours the GLB violet crown (K04) takes over. */
 const FAR_COLORS = CROWN_FAR;
 const BUSH = ["#5d8f4f", "#6f9d55", "#4d7f5a", "#7aa35e"] as const;
@@ -233,7 +243,12 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   };
   // V7: warm crowns at the forest edge too, 12 m from each other and from the layout's warm trees.
   const warmSpots: { x: number; z: number }[] = layout.trees.filter((tree) => tree.warm).map((tree) => ({ x: tree.x, z: tree.z }));
-  const violetSpots = layout.trees.filter((tree) => tree.proto.endsWith("violet"));
+  const violetSpots: { x: number; z: number }[] = layout.trees.filter((tree) => tree.proto.endsWith("violet")).map((tree) => ({ x: tree.x, z: tree.z }));
+  const underHud = (x: number, y: number, z: number): boolean => {
+    const uv = homeViewUv(map, x, y, z);
+    return uv !== null && LAYOUT_RULES.warm.hud.some(([u0, v0, u1, v1]) => uv[0] >= u0 && uv[0] <= u1 && uv[1] >= v0 && uv[1] <= v1);
+  };
+  const inClearing = (x: number, z: number, pad: number): boolean => layout.clearings.some((c) => Math.hypot(c.x - x, c.z - z) < c.r + pad);
 
   // Trees: pines and round crowns by forest density, from the forest edge out (the layout owns the inside).
   visit(cells.tree, (x, z, r) => {
@@ -242,7 +257,10 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     if (roll > density) return;
     const edge = edgeAt(x, z);
     if (r < edge + (hash2(Math.round(x * 3), Math.round(z * 3), 0x1ed6) - 0.5) * 2) return;
-    if (onCliffFace(x, z) || layout.pathGap(x, z) < 1.2) return;
+    if (onCliffFace(x, z) || layout.pathGap(x, z) < 1.2 || inClearing(x, z, 1.5)) return;
+    // FB-03: a thinner fringe in the first metres past the edge.
+    const fringe = r < edge + FRINGE_M;
+    if (fringe && hash2(Math.round(x * 4), Math.round(z * 4), 0xf41e) < FRINGE_SKIP * (1 - (r - edge) / FRINGE_M)) return;
     const inside = r < play + 2;
     const lane = field.laneAt(x, z);
     const laneGap = lane.dist - lane.half;
@@ -254,18 +272,24 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const far = laneGap > 9 && r > play - 4;
     const yaw = random() * Math.PI * 2;
     // Round crowns light the forest edge (the reference's broadleaf rim); pines deeper in.
-    if (random() < (inside || r < edge + 7 ? 0.5 : 0.22)) {
+    if (random() < (inside || fringe ? 0.62 : r < edge + 12 ? 0.4 : 0.22)) {
       const size = inside ? 1.3 + random() * 0.9 : 1.8 + random() * 1.3;
-      const color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
+      let color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
+      if ((CROWN_FAR as readonly string[]).includes(color)) {
+        if (violetSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < VIOLET_GAP_M) || warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < WARM_VIOLET_GAP_M)) color = CROWN_NEAR[0];
+        else violetSpots.push({ x, z });
+      }
       const warm =
         !(CROWN_FAR as readonly string[]).includes(color) &&
-        r < edge + 5 &&
-        r < play + PROP_NEAR_SKIRT_M - 0.5 &&
-        laneGap >= 9 &&
-        slotDist(x, z, false) >= 9 &&
-        hash2(Math.round(x * 5), Math.round(z * 5), 0x3a7) < 0.35 &&
-        !warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 12) &&
-        !violetSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 7);
+        r < edge + 7 &&
+        r < FAR_FROM_M - 1 &&
+        laneGap >= 10 &&
+        slotDist(x, z, false) >= 10 &&
+        skyDist(x, z) >= WARM_SKY_M &&
+        hash2(Math.round(x * 5), Math.round(z * 5), 0x3a7) < 0.6 &&
+        !warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < WARM_GAP_M) &&
+        !violetSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < WARM_VIOLET_GAP_M) &&
+        !underHud(x, size * 2.2, z);
       if (warm) warmSpots.push({ x, z });
       crowns.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color, ...(warm ? { warm: true } : {}) });
     } else {
@@ -280,7 +304,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const density = field.forest(x, z);
     const chance = 0.06 + density * 0.4 * (1 - density * 0.6);
     if (random() > chance) return;
-    if (r < edgeAt(x, z) - 1 || onCliffFace(x, z) || layout.pathGap(x, z) < 0.6) return;
+    if (r < edgeAt(x, z) - 1 || onCliffFace(x, z) || layout.pathGap(x, z) < 0.6 || inClearing(x, z, 0.4)) return;
     const lane = field.laneAt(x, z);
     if (lane.dist - lane.half < SCATTER_CLEAR.bushLane) return;
     if (field.riverEdge(x, z) < SCATTER_CLEAR.bushWater) return;
@@ -535,7 +559,8 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         matrix.compose(position.set(item.x, item.y - sink, item.z), quaternion, scale.set(k * (item.stretch ?? 1), k, k));
         mesh.setMatrixAt(index, matrix);
         // A little brightness spread so a grove never looks stamped; layout items carry their own tint.
-        const spread = 0.9 + hash2(index, items.length, 7) * 0.16;
+        // A2: a narrower spread (0.93–1.03): neighbouring crowns differ less, the forest reads as masses (clutter).
+        const spread = 0.93 + hash2(index, items.length, 7) * 0.1;
         if (item.tint) tint.setRGB(item.tint[0], item.tint[1], item.tint[2]);
         else tint.setScalar(spread);
         mesh.setColorAt(index, tint);
