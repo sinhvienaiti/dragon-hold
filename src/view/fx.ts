@@ -115,6 +115,8 @@ const BOLT_WAIT = 0.35;
 /** The fire ribbon behind a bolt reaches this far back along its curve (m), and its tail runs into the impact in 8 frames. */
 const BOLT_RIBBON_M = 5;
 const BOLT_TAIL_S = 8 / 60;
+/** A bolt's head and ribbon come up over its first frames, inside the release flash (3 frames: ⅓, ⅔, full). */
+const BOLT_BORN_S = 3 / 60;
 const MAX_BOLTS = 16;
 const MAX_METEORS = 4;
 const MAX_EMITTERS = 48;
@@ -907,7 +909,8 @@ export class FxCore {
     const hot = strong ? FX_COLORS.teal : FX_COLORS.fireHot;
     this.releasePoint.copy(at);
     // The dark body first (puffs draw before the additive flares): deep red, full on frame 0, out by frame 7.
-    this.puffs.spawn(at.x, at.y - 0.05, at.z, 2.1 * s * big, WORD_FX.flashBodyS, FX_COLORS.fireDark, 0.9, { fadeIn: 0.001, grow: 0.25, rot: this.random() * TAU });
+    // It holds while the flash does: a dark layer that faded under a held flash would brighten frame 1 over frame 0.
+    this.puffs.spawn(at.x, at.y - 0.05, at.z, 2.1 * s * big, WORD_FX.flashBodyS, FX_COLORS.fireDark, 0.9, { fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.25, rot: this.random() * TAU });
     // The flash: a white-hot core (the flare's centre, ≤ 30 % of its radius) in an ember-orange body.
     this.flares.flare(at, 2.2 * s * big, hot, 3.4 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.25);
     this.flares.flare(at, 3.2 * s * big, FX_COLORS.ember, 1.1 * soft, WORD_FX.flashBodyS, WORD_FX.flashHoldS, 0.4);
@@ -921,7 +924,7 @@ export class FxCore {
     // 0.25), so the release is at its biggest on frame 0; deep orange and red, they read on the beige dais.
     for (let k = 0; k < 3; k += 1) {
       const d = (0.55 + k * 0.6) * s;
-      this.puffs.spawn(from.x + ux * d, from.y - k * 0.05, from.z + uz * d, (1.45 - k * 0.22) * s * big, 0.11 + k * 0.03, k === 0 ? FX_COLORS.ember : FX_COLORS.fireDeep, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, grow: 0.25, rot: this.random() * TAU });
+      this.puffs.spawn(from.x + ux * d, from.y - k * 0.05, from.z + uz * d, (1.45 - k * 0.22) * s * big, 0.11 + k * 0.03, k === 0 ? FX_COLORS.ember : FX_COLORS.fireDeep, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.25, rot: this.random() * TAU });
     }
     for (let k = 0; k < (this.reduced ? 5 : 10); k += 1) {
       const yaw = this.rand(-0.45, 0.45);
@@ -1530,15 +1533,18 @@ export class FxCore {
       // T: the fire ribbon through points sampled back along the bolt's own curve (up to BOLT_RIBBON_M).
       const span = Math.min(bolt.t, BOLT_RIBBON_M / bolt.length);
       for (let i = 0; i < n; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (n - 1), bolt.trail.points[i]!);
-      bolt.trail.update(cameraPos, width, bolt.t < 1 ? 1 : Math.max(0, 1 - bolt.waited * 6), time);
+      // Born inside the release flash: the head and ribbon come up over its 2 full frames (f0 ⅓, f1 ⅔, f2 full), so the
+      // flash, not the bolt crossing it, is the brightest thing at the mouth on frame 0 (VFX_STANDARD §3.1 rule 5).
+      const born = Math.min(1, (bolt.t * bolt.duration) / BOLT_BORN_S);
+      bolt.trail.update(cameraPos, width, bolt.t < 1 ? born : Math.max(0, 1 - bolt.waited * 6), time);
       if (bolt.t < 1) {
         // A fireball with a body (test passes 26–27/10: a pale see-through spot): a deep-orange core and a hot heart in
         // normal blending, so it reads on the light path at 720p; over them an HDR head (2–4) that reaches the bloom
         // threshold, teal for a strong word (05 §6).
-        this.puffs.spawn(head.x, head.y, head.z, 0.95 * this.k, 0.06, FX_COLORS.fireDeep, 0.95, { fadeIn: 0.001, spin: 5, rot: this.random() * TAU });
-        this.puffs.spawn(head.x, head.y, head.z, 0.55 * this.k, 0.05, FX_COLORS.blastHot, 0.95, { fadeIn: 0.001, spin: -4, rot: this.random() * TAU });
-        this.flares.draw(head, 1.7 * this.k, bolt.strong ? FX_COLORS.teal : FX_COLORS.fire, bolt.strong ? 1.1 : 1.3);
-        this.flares.draw(head, 0.62 * this.k, bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, bolt.strong ? 2.6 : 3);
+        this.puffs.spawn(head.x, head.y, head.z, 0.95 * this.k, 0.06, FX_COLORS.fireDeep, 0.95 * born, { fadeIn: 0.001, spin: 5, rot: this.random() * TAU });
+        this.puffs.spawn(head.x, head.y, head.z, 0.55 * this.k, 0.05, FX_COLORS.blastHot, 0.95 * born, { fadeIn: 0.001, spin: -4, rot: this.random() * TAU });
+        this.flares.draw(head, 1.7 * this.k, bolt.strong ? FX_COLORS.teal : FX_COLORS.fire, (bolt.strong ? 1.1 : 1.3) * born);
+        this.flares.draw(head, 0.62 * this.k, bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, (bolt.strong ? 2.6 : 3) * born);
         if (this.random() < 70 * dt) this.sparks.spawn(head, this.u.set(this.rand(-1.5, 1.5), this.rand(0, 2), this.rand(-1.5, 1.5)), this.random() < 0.5 ? FX_COLORS.ember : FX_COLORS.fireHot, 0.32 * this.k, 0.32, { drag: 2, gravity: 3 });
         // A thin dark wake behind the fire (§3.5 rule 4).
         if (this.random() < 30 * dt) this.puffs.spawn(head.x, head.y + 0.1, head.z, 0.5 * this.k, 0.4, FX_COLORS.smoke, 0.38, { vy: 0.6, grow: 1.2, spin: this.rand(-1, 1), fadeIn: 0.04 });
