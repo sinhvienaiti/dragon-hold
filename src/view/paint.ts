@@ -56,8 +56,9 @@ const DECALS = {
  */
 export const PILOT_GROUND = {
   uGrassDeep: "#4f7a40",
-  uGrassMid: "#669d42",
-  uGrassLight: "#7cb150",
+  // V2 (A2): a step less saturated, toward the reference's soft light green.
+  uGrassMid: "#6b9e49",
+  uGrassLight: "#81b258",
   uForestFloor: "#4d6a3f",
   uVioletShade: "#b4c0d8",
   uDirt: "#c9a77c",
@@ -690,6 +691,8 @@ if (edge0 < 0.6 || pm2.g > 0.05) dRock = dhDetail(textureGrad(uTRock, p / 4.5, d
 float calm = broad * 0.75 + mid * 0.17 + stroke * 0.08;
 vec3 c = mix(uGrassMid, uGrassLight, clamp(0.4 + (calm - 0.5) * 1.1, 0.0, 1.0));
 c *= dGrass;
+// V2 (A2): soft 20–30 m patches drift the meadow ±4 % between a cooler fresh green and a warmer sunlit one.
+c *= mix(vec3(0.955, 0.975, 1.03), vec3(1.04, 1.025, 0.95), smoothstep(0.3, 0.7, dhFbm(p * 0.041 + 41.0)));
 // Meadow tufts (the reference's speckle): small dabs a step darker and deeper green, lit on the sun side; baked, so free per frame.
 {
   vec2 tc = floor(p / 0.75);
