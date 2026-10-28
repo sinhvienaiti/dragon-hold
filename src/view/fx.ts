@@ -38,6 +38,11 @@ export const FX_COLORS = {
   fire: new THREE.Color("#ff9e6b"),
   fireHot: new THREE.Color("#ffd9a0"),
   fireDeep: new THREE.Color("#e8552a"),
+  /**
+   * The white-hot centre of the release flash. The grade's Neutral tone map keeps hues, so the peach fireHot never
+   * reaches white however bright (28/10 capture: the plain flash read as a peach haze); this one does.
+   */
+  flashCore: new THREE.Color("#fff4e2"),
   /** The darkest of the fire ramp: the body under the release flash, so the white-hot core has a dark edge on the sunlit dais. */
   fireDark: new THREE.Color("#a8321a"),
   teal: new THREE.Color("#7ff5e0"),
@@ -911,7 +916,8 @@ export class FxCore {
     // The dark body first (puffs draw before the additive flares): deep red, full on frame 0, out by frame 7.
     // It holds while the flash does: a dark layer that faded under a held flash would brighten frame 1 over frame 0.
     this.puffs.spawn(at.x, at.y - 0.05, at.z, 2.1 * s * big, WORD_FX.flashBodyS, FX_COLORS.fireDark, 0.9, { fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.25, rot: this.random() * TAU });
-    // The flash: a white-hot core (the flare's centre, ≤ 30 % of its radius) in an ember-orange body.
+    // The flash: a small white-hot core in a hot gold (teal on a strong word) flare, in an ember-orange body.
+    this.flares.flare(at, 1.1 * s * big, FX_COLORS.flashCore, 3 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2);
     this.flares.flare(at, 2.2 * s * big, hot, 3.4 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.25);
     this.flares.flare(at, 3.2 * s * big, FX_COLORS.ember, 1.1 * soft, WORD_FX.flashBodyS, WORD_FX.flashHoldS, 0.4);
     // The streak: flares stepping out along the shot, smaller and redder the further out (a muzzle cone, 2–3 frames).
