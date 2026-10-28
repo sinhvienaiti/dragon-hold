@@ -70,7 +70,7 @@ describe("ui hud read-outs", () => {
     expect(chainMultiplier(0)).toBe("");
     expect(chainMultiplier(5)).toBe("×1,04");
     expect(chainMultiplier(40)).toBe("×1,16");
-    expect(rejectText("buy", "gold")).toBe("Chưa đủ vàng");
+    expect(rejectText("buy", "gold")).toBe("Chưa đủ Gold");
     expect(rejectText("skill", "something-new")).toBe("Chưa dùng được kỹ năng");
     expect(rejectText("consumable", "cooldown")).toBe("Đồ tiêu hao đang hồi");
     expect(rejectText("skill", "cooldown")).toBe("Kỹ năng đang hồi");

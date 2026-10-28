@@ -74,15 +74,12 @@ function foeInfo(foe: FoeId): Omit<FoeTally, "count" | "elite"> {
 }
 
 /**
- * A foe's short name on the card: "Yêu Rêu Cung" → "Cung", "Sói Mục" → "Sói";
- * "Yêu Rêu Lính" stays "Yêu Rêu" (test pass 26/10: "Lính" is our Vệ Binh's
- * word, "Lính chặn 2 quái"); a general is "Tướng".
+ * A foe's name on the card: the kind's full English name ("Moss Archer",
+ * "Blight Wolf"; owner 27/10, English game nouns); a general is "Tướng".
  */
 export function shortFoeName(tally: Pick<FoeTally, "nameVi" | "general">): string {
   if (tally.general) return "Tướng";
-  if (tally.nameVi === "Yêu Rêu Lính") return "Yêu Rêu";
-  const words = tally.nameVi.split(" ");
-  return tally.nameVi.startsWith("Yêu Rêu ") ? words.slice(2).join(" ") : words[0] ?? tally.nameVi;
+  return tally.nameVi;
 }
 
 /** What wave `n` (1-based) brings, lane by lane in the stage's lane order; null past the last wave. */
