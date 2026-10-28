@@ -98,7 +98,9 @@ export const LAYOUT_RULES = {
     anchorPastM: 6,
     /** V4: the grove's own species holds this share; the rest are young pines (outer ring) and the other species. */
     dominantShare: 0.74,
-    violetMax: 2,
+    /** FB-08 (A2): one violet crown in one grove at most (the accent is rare, never at every angle). */
+    violetMax: 1,
+    violetGrovesMax: 1,
     /** Blossom bushes read as red specks from above (V3): few. */
     blossomShare: 0.2,
     minRadiusM: 2.6,
@@ -128,9 +130,11 @@ export const LAYOUT_RULES = {
   /** L6: lone trees in the open meadow, each on its own dirt disc. */
   solitary: {
     /** V5: lone trees on dirt discs in the transition bands (the reference's middle ground), at most openMax on the open arc. */
-    count: 12,
-    /** V1: lone trees on the open meadow arc. */
-    openMax: 3,
+    count: 9,
+    /** V1: lone trees on the open meadow arc (FB-11, A2: one; the meadow stays open). */
+    openMax: 1,
+    /** FB-11 (A2): a lone tree stands within this of a grove disc or the forest edge (the transition band), never mid-meadow. */
+    bandM: 8,
     cellM: 5,
     ringM: [12, 29] as const,
     clearLaneM: 4.2,
@@ -140,27 +144,51 @@ export const LAYOUT_RULES = {
     clearPathM: 2.4,
     clearPondM: 3,
     clearGroveM: 2.5,
-    gapM: 7,
+    /** FB-11: 6–10 m apart. */
+    gapM: 6,
   },
   /** L6: stone clusters (2–4 grey stones) along the water and the lane edges; the cliff's scree and lip slabs. */
   rocks: {
-    river: { stepM: 4.5, chance: 0.45, offsetM: [0.1, 0.8] as const, clearLaneM: 2.6, reachM: 6, k: [0.45, 0.95] as const },
-    lane: { stepM: 6, chance: 0.32, offsetM: [0.7, 1.3] as const, clearSlotM: 4, clearDaisM: 9, k: [0.35, 0.6] as const },
+    // FB-02 (A2): fewer stone clusters along the water and the lanes (small grey specks add clutter).
+    river: { stepM: 4.5, chance: 0.36, offsetM: [0.1, 0.8] as const, clearLaneM: 2.6, reachM: 6, k: [0.45, 0.95] as const },
+    lane: { stepM: 6, chance: 0.22, offsetM: [0.7, 1.3] as const, clearSlotM: 4, clearDaisM: 9, k: [0.35, 0.6] as const },
     pond: { count: 10, k: [0.6, 1.35] as const },
-    /** V10: 10–20 pale stones 0.8–2 m on the scree in front of each cliff foot. */
-    cliffFoot: { stepM: 2.2, chance: 0.7, outM: [0.8, 6.5] as const, k: [0.8, 2.0] as const },
-    /** Big pale rocks bedded in the tier faces (painted stone, no moss): the face reads as a rock mass. */
-    cliffMass: { stepM: 2.2, chance: 0.9, pairChance: 0.7, k: [4.2, 7.2] as const, boulderShare: 0.5, leanRad: 0.16 },
+    /** V10: 10–20 pale stones 0.8–2 m on the scree in front of each cliff foot; FB-10 (A2): some are low Cliff Rock (wide) blocks. */
+    cliffFoot: { stepM: 2.0, chance: 0.75, outM: [0.8, 6.5] as const, k: [0.8, 2.0] as const, blockShare: 0.3, blockK: [1.6, 2.6] as const },
+    /**
+     * FB-10 (A2): tiered faces of the Tripo round 3 Cliff Rocks, replacing the round boulders: along each tier's
+     * face foot a row of tall blocks (cliff-rock-a, height a tier × kA), turned to the dais, every stepM; the
+     * lowest tier mixes in wide blocks (cliff-rock-b, width kB × tier); a few wide blocks along the top lip.
+     */
+    cliffFace: { stepM: 2.1, jitterM: 0.4, intoM: 0.35, kA: [0.88, 1.08] as const, stretchA: [1.45, 1.95] as const, kB: [1.2, 1.5] as const, footWide: 0.35, lipStepM: 4.5, lipK: [2.4, 3.4] as const, yawJitter: 0.45, leanRad: 0.06 },
   },
   /** V6: the skirt forest starts insideM inside the play radius, moved by the scene's bays and headlands, ± noiseM. */
-  edge: { insideM: 2, noiseM: 3.5, noiseWave: 4.5 },
+  edge: { insideM: 2, noiseM: 4, noiseWave: 4.5 },
   /**
    * V5 (map pilot): small round bushes dotted over the meadow, as in the reference: sparse on the open
    * arc, a little denser in the transition bands; clear of lanes, slots, the sky lane, water and paths.
    */
-  dots: { cellM: 3.6, openChance: 0.42, chance: 0.6, max: 34, gapM: 3.2, k: [1.3, 2.1] as const, clearLaneM: 2.6, clearSlotM: 3.8, clearSkyM: 2.2, clearWaterM: 1.3, clearPathM: 0.9, clearTreeM: 2.4, daisM: 9.5 },
-  /** V7: warm crowns (tinted round trees). */
-  warm: { clearM: 9, gapM: 12, share: 0.08, min: 5, violetGapM: 7 },
+  /** FB-11 (A2): no loose bush on the open meadow; a few only near a grove disc or the forest edge (nearM), as clusters. */
+  dots: { cellM: 3.6, openChance: 0, chance: 0.6, max: 14, nearM: 5, gapM: 3.2, k: [1.3, 2.1] as const, clearLaneM: 2.6, clearSlotM: 3.8, clearSkyM: 2.2, clearWaterM: 1.3, clearPathM: 0.9, clearTreeM: 2.4, daisM: 9.5 },
+  /**
+   * V7: warm crowns (tinted round trees). FB-09 (A2): 16 m apart and from a violet crown, 10 m from lanes,
+   * slots and the sky lane, and never under the default frame's HUD (`hud`: screen boxes [u0, v0, u1, v1], 0–1).
+   */
+  warm: { clearM: 10, gapM: 16, share: 0.08, min: 4, violetGapM: 16, grow: 1.18, hud: [[0, 0.7, 0.32, 1.6], [0.3, 0.8, 0.7, 1.6]] as const },
+  /**
+   * FB-16, FB-18, FB-15 (A2): path dressing from the Tripo round 3 kit. Lantern Post every 9–12 m along a main
+   * path, sides alternating, 0.9 m off its edge (more often near the dais); Rail Fence sections at both
+   * bridgeheads and on the outside of main-path bends ≥ 15°; Wooden Jetty at the pond end of the pond path;
+   * Reed Clumps on the pond's far shore and the slow river banks; a rest spot (log seat, stump, lantern) at the
+   * end of a branch path that enters a forest bay.
+   */
+  dress: {
+    lantern: { firstM: 3.5, stepM: [9, 12] as const, offM: 0.9, k: 2.2, clearSlotM: 4.6, clearLaneM: 2.2, clearWaterM: 1.0 },
+    fence: { k: 2.4, bridgeOffM: 0.7, bendDeg: 15, bendsMax: 2, offM: 0.85, clearSlotM: 1.9, clearLaneM: 0.5 },
+    jetty: { k: 3.3, landM: 0.9, deckM: 0.3 },
+    reeds: { pond: 6, pondK: [0.95, 1.35] as const, riverSpots: 4, riverK: [0.9, 1.3] as const, clearLaneM: 2.4, clearSlotM: 3, clearJettyM: 2.4 },
+    rest: { r: 2.6 },
+  },
   /** L7 paint stamps (potential discs: 1 at the centre, 0.5 at radius, 0 at radius + falloff). */
   paint: {
     plazaM: 6.5,
@@ -231,6 +259,11 @@ export interface Cliff {
   offset(x: number, z: number): { s: number; cap: number; along: number };
   /** Offset where the top tier's face ends (the plateau starts past it). */
   readonly topS: number;
+  /** Map pilot A2: offset of tier k's face foot at a distance `along` the line (its own wander included). */
+  faceS(along: number, k: number): number;
+  /** Height of one tier, metres. */
+  readonly tierM: number;
+  readonly tiers: number;
 }
 
 export interface Footpath {
@@ -393,7 +426,7 @@ const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 /** Rule-scoped hash in [0, 1): one stream per rule id. */
 const h = (rule: number, a: number, b: number, seed: number): number => hash2(a * 7919 + rule * 104729, b, seed);
 
-const RULE = { pond: 1, cliff: 2, path: 3, grove: 4, groveTree: 5, solitary: 6, rockRiver: 7, rockLane: 8, rockPond: 9, rockCliff: 10, scuff: 11, rim: 12, dots: 13 } as const;
+const RULE = { pond: 1, cliff: 2, path: 3, grove: 4, groveTree: 5, solitary: 6, rockRiver: 7, rockLane: 8, rockPond: 9, rockCliff: 10, scuff: 11, rim: 12, dots: 13, dress: 14 } as const;
 
 /** Tree tints (multiplied into the texture): base, sun green, cool blue-green, deep, fresh. Never yellow (Héo). */
 const TINTS: readonly (readonly [number, number, number])[] = [
@@ -495,6 +528,9 @@ function buildCliff(f: LayoutFields, seed: number, spec: SceneCliff): Cliff {
   return {
     line,
     offset,
+    tiers,
+    tierM: C.heightM / tiers,
+    faceS: (along: number, k: number): number => C.faceFromM + k * (C.faceW + C.ledgeW) + tierWander(along, k),
     topS: C.faceFromM + (tiers - 1) * (C.faceW + C.ledgeW) + C.faceW + C.raggedM * 0.8,
     lift(x: number, z: number): number {
       if (x < line.minX - 40 || x > line.maxX + 40 || z < line.minZ - 40 || z > line.maxZ + 40) return 0;
@@ -702,6 +738,9 @@ function compositeCliff(cliffs: readonly Cliff[]): Cliff {
   return {
     line: cliffs[0]!.line,
     topS: Math.max(...cliffs.map((cliff) => cliff.topS)),
+    tiers: cliffs[0]!.tiers,
+    tierM: cliffs[0]!.tierM,
+    faceS: cliffs[0]!.faceS,
     lift(x: number, z: number): number {
       let best = 0;
       for (const cliff of cliffs) best = Math.max(best, cliff.lift(x, z));
@@ -723,10 +762,63 @@ const PINE_ROUND = "props/pine-river-pine-round";
 const PINE_TALL = "props/pine-river-pine-tall";
 const PINE_YOUNG = "props/pine-river-pine-young";
 const ROCK_SLAB = "props/pine-river-rock-slab";
-const ROCK_BOULDER = "props/pine-river-rock-boulder";
 const RIVER_STONES = "props/pine-river-river-stones";
 /** V13: gravel and stones mid grey, never a white chain. */
 const GREY: readonly [number, number, number] = [0.7, 0.71, 0.73];
+const CLIFF_A = "props/pine-river-cliff-rock-a";
+const CLIFF_B = "props/pine-river-cliff-rock-b";
+const LANTERN = "props/pine-river-lantern-post";
+const FENCE = "props/pine-river-rail-fence";
+const JETTY = "props/pine-river-wooden-jetty";
+const REED = "props/pine-river-reed-clump";
+const TUFT = "props/pine-river-grass-tuft";
+const FLOWER = "props/pine-river-wildflower-clump";
+/** Processed heights of the width-sized round 3 props (scripts/models/presets/dragon-hold-m0b.json: 1 m wide). */
+const CLIFF_B_H = 0.444;
+
+/**
+ * Where a world point lands in the map's home view (map.camera, the stage camera's 30° field, 16:9):
+ * [u, v] from the top-left, 0–1, or null behind the camera. FB-09 keeps warm crowns out of the HUD boxes.
+ */
+export function homeViewUv(map: MapDef, x: number, y: number, z: number): [number, number] | null {
+  const D = Math.PI / 180;
+  const [cx, cz] = map.dais.center;
+  const [lx, lz] = map.camera.lookM ?? [0, 0];
+  const yaw = map.camera.yawDeg * D;
+  const pitch = map.camera.pitchDeg * D;
+  const tx = cx + lx;
+  const ty = 0.6;
+  const tz = cz + lz;
+  const flat = Math.cos(pitch) * map.camera.distanceM;
+  const px = tx + Math.sin(yaw) * flat;
+  const py = ty + Math.sin(pitch) * map.camera.distanceM;
+  const pz = tz + Math.cos(yaw) * flat;
+  let fx = tx - px;
+  let fy = ty - py;
+  let fz = tz - pz;
+  const fl = Math.hypot(fx, fy, fz);
+  fx /= fl;
+  fy /= fl;
+  fz /= fl;
+  // right = forward × up (up = +y), camera up = right × forward.
+  let rx = -fz;
+  let rz = fx;
+  const rl = Math.hypot(rx, rz) || 1;
+  rx /= rl;
+  rz /= rl;
+  const ux = -rz * fy;
+  const uy = rz * fx - rx * fz;
+  const uz = rx * fy;
+  const dx = x - px;
+  const dy = y - py;
+  const dz = z - pz;
+  const depth = dx * fx + dy * fy + dz * fz;
+  if (depth <= 0) return null;
+  const tan = Math.tan(15 * D);
+  const ndcX = (dx * rx + dz * rz) / (depth * tan * (16 / 9));
+  const ndcY = (dx * ux + dy * uy + dz * uz) / (depth * tan);
+  return [(ndcX + 1) / 2, (1 - ndcY) / 2];
+}
 
 export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)): MapLayout {
   const f = new LayoutFields(map);
@@ -749,6 +841,16 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     return best;
   };
   const pondEdge = (x: number, z: number): number => (pond ? pond.edge(x, z) : 99);
+  // FB-18 (A2): a branch path that ends in the forest ends at a rest spot (a clearing with a log seat).
+  const DR = LAYOUT_RULES.dress;
+  const clearings: { x: number; z: number; r: number }[] = [];
+  for (const path of footpaths) {
+    if (path.tier !== "branch") continue;
+    const last = path.line.count - 1;
+    const x = path.line.xs[last]!;
+    const z = path.line.zs[last]!;
+    if (f.r(x, z) > f.play) clearings.push({ x, z, r: DR.rest.r });
+  }
 
   // Light: shade side is away from the sun (V3 puts each dirt patch's centre there).
   const sunB = ((scene?.lighting.sunBearingDeg ?? 221.6) * Math.PI) / 180;
@@ -815,6 +917,15 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     if (anchor && radius >= G.anchorRadiusM[0] - 0.5) anchors += 1;
     const violet = Math.min(f.laneGap(c.x, c.z), f.skyDist(c.x, c.z)) - radius >= G.violetLaneM;
     groves.push({ id: "grove:" + c.cell, x: c.x, z: c.z, radius, violet, warm: true, dominant: dominantOf(groves.length) });
+  }
+
+  // FB-08 (A2): violet crowns in violetGrovesMax groves at most, the ones farthest from lanes and the sky lane.
+  {
+    const clear = (g: Grove): number => Math.min(f.laneGap(g.x, g.z), f.skyDist(g.x, g.z)) - g.radius;
+    const keep = new Set(groves.filter((g) => g.violet).sort((a, b) => clear(b) - clear(a) || (a.id < b.id ? -1 : 1)).slice(0, G.violetGrovesMax).map((g) => g.id));
+    groves.forEach((g, gi) => {
+      if (g.violet && !keep.has(g.id)) groves[gi] = { ...g, violet: false };
+    });
   }
 
   // Trees inside each grove: dart throwing in rank order; one species holds ≥ 70 % (V4), young pines under, 1–2 accents.
@@ -903,6 +1014,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     if (f.riverEdge(c.x, c.z) < S.clearRiverM || pathGap(c.x, c.z) < S.clearPathM || pondEdge(c.x, c.z) < S.clearPondM) continue;
     if (groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) < g.radius + S.clearGroveM)) continue;
     if (lone.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < S.gapM)) continue;
+    // FB-11 (A2): only in the transition band, near a grove disc or the forest edge.
+    const nearGrove = groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) - g.radius < S.bandM);
+    if (!nearGrove && forestEdge(c.x, c.z) - r > S.bandM) continue;
     const isOpen = inOpen(c.x, c.z);
     if (isOpen && openLone >= S.openMax) continue;
     if (isOpen) openLone += 1;
@@ -924,6 +1038,7 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     const z = f.cz + dz * r;
     if (!treeOk(x, z) || f.laneGap(x, z) < 5 || f.slotDist(x, z) < 6 || (cliff && cliff.offset(x, z).s > -3 && cliff.offset(x, z).cap > 0.2)) return;
     if ([...trees, ...bayTrees].some((t) => Math.hypot(t.x - x, t.z - z) < 4)) return;
+    if (clearings.some((c) => Math.hypot(c.x - x, c.z - z) < c.r + 2.5)) return;
     const roll = h(RULE.solitary, bi, 93, seed);
     const height = 5.4 + roll * 1.8;
     bayTrees.push({ id: "bay:" + bi, proto: PINE_ROUND, x, z, k: height, yaw: roll * 6.283, tint: TINTS[bi % TINTS.length]!, radius: height * 0.55 });
@@ -934,11 +1049,17 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
   // ≥ 9 m from lanes, slots and the sky lane, ≥ 12 m apart, about 8 % of the trees.
   const W = LAYOUT_RULES.warm;
   const warmIds = new Set<string>();
+  // FB-09: the crown's middle (about 0.7 of its height) projected into the home view, inside a HUD box.
+  const underHud = (tree: LayoutItem): boolean => {
+    const uv = homeViewUv(map, tree.x, tree.k * 0.7, tree.z);
+    return uv !== null && W.hud.some(([u0, v0, u1, v1]) => uv[0] >= u0 && uv[0] <= u1 && uv[1] >= v0 && uv[1] <= v1);
+  };
   {
     const pool: { item: LayoutItem; score: number }[] = [];
     for (const tree of trees) {
       if (tree.proto !== PINE_ROUND) continue;
       if (f.laneGap(tree.x, tree.z) < W.clearM || f.slotDist(tree.x, tree.z) < W.clearM || f.skyDist(tree.x, tree.z) < W.clearM) continue;
+      if (underHud(tree)) continue;
       // One accent colour per spot: no warm crown beside a violet one.
       if (trees.some((t) => t.proto.endsWith("violet") && Math.hypot(t.x - tree.x, t.z - tree.z) < W.violetGapM)) continue;
       let score = h(RULE.rim, Math.round(tree.x * 10), Math.round(tree.z * 10), seed) * 0.3;
@@ -952,6 +1073,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
         if (out < 0.25) continue;
         score += 1 + out;
       }
+      // A2: prefer spots the home view shows clear of its edges and the HUD (accents the default frame carries).
+      const uv = homeViewUv(map, tree.x, tree.k * 0.7, tree.z);
+      if (uv !== null && uv[0] > 0.08 && uv[0] < 0.92 && uv[1] > 0.08 && uv[1] < 0.75) score += 1.6;
       pool.push({ item: tree, score });
     }
     pool.sort((a, b) => b.score - a.score || (a.item.id < b.item.id ? -1 : 1));
@@ -964,7 +1088,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       warmIds.add(item.id);
     }
   }
-  const warmTrees = trees.map((tree) => (warmIds.has(tree.id) ? { ...tree, warm: true } : tree));
+  // A warm crown is the grove's accent tree: a little larger than its neighbours (the reference's maples), within the height cap.
+  const warmTrees = trees.map((tree) => (warmIds.has(tree.id) ? { ...tree, warm: true, k: Math.min(G.capMax, tree.k * W.grow), radius: tree.radius * W.grow } : tree));
   trees.length = 0;
   trees.push(...warmTrees);
 
@@ -1020,6 +1145,215 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       }
     }
   });
+  // FB-16, FB-18, FB-15 (A2): path dressing (lanterns, fences, the jetty, reeds, the rest spot).
+  const dress: LayoutItem[] = [];
+  const tangent = { x: 0, z: 0, dx: 0, dz: 1 };
+  const dressOk = (x: number, z: number, slotM: number, laneM: number, waterM: number): boolean =>
+    f.slotDist(x, z) >= slotM && f.laneGap(x, z) >= laneM && f.riverEdge(x, z) >= waterM && pondEdge(x, z) >= waterM && f.skyDist(x, z) >= 1.5 && f.r(x, z) >= f.map.dais.radiusM + 2.6 && !(cliff && cliff.lift(x, z) > 0.3);
+  const halfAt = (path: Footpath, s: number): number => {
+    let k = 0;
+    while (k < path.line.count - 1 && path.line.cum[k + 1]! < s) k += 1;
+    return path.halves[k]!;
+  };
+  // Wooden Jetty: at the pond end of a main path, its steps on the path end, the deck out over the water.
+  let jetty: { ax: number; az: number; bx: number; bz: number } | null = null;
+  if (pond) {
+    for (const path of footpaths) {
+      if (path.tier !== "main" || jetty) continue;
+      const last = path.line.count - 1;
+      const ex = path.line.xs[last]!;
+      const ez = path.line.zs[last]!;
+      if (Math.abs(pond.edge(ex, ez)) > 1.2) continue;
+      const ul = Math.hypot(pond.x - ex, pond.z - ez) || 1;
+      const ux = (pond.x - ex) / ul;
+      const uz = (pond.z - ez) / ul;
+      const J = DR.jetty;
+      const cx = ex + ux * (J.k / 2 - J.landM);
+      const cz = ez + uz * (J.k / 2 - J.landM);
+      jetty = { ax: ex - ux * J.landM, az: ez - uz * J.landM, bx: ex + ux * (J.k - J.landM), bz: ez + uz * (J.k - J.landM) };
+      // In the game a prop faces +z (models.ts turns it): the steps end (+z) on the path, the deck (−z) over the water.
+      dress.push({ id: "dress:jetty", proto: JETTY, x: cx, z: cz, k: J.k, yaw: Math.atan2(-ux, -uz), tint: [1, 1, 1], radius: J.k * 0.5, water: J.deckM - J.k * 0.276 });
+      // A lantern at the landing, beside the steps.
+      const side = h(RULE.dress, 501, 1, seed) < 0.5 ? -1 : 1;
+      const lx = ex - ux * 1.4 - uz * side * 1.5;
+      const lz = ez - uz * 1.4 + ux * side * 1.5;
+      if (dressOk(lx, lz, DR.lantern.clearSlotM, DR.lantern.clearLaneM, 0.3)) dress.push({ id: "dress:lantern:jetty", proto: LANTERN, x: lx, z: lz, k: DR.lantern.k, yaw: Math.atan2(uz * side, -ux * side), tint: [1, 1, 1], radius: 0.4 });
+    }
+  }
+  const jettyGap = (x: number, z: number): number => {
+    if (!jetty) return 99;
+    const vx = jetty.bx - jetty.ax;
+    const vz = jetty.bz - jetty.az;
+    const t = Math.min(1, Math.max(0, ((x - jetty.ax) * vx + (z - jetty.az) * vz) / (vx * vx + vz * vz)));
+    return Math.hypot(x - jetty.ax - vx * t, z - jetty.az - vz * t);
+  };
+  // Lantern Post every 9–12 m along each main path, alternating sides, the arm over the path.
+  footpaths.forEach((path, pi) => {
+    if (path.tier !== "main") return;
+    const L = DR.lantern;
+    let side = h(RULE.dress, 600 + pi, 1, seed) < 0.5 ? -1 : 1;
+    let n = 0;
+    for (let s = L.firstM; s < path.line.length - 2.5; n += 1) {
+      path.line.pointAt(s, tangent);
+      const off = halfAt(path, s) + L.offM;
+      let placed = false;
+      for (const tryside of [side, -side]) {
+        const x = tangent.x - tangent.dz * off * tryside;
+        const z = tangent.z + tangent.dx * off * tryside;
+        if (!dressOk(x, z, L.clearSlotM, L.clearLaneM, L.clearWaterM) || jettyGap(x, z) < 1.5) continue;
+        if (dress.some((d) => d.proto === LANTERN && Math.hypot(d.x - x, d.z - z) < 6)) continue;
+        // The lantern's front (+z in the game, its arm) toward the path.
+        dress.push({ id: "dress:lantern:" + path.id + ":" + n, proto: LANTERN, x, z, k: L.k * (0.94 + 0.1 * h(RULE.dress, 610 + pi * 50 + n, 2, seed)), yaw: Math.atan2(tangent.dz * tryside, -tangent.dx * tryside), tint: [1, 1, 1], radius: 0.4 });
+        placed = true;
+        side = -tryside;
+        break;
+      }
+      // Near the dais the first gaps are the shortest (FB-13: denser at the plaza, sparser toward the gates).
+      const step = lerp(L.stepM[0], L.stepM[1], h(RULE.dress, 620 + pi * 50 + n, 3, seed));
+      s += placed ? step : 2;
+    }
+  });
+  // Rail Fence: both bridgeheads, each side of the lane, along the bank.
+  const FN = DR.fence;
+  const fenceOk = (x: number, z: number, tx: number, tz: number): boolean => {
+    // Both ends and the middle of the section clear of slots, lanes and the water.
+    for (const t of [-0.5, 0, 0.5]) {
+      const px = x + tx * FN.k * t;
+      const pz = z + tz * FN.k * t;
+      if (f.slotDist(px, pz) < FN.clearSlotM || f.laneGap(px, pz) < FN.clearLaneM || f.riverEdge(px, pz) < 0.25 || pondEdge(px, pz) < 0.4 || pathGap(px, pz) < 0.15) return false;
+    }
+    return true;
+  };
+  const fenceAt = (id: string, x: number, z: number, tx: number, tz: number): void => {
+    if (!fenceOk(x, z, tx, tz)) return;
+    // The section's long side (model x) along (tx, tz).
+    dress.push({ id, proto: FENCE, x, z, k: FN.k, yaw: Math.atan2(-tz, tx), tint: [1, 1, 1], radius: FN.k * 0.5 });
+  };
+  f.lanes.forEach((lane, laneIndex) => {
+    if (!f.river) return;
+    const river = f.river.line;
+    const hit: Nearest = { dist: 0, along: 0, x: 0, z: 0 };
+    const along = { x: 0, z: 0, dx: 0, dz: 1 };
+    for (const span of lane.spans) {
+      if (span.kind !== "bridge") continue;
+      for (const [at, away] of [[span.fromM - FN.bridgeOffM, -1], [span.toM + FN.bridgeOffM, 1]] as const) {
+        lane.line.pointAt(at, tangent);
+        river.nearest(tangent.x, tangent.z, hit);
+        river.pointAt(hit.along, along);
+        for (const side of [-1, 1]) {
+          // Along the bank (the river's own direction), out from the lane on this side.
+          const nx = -tangent.dz * side;
+          const nz = tangent.dx * side;
+          const dot = along.dx * nx + along.dz * nz;
+          if (Math.abs(dot) < 0.3) continue;
+          const tx = along.dx * Math.sign(dot);
+          const tz = along.dz * Math.sign(dot);
+          const start = lane.half / Math.abs(dot) + 0.6;
+          let x = tangent.x + tx * (start + FN.k / 2);
+          let z = tangent.z + tz * (start + FN.k / 2);
+          // Back from the water edge, away from the bridge.
+          for (let i = 0; i < 16 && f.riverEdge(x, z) < 0.75; i += 1) {
+            x += tangent.dx * away * 0.25;
+            z += tangent.dz * away * 0.25;
+          }
+          fenceAt("dress:fence:bridge:" + laneIndex + ":" + at.toFixed(1) + ":" + side, x, z, tx, tz);
+        }
+      }
+    }
+  });
+  // …and on the outside of the sharpest main-path bends (≥ 15°).
+  footpaths.forEach((path) => {
+    if (path.tier !== "main") return;
+    const bends: { s: number; turn: number }[] = [];
+    const a = { x: 0, z: 0, dx: 0, dz: 1 };
+    const b = { x: 0, z: 0, dx: 0, dz: 1 };
+    for (let s = 4; s < path.line.length - 4; s += 1) {
+      path.line.pointAt(s - 3, a);
+      path.line.pointAt(s + 3, b);
+      const turn = (Math.atan2(a.dx * b.dz - a.dz * b.dx, a.dx * b.dx + a.dz * b.dz) * 180) / Math.PI;
+      if (Math.abs(turn) >= FN.bendDeg) bends.push({ s, turn });
+    }
+    bends.sort((p, q) => Math.abs(q.turn) - Math.abs(p.turn));
+    const taken: number[] = [];
+    for (const bend of bends) {
+      if (taken.length >= FN.bendsMax) break;
+      if (taken.some((s) => Math.abs(s - bend.s) < 6)) continue;
+      path.line.pointAt(bend.s, tangent);
+      // Outside of the bend: away from the turn direction.
+      const side = bend.turn > 0 ? 1 : -1;
+      const off = halfAt(path, bend.s) + FN.offM;
+      const x = tangent.x - tangent.dz * off * side;
+      const z = tangent.z + tangent.dx * off * side;
+      const before = dress.length;
+      fenceAt("dress:fence:" + path.id + ":" + bend.s, x, z, tangent.dx, tangent.dz);
+      if (dress.length > before) taken.push(bend.s);
+    }
+  });
+  // Rest spots: a log seat and a stump in the clearing at a branch path's forest end, a lantern by the path.
+  clearings.forEach((c, ci) => {
+    const path = footpaths.find((p) => p.tier === "branch" && Math.hypot(p.line.xs[p.line.count - 1]! - c.x, p.line.zs[p.line.count - 1]! - c.z) < 0.1);
+    if (!path) return;
+    path.line.pointAt(path.line.length - 0.5, tangent);
+    const lx = c.x + tangent.dx * 1.6 - tangent.dz * 1.3;
+    const lz = c.z + tangent.dz * 1.6 + tangent.dx * 1.3;
+    rocks.push({ id: "rest:log:" + ci, proto: "props/pine-river-log", x: lx, z: lz, k: 2.2, yaw: Math.atan2(tangent.dx, tangent.dz) + 1.4, tint: [1, 1, 1], radius: 1.1 });
+    const sx = c.x + tangent.dx * 0.4 + tangent.dz * 1.6;
+    const sz = c.z + tangent.dz * 0.4 - tangent.dx * 1.6;
+    rocks.push({ id: "rest:stump:" + ci, proto: "props/pine-river-stump", x: sx, z: sz, k: 0.85, yaw: ci * 1.7, tint: [1, 1, 1], radius: 0.45 });
+    const px = c.x - tangent.dx * 2.2 - tangent.dz * 1.1;
+    const pz = c.z - tangent.dz * 2.2 + tangent.dx * 1.1;
+    dress.push({ id: "dress:lantern:rest:" + ci, proto: LANTERN, x: px, z: pz, k: DR.lantern.k, yaw: Math.atan2(tangent.dz, -tangent.dx), tint: [1, 1, 1], radius: 0.4 });
+    for (let k = 0; k < 3; k += 1) {
+      const a = h(RULE.dress, 700 + ci * 10 + k, 1, seed) * 6.283;
+      const rr = c.r + 0.3 + h(RULE.dress, 700 + ci * 10 + k, 2, seed) * 0.8;
+      bushes.push({ id: "rest:tuft:" + ci + ":" + k, proto: k === 0 ? FLOWER : TUFT, x: c.x + Math.cos(a) * rr, z: c.z + Math.sin(a) * rr, k: 0.6 + 0.2 * h(RULE.dress, 700 + ci * 10 + k, 3, seed), yaw: a, tint: [1, 1, 1], radius: 0.35 });
+    }
+  });
+  // Reed Clumps: on the pond's far shore (away from the dais and the jetty) and in a few slow river reaches.
+  if (pond) {
+    const RD = DR.reeds;
+    let count = 0;
+    for (let k = 0; k < 40 && count < RD.pond; k += 1) {
+      const s = h(RULE.rockPond, 300 + k, 1, seed) * pond.shore.length;
+      const p = pond.shore.pointAt(s);
+      const ox = p.x - pond.x;
+      const oz = p.z - pond.z;
+      const length = Math.hypot(ox, oz) || 1;
+      // The far side: facing away from the dais.
+      if ((ox * (pond.x - f.cx) + oz * (pond.z - f.cz)) / (length * (f.r(pond.x, pond.z) || 1)) < -0.1) continue;
+      const out = -0.15 + h(RULE.rockPond, 300 + k, 2, seed) * 0.4;
+      const x = p.x + (ox / length) * out;
+      const z = p.z + (oz / length) * out;
+      if (jettyGap(x, z) < RD.clearJettyM || pathGap(x, z) < 1 || bushes.some((b) => b.proto === REED && Math.hypot(b.x - x, b.z - z) < 1.1)) continue;
+      bushes.push({ id: "reed:pond:" + k, proto: REED, x, z, k: lerp(RD.pondK[0], RD.pondK[1], h(RULE.rockPond, 300 + k, 3, seed)), yaw: h(RULE.rockPond, 300 + k, 4, seed) * 6.283, tint: [1, 1, 1], radius: 0.45 });
+      count += 1;
+    }
+  }
+  if (f.river) {
+    const RD = DR.reeds;
+    const line = f.river.line;
+    const point = { x: 0, z: 0, dx: 0, dz: 1 };
+    let spots = 0;
+    for (let k = 0; k < 60 && spots < RD.riverSpots; k += 1) {
+      const s = h(RULE.rockRiver, 900 + k, 1, seed) * line.length;
+      line.pointAt(s, point);
+      if (f.r(point.x, point.z) > f.play - 2 || f.r(point.x, point.z) < 12) continue;
+      const side = h(RULE.rockRiver, 900 + k, 2, seed) < 0.5 ? -1 : 1;
+      const half = f.riverWidthAt(s) / 2;
+      const cx = point.x - point.dz * (half + 0.05) * side;
+      const cz = point.z + point.dx * (half + 0.05) * side;
+      if (f.laneGap(cx, cz) < RD.clearLaneM || f.slotDist(cx, cz) < RD.clearSlotM || pathGap(cx, cz) < 1.2 || f.skyDist(cx, cz) < 2) continue;
+      if (bushes.some((b) => b.proto === REED && Math.hypot(b.x - cx, b.z - cz) < 8)) continue;
+      spots += 1;
+      for (let n = 0; n < 3; n += 1) {
+        const along = (n - 1) * 0.9 + (h(RULE.rockRiver, 900 + k * 7 + n, 3, seed) - 0.5) * 0.5;
+        const x = cx + point.dx * along;
+        const z = cz + point.dz * along;
+        bushes.push({ id: "reed:river:" + k + ":" + n, proto: REED, x, z, k: lerp(RD.riverK[0], RD.riverK[1], h(RULE.rockRiver, 900 + k * 7 + n, 4, seed)), yaw: n * 2.3 + k, tint: [1, 1, 1], radius: 0.45 });
+      }
+    }
+  }
+
   // Pond rim stones, with gaps where a footpath reaches the water.
   if (pond) {
     for (let k = 0; k < R.pond.count; k += 1) {
@@ -1032,7 +1366,7 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       const length = Math.hypot(ox, oz) || 1;
       const fx = p.x + (ox / length) * out;
       const fz = p.z + (oz / length) * out;
-      if (pathGap(fx, fz) < 0.8) continue;
+      if (pathGap(fx, fz) < 0.8 || jettyGap(fx, fz) < 1.4) continue;
       const kk = lerp(R.pond.k[0], R.pond.k[1], h(RULE.rockPond, k, 3, seed));
       rocks.push({ id: "rock:pond:" + k, proto: k % 3 === 0 ? ROCK_SLAB : RIVER_STONES, x: fx, z: fz, k: kk, yaw: h(RULE.rockPond, k, 4, seed) * 6.283, tint: GREY, radius: kk * 0.5 });
     }
@@ -1044,7 +1378,7 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       const length = Math.hypot(ox, oz) || 1;
       const x = p.x + (ox / length) * 1.5;
       const z = p.z + (oz / length) * 1.5;
-      if (!bushOk(x, z)) continue;
+      if (!bushOk(x, z) || jettyGap(x, z) < 2) continue;
       bushes.push({ id: "pond:bush" + k, proto: "props/pine-river-bush-moss", x, z, k: 1.6, yaw: k * 2.1, tint: [1, 1, 1], radius: 0.8 });
     }
   }
@@ -1074,46 +1408,78 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       if (f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 0.8 || pathGap(x, z) < 0.4) continue;
       const roll = h(RULE.rockCliff, key, 3, seed);
       const k = lerp(R.cliffFoot.k[0], R.cliffFoot.k[1], h(RULE.rockCliff, key, 5, seed)) * (out > 3 ? 0.75 : 1);
+      if (h(RULE.rockCliff, key, 6, seed) < R.cliffFoot.blockShare && out < 3.5) {
+        // FB-10 (A2): rubble blocks from the cliff at its foot.
+        const kb = lerp(R.cliffFoot.blockK[0], R.cliffFoot.blockK[1], h(RULE.rockCliff, key, 5, seed));
+        rocks.push({ id: "rock:cliff:" + ci + ":" + index, proto: CLIFF_B, x, z, k: kb, yaw: roll * 6.283, tint: [1, 1, 1], radius: kb * 0.45, stone: true, sinkShare: 0.25 });
+        continue;
+      }
       const proto = roll < 0.6 ? ROCK_SLAB : RIVER_STONES;
       rocks.push({ id: "rock:cliff:" + ci + ":" + index, proto, x, z, k, yaw: roll * 6.283, tint: [1, 1, 1], radius: k * 0.5, stone: true });
     }
-    const tierCount = Math.max(1, scene?.cliffs[ci]?.tiers ?? 2);
-    const M = R.cliffMass;
-    let k2 = 0;
-    for (let s = C.capM * 0.5; s < cl.line.length - C.capM * 0.5; s += M.stepM, k2 += 1) {
-      const per = 1 + (h(RULE.rockCliff, ci * 1000 + k2, 20, seed) < M.pairChance ? 1 : 0);
-      for (let n = 0; n < per; n += 1) {
-        const key = ci * 10000 + k2 * 10 + n;
-        if (h(RULE.rockCliff, key, 21, seed) > M.chance) continue;
-        cl.line.pointAt(s + (h(RULE.rockCliff, key, 22, seed) - 0.5) * M.stepM * 1.2, point);
+    // FB-10 (A2): tiered faces of Cliff Rock blocks (no round boulders on the faces).
+    const F = R.cliffFace;
+    const ends = (s: number): number => smooth(0, C.capM, s) * smooth(cl.line.length, cl.line.length - C.capM, s);
+    for (let tier = 0; tier < cl.tiers; tier += 1) {
+      let k2 = 0;
+      for (let s = C.capM * 0.35; s < cl.line.length - C.capM * 0.35; s += F.stepM, k2 += 1) {
+        const key = ci * 100000 + tier * 1000 + k2;
+        const along = s + (h(RULE.rockCliff, key, 22, seed) - 0.5) * 2 * F.jitterM;
+        cl.line.pointAt(along, point);
         const [ix, iz] = inward();
-        // A tier (the top one a little more often), on its face, ± a little up or down the slope.
-        const tier = Math.min(tierCount, Math.floor(h(RULE.rockCliff, key, 25, seed) * (tierCount + 0.6)));
-        const faceS = tier >= tierCount ? C.faceFromM + (tierCount - 1) * (C.faceW + C.ledgeW) + C.faceW + 1.2 : C.faceFromM + tier * (C.faceW + C.ledgeW) + C.faceW * 0.55;
-        const wantS = faceS + (h(RULE.rockCliff, key, 26, seed) - 0.5) * 0.9;
+        const fade = ends(along);
+        if (fade < 0.25) continue;
+        // The block's centre a little into the face: its front stands on the ledge below, its back in the face.
+        const wantS = cl.faceS(along, tier) + F.intoM;
         let x = point.x - ix * wantS;
         let z = point.z - iz * wantS;
         const off = cl.offset(x, z).s;
         x -= ix * (wantS - off);
         z -= iz * (wantS - off);
-        const ends = smooth(0, C.capM, s) * smooth(cl.line.length, cl.line.length - C.capM, s);
-        const k = lerp(M.k[0], M.k[1], h(RULE.rockCliff, key, 24, seed)) * (0.55 + 0.45 * ends) * (tier >= tierCount ? 0.8 : 1);
-        if (k < M.k[0] * 0.6 || f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 1) continue;
-        const roll = h(RULE.rockCliff, key, 23, seed);
-        const lean = (h(RULE.rockCliff, key, 27, seed) - 0.5) * 2 * M.leanRad;
+        if (f.laneGap(x, z) < 3 || f.riverEdge(x, z) < 1) continue;
+        const wide = tier === 0 && h(RULE.rockCliff, key, 23, seed) < F.footWide;
+        const tierH = cl.tierM * (0.55 + 0.45 * fade);
+        const proto = wide ? CLIFF_B : CLIFF_A;
+        const k = wide ? (tierH / CLIFF_B_H) * 0.5 * lerp(F.kB[0], F.kB[1], h(RULE.rockCliff, key, 24, seed)) : tierH * lerp(F.kA[0], F.kA[1], h(RULE.rockCliff, key, 24, seed));
+        const height = wide ? k * CLIFF_B_H : k;
+        // Sink so the base meets the ledge in front (the slope under the centre is higher).
+        const fx = x + ix * 0.9;
+        const fz = z + iz * 0.9;
+        const sink = Math.max(0, cl.lift(x, z) - cl.lift(fx, fz)) + 0.12;
+        // The block's front (+z in the game) toward the dais.
+        const yaw = Math.atan2(ix, iz) + (h(RULE.rockCliff, key, 25, seed) - 0.5) * 2 * F.yawJitter;
         rocks.push({
-          id: "rock:cliff-mass:" + ci + ":" + k2 + ":" + n,
-          proto: roll < M.boulderShare ? ROCK_BOULDER : ROCK_SLAB,
+          id: "rock:cliff-face:" + ci + ":" + tier + ":" + k2,
+          proto,
           x,
           z,
           k,
-          yaw: roll * 37.7,
+          yaw,
           tint: [1, 1, 1],
-          radius: k * 0.5,
+          radius: k * 0.45,
           stone: true,
-          tilt: [lean, (h(RULE.rockCliff, key, 28, seed) - 0.5) * 2 * M.leanRad],
+          sinkShare: Math.min(0.6, sink / Math.max(height, 0.5)),
+          // Tall blocks widened into a face (a row of narrow pillars read as headstones).
+          ...(wide ? {} : { stretch: lerp(F.stretchA[0], F.stretchA[1], h(RULE.rockCliff, key, 29, seed)) }),
+          tilt: [(h(RULE.rockCliff, key, 27, seed) - 0.5) * 2 * F.leanRad, (h(RULE.rockCliff, key, 28, seed) - 0.5) * 2 * F.leanRad],
         });
       }
+    }
+    // A few wide blocks along the top lip, so the top edge reads as rock, not a grass bank.
+    let k3 = 0;
+    for (let s = C.capM * 0.6; s < cl.line.length - C.capM * 0.6; s += F.lipStepM, k3 += 1) {
+      const key = ci * 1000 + k3;
+      cl.line.pointAt(s + (h(RULE.rockCliff, key, 41, seed) - 0.5) * F.lipStepM * 0.6, point);
+      const [ix, iz] = inward();
+      const wantS = cl.topS + 0.4;
+      let x = point.x - ix * wantS;
+      let z = point.z - iz * wantS;
+      const off = cl.offset(x, z).s;
+      x -= ix * (wantS - off);
+      z -= iz * (wantS - off);
+      if (f.riverEdge(x, z) < 1.5) continue;
+      const k = lerp(F.lipK[0], F.lipK[1], h(RULE.rockCliff, key, 42, seed)) * (0.6 + 0.4 * ends(s));
+      rocks.push({ id: "rock:cliff-lip:" + ci + ":" + k3, proto: CLIFF_B, x, z, k, yaw: Math.atan2(ix, iz) + (h(RULE.rockCliff, key, 43, seed) - 0.5) * 0.8, tint: [1, 1, 1], radius: k * 0.45, stone: true, sinkShare: 0.35 });
     }
   });
   // LG1: a fallen log beside the Cầu trail past its gate (the gate's forest gap has a story).
@@ -1142,6 +1508,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       if (cliff && cliff.lift(c.x, c.z) > 0.2) continue;
       if (groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) < g.radius + 1)) continue;
       if (trees.some((t) => Math.hypot(t.x - c.x, t.z - c.z) < t.radius + D.clearTreeM)) continue;
+      // FB-11 (A2): only in the band by a grove disc or the forest edge, never loose on the meadow.
+      if (!groves.some((g) => Math.hypot(g.x - c.x, g.z - c.z) - g.radius < D.nearM) && forestEdge(c.x, c.z) - r > D.nearM) continue;
       if ([...dots, ...rocks].some((t) => Math.hypot(t.x - c.x, t.z - c.z) < D.gapM)) continue;
       const k = lerp(D.k[0], D.k[1], h(RULE.dots, Math.round(c.x * 10), Math.round(c.z * 10), seed + 1));
       // Deep green (the moss bush model is yellow-green), each on a small worn halo (paint below).
@@ -1181,7 +1549,13 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     for (const end of [0, path.line.count - 1]) {
       const x = path.line.xs[end]!;
       const z = path.line.zs[end]!;
-      // Junctions, the plaza mouth and inner destinations get a trodden patch; forest ends fade out instead.
+      // Junctions, the plaza mouth and inner destinations get a trodden patch; forest ends fade out instead,
+      // unless a rest spot is there (FB-18, A2).
+      const rest = clearings.find((c) => Math.hypot(c.x - x, c.z - z) < 0.1);
+      if (rest) {
+        dirt.push(blob(x, z, rest.r, 1.2, 0.85, 700 + pi * 2 + end, P.shadeShift * 0.5));
+        continue;
+      }
       if (f.r(x, z) > f.play + 4) continue;
       dirt.push(blob(x, z, path.tier === "main" ? P.junctionM * 1.25 : P.junctionM, 1.2, 0.75, 700 + pi * 2 + end, 0));
     }
@@ -1249,8 +1623,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     bushes,
     rocks,
     dirt,
-    dress: [],
-    clearings: [],
+    dress,
+    clearings,
     pathGap,
     stats: {
       groves: groves.length,
@@ -1263,6 +1637,11 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
       rocks: rocks.length,
       footpaths: footpaths.length,
       dirtStamps: dirt.length,
+      dress: dress.length,
+      lanterns: dress.filter((d) => d.proto === LANTERN).length,
+      fences: dress.filter((d) => d.proto === FENCE).length,
+      reeds: bushes.filter((b) => b.proto === REED).length,
+      cliffBlocks: rocks.filter((r) => r.proto === CLIFF_A || r.proto === CLIFF_B).length,
     },
   };
 }
