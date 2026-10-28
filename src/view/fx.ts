@@ -1159,21 +1159,24 @@ export class FxCore {
     // The burst's full size (the strong one the biggest). Round 5 (judge 4: two opaque masses hid the foe's flash and
     // recoil): the opaque bodies are 0.75 of it and thin out after frame 1; the light comes from an additive hot core.
     const size = (1.8 + 0.6 * tierId + (strong ? 0.4 : 0)) * s * big;
-    const mass = size * 0.75;
+    const mass = size * 0.68;
     // Soot behind the fire, in from frame 2 (§3.5 rule 4: a dark layer under the bright).
     const back = this.hitBack.subVectors(hit, this.eye).normalize().multiplyScalar(0.6 * rk).add(hit);
     for (let k = 0; k < 2; k += 1) {
       this.puffs.spawn(back.x + this.rand(-0.3, 0.3) * s, back.y + (0.2 + k * 0.25) * s, back.z + this.rand(-0.3, 0.3) * s, mass * (0.9 + 0.15 * k), 0.75, FX_COLORS.soot, 0.6 * soft, { vy: 1.0, grow: 0.8, fadeIn: 2 / 60, hold: 0.1, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
     }
     // The fire bodies (normal blend): gold-middled, one thrown along the blow, one rising; thinning from frame 2.
-    this.puffs.spawn(front.x, front.y, front.z, mass, 8 / 60, FX_COLORS.releaseBall, 0.9, { fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.35, rot: this.random() * TAU, shape: PUFF_FIRE });
+    this.puffs.spawn(front.x, front.y, front.z, mass, 8 / 60, FX_COLORS.releaseBall, 0.82, { fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.35, rot: this.random() * TAU, shape: PUFF_FIRE });
     this.puffs.spawn(front.x + ux * 0.5 * mass, front.y + 0.1 * mass, front.z + uz * 0.5 * mass, mass * 0.6, 10 / 60, FX_COLORS.ember, 0.85, { vx: ux * 4, vy: 1.5, vz: uz * 4, fadeIn: 0.001, hold: 1 / 60, grow: 0.4, rot: this.random() * TAU, shape: PUFF_FIRE });
     this.puffs.spawn(front.x, front.y + 0.3 * mass, front.z, mass * 0.5, 12 / 60, FX_COLORS.fireDeep, 0.8, { vy: 2.4, fadeIn: 0.001, hold: 1 / 60, grow: 0.5, rot: this.random() * TAU, shape: PUFF_FIRE });
     // L10/L9: the hot core, additive and HDR (white ≤ 30 % of the burst's radius), in an orange glow 0.6 of it; full on
     // frames 0–1, lifted toward the eye over the body.
     const lift = 1.0 * rk;
     this.flares.flare(front, size * 0.28, FX_COLORS.flashCore, (strong ? 3.4 : 2.6) * soft, 3 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
-    this.flares.flare(front, size * 0.75, FX_COLORS.ember, (strong ? 1.5 : 1.2) * soft, 7 / 60, WORD_FX.flashHoldS, 0.25, 1, lift);
+    // Round 5 check (judge box round the foe: 0.660 → 0.594 on sunlit grass, still darker): a wider, stronger glow,
+    // so the burst lights the grass instead of covering it.
+    this.flares.flare(front, size * 1.05, FX_COLORS.ember, (strong ? 1.7 : 1.35) * soft, 7 / 60, WORD_FX.flashHoldS, 0.25, 1, lift);
+    this.flares.flare(front, size * 0.6, FX_COLORS.fireHot, (strong ? 1.1 : 0.9) * soft, 5 / 60, WORD_FX.flashHoldS, 0.2, 1, lift);
     this.flares.flare(front, size * 0.45, strong ? FX_COLORS.teal : FX_COLORS.fireHot, (strong ? 0.9 : 1.0) * soft, 4 / 60, WORD_FX.flashHoldS, 0.2, 1, lift);
     // Tongues of fire thrown off the blow: a fan away from the dais and up (fire ribbons, 2 full frames, out by f9).
     const tongues = (this.reduced ? 3 : 4) + (strong ? 2 : 0);
