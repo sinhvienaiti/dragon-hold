@@ -12,7 +12,9 @@
     "check": "node src/kit/verify-kit.mjs && pnpm test && pnpm build",
     "dh:balance": "tsx scripts/balance/run.ts",
     "dh:golden:update": "tsx scripts/balance/golden.ts --update",
-    "visual": "node scripts/visual/cdp-run.mjs"
+    "visual": "node scripts/visual/cdp-run.mjs",
+    "prepare-ground": "node scripts/assets/prepare-ground.mjs",
+    "prepare-decals": "node scripts/assets/prepare-decals.mjs"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "^5.3.0",
