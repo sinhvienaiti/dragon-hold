@@ -833,7 +833,9 @@ Lượt trước đã chạy cùng kịch bản (không có bước Thiên Hỏa
   - (b) Giữ V2 như hiện nay và nhận Khá thấp hơn (B1 thêm 2 ô). Rồi bù vực đợt 10 của người gõ nhanh bằng phần đợt 10 của (4).
   - (c) Không dùng chữ chung. Sói đi hàng như nay, và chọn một trong hai cách còn lại của phát hiện 17: W thấp hơn, hoặc bỏ tru bầy ở M0.
 
-## 6. D33 (1): bẫy và nhà gần như không chạy — đã đo, **giữ** (V2: bom nổ theo luật mới, mỗi lần nổ 30 sát thương); xung Lều Thuốc Nam vẫn 0 lần mỗi lượt ở bot
+## 6. D33 (1): bẫy và nhà gần như không chạy — đã đo, **không giữ** (V2, bom 30 sát thương: B4 trượt ở bộ seed 21261026 khi chạy 300 seed); xung Lều Thuốc Nam vẫn 0 lần mỗi lượt ở bot
+
+> **Sửa 28/10 sau kiểm tra độc lập.** Lượt đầu ghi bước này là **giữ** và gộp vào `main`. Lượt đó chỉ đọc số gộp của B4 ở 300 seed, nên bỏ sót ô B4 của bộ 21261026 mà báo cáo bot in là TRƯỢT (S Chậm chắc 65 so với Ẩu 69; mốc 65 so với 61). Báo cáo chấm từng bộ seed riêng và chấm gộp (`scripts/balance/run.ts`). Lượt đầu cũng đã loại V1 vì B4 trượt ở một bộ seed. Áp cùng chuẩn đó thì V2 gãy B4, sau khi đã thử đủ hai biến thể. Vì vậy bước này **không giữ**: mã, test và golden trên `main` về như `83da970` (mục 7). Các mục 6.4, 6.5 và 6.9 dưới đây đã sửa theo; các mục khác giữ số của lượt đầu.
 
 Hướng (1) của D33 là phát hiện 11 của `2026-10-27-test-pass.md`: món mua 80–120 vàng mà gần như không làm gì.
 
@@ -842,7 +844,7 @@ Hướng (1) của D33 là phát hiện 11 của `2026-10-27-test-pass.md`: món
 - **Lưới Phóng** giữ luật. Ô và cửa hàng ghi rõ "chỉ bắn quái bay"; bot mua khi đợt kế có quái bay (đổi bot, không đổi sim).
 - Mỗi ô bẫy và nhà hiện trạng thái **sẵn sàng** và **vừa nổ** mà người chơi thấy được, ở cả hai cỡ.
 
-Nhánh `s6-traps`, hai commit trên `abc2a75` (`2fccf86` luật, bot, giao diện; `90e7f35` sửa độ tương phản chấm Năng sau lượt trình duyệt), đã gộp `--ff-only` vào `main`. Bằng chứng ở `tmp/mac-2026-10-27/owner/s6-traps/`.
+Nhánh `s6-traps`, hai commit trên `abc2a75` (`2fccf86` luật, bot, giao diện; `90e7f35` sửa độ tương phản chấm Năng sau lượt trình duyệt). Lượt đầu đã gộp `--ff-only` vào `main`; ngày 28/10 đã gỡ khỏi `main` bằng một commit revert (mục 7). Nhánh để nguyên. Bằng chứng ở `tmp/mac-2026-10-27/owner/s6-traps/`.
 
 ### 6.1 Đã làm gì
 
@@ -922,7 +924,11 @@ Hai chế độ kia, mốc → V0 → V1 → V2:
 - G9b (7), G10 (0/phút), G11 (1,2–1,4 %), G13 (1333 → 1356 → 1335 → 1341 vàng), G13b, G15 (tệ nhất 22,2–22,7 %): đạt ở cả bốn. G16: 171,5 → 167,9 s (V2), trượt như cũ (cổng từ ải 15).
 - B2, B5, B8: đạt ở cả bốn.
 - B3: Mới 73 → 88 → 85 → 83 %; Trẻ em Thư giãn 91 → 92 → 93 → 93 %. Đạt.
-- **B4** (S Chậm chắc > S Ẩu): 64 / 61 → **68 / 72 (gãy)** → 68 / 63 → 68 / 63. Biên của V2 là 4,9 điểm nên không bắt buộc 300 seed; tôi vẫn chạy (mục 6.5): 65,3 so với 62,9, đạt. Hạ quái Chuẩn so với Ẩu: 4,21 / 5,25 → 4,12 / 4,88 → 4,23 / 5,22 → 4,23 / 5,22 s. Theo bộ seed, V1 trượt ở bộ 20261023 (67 so với 69); V2 đạt ở cả hai bộ (67 / 58 và 69 / 68).
+- **B4** (S Chậm chắc > S Ẩu; báo cáo bot chấm từng bộ seed riêng và chấm gộp):
+  - Gộp, 120 seed: 64 / 61 → **68 / 72 (gãy)** → 68 / 63 → 68 / 63. Hạ quái Chuẩn so với Ẩu: 4,21 / 5,25 → 4,12 / 4,88 → 4,23 / 5,22 → 4,23 / 5,22 s.
+  - Theo bộ seed, 120 seed (bộ 20261023; bộ 21261026): mốc 62 / 56 và 66 / 62; V1 **67 / 69 (trượt)** và 69 / 60; V2 67 / 58 và 69 / 68.
+  - Biên gộp của V2 là 4,9 điểm, nhưng biên ở bộ 21261026 chỉ 1 điểm, dưới ngưỡng 3 điểm, nên phải chạy 300 seed (mục 6.5). **Ở 300 seed, V2 trượt ở bộ 21261026: S Chậm chắc 65 so với Ẩu 69** (64,9 so với 68,5; mốc 65,2 so với 61,4, đạt). Bộ 20261023: 66 so với 59 (mốc 64 so với 58), đạt. Gộp: 65,3 so với 62,9, đạt, nhưng biên 3,2 → 2,4 điểm.
+  - Sửa 28/10: lượt đầu ghi "V2 đạt ở cả hai bộ" theo số 120 seed và chỉ đọc số gộp của 300 seed. Đúng ra V2 **gãy B4** ở bộ 21261026, như V1 gãy ở bộ 20261023.
 - **B6** (Tốt hơn Kém ≥ 10 điểm): Cân bằng 86 / 41 → 97 / 56 → 94 / 38 → 93 / 42 %; Thử thách 78 / 25 → 88 / 41 → 78 / 25 → 76 / 21 %. Đạt ở cả bốn.
 - B7, phần bộ điều nhịp (≤ 3 bậc mỗi đợt, ±15 %): đạt ở cả bốn.
 - **B1 theo dải D27**: 6 → 10 → 8 → 7 ô lệch.
@@ -930,7 +936,7 @@ Hai chế độ kia, mốc → V0 → V1 → V2:
   - Ở 300 seed (mục 6.5) Khá 75,7 → 75,3 % và S Chậm chắc 64,3 → 65,3 %: hai ô mới của V2 nằm trong độ nhiễu seed.
 - **B7 theo dải D27** (Chuẩn tắt nhịp): 2 → 3 → 3 → 2 ô (V0, V1 thêm thắng cao 94,2 và 90,8 %; V2 85,0 %).
 - B9: thiếu số (buổi chơi thử của chủ dự án).
-- Hai bộ seed cho cùng kết quả ở mọi cổng của V2.
+- Ở 120 seed, hai bộ seed cho cùng kết quả ở mọi cổng của V2. Ở 300 seed thì không: B4 đạt ở bộ 20261023 và trượt ở bộ 21261026 (sửa 28/10; lượt đầu ghi "cùng kết quả").
 
 ### 6.5 300 seed (2 × 150, Cân bằng), mốc → V2
 
@@ -946,7 +952,18 @@ Mốc 300 seed lấy từ `s2-d31/b4-v2-300.json` (Chậm chắc, Ẩu, Mới, C
 | Nhanh | 90,3 / 43,2 / 30,2 / 30,7 / 0 / 0,71 / 48,6 | 87,7 / 43,0 / 29,2 / 30,9 / 0 / 0,60 / 48,8 |
 | b60 | 79,3 / 37,9 / 31,1 / 29,6 / 0 / 0,80 / 48,4 | 84,7 / 38,7 / 30,0 / 29,9 / 0 / 0,73 / 48,4 |
 
-B4 ở 300 seed: S Chậm chắc 65,3 so với Ẩu 62,9, đạt (mốc 64,3 so với 61,1). Hạ quái Chuẩn so với Ẩu 4,26 / 5,23 s. Thắng tăng 1–5 điểm ở người gõ chậm và b60, S tăng 1–2 điểm; Khá, Nhanh không đổi quá độ nhiễu.
+B4 ở 300 seed (`b4-d30-300.md`; kiểm tra độc lập chạy lại khớp từng số, `verify/b4-head-300.json` và `verify/b4-base-300.json`):
+
+| | Bộ 20261023 (150 seed) | Bộ 21261026 (150 seed) | Gộp (300 seed) |
+|---|---|---|---|
+| Mốc: S Chậm chắc / S Ẩu | 63,6 / 58,1, đạt (biên 5,5) | 65,2 / 61,4, đạt (biên 3,8) | 64,3 / 61,1, đạt (biên 3,2) |
+| V2: S Chậm chắc / S Ẩu | 66,4 / 58,8, đạt (biên 7,6) | **64,9 / 68,5, TRƯỢT (−3,6)** | 65,3 / 62,9, đạt (biên 2,4) |
+| V2: thắng Chậm chắc / Ẩu | 91,3 / 75,3 % (mốc 94,7 / 68,0) | 98,0 / 78,7 % (mốc 92,0 / 78,0) | 94,7 / 77,0 % (mốc 93,3 / 73,0) |
+| V2: hạ quái Chuẩn / Ẩu (s) | 4,22 / 5,28 | 4,29 / 5,18 | 4,26 / 5,23 |
+
+Báo cáo in số làm tròn (bộ 21261026: "S 65 % vs 69 %"). Số lẻ lấy từ lượt chạy riêng từng bộ (`--seed-sets=1 --base-seed=<bộ> --seeds=150`, cùng seed với bộ đó trong lượt 300 seed; `tmp/mac-2026-10-27/owner/fix/set-*.json`). S gộp không phải trung bình của hai bộ.
+
+Lượt đầu chỉ ghi số gộp ("65,3 so với 62,9, đạt") và bỏ sót ô TRƯỢT của bộ 21261026 trong bảng "B1–B9 theo từng bộ seed độc lập" của báo cáo. Sửa 28/10: V2 gãy B4. Thắng tăng 1–5 điểm ở người gõ chậm và b60, S tăng 1–2 điểm; Khá, Nhanh không đổi quá độ nhiễu.
 
 ### 6.6 Biến thể đã thử, và phần nào gây gì
 
@@ -974,7 +991,7 @@ Các bản đo thêm, giữ luật kích của chủ dự án và chỉ đổi s
 | (thử nhanh) | Như V0, nổ do quái bị chặn thì không đẩy | Thắng như V0 (Chuẩn 90,0, Mới 89,2, Ẩu 91,7 %): đẩy lùi không phải nguyên nhân |
 | (thử nhanh) | Như V0, nạp 30 s | Bom nổ chỉ ít đi khoảng 10 %; Mới 95,0, Ẩu 87,5 %: nạp không phải núm |
 | V1 | Bom 40 VL | Mọi cổng đạt; B1 8 ô (Chậm chắc S 68,2, Khá thắng 74,2), B7 3 ô (Chuẩn tắt nhịp 90,8 %); B4 trượt ở một bộ seed |
-| V2 | Bom 30 VL (một phần tư 120, vì bom nổ 3–5 lần nhiều hơn) | Mọi cổng đạt ở cả hai bộ seed; B1 7 ô, ở 300 seed trong độ nhiễu; B7 2 ô; phần sát thương của bom 1,1–2,2 % (mốc 0,7–1,6 %) |
+| V2 | Bom 30 VL (một phần tư 120, vì bom nổ 3–5 lần nhiều hơn) | Ở 120 seed mọi cổng đạt ở cả hai bộ seed; **ở 300 seed B4 trượt ở bộ 21261026 (S 65 so với 69)** (sửa 28/10; lượt đầu ghi "mọi cổng đạt ở cả hai bộ seed"); B1 7 ô, ở 300 seed trong độ nhiễu; B7 2 ô; phần sát thương của bom 1,1–2,2 % (mốc 0,7–1,6 %) |
 
 Hai bản thử nhanh chỉ đo thắng (`items.ts`), không chạy `dh:balance`. V1 và V2 là hai biến thể, trong hướng chủ dự án (luật kích giữ nguyên; chỉ đổi sát thương mỗi lần nổ, số dữ liệu mà 03 §13.1 cho bot chỉnh).
 
@@ -1023,8 +1040,106 @@ Hai kịch bản tạm, chạy qua `heavy.sh --gpu node scripts/visual/cdp-run.m
 
 ### 6.9 Kết luận, chờ anh
 
-- **Giữ (V2).** Bom và lưới nay chạy, mỗi ô bẫy và nhà hiện sẵn sàng, đang nạp, vừa nổ ở cả hai cỡ. Mọi cổng đạt ở cả hai bộ seed. B1 theo dải D27 6 → 7 ô ở 120 seed, nhưng ở 300 seed hai ô mới nằm trong độ nhiễu. B7 không đổi.
-- **Điều anh cần biết:** để giữ G1 và B4, bom mỗi lần nổ 30 sát thương thay 120 (03 §7.2 đã sửa). Với 120, luật mới gãy G1 (91,7 %) và B4 (S Chậm chắc 68 so với Ẩu 72). Phần sát thương của bom nay 1,1–2,2 % (mốc 0,7–1,6 %).
-- **Còn chờ anh: Xung Lều Thuốc Nam.** Luật 3 lần đã vào, đo đúng thước 03 §10.2. Bot vẫn phát 0 lần mỗi lượt, vì bot đặt lều ở bệ trong cho hào quang Rồng, mà quái hiếm khi chết trong 7 m của bệ đó. Lều ở bệ ngoài `h-w` thì phát Xung (27–42 lần gõ hạ quái trong vùng mỗi lượt, trình duyệt thấy Xung ở đợt 1), nhưng không hồi Rồng. Anh chọn:
+- **Không giữ** (sửa 28/10; lượt đầu ghi "Giữ (V2)"). Bom và lưới chạy, mỗi ô bẫy và nhà hiện sẵn sàng, đang nạp, vừa nổ ở cả hai cỡ, và ở 120 seed mọi cổng đạt ở cả hai bộ seed. Nhưng ở 300 seed B4 trượt ở bộ 21261026, sau khi đã thử đủ hai biến thể (40 VL, 30 VL). Theo luật giữ, bước không giữ: `main` gỡ mã của bước (mục 7), nhánh `s6-traps` để nguyên.
+- **Gãy cổng, báo anh: B4** (S Chậm chắc > S Ẩu) ở bộ seed 21261026, 300 seed: 65 so với 69 (mốc 65 so với 61). Số gộp 300 seed vẫn đạt (65,3 so với 62,9), nhưng biên 3,2 → 2,4 điểm. Cả ba bản đo đều trượt B4 ở một chỗ: V0 (120 VL) ở số gộp, 68 so với 72; V1 (40 VL) ở bộ 20261023, 67 so với 69 (120 seed); V2 (30 VL) ở bộ 21261026, 65 so với 69 (300 seed).
+- **Điều anh cần biết:** bản đo hạ bom xuống 30 sát thương mỗi lần nổ thay 120. Mức này nằm ngoài câu chữ của D33 (1), vốn chỉ đổi luật kích; 03 §7.2 giữ 120 vì bước không giữ. Với 120, luật mới gãy G1 (91,7 %) và B4 (68 so với 72). Ở 30 VL, phần sát thương của bom là 1,1–2,2 % (mốc 0,7–1,6 %). Kiểm tra độc lập đếm được 666 trên 870 lần nổ của Chuẩn (77 %) chỉ trúng một quái đang bị lính chặn, nên cái lợi thật đến từ cú đẩy 2 m.
+- **Anh chọn cho phần bẫy:**
+  - (a) Chấm B4 của bước này theo số gộp 300 seed (65,3 so với 62,9), xác nhận mức 30 VL, rồi gộp `s6-traps` như đã đo.
+  - (b) Tách phần không đổi sim (chip trạng thái, dòng "Chỉ bắn quái bay" ở cửa hàng, menu ô và thẻ đặt món) để giữ riêng; luật bom đo lại cùng đường cong đợt (4) hoặc với một núm khác trong hướng (1).
+  - (c) Giữ như mốc tới buổi chơi thử B9.
+- **Còn chờ anh: Xung Lều Thuốc Nam.** Luật 3 lần (nhánh `s6-traps`) đo đúng thước 03 §10.2. Bot vẫn phát 0 lần mỗi lượt, vì bot đặt lều ở bệ trong cho hào quang Rồng, mà quái hiếm khi chết trong 7 m của bệ đó. Lều ở bệ ngoài `h-w` thì phát Xung (27–42 lần gõ hạ quái trong vùng mỗi lượt, trình duyệt thấy Xung ở đợt 1), nhưng không hồi Rồng. Anh chọn:
   - (a) Giữ như nay: Xung thưởng người đặt lều chỗ quái chết.
   - (b) Đổi thước cho Lều: đếm lần hạ quái trên đoạn đường gần nhà, hoặc mọi lần hạ quái của đợt. Hướng này nằm ngoài chữ "sau 3 lần hạ quái" của D33 (1), nên cần anh chốt rồi đo lại.
+
+## 7. Sửa sau kiểm tra độc lập (28/10): bước 6 gãy B4, không giữ; `main` gỡ mã của bước
+
+Kiểm tra độc lập trên `main` `0f419d8` chạy lại mọi lượt bot của các bước 1–6 và khớp từng số với làn. Nó tìm thấy một lỗi chính: B4 của bước 6 trượt ở bộ seed 21261026 khi chạy 300 seed. Changelog §6.4, §6.5 và hàng D33 (1) của 00-canon chỉ ghi số gộp, rồi viết "đạt ở cả hai bộ seed". Mục này sửa lỗi đó theo luật giữ. Bằng chứng ở `tmp/mac-2026-10-27/owner/fix/`.
+
+### 7.1 Vì sao B4 tính theo từng bộ seed, và vì sao bước 6 không giữ
+
+- `scripts/balance/run.ts` chạy hai bộ seed độc lập, "each judged on its own and together". Báo cáo in bảng "B1–B9 theo từng bộ seed độc lập"; ô B4 của bộ 21261026 trong `s6-traps/b4-d30-300.md` là TRƯỢT.
+- Làn đã dùng chuẩn này ở chỗ khác: loại V1 của bước 6 vì B4 trượt ở bộ 20261023; loại D31 (§2) theo số 300 seed, không lấy số 120 seed để giữ.
+- Ở mốc, B4 đạt ở cả hai bộ khi chạy 300 seed: 63,6 so với 58,1 và 65,2 so với 61,4. Sau V2, bộ 21261026 trượt: 64,9 so với 68,5. Như vậy một cổng đang đạt lúc bắt đầu bước đã gãy sau bước.
+- Đã thử đủ hai biến thể trong hướng của chủ dự án (V1 40 VL, V2 30 VL). Luật giữ không cho biến thể thứ ba, nên bước 6 **không giữ** và báo anh là gãy cổng (mục 7.5). Chấm B4 theo số gộp thì là nới cổng cho đạt, nên không làm.
+
+### 7.2 Đã làm gì
+
+- Nhánh `fix-s6-b4` cắt từ `main` `0f419d8`. Commit `67cacc2` revert `2fccf86` và `90e7f35`: luật bom, Lều 3 Năng, bot mua lưới, chip trạng thái, các dòng mới ở menu ô, cửa hàng và thẻ đặt món, test và golden của bước. Không dùng lệnh git hủy nào.
+- Mã, test và golden nay đúng như `83da970`: `git diff 83da970` ngoài thư mục changelog rỗng. Golden về theo commit revert, không chạy `pnpm dh:golden:update`. Ca `sloppy-hard-off-seed3` về 7 phút.
+- Changelog: sửa §6 (đầu mục, 6.4, 6.5, 6.6, 6.9) và thêm mục này.
+- Repo cha: hàng D33 (1) của 00-canon ghi "đã đo, gãy B4, không giữ, chờ chủ dự án". 03 §7.1, §7.2, §8.1, §10.2 về như trước bước 6: Bom Hạt Thông 120 VL, kích ≥ 3 quái; Lều 5 Năng; bỏ câu chip.
+- Nhánh `s6-traps` để nguyên cho chủ dự án. Nếu sau này gộp, cần sửa hai chú thích mà kiểm tra độc lập chỉ ra: đầu `src/sim/traps.ts` vẫn ghi Bom Hạt Thông "120 VL"; đầu `src/ui/slot-state.ts` nói marker ô mang trạng thái, trong khi chỉ menu ô và thẻ sửa món mang trạng thái.
+- `pnpm check`: 405/405, `tsc --noEmit` và `vite build` đạt, mã băm kit khớp. Hai lượt đầu, chạy khi các lượt bot khác đang chạy (load 13–18), trượt test đo thời gian `tags-bodies` (1,25 và 1,49 ms, trần 1 ms). Chạy riêng test đó thì đạt; lượt thứ ba qua `heavy.sh --cores=10` đạt đủ.
+
+### 7.3 Đo lại trên `main` sau khi gỡ
+
+`pnpm dh:balance` cả ba chế độ, 2 × 60 seed (`fix/fix-all.json`), và 300 seed cho bộ bot B4 cùng Khá, Nhanh, b60 (`fix/b4-fix-300.json`, `fix/fast-fix-300.json`). So với mốc `83da970` (`s1-word-ring/base-all.json`, `verify/b4-base-300.json`, `s2-d31/fast300-base.json`): mọi ô của JSON trùng nhau ở 15 bot × 3 chế độ, gồm Thắng / S / P / I / O / N / Q, hạ quái, số theo đợt, sát thương theo nguồn, mọi cổng G và B, và bảng theo từng bộ seed. Chỉ các số thời gian chạy sim là khác.
+
+Cân bằng, 120 seed. Mỗi ô: Thắng / S / P / I / O / N / Q (%, N là số lần).
+
+| Bot | Trước (`main` `0f419d8`, bước 6 V2) | Sau (gỡ, trùng mốc `83da970`) | Hạ quái (s) |
+|---|---|---|---|
+| b25 | 90,8 / 68,4 / 19,7 / 18,6 / 0 / 0,33 / 40,8 | 85,8 / 70,6 / 20,3 / 18,5 / 0 / 0,42 / 40,9 | 5,2 → 5,3 |
+| Chuẩn (b35) | 88,3 / 60,8 / 21,2 / 20,5 / 0 / 0,57 / 38,8 | 86,7 / 60,1 / 21,3 / 20,8 / 0 / 0,48 / 38,4 | 4,2 → 4,2 |
+| b60 | 80,0 / 37,7 / 30,1 / 29,8 / 0 / 0,74 / 48,4 | 77,5 / 36,1 / 31,3 / 29,5 / 0 / 0,76 / 48,4 | 3,6 → 3,6 |
+| Mới | 82,5 / 67,3 / 22,3 / 17,1 / 0 / 0,63 / 41,9 | 72,5 / 61,2 / 23,9 / 16,4 / 0 / 0,85 / 42,7 | 5,8 → 6,1 |
+| Chậm chắc | 96,7 / 67,6 / 19,7 / 18,8 / 0 / 0,32 / 40,3 | 94,2 / 63,5 / 19,9 / 18,8 / 0 / 0,29 / 40,0 | 4,9 → 4,9 |
+| Khá | 69,2 / 47,2 / 23,3 / 26,3 / 0 / 0,82 / 38,2 | 75,8 / 47,5 / 23,7 / 26,6 / 0 / 0,78 / 37,6 | 4,0 → 3,9 |
+| Ẩu | 77,5 / 62,7 / 23,2 / 16,3 / 0,2 / 0,74 / 37,8 | 73,3 / 61,2 / 23,8 / 16,2 / 0,2 / 0,65 / 37,7 | 5,2 → 5,3 |
+| Nhanh | 87,5 / 43,6 / 29,3 / 30,8 / 0 / 0,56 / 48,9 | 90,0 / 44,5 / 30,3 / 30,7 / 0 / 0,72 / 48,4 | 3,4 → 3,5 |
+| Chuẩn tốt | 92,5 / 67,4 / 18,6 / 20,6 / 0 / 0,33 / 40,2 | 85,8 / 61,1 / 19,1 / 20,5 / 0 / 0,38 / 40,4 | 4,0 → 4,1 |
+| Chuẩn kém | 41,7 / 0 / 22,0 / 18,7 / 0 / 2,49 / 49,5 | 40,8 / 0 / 22,1 / 18,8 / 0 / 2,39 / 48,4 | 4,6 → 4,6 |
+| Chuẩn tắt nhịp (B7) | 85,0 / 65,7 / 19,8 / 22,7 / 0 / 0,21 / 38,0 | 84,2 / 67,4 / 20,5 / 22,2 / 0 / 0,26 / 38,1 | 4,1 → 4,2 |
+| Chỉ gõ | 0 / 0 / 24,8 / 17,7 / 0 / 0,53 / 47,7 | như trước | 5,1 |
+| Không gõ | 0 / 0 / 70,1 / 4,6 / 0 / 0,00 / 83,9 | 0 / 0 / 70,2 / 4,5 / 0 / 0,00 / 76,2 | 9,3 → 9,2 |
+| Trẻ em | 5,8 / 0 / 38,7 / 7,8 / 0 / 1,54 / 89,0 | 9,2 / 0 / 38,8 / 7,8 / 0 / 1,62 / 88,1 | 9,6 → 9,5 |
+
+Hai chế độ kia, trước → sau:
+
+- Thư giãn: mọi bot gõ thắng 100 % ở cả hai; Trẻ em 92,5 → 90,8 %; Chỉ gõ 79,2 → 79,2 %.
+- Thử thách: Chuẩn 70,0 → 60,0; Mới 65,8 → 63,3; Chậm chắc 84,2 → 81,7; Khá 74,2 → 69,2; Ẩu 49,2 → 53,3; Nhanh 91,7 → 94,2; b25 88,3 → 84,2; b60 85,8 → 85,0; Chuẩn tốt 75,8 → 78,3; Chuẩn kém 20,8 → 25,0; Chuẩn tắt nhịp 87,5 → 80,8 %.
+
+300 seed (2 × 150), Cân bằng, trước → sau:
+
+- Chậm chắc 94,7 / 65,3 / 19,8 / 18,7 / 0 / 0,38 / 40,3 → 93,3 / 64,3 / 20,0 / 18,8 / 0 / 0,39 / 40,3.
+- Ẩu 77,0 / 62,9 / 23,3 / 16,4 / 0,2 / 0,72 / 37,5 → 73,0 / 61,1 / 24,3 / 16,2 / 0,2 / 0,67 / 37,7.
+- Mới 84,0 / 64,5 / 22,2 / 17,1 / 0 / 0,64 / 41,6 → 80,0 / 62,7 / 23,2 / 16,7 / 0 / 0,89 / 42,3.
+- Chuẩn 85,0 / 60,5 / 21,3 / 20,5 / 0 / 0,55 / 38,7 → 81,7 / 59,5 / 21,6 / 20,4 / 0 / 0,55 / 38,7.
+- Khá 75,3 / 50,4 / 23,3 / 26,5 / 0 / 0,75 / 37,9 → 75,7 / 50,4 / 23,7 / 26,7 / 0 / 0,74 / 38,2.
+- Nhanh 87,7 / 43,0 / 29,2 / 30,9 / 0 / 0,60 / 48,8 → 90,3 / 43,2 / 30,2 / 30,7 / 0 / 0,71 / 48,6.
+- b60 84,7 / 38,7 / 30,0 / 29,9 / 0 / 0,73 / 48,4 → 79,3 / 37,9 / 31,1 / 29,6 / 0 / 0,80 / 48,4.
+
+Theo món: mã sim trùng `83da970` từng byte, nên số theo món là cột mốc của §6.2 (Chuẩn: bom 2,2 lần mỗi lượt, gần hết ở đợt 1–3; lưới 0; Xung 0); không chạy lại `items.ts`. Số theo đợt trong JSON của `dh:balance` trùng mốc từng ô.
+
+### 7.4 Cổng, trước → sau
+
+- G1 88,3 → 86,7 %; G3 90,8 → 85,8 %; G5 0 → 0 %; G6 120/120 thua ở đợt 1 → như cũ; G9 1,40 → 1,40: đạt.
+- G8 30,6 → 30,3 %; G8b 69,4 → 69,7 %; D23a 12,8 → 12,8 %; D23b 0,1 %; G9b 7; G10 0/phút; G11 1,2 %; G13 1341 → 1333 vàng; G13b 30,1 %; G15 tệ nhất 22,5 → 22,7 %: đạt. G16 167,9 → 171,5 s, trượt như mốc (cổng từ ải 15).
+- B2, B5, B8: đạt. B3: Mới 83 → 73 %, Trẻ em Thư giãn 93 → 91 %, đạt. B6: Cân bằng 93 / 42 → 86 / 41 %, Thử thách 76 / 21 → 78 / 25 %, đạt. B7 phần bộ điều nhịp: đạt.
+- **B4**, 300 seed: bộ 20261023 66,4 / 58,8 → 63,6 / 58,1; **bộ 21261026 64,9 / 68,5 (trượt) → 65,2 / 61,4 (đạt)**; gộp 65,3 / 62,9 → 64,3 / 61,1 (biên 2,4 → 3,2). 120 seed: gộp 68 / 63 → 64 / 61; theo bộ 67 / 58 và 69 / 68 → 62 / 56 và 66 / 62. Hạ quái Chuẩn so với Ẩu: 4,26 / 5,23 → 4,29 / 5,31 s (300 seed). Cả hai bộ đạt ở cả 120 và 300 seed.
+- B1 theo dải D27: 7 → 6 ô lệch. B7 theo dải D27: 2 → 2 ô. B1, B7 theo dải chung trượt như mốc. B9: thiếu số.
+- Mọi cổng đạt lúc bắt đầu sửa (`0f419d8`) vẫn đạt sau khi gỡ; B4 theo bộ seed nay đạt lại; B1 không xấu thêm (bớt 1 ô).
+
+### 7.5 Trình duyệt (Apple M4, Vite riêng 127.0.0.1:4151 `--strictPort`, đã tắt)
+
+Chạy qua `heavy.sh --gpu node scripts/visual/cdp-run.mjs`, trên cây sau khi gỡ (`browser.sh`). Lượt này không giải nén cây nguồn nào vào gốc `dragon-hold` khi Vite chạy (lỗi nhỏ của kiểm tra độc lập: việc đó làm Vite tải lại trang); cây đối chiếu `0f419d8` để ngoài gốc.
+
+- `dh-slot-menu` ở 1280×720 và 1920×1080: `ok`, 0 exception, 0 tài nguyên lỗi; 8 ô trong 14 m có marker, menu mở, không che Hỏa Long, nằm trong màn.
+- `dh-placement` ở 1280×720 và 1920×1080 (cỡ 1920 qua `SIZE=1920`, vì kịch bản không đọc `--width`): 0 exception, 0 tài nguyên lỗi; mua và đặt đủ mọi món bằng chuột và bàn phím, nâng cấp, bán, menu sửa món mở; thẻ đợt và hộp vàng che 0 px đường, ô và số vàng; chạy tới nghỉ đợt 4.
+- `dh-smoke` (cả hai cỡ trong một lượt): 0 exception; khung trung bình 18,9 ms (1280) và 18,0 ms (1920), p95 16,8 ms. Lượt đầu lỗi `Emulation.setDeviceMetricsOverride` vì tôi truyền cỡ sai cho kịch bản; chạy lại không truyền cỡ thì đạt.
+
+Ảnh đã xem:
+
+- `browser/slot-menu-1280x720/menu-h-nw-1280x720.png` và `browser/slot-menu-1920x1080/menu-h-ne-1920x1080.png`: menu bệ nhà "Bệ nhà · vòng trong · 5 Lều Thuốc Nam 120", như trước bước 6; không đè Hỏa Long hay HUD.
+- `browser/placement-1280x720/place-ghost-pinebomb-1280x720.png`: thẻ đặt bom "Bom Hạt Thông · 90 vàng · Ô bẫy · Đường Cầu · Đợt kế: 25 quái qua đường này", câu của mốc.
+- `browser/placement-1280x720/place-wave-1280x720.png`: đợt 1, không có chip trạng thái cạnh bẫy; thẻ ra mắt Yêu Rêu Lính đọc rõ.
+- `browser/placement-1920-size/place-ghost-pinebomb-1920x1080.png`: cùng thẻ đặt bom của mốc ở 1920; bảng Bộ Mang Theo và thẻ đợt không che ô.
+- `browser/placement-1920-size/place-wave-1920x1080.png`: đợt 1 ở 1920, không có chip cạnh bẫy; thẻ ra mắt Yêu Rêu Lính và thẻ "Đợt 1 · 2 đường" đọc rõ, không đè HUD.
+- `browser/placement-1920x1080/place-menu-1280x720.png`: lượt đầu cho cỡ 1920 thật ra chạy ở 1280 (kịch bản bỏ qua `--width`), nên không tính là lượt 1920; ảnh cho menu sửa Lều "Nâng cấp 2 · thiếu 57 vàng / Bán +84".
+
+### 7.6 Gãy cổng, báo anh
+
+- **Bước 6, D33 (1): gãy B4.** Bộ seed 21261026, 300 seed: S Chậm chắc 64,9 so với Ẩu 68,5 (mốc 65,2 so với 61,4). Số gộp vẫn đạt, 65,3 so với 62,9, nhưng biên 3,2 → 2,4 điểm. Hai biến thể đã thử (40 VL trượt B4 ở bộ 20261023; 30 VL trượt ở bộ 21261026); bản 120 VL gãy G1 (91,7 %) và B4 gộp (68 so với 72).
+- `main` nay như mốc. Mã của bước nằm ở nhánh `s6-traps` (`2fccf86`, `90e7f35`).
+- Anh chọn (như §6.9): (a) chấm B4 của bước này theo số gộp, xác nhận mức 30 VL, rồi gộp `s6-traps`; (b) tách phần không đổi sim (chip, dòng "Chỉ bắn quái bay") để giữ riêng, đo lại luật bom cùng (4) hay với núm khác trong hướng (1); (c) giữ như mốc tới buổi chơi thử B9. Xung Lều vẫn chờ anh chọn thước (§6.9).
+- Nếu chọn (a) hay (b): chip ở 1280×720 nhỏ (mặt chip 21–22 px, chấm Năng khoảng 5 px, chữ "Nổ!", "Bắn!" 13 px; kiểm tra độc lập), nên phóng chip ở cỡ này trước khi gộp.
