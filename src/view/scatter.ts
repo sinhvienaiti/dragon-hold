@@ -178,9 +178,10 @@ const VIOLET_GAP_M = 26;
 const WARM_GAP_M = 16;
 const WARM_VIOLET_GAP_M = 16;
 const WARM_SKY_M = 10;
-/** FB-03 (A2): the first metres past the forest edge are thinned (a ragged, lit fringe, not a wall). */
-const FRINGE_M = 7;
-const FRINGE_SKIP = 0.4;
+const WARM_EDGE_MAX = 6;
+/** FB-03 (A2): the first metres past the forest edge are thinned and mostly round crowns (a ragged, lit broadleaf fringe, not a pine wall). */
+const FRINGE_M = 10;
+const FRINGE_SKIP = 0.55;
 /** Far crown colours the GLB violet crown (K04) takes over. */
 const FAR_COLORS = CROWN_FAR;
 const BUSH = ["#5d8f4f", "#6f9d55", "#4d7f5a", "#7aa35e"] as const;
@@ -248,6 +249,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const uv = homeViewUv(map, x, y, z);
     return uv !== null && LAYOUT_RULES.warm.hud.some(([u0, v0, u1, v1]) => uv[0] >= u0 && uv[0] <= u1 && uv[1] >= v0 && uv[1] <= v1);
   };
+  const warmCandidates: number[] = [];
   const inClearing = (x: number, z: number, pad: number): boolean => layout.clearings.some((c) => Math.hypot(c.x - x, c.z - z) < c.r + pad);
 
   // Trees: pines and round crowns by forest density, from the forest edge out (the layout owns the inside).
@@ -272,32 +274,52 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     const far = laneGap > 9 && r > play - 4;
     const yaw = random() * Math.PI * 2;
     // Round crowns light the forest edge (the reference's broadleaf rim); pines deeper in.
-    if (random() < (inside || fringe ? 0.62 : r < edge + 12 ? 0.4 : 0.22)) {
+    if (random() < (inside || fringe ? 0.7 : r < edge + 14 ? 0.45 : 0.3)) {
       const size = inside ? 1.3 + random() * 0.9 : 1.8 + random() * 1.3;
       let color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
       if ((CROWN_FAR as readonly string[]).includes(color)) {
-        if (violetSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < VIOLET_GAP_M) || warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < WARM_VIOLET_GAP_M)) color = CROWN_NEAR[0];
+        // FB-08 (A2): violet only deeper in the forest (past the near skirt), never on the lit fringe.
+        if (r < play + PROP_NEAR_SKIRT_M + 2 || violetSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < VIOLET_GAP_M) || warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < WARM_VIOLET_GAP_M)) color = CROWN_NEAR[0];
         else violetSpots.push({ x, z });
       }
-      const warm =
+      // V7: a warm candidate on the lit fringe; the warm ones are picked after the visit (spacing, home view).
+      if (
         !(CROWN_FAR as readonly string[]).includes(color) &&
         r < edge + 7 &&
         r < FAR_FROM_M - 1 &&
         laneGap >= 10 &&
         slotDist(x, z, false) >= 10 &&
         skyDist(x, z) >= WARM_SKY_M &&
-        hash2(Math.round(x * 5), Math.round(z * 5), 0x3a7) < 0.6 &&
-        !warmSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < WARM_GAP_M) &&
-        !violetSpots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < WARM_VIOLET_GAP_M) &&
-        !underHud(x, size * 2.2, z);
-      if (warm) warmSpots.push({ x, z });
-      crowns.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color, ...(warm ? { warm: true } : {}) });
+        !underHud(x, size * 2.2, z)
+      )
+        warmCandidates.push(crowns.length);
+      crowns.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color });
     } else {
       const size = inside ? 3.4 + random() * 2.2 : 4.6 + random() * 4.6;
       const color = far && random() < 0.22 ? pick(PINE_FAR, random) : pick(PINE_GREENS, random);
       pines.push({ x, z, y: sinkY(x, z, 0.1), size, yaw, color });
     }
   });
+
+  // FB-09 (A2): warm fringe crowns by score (in the home view's clear middle first, then by hash), 16 m apart and
+  // from violet, at most WARM_EDGE_MAX (so the accent count does not ride on the random stream).
+  {
+    const score = (c: ScatterItem): number => {
+      const uv = homeViewUv(map, c.x, c.size * 2.2, c.z);
+      const shown = uv !== null && uv[0] > 0.08 && uv[0] < 0.92 && uv[1] > 0.06 && uv[1] < 0.75 ? 1 : 0;
+      return shown + hash2(Math.round(c.x * 5), Math.round(c.z * 5), 0x3a7) * 0.5;
+    };
+    const order = warmCandidates.map((index) => ({ index, score: score(crowns[index]!) })).sort((a, b) => b.score - a.score || a.index - b.index);
+    let added = 0;
+    for (const { index } of order) {
+      if (added >= WARM_EDGE_MAX) break;
+      const c = crowns[index]!;
+      if (warmSpots.some((spot) => Math.hypot(spot.x - c.x, spot.z - c.z) < WARM_GAP_M) || violetSpots.some((spot) => Math.hypot(spot.x - c.x, spot.z - c.z) < WARM_VIOLET_GAP_M)) continue;
+      crowns[index] = { ...c, warm: true };
+      warmSpots.push({ x: c.x, z: c.z });
+      added += 1;
+    }
+  }
 
   // Bushes: forest edges and meadow clumps, closer to the paths than trees.
   visit(cells.bush, (x, z, r) => {
@@ -506,7 +528,8 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
           // Far ring: an impostor quad (trees), nothing for bushes (lost in the mist).
           if (kind === "bush") return;
           const k = item.size * pick.spec.perSize;
-          const spread = 0.86 + hash2(Math.round(item.x * 5), Math.round(item.z * 5), 0xfa7) * 0.2;
+          // FB-03 (A2): the far ring a step lighter (0.94–1.1), so the forest beyond the edge is no dark wall.
+          const spread = 0.94 + hash2(Math.round(item.x * 5), Math.round(item.z * 5), 0xfa7) * 0.16;
           farItems.push({ manifest: pick.spec.manifest, x: item.x, y: item.y, z: item.z, k, mirror: hash2(Math.round(item.x * 3), Math.round(item.z * 3), 0x31) < 0.5, tint: item.tint ?? [spread, spread, spread] });
           return;
         }

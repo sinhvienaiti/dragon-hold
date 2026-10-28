@@ -5,7 +5,7 @@
   "unit": "cm",
   "gameplay": { "adapter": "dragon-hold@1", "commit": "02fe9c787886aecd668248fe00b5f2a97a6e45f4", "note": "simHash and viewHash come with the dragon-hold@2 reader (MAP_PLAN 2.1); the sim never reads this file" },
   "brief": "MAP_PLAN 3.2: sun from the east; the high side is west, a pale three-tier cliff framing the left edge with a gorge where Đường Suối and the stream leave; a bright open meadow east and south-east with the pond at its far edge; footpaths with destinations (pond landing, cliff scree, a south-east forest bay; no fishing path: the north bridgehead has a trap slot within 4 m); anchor grove in the north-west wedge across the river; forest bays every 60–90° and a gap at every gate.",
-  "lighting": { "sunBearingDeg": 95, "sunElevationDeg": 50, "hemiSky": "#d6e4ff", "hemiGround": "#6d7a5a", "hemiIntensityPermille": 2700, "fogNearCm": 5200, "fogFarCm": 11500 },
+  "lighting": { "sunBearingDeg": 95, "sunElevationDeg": 50, "hemiSky": "#d6e4ff", "hemiGround": "#6d7a5a", "hemiIntensityPermille": 2700, "fogNearCm": 4700, "fogFarCm": 11000 },
   "scene": {
     "cliffs": [
       { "id": "west-bluff", "site": "pinned", "tiers": 3, "heightCm": 900,
