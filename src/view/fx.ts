@@ -93,8 +93,11 @@ const BOLT_WAIT = 0.35;
 /** The fire ribbon behind a bolt reaches this far back along its curve (m), and its tail runs into the impact in 8 frames. */
 const BOLT_RIBBON_M = 5;
 const BOLT_TAIL_S = 8 / 60;
-/** A bolt's head and ribbon come up over its first frames, inside the release flash (3 frames: ⅓, ⅔, full). */
-const BOLT_BORN_S = 3 / 60;
+/**
+ * A bolt's head and ribbon come up over its first frames, inside the release flash: nothing on frame 0 (the flash's
+ * peak; round 3: a strong word's teal head at ⅓ on frame 0 doubled the white core), ½ on frame 1, full from frame 2.
+ */
+const BOLT_BORN_S = 2 / 60;
 const MAX_BOLTS = 16;
 /**
  * Where a word scorch may lie, [back along the shot, aside] in metres from the struck point (× √k): in front of the
@@ -158,7 +161,8 @@ void main() {
   float n = vxFbm(p * 1.8 + vec2(seed * 31.0, seed * 17.0));
   float r = length(p) / (0.6 + 0.4 * n);
   float a = 1.0 - smoothstep(0.86, 1.0, r);
-  float heat = r + (vxNoise(p * 4.5 + seed * 9.0) - 0.5) * 0.28;
+  // Licks of heat through the body (fbm), so it reads as flame, not a shaded ball.
+  float heat = r + (vxFbm(p * 3.4 + seed * 9.0) - 0.5) * 0.6;
   vec3 mid = vColor.rgb * vec3(1.0, 0.3, 0.15);
   vec3 rgb = mix(vColor.rgb, mid, smoothstep(0.16, 0.52, heat));
   rgb = mix(rgb, vec3(0.157, 0.0077, 0.0018), smoothstep(0.56, 0.84, heat));
@@ -879,7 +883,7 @@ export class FxCore {
     this.flares.flare(at, 0.85 * s * big, FX_COLORS.flashCore, 2.3 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.15, 1, lift);
     // A strong word's teal is a wide, low glow (2.2 m at 0.5): teal stacked on the gold middle at full strength turned
     // a disc 2.4× the plain core white (round 3 measure: 20 px against 8 at 720p).
-    if (strong) this.flares.flare(at, 2.2 * s * big, hot, 0.5 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
+    if (strong) this.flares.flare(at, 2.2 * s * big, hot, 0.35 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
     else this.flares.flare(at, 1.5 * s * big, hot, 0.9 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
     // Tongues of fire thrown along the shot (tapered flame ribbons, uneven in length, width and angle; 2 full frames).
     this.tongue(at, ux, uz, 0, 3.4, 0.7, 1);
@@ -1569,7 +1573,7 @@ export class FxCore {
       for (let i = 0; i < n; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (n - 1), bolt.trail.points[i]!);
       // Born inside the release flash: the head and ribbon come up over its 2 full frames (f0 ⅓, f1 ⅔, f2 full), so the
       // flash, not the bolt crossing it, is the brightest thing at the mouth on frame 0 (VFX_STANDARD §3.1 rule 5).
-      const born = Math.min(1, (bolt.t * bolt.duration) / BOLT_BORN_S);
+      const born = Math.min(1, Math.max(0, bolt.t * bolt.duration - 1 / 60 + 1e-6) / BOLT_BORN_S);
       bolt.trail.update(cameraPos, width, bolt.t < 1 ? born : Math.max(0, 1 - bolt.waited * 6), time);
       if (bolt.t < 1) {
         // A fireball with a body (test passes 26–27/10: a pale see-through spot): a deep-orange core and a hot heart in

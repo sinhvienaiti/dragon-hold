@@ -292,7 +292,7 @@ export function measure(run, h, { scorchAt = null } = {}) {
       whiteMax = white;
       whiteAt = f.name;
     }
-    const c = tagContrast(img, f.tags, PLATE, PLATE_ALPHA, TEXT_LUM);
+    const c = tagContrast(img, f.tags ?? [], PLATE, PLATE_ALPHA, TEXT_LUM);
     if (c !== null) contrasts.push({ frame: f.name, contrast: c });
   }
   contrasts.sort((a, b) => a.contrast - b.contrast);
