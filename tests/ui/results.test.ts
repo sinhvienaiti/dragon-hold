@@ -67,7 +67,7 @@ describe("ui results and Sổ Từ Ải (01 §5, §6.5)", () => {
     expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 8, hurt))).toContain("Héo lan");
     expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 8, { blight: 0, blows: 200 }))).toContain("lính chặn");
     world.stats.keys = 0;
-    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 1, hurt))).toContain("Gõ chữ trên đầu quái");
+    expect(starHint(summarizeRun(world, new WordLog(), "defeat", 0, 1, hurt))).toContain("Hỏa Long phun lửa vào chúng.");
   });
 
   it("sums the run: stars only on victory, accuracy from keys, new words learned clean", () => {

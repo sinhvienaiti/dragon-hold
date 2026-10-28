@@ -193,7 +193,7 @@ export function starHint(summary: ResultsSummary): string {
   if (summary.outcome === "defeat") {
     const at = "Hỏa Long gục ở đợt " + summary.wave;
     const cause = defeatCause(summary);
-    if (cause === "typing") return at + ". Gõ chữ trên đầu quái để Hỏa Long dùng Fire Breath hạ chúng.";
+    if (cause === "typing") return at + ". Gõ chữ trên đầu quái để Hỏa Long phun lửa vào chúng.";
     if (cause === "blight")
       return at + ", phần lớn vì Héo lan: quái mang chữ đứng trong Vùng Chữ mà chưa bị gõ thì rút máu Hỏa Long. Gõ quái gần bệ trước, dùng " + keyLabel("skill-1") + " Fire Breath khi quái dồn.";
     return at + " vì quái đánh tới bệ. Đặt lính chặn và bẫy ở đường đông quái hơn.";
