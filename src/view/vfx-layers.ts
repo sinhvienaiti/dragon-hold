@@ -194,9 +194,11 @@ void main() {
   float facing = abs(dot(normalize(vN), normalize(vE)));
   float n = vxFbm(vec2(vUv.x * 7.0 + uSeed, along * 2.6 - uTime * 9.0));
   float tongues = vxFbm(vec2(vUv.x * 13.0 - uSeed, along * 5.0 - uTime * 14.0));
-  float erode = n * 0.9 + tongues * 0.35 - along * 0.8 - uAge * 0.95 + 0.38;
-  float body = smoothstep(0.0, 0.22, erode) * (0.35 + 0.65 * pow(facing, 0.7));
-  float heat = clamp((1.05 - along * 0.75) * (0.55 + n * 0.7) - uAge * 0.35, 0.0, 1.0);
+  // Round 3 (capture: a smooth pale wedge): torn harder into tongues, and cooler, so it is orange and red with gold
+  // only at the mouth.
+  float erode = n * 1.05 + tongues * 0.5 - along * 1.0 - uAge * 1.1 + 0.3;
+  float body = smoothstep(0.0, 0.16, erode) * (0.35 + 0.65 * pow(facing, 0.7));
+  float heat = clamp(((1.0 - along * 0.85) * (0.45 + n * 0.7)) * 0.85 - uAge * 0.4, 0.0, 1.0);
   gl_FragColor = vec4(vxFire(heat) * (1.0 + heat * 0.5), body * uAlpha);
 }`;
 
@@ -218,14 +220,15 @@ varying vec3 vE;
 ${VFX_NOISE_GLSL}
 void main() {
   float facing = abs(dot(normalize(vN), normalize(vE)));
-  float rim = pow(1.0 - facing, 2.2);
+  // Round 3: a thicker, brighter rim (the play camera looks down on it: its silhouette is the ring that reads).
+  float rim = pow(1.0 - facing, 1.6);
   vec3 d = normalize(vLocal);
   float n = vxFbm(vec2(atan(d.z, d.x) * 2.2 + uSeed, d.y * 3.5 - uTime * 1.8));
   float front = n + (1.0 - d.y) * 0.45 - uAge * 1.15 + 0.05;
   if (front < 0.0) discard;
   float hotEdge = 1.0 - smoothstep(0.0, 0.1, front);
   float foot = 1.0 - smoothstep(0.0, 0.3, d.y);
-  vec3 color = uBody * (0.06 + rim * 1.15 + foot * 0.35) + uHot * (hotEdge * 1.3 + rim * foot * 0.6);
+  vec3 color = uBody * (0.06 + rim * 1.5 + foot * 0.45) + uHot * (hotEdge * 1.8 + rim * foot * 0.7);
   gl_FragColor = vec4(color, uAlpha);
 }`;
 
@@ -901,9 +904,12 @@ export function crackMask(size = 256): THREE.DataTexture {
 }
 
 const DECAL_VERTEX = /* glsl */ `
+attribute float aDry;
 varying vec2 vUv;
+varying float vDry;
 void main() {
   vUv = uv;
+  vDry = aDry;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 
@@ -918,10 +924,13 @@ uniform float uCool;
 uniform float uFade;
 uniform float uRot;
 varying vec2 vUv;
+varying float vDry;
 void main() {
   vec2 p = vUv - 0.5;
   float r = length(p) * 2.0;
-  if (r > 1.0 || uFade <= 0.0) discard;
+  // Never on the river: the decal fades out over wet ground (aDry per vertex, from the host's water test).
+  float dry = smoothstep(0.35, 0.85, vDry);
+  if (r > 1.0 || uFade <= 0.0 || dry <= 0.0) discard;
   float c = cos(uRot);
   float s = sin(uRot);
   vec4 m = texture2D(uMask, vec2(c * p.x - s * p.y, s * p.x + c * p.y) + 0.5);
@@ -937,7 +946,7 @@ void main() {
   float glow = halo * (1.0 - smoothstep(0.0, 0.6, cool)) * 0.55;
   vec3 base = vec3(0.105, 0.08, 0.062) * (0.75 + 0.5 * n);
   vec3 color = mix(base, hot, max(crack, glow));
-  float alpha = max(scorch * (0.8 + 0.15 * n), max(crack, glow)) * uFade;
+  float alpha = max(scorch * (0.8 + 0.15 * n), max(crack, glow)) * uFade * dry;
   gl_FragColor = vec4(color, alpha);
 }`;
 
@@ -958,12 +967,13 @@ export class FissurePool {
   private readonly slots: DecalSlot[] = [];
   private readonly segments: number;
 
-  constructor(capacity: number, private readonly heightAt: (x: number, z: number) => number, segments = 18) {
+  constructor(capacity: number, private readonly heightAt: (x: number, z: number) => number, segments = 18, private readonly wetAt: (x: number, z: number) => boolean = () => false) {
     this.segments = segments;
     const mask = crackMask();
     for (let i = 0; i < capacity; i += 1) {
       const geometry = new THREE.PlaneGeometry(1, 1, segments, segments);
       (geometry.getAttribute("position") as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
+      geometry.setAttribute("aDry", new THREE.BufferAttribute(new Float32Array((segments + 1) * (segments + 1)).fill(1), 1).setUsage(THREE.DynamicDrawUsage));
       const material = new THREE.ShaderMaterial({
         uniforms: { uMask: { value: mask }, uAge: { value: 0 }, uCool: { value: 1.5 }, uFade: { value: 0 }, uRot: { value: 0 } },
         vertexShader: DECAL_VERTEX,
@@ -998,6 +1008,7 @@ export class FissurePool {
     slot.life = life;
     slot.fadeS = fadeS;
     const position = slot.mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const dry = slot.mesh.geometry.getAttribute("aDry") as THREE.BufferAttribute;
     const n = this.segments + 1;
     const span = radius * 2;
     for (let j = 0; j < n; j += 1) {
@@ -1008,9 +1019,11 @@ export class FissurePool {
         const wx = x + (u - 0.5) * span;
         const wz = z - (v - 0.5) * span;
         position.setXYZ(j * n + i, wx, this.heightAt(wx, wz) + 0.07, wz);
+        dry.setX(j * n + i, this.wetAt(wx, wz) ? 0 : 1);
       }
     }
     position.needsUpdate = true;
+    dry.needsUpdate = true;
     const u = slot.mesh.material.uniforms;
     u.uRot!.value = rot;
     u.uCool!.value = coolS;

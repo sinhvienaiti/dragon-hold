@@ -305,6 +305,42 @@ describe("view fx", () => {
     wet.dispose();
   });
 
+  it("plays Sky Fire in five phases in the sim's 48 frames: charge, release at frame 12, one arc, the blast at 48, aftermath (VFX_STANDARD §5.3 part 2)", () => {
+    const core = new FxCore("high", { mouthLight: true });
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.setMouth(new THREE.Vector3(0, 4.2, -0.8));
+    core.meteor(0, -16);
+    const phases: (string | null)[] = [];
+    const lights: number[] = [];
+    let releasedAt = -1;
+    let domeMax = 0;
+    let streaksMax = 0;
+    for (let f = 0; f < 90; f += 1) {
+      core.update(1 / 60, f / 60, eye, 600);
+      const d = core.skyDebug();
+      phases.push(d.phase);
+      lights.push(core.light!.intensity);
+      if (releasedAt < 0 && core.sky.releases > 0) releasedAt = f;
+      domeMax = Math.max(domeMax, d.domeM);
+      streaksMax = Math.max(streaksMax, d.streaks);
+    }
+    // A for frames 0–11 (embers flying in as stretched sparks), R on frame 12, I from 48.
+    expect(phases.slice(0, 12).every((p) => p === "A")).toBe(true);
+    expect(phases[12]).toBe("R");
+    expect(releasedAt).toBe(12);
+    expect(phases[47]).toBe("T");
+    expect(phases[48]).toBe("I");
+    expect(phases[80]).toBe("F");
+    // The release light is at its peak on its first frame; the impact light too.
+    expect(lights[12]).toBeGreaterThanOrEqual(Math.max(...lights.slice(12, 20)) * 0.95);
+    expect(lights[48]).toBeGreaterThanOrEqual(Math.max(...lights.slice(48, 64)) * 0.95);
+    // The dome reaches the rule's radius (4 m) within ±10 %; stretched sparks fly.
+    expect(domeMax).toBeGreaterThan(3.6);
+    expect(domeMax).toBeLessThan(4.4);
+    expect(streaksMax).toBeGreaterThan(20);
+    core.dispose();
+  });
+
   it("charges the mouth a step a letter, spends it on the release, lets an abandoned word go", () => {
     const core = new FxCore("high", { locator: fixed(0, 1, -15) });
     const eye = new THREE.Vector3(0, 60, 60);

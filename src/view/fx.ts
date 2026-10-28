@@ -704,7 +704,7 @@ export class FxCore {
   private readonly emitters: Emitter[] = [];
   readonly random: () => number;
   private readonly heightOf: (x: number, z: number) => number;
-  private readonly wetAt: (x: number, z: number) => boolean;
+  private readonly wetOf: (x: number, z: number) => boolean;
   locator: FoeLocator | null;
   /**
    * World-size multiplier of the fire effects (bolts, impacts, Phun Lửa, Thiên Hỏa), set each frame from the camera
@@ -720,7 +720,7 @@ export class FxCore {
   constructor(readonly quality: Quality, options: FxCoreOptions = {}) {
     this.random = options.random ?? Math.random;
     this.heightOf = options.heightAt ?? (() => 0);
-    this.wetAt = options.wetAt ?? (() => false);
+    this.wetOf = options.wetAt ?? (() => false);
     this.locator = options.locator ?? null;
     this.group.name = "fx";
     const budget = FX_BUDGET[quality];
@@ -1160,7 +1160,7 @@ export class FxCore {
   /** True when a flat mark `size` across at (x, z) lies on dry ground (its middle and four points half way out). */
   private dryFor(x: number, z: number, size: number): boolean {
     const r = size * 0.35;
-    return !this.wetAt(x, z) && !this.wetAt(x + r, z) && !this.wetAt(x - r, z) && !this.wetAt(x, z + r) && !this.wetAt(x, z - r);
+    return !this.wetOf(x, z) && !this.wetOf(x + r, z) && !this.wetOf(x - r, z) && !this.wetOf(x, z + r) && !this.wetOf(x, z - r);
   }
 
   /**
@@ -1227,6 +1227,10 @@ export class FxCore {
 
   heightAt(x: number, z: number): number {
     return this.heightOf(x, z);
+  }
+
+  wetAt(x: number, z: number): boolean {
+    return this.wetOf(x, z);
   }
 
   mouthPoint(out: THREE.Vector3): THREE.Vector3 {
