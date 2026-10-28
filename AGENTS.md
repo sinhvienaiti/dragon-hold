@@ -67,6 +67,18 @@ Dev port 3005, host `dragon.typing-game.local`.
   banner is not drawn (`FoeLocator.drawsModel`; the planted banner stays),
   and the baker lifts standing rigs so feet and paws never sink. See
   `docs/changelog/2026-10-27-m0b-models.md`.
+- State (27–28/10, Mac, owner decisions of 27/10, 00 D27, D31, D33): each
+  rule step was measured on its own branch and none is kept, so `main` keeps
+  the sim and golden of `83da970` (bots on the merged head match it cell for
+  cell). D27 (i) breaks G1 (86.7 → 92.5 %); D31 with it breaks G1 and the
+  90 % ceiling, alone it passes at 120 seeds but Nhanh wins 92.3 % at 300;
+  D33 (4) breaks G1 (94.2–97.5 %); D33 (2) holds the gates but G01 plants in
+  3–4 % of Chuẩn's runs (the 02 §5.2 escort breaks G9, 1.73); D33 (3) worsens
+  B1 (Khá 63–67 %, V1 also D23a 15.0 %); D33 (1) breaks B4 on seed set
+  21261026 at 300 seeds (reverted, `67cacc2`). Branches `s1-word-ring` to
+  `s6-traps` wait for the owner. Merged on 28/10: M0b models and the speed
+  card's Easy hint (D33 (6), Codex 023). See
+  `docs/changelog/2026-10-27-owner-decisions.md` §8.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.

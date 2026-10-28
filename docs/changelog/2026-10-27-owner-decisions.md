@@ -1143,3 +1143,125 @@ Chạy qua `heavy.sh --gpu node scripts/visual/cdp-run.mjs`, trên cây sau khi 
 - `main` nay như mốc. Mã của bước nằm ở nhánh `s6-traps` (`2fccf86`, `90e7f35`).
 - Anh chọn (như §6.9): (a) chấm B4 của bước này theo số gộp, xác nhận mức 30 VL, rồi gộp `s6-traps`; (b) tách phần không đổi sim (chip, dòng "Chỉ bắn quái bay") để giữ riêng, đo lại luật bom cùng (4) hay với núm khác trong hướng (1); (c) giữ như mốc tới buổi chơi thử B9. Xung Lều vẫn chờ anh chọn thước (§6.9).
 - Nếu chọn (a) hay (b): chip ở 1280×720 nhỏ (mặt chip 21–22 px, chấm Năng khoảng 5 px, chữ "Nổ!", "Bắn!" 13 px; kiểm tra độc lập), nên phóng chip ở cỡ này trước khi gộp.
+
+## 8. Gộp và kiểm cuối (28/10)
+
+Người tích hợp gộp phần đã duyệt của ngày 27/10 vào `main`, kiểm lại toàn bộ, rồi chơi thử hai ải đủ 10 đợt. Bằng chứng: `tmp/mac-2026-10-28/integrate/` (gitignored). Máy: Mac mini M4 dùng chung. Vite riêng 127.0.0.1:4153 `--strictPort`, đã tắt.
+
+### 8.1 Gộp
+
+- `d201906`: gộp nhánh `m0b-models` (6 commit, `3e5ae1b` → `607c3c1`). Đó là model M0b của chủ dự án trong game: rig và clip của ta, Bạch Long trắng ngọc, chế độ bench có xương, kịch bản `dh-models`. Nhánh cắt từ `3733bd8`, không có xung đột. Chỉ có mã và tài liệu: `src/view`, `scripts/models`, `scripts/visual`, `tests/view`, chỉ mục `art-src/3d/SOURCES.json`. Không có media trong Git; model nằm ở `public/assets/dragon-hold/models/m0b/` (bị bỏ qua).
+- `6f3414f`: gộp nhánh `codex-023-easy-hint` (`7d9b753`, phiếu Codex 023, Claude đã duyệt). Thẻ tốc độ gợi ý mức Dễ khi chọn 15–20 WPM trước ải (D33 (6)). `src/app/app.ts` tự gộp, không xung đột với phần M0b.
+- `src/sim`, `src/content`, `src/typing`, `scripts/balance`, `tests/golden`: `git diff 83da970` rỗng. Golden không cập nhật. Các nhánh `s1-word-ring` … `s6-traps` không gộp (không giữ, chờ anh).
+
+### 8.2 Kiểm
+
+- `pnpm check` qua `heavy.sh --cores=10`: mã băm kit khớp (73 file), 51 file test, **453/453** (405 + 20 của M0b + 28 của Codex 023), `tsc --noEmit` và `vite build` đạt. Golden 10/10 với mã băm cũ. Trước commit tài liệu này, hai lượt check trượt test đo thời gian `tags-bodies` (1,47 và 1,24 ms, trần 1 ms) khi máy chung tải 16–18; test đó chạy riêng đạt 21/21, lượt thứ ba đạt 453/453.
+- `pnpm dh:balance` cả ba chế độ, 2 × 60 seed, trên đầu đã gộp (`integrate/head-all.json`). Mọi trường không phải thời gian chạy trùng `fix/fix-all.json` và mốc `s1-word-ring/base-all.json`: 15 bot × 3 chế độ, gồm Thắng / S / P / I / O / N / Q, hạ quái, số theo đợt, sát thương theo nguồn, mọi cổng và bảng theo từng bộ seed. Chỉ `meanMs`, `p95Ms`, `p99Ms`, `maxMs`, `realtime` khác. Model và gợi ý mức Dễ không chạm sim.
+
+### 8.3 Số cuối trên `main` (Cân bằng, 120 seed)
+
+Mỗi ô: Thắng / S / P / I / O / N / Q (%, N là số lần). Bảng trùng mốc `83da970`.
+
+| Bot | Thắng / S / P / I / O / N / Q | Hạ quái (s) |
+|---|---|---|
+| b25 | 85,8 / 70,6 / 20,3 / 18,5 / 0 / 0,42 / 40,9 | 5,3 |
+| Chuẩn (b35) | 86,7 / 60,1 / 21,3 / 20,8 / 0 / 0,48 / 38,4 | 4,2 |
+| b60 | 77,5 / 36,1 / 31,3 / 29,5 / 0 / 0,76 / 48,4 | 3,6 |
+| Mới | 72,5 / 61,2 / 23,9 / 16,4 / 0 / 0,85 / 42,7 | 6,1 |
+| Chậm chắc | 94,2 / 63,5 / 19,9 / 18,8 / 0 / 0,29 / 40,0 | 4,9 |
+| Khá | 75,8 / 47,5 / 23,7 / 26,6 / 0 / 0,78 / 37,6 | 3,9 |
+| Ẩu | 73,3 / 61,2 / 23,8 / 16,2 / 0,2 / 0,65 / 37,7 | 5,3 |
+| Nhanh | 90,0 / 44,5 / 30,3 / 30,7 / 0 / 0,72 / 48,4 | 3,5 |
+| Chuẩn tốt | 85,8 / 61,1 / 19,1 / 20,5 / 0 / 0,38 / 40,4 | 4,1 |
+| Chuẩn kém | 40,8 / 0 / 22,1 / 18,8 / 0 / 2,39 / 48,4 | 4,6 |
+| Chuẩn tắt nhịp (B7) | 84,2 / 67,4 / 20,5 / 22,2 / 0 / 0,26 / 38,1 | 4,2 |
+| Chỉ gõ | 0 / 0 / 24,8 / 17,7 / 0 / 0,53 / 47,7 | 5,1 |
+| Không gõ | 0 / 0 / 70,2 / 4,5 / 0 / 0 / 76,2 | 9,2 |
+| Trẻ em | 9,2 / 0 / 38,8 / 7,8 / 0 / 1,62 / 88,1 | 9,5 |
+
+- Thư giãn: mọi bot gõ thắng 100 %; Chỉ gõ 79,2 %, Trẻ em 90,8 %, Không gõ 0 %.
+- Thử thách: b25 84,2; Chuẩn 60,0; b60 85,0; Mới 63,3; Chậm chắc 81,7; Khá 69,2; Ẩu 53,3; Nhanh 94,2; Chuẩn tốt 78,3; Chuẩn kém 25,0; Chuẩn tắt nhịp 80,8 %.
+- 300 seed (từ §7.3, sim không đổi): B4 bộ 20261023 63,6 so với 58,1, bộ 21261026 65,2 so với 61,4, gộp 64,3 so với 61,1; Nhanh 90,3 %, Khá 75,7 %, b60 79,3 %, Chuẩn 81,7 %.
+
+Cổng:
+
+- G1 86,7 %, G3 85,8 %, G5 0 %, G6 120/120 thua ở đợt 1, G9 1,40: đạt.
+- G8 30,3 % (G8b 69,7 %), D23a 12,8 %, D23b 0,1 %, G9b 7, G10 0/phút, G11 1,2 %, G13 1332,9 vàng, G13b 30,1 %, G15 tệ nhất 22,7 %: đạt. G16 171,5 s: trượt như mốc (cổng từ ải 15).
+- B2, B3 (Mới 73 %, Trẻ em Thư giãn 91 %), B4 (S 64 so với 61; hạ quái 4,21 so với 5,25 s), B5, B6 (Cân bằng 86 / 41 %, Thử thách 78 / 25 %), B8: đạt, ở cả hai bộ seed.
+- B1, B7: trượt như mốc, theo cả dải chung và dải D27 (B1 6 ô lệch, B7 2 ô). B9: thiếu số (buổi chơi thử của anh).
+
+### 8.4 Trình duyệt (1280×720 và 1920×1080, `heavy.sh --gpu`)
+
+Mọi lượt: 0 exception, 0 lỗi console, 0 tài nguyên lỗi. Hai lượt chơi thử (8.5) tải đủ 25 file `m0b/` (manifest và 24 model).
+
+| Kịch bản | 1280×720 | 1920×1080 |
+|---|---|---|
+| `dh-keyboard-only` | thắng 10/10 đợt, mã băm phát lại khớp (836 lệnh); trễ phím TB 12,3 ms, tối đa 62,9 ms | thắng 10/10, khớp (837 lệnh); trễ phím 14,1 / 51,5 ms |
+| `dh-crowd` (seed 5) | `ok`; quái xa bị che ≥ 40 %: 1 khung trên 17.712 (đúng 40 %, một khung, luật cho chuỗi ≤ 6); gần 0/432; báo trước 0/7.323; 0 lần nảy | `ok`; quái xa 0/17.929 (lớn nhất 31 %); gần 0/430; báo trước 0/7.306; 0 lần nảy |
+| `dh-words` (thẻ 100 % và 150 %) | `ok` cả hai; 0 chồng, 0 thiếu; chữ nhỏ nhất 16 / 24 px | `ok` cả hai; 0 chồng, 0 thiếu; 20 / 30 px |
+| `dh-focus` (`SIZE=1920` cho cỡ lớn) | 4 cú bấm đều giữ phím; mất tiêu điểm: 0 tick; đếm 3-2-1 và phím đầu bị nuốt; ẩn 10 s: 0 tick; menu dừng | như 1280 |
+| `dh-pace` | `ok`: thẻ, chọn 25 WPM, mở lại từ menu, số đo | `ok` |
+| `dh-slot-menu` | `ok`, 8 ô, không che Hỏa Long | `ok` |
+| `dh-banner` | `ok`: cắm, nhổ, mang lại; cờ hộp tạm đang mang 0 (model tự mang cờ); mã băm khớp | `ok` |
+| `dh-telegraphs` | `ok`: đủ 6 loại quái, báo trước của địch ngắn nhất 500 ms | `ok` |
+| `ui-preview` | 11 màn, 0 chồng | 11 màn, 0 chồng |
+
+Ảnh đã xem: `browser/keyboard-only-1920x1080/kb-04-wave-10.png`, `browser/banner-1920x1080/01-planted-1920x1080.png`, `browser/telegraphs-1920x1080/telegraph-blight-wolf-1920x1080.png` (Sói vồ Vệ Binh ở đầu cầu, khiên đỏ và dấu "!" đọc rõ), `browser/slot-menu-1280x720/menu-h-ne-1280x720.png`.
+
+### 8.5 Chơi thử cả ải (cảm giác chơi)
+
+Kịch bản `integrate/feel/feel.mjs` (lấy từ kịch bản chơi thử 27/10): phím CDP thật, tốc 1, seed 1. Người chơi mô phỏng chọn tốc độ trên thẻ, học trước, mỗi lần nghỉ mua Gai Chông, Bom Hạt Thông, Lưới Phóng, Vệ Binh Rêu, Lều Thuốc Nam bằng phím khi đủ vàng, dùng kỹ năng 8–11 s một lần, gõ chữ gần nhất. Đây không phải bot của `dh:balance`: số dưới đây không phải I của BALANCE.md.
+
+| | 35 WPM (1920×1080, thẻ 35, nhắm đúng 97 %) | 70 WPM (1280×720, thẻ 60, nhắm đúng 90 %) |
+|---|---|---|
+| Kết quả | Thắng 10/10, Hỏa Long cuối 650/653 | Thắng 10/10, cuối 653/653 |
+| Máu thấp nhất thấy được | 429 (đợt 2) | 408 (đợt 5) |
+| Phím | 878 chữ cái, 9 sai, trong 701 s cả ải | 994 chữ cái, 59 sai (94,1 %), trong 561 s |
+| Thời gian đợt không có chữ nào trên màn | 40 % (36 % khi đang có quái trên sân); theo đợt 18–63 % | 66 % (63 % khi có quái); theo đợt 41–82 % |
+| Thẻ chữ | 214 lần đo: 0 chồng, 0 thiếu, chữ nhỏ nhất 20 px | 223 lần đo: 0 chồng, 0 thiếu, 16 px |
+
+Đợt 4 và đợt 10:
+
+- Đợt 4 không phải bậc khó với người chơi này: máu 538 → 561 ở 35 WPM, 538 → 561 ở 70 WPM. Lúc đông nhất có 9 quái sống mà 0–1 chữ trên màn (`run-35-1920/w4-05-peak-9foes-253s`, `run-70-1280/w4-05-peak-9foes-199s`). Chữ duy nhất ở +20 s là "history" trên Heo ở đường phía bắc.
+- Đợt 10 không còn là vực với người gõ 70 WPM: không mất máu, ở +20 s sân trống, ở +45 s có 3 quái mà 0 chữ. Ở 35 WPM, đợt 10 mất 71 máu trong 20 s đầu (614 → 543), cỡ đợt 2 (492 → 429) và đợt 9 (630 → 539): G01 vào vòng hào quang ở chỗ lội nước phía tây, mang chữ khiên "group".
+
+Còn nhạt hay khó đọc (nói thẳng):
+
+1. **Nhạt nhất: phần lớn thời gian đợt không có gì để gõ.** Quái chết ở bẫy và Vệ Binh, cách bệ 26–35 m, ngoài vùng hiện chữ. Người chơi đứng nhìn, chữ đến thưa. Mỗi đợt, 5–8 s sau khi bắt đầu, có 2 quái cách bệ 26–30 m mà không có chữ. Thử tua nhanh (Alt + →) thì bị từ chối: "Quái đã vào Vùng Chữ, chữ sắp hiện: chưa tua nhanh được". Đây đúng là nhàn I của D27; hai hướng sửa (D27 (i), D31) đều gãy cổng (§1, §2).
+2. **Không thấy nguy.** Cả hai lượt thắng với hơn 99 % máu; máu thấp nhất 429 / 492 (35 WPM) và 408 / 561 (70 WPM). Người chơi mua bẫy và lính đều đặn thì ít khi bị đe dọa ở Cân bằng.
+3. **G01 ở camera chơi**: nhìn từ trên xuống, model là một khối rêu, lá cờ thấy cạnh (`feel/crops/w5-g01-35-1920.png`). Khi đã cắm, cột sáng vàng làm nhạt cả thân, và có hai lá cờ: cờ của model và cờ cắm (`browser/banner-1920x1080/01-planted-1920x1080.png`). Người chơi nhận ra tướng nhờ thẻ ra mắt, vòng hào quang và thẻ chữ có khiên, không nhờ hình.
+4. **Lều Thuốc Nam trông như bụi cây tròn** ở camera mặc định (đúng như giám khảo M0b ghi).
+5. **Gai Chông cao hơn Sói**: một con sói đi qua bẫy bị khung gai che, chỉ còn vân bóng dưới thẻ chữ (`feel/crops/w10-wolves-35-1920.png`, đợt 10).
+6. **Số sát thương của một cụm Kiến** xếp thành cột sáu số "122" đi lên khoảng 250 px vào rừng, xa đàn kiến (`feel/crops/w5-numbers-70-1280.png`, đợt 5 ở 1280).
+7. **Bom trên `main`** (luật cũ ≥ 3 quái) ít nổ, và ô bẫy không báo vừa nổ. Model bom nhỏ, nằm dưới quái.
+8. Ổn: Bạch Long trắng ngọc và Hỏa Long đỏ tách rõ ở cả hai cỡ; báo trước của sáu loại quái đọc được trên model; Sói rõ trên nước, khó thấy hơn trên đường đất.
+
+### 8.6 Các luật chưa giữ, nhìn cùng model (xem trước, không đo, không commit)
+
+Mỗi cây = `main` đã gộp + một nhánh, giải nén ngoài gốc `dragon-hold`, chạy lại kịch bản trình duyệt của làn ở cả hai cỡ. Phông chữ dự phòng vì Vite của cây xem trước từ chối file phông nằm ngoài gốc (28–30 yêu cầu phông lỗi 403; lỗi của cách dựng cây, không phải của game). Mọi lượt: 0 exception, mã băm phát lại khớp.
+
+- **`s5-wolf-pack` (bầy Sói, V2)**: một thẻ "room ×3 · phòng" (1920) và "family ×3 · gia đình" (1280) đứng trên ba model sói đi sát; bầy giãn 1,8 m, che thân 0 % (11,8 % một con ở 1920). Đọc rõ là một bầy (`preview/s5/wave7/w7-pack-later-crop-1920x1080.png`).
+- **`s6-traps` (bẫy và nhà)**: chip "Nổ!" kèm vòng nạp 22 s cạnh bom ở đầu cầu, "Bắn!" cạnh Lưới Phóng với Ong Gai rơi trong lưới, "Xung!" và vòng hồi máu quanh Lều. Ở 1920 chip 31–34 px, đọc rõ. Ở 1280 chip 21 px, đè gần hết model Lều; chấm Năng khó tách (`preview/s6/hut/hut-pips-crop-1280x720.png`).
+- **`s4-g01-squad` (G01 đi giữa toán, V1)**: ở 1920, G01 to hơn hai Lính, bốn thẻ (cờ "team", "city", "write" có khiên, "home") sát nhau nhưng không chồng. Ở 1280, cột sáng của cờ cắm và hai Lính nhập thành một khối; không tách được tướng khỏi lính (`preview/s4/wave5/w5-squad-walk-crop-1280x720.png`).
+
+### 8.7 Cổng đã gãy, chờ anh
+
+| Bước | Cổng gãy | Trước → sau | Biến thể đã thử |
+|---|---|---|---|
+| 1 · D27 (i) | G1; B1, B7 xấu thêm | G1 86,7 → 92,5 % (cả hai bộ seed trên 90 %); B1 6 → 11 ô, B7 2 → 3 ô | i2 (bản trên nhánh): 92,5 %. i1 (độ chờ Héo lan tính từ lúc chữ hiện): G1 64,2 %, kèm G3 60,8 % và B3 (Mới 37,5 %) |
+| 2 · D31 | G1 (cùng D27 (i)); trần 90 % | V0, V1: G1 92,5 %; Khá, Nhanh, b60 thắng 89–100 %. V2 (không kèm (i)): mọi cổng đạt ở 120 seed, nhưng Nhanh 90,3 → 92,3 % ở 300 seed | V0 (độ chờ từ lúc vào vùng), V1 (từ lúc chữ hiện), V2 (D31 trên `main`, giữ vòng 26 m) |
+| 3 · D33 (4) | G1; B1 xấu thêm | G1 86,7 → 97,5 % (V0), 94,2 % (V1); 300 seed 81,7 → 93,3 %. B1 6 → 9 ô | V0 (Heo sau đỉnh 1, đợt 4 dài 65 s, trần đợt giữa 1,10), V1 (đợt 4 giữ 62 s, trần đúng 1,15). Riêng trần 1,15: 95,0 %; riêng dời Heo: 93,3 % |
+| 4 · D33 (2) | Mục tiêu bước chưa đạt; V2 gãy G9 | V0, V1 qua mọi cổng nhưng G01 cắm cờ ở 3–4 % lượt của Chuẩn; I đợt 5 không giảm. V2: G9 1,40 → 1,73 | V0 (toán gom), V1 (rate 104), V2 (toán 1 s đúng 02 §5.2) |
+| 5 · D33 (3) | B1 xấu thêm ở cả ba bản; V1 gãy D23a | Khá thắng 75,8 → 64,2 / 66,7 / 63,3 %, S 47,5 → khoảng 25 %; 300 seed V2 75,7 → 66,3 %. D23a 12,8 → 15,0 % (V1) | V0, V1 (giữ độ dài quãng lặng), V2 (trần 60 % đòn vùng cho bầy) |
+| 6 · D33 (1) | B4 theo bộ seed (300 seed) | Bộ 21261026: S Chậm chắc 65,2 / Ẩu 61,4 → 64,9 / 68,5. Gộp 64,3 / 61,1 → 65,3 / 62,9 | V0 120 VL (G1 91,7 %, B4 gộp 68 / 72), V1 40 VL (B4 trượt ở bộ 20261023), V2 30 VL (bộ 21261026). Đã gỡ khỏi `main` (`67cacc2`) |
+
+Lựa chọn cho từng bước ở §1.7, §2.7, §3.8, §4.8, §5.9, §6.9 và §7.6. Xung Lều Thuốc Nam vẫn 0 lần mỗi lượt ở mọi bot (§6.7).
+
+### 8.8 Việc còn mở
+
+- Nhàn là cảm giác lớn nhất còn lại (8.5 mục 1). Mọi núm đã đo đều gãy G1 hay trần 90 %. Cần anh chọn hướng cho D27 và D31 trước buổi chơi thử B9.
+- M0b: trần tam giác 05 §8 chưa đạt (High 3,09 M so với 2 M); mức Low vẫn dùng khối tạm; G01 ở camera chơi (cờ ngả, hai lá cờ khi cắm); Lều giống bụi cây; Gai Chông che Sói; đường dẫn media `public/assets/dragon-hold/models/m0b/` cần anh xác nhận. Model chỉ có trên Mac này cho tới khi anh chạy `pnpm media:push`.
+- Chip của `s6-traps` ở 1280 cần to hơn và đứng cạnh Lều, không đè lên Lều, nếu anh gộp nhánh.
+- Cột số sát thương của cụm Kiến (8.5 mục 6) có từ trước M0b; giao làn hiệu ứng.
+- Worktree `games/.wt-dh-m0b` và `games/.wt-dh-codex` đã gỡ (nhánh đã gộp, giữ tên nhánh). `main` đã push lên `origin`.
