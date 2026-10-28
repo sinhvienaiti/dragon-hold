@@ -229,3 +229,89 @@ export function brightBlob(img, base, center, { level = 0.9, gain = 0.08, reach 
   }
   return { area, diameter: +(2 * Math.sqrt(area / Math.PI)).toFixed(1), w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
+
+/**
+ * The extent of an effect round `center` (VFX_STANDARD §3.5 rule 3: white ≤ 30 % of the effect's radius): pixels whose
+ * colour moved by ≥ `dist` (largest channel change, 0–1) from `base`, brighter or darker, 4-connected to such a pixel
+ * within 6 px of `center`, within `reach` px. A normal-blended red body that darkens the sunlit dais counts, which the
+ * luma-gain blob does not. Returns { area, diameter, w, h } or null.
+ */
+export function changedBlob(img, base, center, { dist = 0.12, reach = 120 } = {}) {
+  const cx = Math.round(center.x);
+  const cy = Math.round(center.y);
+  const limit = dist * 255;
+  const ok = (x, y) => {
+    const i = (y * img.w + x) * 3;
+    return Math.max(Math.abs(img.data[i] - base.data[i]), Math.abs(img.data[i + 1] - base.data[i + 1]), Math.abs(img.data[i + 2] - base.data[i + 2])) >= limit;
+  };
+  let start = null;
+  for (let r = 0; r <= 6 && start === null; r += 1) {
+    for (let y = cy - r; y <= cy + r && start === null; y += 1) {
+      for (let x = cx - r; x <= cx + r; x += 1) {
+        if (x >= 0 && y >= 0 && x < img.w && y < img.h && ok(x, y)) {
+          start = [x, y];
+          break;
+        }
+      }
+    }
+  }
+  if (start === null) return null;
+  const seen = new Uint8Array(img.w * img.h);
+  const stack = [start];
+  seen[start[1] * img.w + start[0]] = 1;
+  let area = 0;
+  let x0 = start[0];
+  let x1 = start[0];
+  let y0 = start[1];
+  let y1 = start[1];
+  while (stack.length > 0) {
+    const [x, y] = stack.pop();
+    area += 1;
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= img.w || ny >= img.h || Math.hypot(nx - cx, ny - cy) > reach) continue;
+      const k = ny * img.w + nx;
+      if (seen[k] || !ok(nx, ny)) continue;
+      seen[k] = 1;
+      stack.push([nx, ny]);
+    }
+  }
+  return { area, diameter: +(2 * Math.sqrt(area / Math.PI)).toFixed(1), w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+/**
+ * Colour of a box: mean sRGB (0–255), mean HSV saturation, and the share of "fire" pixels (red over green over
+ * blue, saturation ≥ 0.45) and of dark-red pixels (fire hue, value ≤ 0.55): a release that reads as fire, not cream.
+ */
+export function boxColor(img, box) {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let sat = 0;
+  let fire = 0;
+  let darkRed = 0;
+  let n = 0;
+  for (let y = Math.max(0, Math.round(box.y)); y < Math.min(img.h, Math.round(box.y + box.h)); y += 1) {
+    for (let x = Math.max(0, Math.round(box.x)); x < Math.min(img.w, Math.round(box.x + box.w)); x += 1) {
+      const i = (y * img.w + x) * 3;
+      const R = img.data[i];
+      const G = img.data[i + 1];
+      const B = img.data[i + 2];
+      const max = Math.max(R, G, B);
+      const s = max === 0 ? 0 : (max - Math.min(R, G, B)) / max;
+      r += R;
+      g += G;
+      b += B;
+      sat += s;
+      const hueFire = R >= G && G >= B && R - B > 40;
+      if (hueFire && s >= 0.45) fire += 1;
+      if (hueFire && s >= 0.45 && max <= 140) darkRed += 1;
+      n += 1;
+    }
+  }
+  if (n === 0) return null;
+  return { rgb: [Math.round(r / n), Math.round(g / n), Math.round(b / n)], saturation: +(sat / n).toFixed(3), fireShare: +(fire / n).toFixed(3), darkRedShare: +(darkRed / n).toFixed(3) };
+}

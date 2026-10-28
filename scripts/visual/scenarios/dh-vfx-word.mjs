@@ -16,7 +16,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { badResources, BASE, press } from "./lib/dh.mjs";
-import { beside, brightBlob, brightestGain, clip, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
+import { beside, boxColor, brightBlob, brightestGain, changedBlob, clip, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
 
 const LABEL = process.env.LABEL ?? "after";
 const OUT = resolve(process.env.OUT_DIR ?? join("tmp/vfx", LABEL));
@@ -251,14 +251,25 @@ export function measure(run, h, { scorchAt = null } = {}) {
   const headCore = median(headBlobs.map((b) => b.core?.diameter));
   const headBody = median(headBlobs.map((b) => b.body?.diameter));
   const ratio = (a, b) => (a && b ? +(a / b).toFixed(2) : null);
+  // The effect's whole extent (colour moved ≥ 0.12 over a-00, brighter or darker: a red body on the sunlit dais
+  // counts) against the head's, and the white core's share of it (§3.5 rule 3: ≤ 0.30 of the radius).
+  const flashExtent = changedBlob(f0, a00, spot, { dist: 0.12, reach: Math.round(120 * s) });
+  const headExtent = median(dense.slice(3, 9).filter((f) => f.heads?.[0]?.visible).map((f) => changedBlob(readRgb(f.png), a00, f.heads[0], { dist: 0.12, reach })?.diameter));
   const flashVsHead = {
     flashCore: flashBlob.core?.diameter ?? null,
     flashBody: flashBlob.body?.diameter ?? null,
+    flashExtent: flashExtent?.diameter ?? null,
     headCore,
     headBody,
+    headExtent,
     coreRatio: ratio(flashBlob.core?.diameter, headCore),
     bodyRatio: ratio(flashBlob.body?.diameter, headBody),
+    extentRatio: ratio(flashExtent?.diameter, headExtent),
+    coreOfExtent: flashExtent?.diameter ? +((flashBlob.core?.diameter ?? 0) / flashExtent.diameter).toFixed(3) : null,
+    coreOfBody: flashBlob.body?.diameter ? +((flashBlob.core?.diameter ?? 0) / flashBlob.body.diameter).toFixed(3) : null,
   };
+  // The release's colour in the dais box (judge 2: cream, (231, 196, 153), no dark-red edge), before and on f0–f1.
+  const color = { pre: boxColor(preImg, box), f0: boxColor(f0, box), f1: boxColor(readRgb(dense[1].png), box) };
   // F: the scorch's darkening of the ground (a-00 minus the frame, a 14 px cell at 720p) frame by frame from f20.
   const scorchPx = scorchAt ?? frames.at(-1)?.scorch ?? null;
   let scorch = null;
@@ -296,7 +307,7 @@ export function measure(run, h, { scorchAt = null } = {}) {
   const sized = heads.filter((head) => head.along !== undefined);
   return {
     head: { frames: heads, minAlong: sized.length ? Math.min(...sized.map((x) => x.along)) : null, minAcross: sized.length ? Math.min(...sized.map((x) => x.across)) : null },
-    flash: { roi, series, firstOverPeak: peak > 0 ? +(series[0] / peak).toFixed(3) : null, overPre, vsHead: flashVsHead, heads: headBlobs },
+    flash: { roi, series, firstOverPeak: peak > 0 ? +(series[0] / peak).toFixed(3) : null, overPre, vsHead: flashVsHead, color, heads: headBlobs },
     scorch,
     light: { series: lights, firstOverPeak: lightPeak > 0 ? +((lights[0] ?? 0) / lightPeak).toFixed(3) : null },
     whiteOutMaxPct: +(whiteMax * 100).toFixed(2),
