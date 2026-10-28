@@ -1008,15 +1008,20 @@ export class FxCore {
   /** A bolt landed (I, F of the word attack): the impact by tier and a small scorch under it for 2 s. */
   private boltLanded(at: THREE.Vector3, tierId: number, dirX: number, dirZ: number, strong: boolean): void {
     this.impact(at, tierId, dirX, dirZ, strong);
-    // Wider than the body that falls on it, so a kill leaves its edge in sight.
-    const size = (1.1 + tierId * 0.3) * Math.sqrt(this.k);
-    this.marks.spawn(at.x, this.markY(at.x, at.z, size) + 0.06, at.z, size, WORD_FX.scorchS, FX_COLORS.scorch, 0.55, { kind: 2, fadeIn: 0.08, drag: 0, rot: this.random() * TAU });
+    // The disc mark is dark only in its middle third, and a killed foe falls right on the spot it was struck (28/10
+    // capture: a scorch under the target was never seen). So the scorch lies where the fire met the ground, just in
+    // front of the foe on the shot's line, and the body falls back off it.
+    const rk = Math.sqrt(this.k);
+    const size = (1.5 + tierId * 0.35) * rk;
+    const length = Math.hypot(dirX, dirZ) || 1;
+    const x = at.x - (dirX / length) * 0.75 * rk;
+    const z = at.z - (dirZ / length) * 0.75 * rk;
+    this.marks.spawn(x, this.markY(x, z, size) + 0.06, z, size, WORD_FX.scorchS, FX_COLORS.scorch, 0.85, { kind: 2, fadeIn: 0.08, drag: 0, rot: this.random() * TAU });
   }
 
   /**
-   * Height for a flat mark `size` metres across at (x, z): the highest ground under its middle. heightAt is the
-   * analytic ground; the drawn grid is coarser, and by a river bank it runs above the analytic bed, so a mark at the
-   * centre's height alone was buried (28/10 capture: the scorch at the ford never showed).
+   * Height for a flat mark `size` metres across at (x, z): the highest ground under its middle, so on a bank or a
+   * slope the flat disc is not cut by the higher side (foes are often struck at the fords).
    */
   private markY(x: number, z: number, size: number): number {
     const r = Math.max(0.6, size * 0.3);
