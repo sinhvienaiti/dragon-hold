@@ -218,7 +218,9 @@ export function measure(run, h) {
   const born = dense[0].flash;
   const spot = born?.visible ? { x: Math.round(born.x), y: Math.round(born.y) } : brightestGain(f0, preImg, search, cell, readRgb(dense[8].png));
   const roi = { x: spot.x - cell / 2, y: spot.y - cell / 2, w: cell, h: cell };
-  const base = meanLuma(preImg, roi);
+  // Against the frame before the first key: the charge held at the mouth (in 'pre') is spent by the release on the
+  // same spot, so a gain over 'pre' measured the swap, not the flash.
+  const base = meanLuma(readRgb(frames.find((f) => f.name === "a-00").png), roi);
   const series = dense.slice(0, 8).map((f) => +(meanLuma(readRgb(f.png), roi) - base).toFixed(4));
   const peak = Math.max(...series);
   const effect = frames.filter((f) => f.name !== "a-00");

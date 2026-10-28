@@ -472,7 +472,9 @@ class FlarePool {
       live += 1;
       const hold = this.timed[o + 11]!;
       const k = flareEnvelope(age, hold, life) ** 1.6;
-      const size = this.timed[o + 3]! * (1 + this.timed[o + 4]! * (age / life));
+      // It grows only once its hold is over: frame 0 is the peak in size as in brightness (28/10 capture: grown
+      // from frame 0, frame 1 drew 2–6 % brighter round the centre).
+      const size = this.timed[o + 3]! * (1 + this.timed[o + 4]! * Math.max(0, (age - hold) / Math.max(1e-6, life - hold)));
       this.write(i, this.timed[o]!, this.timed[o + 1]!, this.timed[o + 2]!, size, this.timed[o + 5]!, this.timed[o + 6]!, this.timed[o + 7]!, this.timed[o + 8]! * k);
       this.timed[o + 9] = age + dt;
     }
@@ -881,7 +883,8 @@ export class FxCore {
     // The burst: deep-orange bodies (normal blend) stepping out along the shot, full on frame 0.
     for (let k = 0; k < 3; k += 1) {
       const d = (0.45 + k * 0.45) * s;
-      this.puffs.spawn(from.x + ux * d, from.y - k * 0.05, from.z + uz * d, (0.85 - k * 0.15) * s * big, 0.1 + k * 0.03, k === 0 ? FX_COLORS.blastHot : FX_COLORS.fireDeep, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, grow: 0.6, rot: this.random() * TAU });
+      // Born near full size (grow 0.2): the release is at its biggest on frame 0, not a frame later.
+      this.puffs.spawn(from.x + ux * d, from.y - k * 0.05, from.z + uz * d, (1 - k * 0.18) * s * big, 0.1 + k * 0.03, k === 0 ? FX_COLORS.blastHot : FX_COLORS.fireDeep, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, grow: 0.2, rot: this.random() * TAU });
     }
     for (let k = 0; k < (this.reduced ? 5 : 10); k += 1) {
       const yaw = this.rand(-0.45, 0.45);
