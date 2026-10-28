@@ -529,6 +529,7 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
   const useTitle = (on: boolean): TitleOrbit | null => {
     title = on ? (title ?? createTitleOrbit(world.camera, map)) : null;
     world.terrain.look.uniforms.uMistCam.value.set(on ? 1 : 0, TITLE_ORBIT.mist.offsetM, TITLE_ORBIT.mist.scale);
+    world.scatter.setLowView(on);
     return title;
   };
   if (params.get("cam") === "title") useTitle(true);

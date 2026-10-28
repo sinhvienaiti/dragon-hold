@@ -88,8 +88,9 @@ export const PILOT_GROUND = {
   uGrassLight: "#8f9a4c",
   uForestFloor: "#3a4a30",
   uVioletShade: "#b4c0d8",
-  uDirt: "#b89c74",
-  uDirtLight: "#cfb98f",
+  // A3 follow-up: lanes and trodden ground keep the A2 tan, so moss-green foes still read on them (dh-foe-contrast).
+  uDirt: "#c9a77c",
+  uDirtLight: "#dcc59c",
   uDirtDark: "#7b6247",
   uRimStone: "#76726a",
   uStone: "#cfc6b2",
@@ -669,7 +670,10 @@ vec3 dhStone(vec3 world, vec3 nW, vec2 p, vec2 dpx, vec2 dpy, float edge, float 
   vec3 dRock = dhDetail(tRock, uMRock);
   float streak = dhNoise(vec2((world.x - world.z) * 1.6, world.y * 0.28)) * 0.6 + dhNoise(vec2((world.x + world.z) * 3.1, world.y * 0.5) + 7.0) * 0.4;
   // Faces a step darker than the ledges above them, so the three tiers read.
-  return uStone * mix(vec3(1.0), dRock, 0.9) * (0.8 + 0.3 * streak) * mix(0.62, 1.08, smoothstep(0.25, 0.85, nW.y));
+  // A3: granite rather than pale sand: a cooler grey between rim stone and cream, dark joints between blocks.
+  float joint = smoothstep(0.62, 0.8, dhNoise(world.xz * 0.9 + world.y * 0.35) * 0.65 + dhNoise(vec2(world.x + world.z, world.y) * 1.7) * 0.35);
+  vec3 granite = mix(uRimStone, uStone, 0.68) * vec3(0.98, 1.0, 1.03);
+  return granite * mix(vec3(1.0), dRock, 0.9) * (0.8 + 0.3 * streak) * (1.0 - 0.38 * joint) * mix(0.62, 1.08, smoothstep(0.25, 0.85, nW.y));
 }
 `;
 
@@ -757,8 +761,12 @@ float level = 1.0 - smoothstep(0.22, 0.38, slope);
 float cliffG = smoothstep(0.25, 0.6, pm2.g + (mid - 0.5) * 0.3);
 if (cliffG > 0.0) {
   float crack = smoothstep(0.58, 0.72, dhNoise(p * vec2(0.7, 1.3) + 2.0) * 0.6 + dhNoise(p * 2.1 + 5.0) * 0.4);
-  vec3 rockTop = uScree * dRock * (0.9 + 0.18 * stroke + 0.12 * (big - 0.5));
-  rockTop = mix(rockTop, rockTop * vec3(0.66, 0.68, 0.72), crack * 0.7);
+  // A3: granite, not sand, from the low title views too: cool grey between rim stone and cream, speckle,
+  // deep cracks, a little moss and lichen.
+  vec3 rockTop = mix(uRimStone, uStone, 0.5 + 0.3 * (big - 0.5)) * vec3(0.97, 0.99, 1.03) * dRock * (0.86 + 0.2 * stroke);
+  rockTop *= 0.9 + 0.16 * dhNoise(p * 3.7 + 1.3);
+  rockTop = mix(rockTop, rockTop * vec3(0.5, 0.53, 0.58), crack * 0.9);
+  rockTop = mix(rockTop, uGrassDeep * 0.85, smoothstep(0.6, 0.82, dhNoise(p * 0.45 + 9.0)) * 0.4);
   float pocket = smoothstep(0.6, 0.74, mid + (big - 0.5) * 0.35);
   c = mix(c, mix(rockTop, c, pocket * 0.85), cliffG);
 }

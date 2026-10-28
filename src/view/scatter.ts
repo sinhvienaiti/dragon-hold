@@ -21,7 +21,7 @@ import type { MapDef } from "../content/types";
 import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
 import type { PropModel } from "./models";
 import { homeViewUv, LAYOUT_RULES, onAnyFrameEdge, type LayoutItem } from "./layout";
-import { bakeImpostors, farRing, type FarItem, type ImpostorAtlas } from "./impostor";
+import { bakeImpostors, farRing, IMPOSTOR_LOW, type FarItem, type ImpostorAtlas } from "./impostor";
 import { mapSwitch } from "./paint";
 import { hash2, Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
 
@@ -29,6 +29,11 @@ export interface ScatterView {
   readonly group: THREE.Group;
   /** Swaps the near items for the owner's GLB props (M0b); a prop that did not load keeps its primitives. Once. */
   useProps(prop: (manifest: string) => PropModel | null, renderer?: THREE.WebGLRenderer): void;
+  /**
+   * A3: the far ring for a low camera (title orbit): true swaps in impostors baked at 16° (one bake on the
+   * first call, same one draw call), false brings back the 55° ring of the play views.
+   */
+  setLowView(on: boolean): void;
   /** Triangles of one drawing of the scatter (no shadow pass), and how many items are GLB props. */
   stats(): { triangles: number; props: number; primitives: number };
   dispose(): void;
@@ -188,6 +193,20 @@ const FRINGE_M = 10;
 const FRINGE_SKIP = 0.55;
 /** Far crown colours the GLB violet crown (K04) takes over. */
 const FAR_COLORS = CROWN_FAR;
+/**
+ * A3 (ART_DIRECTION 3.3): leaf masses instead of toy blocks, within the kit models and their maps: clumps a
+ * step darker in the hollows (world noise, so neighbours never repeat), a darker crown base, lit tips leaning
+ * olive and gold, shade leaning pine blue. Appended to each foliage prop's paint (vDhLocal: model units, base 0).
+ */
+const FOLIAGE_BREAKUP = /* glsl */ `
+{
+  float dhClump = dhFbm(vDhWorld.xz * 0.85 + vec2(vDhWorld.y * 0.6, -vDhWorld.y * 0.4));
+  float dhLit = smoothstep(0.35, 0.68, dhClump);
+  float dhUp = smoothstep(0.12, 0.9, vDhLocal.y);
+  diffuseColor.rgb *= mix(0.74, 1.06, dhLit) * mix(0.7, 1.04, dhUp);
+  diffuseColor.rgb *= mix(vec3(0.9, 0.97, 1.03), vec3(1.05, 1.02, 0.88), dhLit * dhUp);
+}
+`;
 const BUSH = ["#5a844c", "#6a8c50", "#4a7553", "#72925a"] as const;
 const ROCK = ["#9a95a8", "#8b8698", "#a7a2ad"] as const;
 
@@ -491,6 +510,11 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
   const [cx, cz] = map.dais.center;
 
   let atlas: ImpostorAtlas | null = null;
+  let lowAtlas: ImpostorAtlas | null = null;
+  let ring: THREE.InstancedMesh | null = null;
+  let lowRing: THREE.InstancedMesh | null = null;
+  /** What the low ring needs, kept from useProps (null until the far ring exists). */
+  let lowJob: { renderer: THREE.WebGLRenderer; models: PropModel[]; items: FarItem[] } | null = null;
   const useProps = (prop: (manifest: string) => PropModel | null, renderer?: THREE.WebGLRenderer): void => {
     if (used) return;
     used = true;
@@ -563,7 +587,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     for (const { spec, model, band, warm, items } of placed.values()) {
       if (items.length === 0) continue;
       const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "");
-      const paint = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
+      const foliage = spec.kind !== "rock" && spec.kind !== "dress";
+      const base = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
+      const paint = foliage ? (base ?? "") + FOLIAGE_BREAKUP : base;
       const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
         key: "prop-" + name + (band === "mid" ? "-mid" : ""),
         ...(paint ? { paint } : {}),
@@ -602,17 +628,36 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     }
     if (renderer && farItems.length > 0) {
       const used = [...new Set(farItems.map((item) => item.manifest))];
-      atlas = bakeImpostors(renderer, used.map((key) => loaded.find((entry) => entry.spec.manifest === key)!.model));
-      const ring = farRing(atlas, farItems, look);
+      const models = used.map((key) => loaded.find((entry) => entry.spec.manifest === key)!.model);
+      atlas = bakeImpostors(renderer, models);
+      ring = farRing(atlas, farItems, look);
       group.add(ring);
       propMeshes.push(ring);
       materials.push(ring.material as THREE.Material);
+      lowJob = { renderer, models, items: farItems };
+      if (wantLow) setLowView(true);
     }
+  };
+
+  let wantLow = false;
+  const setLowView = (on: boolean): void => {
+    wantLow = on;
+    if (on && !lowRing && lowJob) {
+      lowAtlas = bakeImpostors(lowJob.renderer, lowJob.models, {}, IMPOSTOR_LOW);
+      lowRing = farRing(lowAtlas, lowJob.items, look);
+      lowRing.name = "dh-far-ring-low";
+      group.add(lowRing);
+      propMeshes.push(lowRing);
+      materials.push(lowRing.material as THREE.Material);
+    }
+    if (lowRing) lowRing.visible = on;
+    if (ring) ring.visible = !on || !lowRing;
   };
 
   return {
     group,
     useProps,
+    setLowView,
     stats() {
       // Hidden primitives (zero scale) still go through the vertex stage: they count.
       let triangles = 0;
@@ -625,6 +670,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       group.removeFromParent();
       for (const item of [...geometries, ...materials, ...meshes, ...propMeshes]) item.dispose();
       atlas?.dispose();
+      lowAtlas?.dispose();
     },
   };
 }
