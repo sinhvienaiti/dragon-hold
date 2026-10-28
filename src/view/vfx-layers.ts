@@ -473,7 +473,9 @@ export class StreakSparks {
     geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.iColor, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iSize", new THREE.InstancedBufferAttribute(this.iSize, 2).setUsage(THREE.DynamicDrawUsage));
     geometry.instanceCount = 0;
-    const material = new THREE.ShaderMaterial({ vertexShader: STREAK_VERTEX, fragmentShader: STREAK_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    // Double-sided: the quad is laid along (side, dir) with side = dir turned +90°, which mirrors the plane's winding
+    // (det −1), so front-face culling dropped every streak (round 3 capture: none drawn).
+    const material = new THREE.ShaderMaterial({ vertexShader: STREAK_VERTEX, fragmentShader: STREAK_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 6;
