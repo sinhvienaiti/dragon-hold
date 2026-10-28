@@ -166,10 +166,11 @@ const CELLS: Readonly<Record<Quality, { tree: number; bush: number; rock: number
   ultra: { tree: 2.4, bush: 2.0, rock: 3.6, reach: 102 },
 };
 
-const PINE_GREENS = ["#3f6e5c", "#4a7b5e", "#35605a", "#557f57"] as const;
+// A3 (ART_DIRECTION 3.3): deep pine and olive greens, a step under the storybook greens of A2.
+const PINE_GREENS = ["#35614f", "#3f6c53", "#30574f", "#4a714d"] as const;
 /** Pine blue and violet crowns, only far from the paths (05 §2.2). */
 const PINE_FAR = ["#4d6b7d", "#57648a", "#4a6a77"] as const;
-const CROWN_NEAR = ["#6f9a4f", "#5a8a5c", "#82a656", "#4f7f60"] as const;
+const CROWN_NEAR = ["#668c4b", "#527d57", "#7a9550", "#4a755b"] as const;
 const CROWN_FAR = ["#8e7cc3", "#6c8fd1", "#7d7fb8", "#8a82b4"] as const;
 /** Props too small to cast a useful shadow (MAP_FACTORY 4.2: clutter casts none). */
 const SMALL_PROPS = new Set(["props/pine-river-river-stones", "props/pine-river-stump", "props/pine-river-log", "props/pine-river-rock-slab", "props/pine-river-grass-tuft", "props/pine-river-wildflower-clump"]);
@@ -187,7 +188,7 @@ const FRINGE_M = 10;
 const FRINGE_SKIP = 0.55;
 /** Far crown colours the GLB violet crown (K04) takes over. */
 const FAR_COLORS = CROWN_FAR;
-const BUSH = ["#5d8f4f", "#6f9d55", "#4d7f5a", "#7aa35e"] as const;
+const BUSH = ["#5a844c", "#6a8c50", "#4a7553", "#72925a"] as const;
 const ROCK = ["#9a95a8", "#8b8698", "#a7a2ad"] as const;
 
 const pick = <T>(list: readonly T[], random: () => number): T => list[Math.floor(random() * list.length) % list.length]!;
@@ -276,8 +277,9 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     if (inside && skyDist(x, z) < SCATTER_CLEAR.skyLane) return;
     const far = laneGap > 9 && r > play - 4;
     const yaw = random() * Math.PI * 2;
-    // Round crowns light the forest edge (the reference's broadleaf rim); pines deeper in.
-    if (random() < (inside || fringe ? 0.72 : r < edge + 16 ? 0.52 : 0.32)) {
+    // Round crowns light the forest edge (the reference's broadleaf rim); pines deeper in. A3 (ART_DIRECTION 3.1):
+    // the dark pine forest climbs the valley slopes, so past the fringe pines take over.
+    if (random() < (inside || fringe ? 0.66 : r < edge + 16 ? 0.4 : 0.18)) {
       const size = inside ? 1.3 + random() * 0.9 : 1.8 + random() * 1.3;
       let color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
       if ((CROWN_FAR as readonly string[]).includes(color)) {

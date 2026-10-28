@@ -5,15 +5,15 @@
   "unit": "cm",
   "gameplay": { "adapter": "dragon-hold@1", "commit": "02fe9c787886aecd668248fe00b5f2a97a6e45f4", "note": "simHash and viewHash come with the dragon-hold@2 reader (MAP_PLAN 2.1); the sim never reads this file" },
   "brief": "MAP_PLAN 3.2: sun from the east; the high side is west, a pale three-tier cliff framing the left edge with a gorge where Đường Suối and the stream leave; a bright open meadow east and south-east with the pond at its far edge; footpaths with destinations (pond landing, cliff scree, a south-east forest bay; no fishing path: the north bridgehead has a trap slot within 4 m); anchor grove in the north-west wedge across the river; forest bays every 60–90° and a gap at every gate.",
-  "lighting": { "sunBearingDeg": 95, "sunElevationDeg": 50, "hemiSky": "#d6e4ff", "hemiGround": "#6d7a5a", "hemiIntensityPermille": 2700, "fogNearCm": 4700, "fogFarCm": 11000 },
+  "lighting": { "sunBearingDeg": 70, "sunElevationDeg": 30, "keyColor": "#ffd6a0", "keyIntensityPermille": 4600, "hemiSky": "#b9c9e4", "hemiGround": "#5f6a42", "hemiIntensityPermille": 2350, "fogNearCm": 4700, "fogFarCm": 11000, "heightFog": { "baseCm": -150, "falloffCm": 220, "densityPermille": 32 }, "note": "A3 (ART_DIRECTION 3.3): dawn sun 30 deg up from the east-north-east, slanting down the valley so trees and cliffs throw long shadows west; slate-blue sky fill, olive ground bounce; fog by height pools in the river bed and the skirt valleys" },
   "scene": {
     "cliffs": [
-      { "id": "west-bluff", "site": "pinned", "tiers": 3, "heightCm": 900,
+      { "id": "west-bluff", "site": "pinned", "tiers": 4, "heightCm": 1800,
         "lineCm": [[-3595, 188], [-3486, -552], [-3268, -1254], [-2943, -1912], [-2524, -2524], [-2123, -3031]],
-        "note": "bearings 267–325°, r 35–37 m (A3, FB-07: 2.5 m nearer, so the 90° views hold its top tier; the default frame's left edge); face normal · sun 0.41–0.64" },
-      { "id": "south-west-bluff", "site": "pinned", "tiers": 3, "heightCm": 780,
+        "note": "bearings 267–325°, r 35–37 m (A3, FB-07: 2.5 m nearer, so the 90° views hold its top tier; the default frame's left edge); A3 (ART_DIRECTION 3.5): twice as tall, 18 m in four tiers of 4.5 m" },
+      { "id": "south-west-bluff", "site": "pinned", "tiers": 4, "heightCm": 1560,
         "lineCm": [[-1987, 3178], [-2349, 2799], [-2714, 2443], [-2991, 2259]],
-        "note": "bearings 212–233°, r 36.5–37.5 m (A3: 2.5 m nearer), south-east of the stream; normal · sun ≥ 0.33" }
+        "note": "bearings 212–233°, r 36.5–37.5 m (A3: 2.5 m nearer), south-east of the stream; A3 (ART_DIRECTION 3.5): twice as tall, 15.6 m in four tiers" }
     ],
     "ponds": [{ "id": "pond", "site": "pinned", "atCm": [1720, 620], "radiusCm": 460, "note": "r 18.3 m, bearing 110°, at the open meadow's far edge; A3 (FB-07): 2 m nearer the dais (was (19; 7)) so the 90° views keep it inside the frame; slot 6.9 m, sky lane 6.3 m" }],
     "open": { "fromDeg": 95, "toDeg": 200, "ringCm": [900, 2800] },

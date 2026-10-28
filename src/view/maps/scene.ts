@@ -77,6 +77,11 @@ export interface SceneLighting {
   /** Radial mist from fogNearM to fogFarM (2.5: none inside 50 m). */
   readonly fogNearM?: number;
   readonly fogFarM?: number;
+  /** A3: the key sun's colour and intensity (default #ffe2b8, 3.3). */
+  readonly keyColor?: string;
+  readonly keyIntensity?: number;
+  /** A3 (ART_DIRECTION 3.3): fog by height, density × e^(−(y − base) / falloff) per metre, integrated along the view ray. */
+  readonly heightFog?: { readonly baseM: number; readonly falloffM: number; readonly density: number };
 }
 
 export interface SceneSpec {
@@ -113,7 +118,18 @@ export function readScene(json: Json): SceneSpec {
   return {
     id: json.id,
     lighting: (() => {
-      const l = json.lighting as { sunBearingDeg: number; sunElevationDeg: number; hemiSky?: string; hemiGround?: string; hemiIntensityPermille?: number; fogNearCm?: number; fogFarCm?: number };
+      const l = json.lighting as {
+        sunBearingDeg: number;
+        sunElevationDeg: number;
+        hemiSky?: string;
+        hemiGround?: string;
+        hemiIntensityPermille?: number;
+        fogNearCm?: number;
+        fogFarCm?: number;
+        keyColor?: string;
+        keyIntensityPermille?: number;
+        heightFog?: { baseCm: number; falloffCm: number; densityPermille: number };
+      };
       return {
         sunBearingDeg: l.sunBearingDeg,
         sunElevationDeg: l.sunElevationDeg,
@@ -122,6 +138,9 @@ export function readScene(json: Json): SceneSpec {
         ...(l.hemiIntensityPermille ? { hemiIntensity: l.hemiIntensityPermille / 1000 } : {}),
         ...(l.fogNearCm ? { fogNearM: cm(l.fogNearCm) } : {}),
         ...(l.fogFarCm ? { fogFarM: cm(l.fogFarCm) } : {}),
+        ...(l.keyColor ? { keyColor: l.keyColor } : {}),
+        ...(l.keyIntensityPermille ? { keyIntensity: l.keyIntensityPermille / 1000 } : {}),
+        ...(l.heightFog ? { heightFog: { baseM: cm(l.heightFog.baseCm), falloffM: cm(l.heightFog.falloffCm), density: l.heightFog.densityPermille / 1000 } } : {}),
       };
     })(),
     cliffs: list<{ id: string; lineCm: number[][]; heightCm: number; tiers?: number }>("cliffs").map((c) => ({ id: c.id, line: c.lineCm.map(point), heightM: cm(c.heightCm), tiers: c.tiers ?? 2 })),

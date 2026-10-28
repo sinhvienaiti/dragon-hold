@@ -220,6 +220,14 @@ export interface PaintLook {
     readonly uSunDir: { value: THREE.Vector3 };
     readonly uSunColor: { value: THREE.Color };
     readonly uRimColor: { value: THREE.Color };
+    /** A3: fog by height (base y, 1 / falloff, density per metre at the base; 0 turns it off). */
+    readonly uHFog: { value: THREE.Vector3 };
+    readonly uHFogColor: { value: THREE.Color };
+    /**
+     * A3: mist distance by camera (title camera): x 0 = radial from the dais (the play views), 1 = from the
+     * camera, as (distance − y) × z, so near trees stay clear and the far ridges sink into the haze.
+     */
+    readonly uMistCam: { value: THREE.Vector3 };
   };
   /** Lane and sky-lane segments for the occlusion dither of tall props (05 §3). */
   readonly occlusion: {
@@ -253,8 +261,10 @@ export function sunDirection(map: MapDef): THREE.Vector3 {
 
 export function createPaintLook(map: MapDef): PaintLook {
   const play = map.terrain.playRadiusM;
-  const cool = new THREE.Color("#a3b6d6");
-  const warm = new THREE.Color("#e9dcc4");
+  // A3 (ART_DIRECTION 3.3): dawn haze, slate blue away from the sun, pale gold toward it.
+  const cool = new THREE.Color("#9fb0c8");
+  const warm = new THREE.Color("#efd8b0");
+  const heightFog = sceneFor(map)?.lighting.heightFog;
   // Ground lanes with their trail past the gate, then sky lanes (ground projection).
   const laneSeg: THREE.Vector4[] = [];
   const laneHalf: number[] = [];
@@ -299,8 +309,11 @@ export function createPaintLook(map: MapDef): PaintLook {
       uFogCool: { value: cool },
       uFogWarm: { value: warm },
       uSunDir: { value: sunDirection(map) },
-      uSunColor: { value: new THREE.Color("#fff0d2") },
-      uRimColor: { value: new THREE.Color("#ffe9c4") },
+      uSunColor: { value: new THREE.Color("#ffe4b8") },
+      uRimColor: { value: new THREE.Color("#ffd49a") },
+      uHFog: { value: heightFog ? new THREE.Vector3(heightFog.baseM, 1 / heightFog.falloffM, heightFog.density) : new THREE.Vector3(0, 1, 0) },
+      uHFogColor: { value: new THREE.Color("#c9d2dc") },
+      uMistCam: { value: new THREE.Vector3(0, 0, 1) },
     },
     mist: cool.clone().lerp(warm, 0.35),
   };
@@ -317,6 +330,9 @@ uniform vec3 uFogWarm;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uRimColor;
+uniform vec3 uHFog;
+uniform vec3 uHFogColor;
+uniform vec3 uMistCam;
 float dhHash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
@@ -341,12 +357,25 @@ float dhFbm(vec2 p) {
 // Radial mist: the play area stays clear, the skirt sinks into blue haze, warmer toward the sun.
 vec3 dhMist(vec3 color, vec3 world) {
   vec2 d = world.xz - uDhCentre;
-  float r = length(d);
+  float r = mix(length(d), (length(world - cameraPosition) - uMistCam.y) * uMistCam.z, uMistCam.x);
   float f = smoothstep(uFogNear, uFogFar, r + (dhNoise(world.xz * 0.05) - 0.5) * 8.0);
   f = max(f, smoothstep(1.5, -2.5, world.y) * smoothstep(uFogNear - 6.0, uFogFar, r) * 0.6);
   float sunward = clamp(dot(normalize(d + vec2(0.001)), normalize(uSunDir.xz)) * 0.5 + 0.5, 0.0, 1.0);
   vec3 mist = mix(uFogCool, uFogWarm, sunward * 0.7);
-  return mix(color, mist, f);
+  color = mix(color, mist, f);
+  // A3: fog by height, density a·e^(−b(y − base)) integrated from the camera to this point: thin from
+  // above (a few % on the meadow, more over the river bed), deep along the low title views and in the hollows.
+  if (uHFog.z > 0.0) {
+    float b = uHFog.y;
+    float dist = length(world - cameraPosition);
+    float dy = world.y - cameraPosition.y;
+    float e0 = exp(-b * clamp(cameraPosition.y - uHFog.x, -4.0, 80.0));
+    float e1 = exp(-b * clamp(world.y - uHFog.x, -4.0, 80.0));
+    float depth = abs(dy) < 0.01 ? uHFog.z * dist * e1 : uHFog.z * dist * (e0 - e1) / (b * dy);
+    float hf = 1.0 - exp(-max(depth, 0.0));
+    color = mix(color, mix(uHFogColor, uFogWarm, sunward * 0.45), hf);
+  }
+  return color;
 }
 `;
 
@@ -618,7 +647,13 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
   const low = (x: number, z: number): number => (fbm(x * 0.016 + 3.1, z * 0.016 - 1.7, seed, 3) - 0.5) * 2 * reliefM * 0.8;
   const detail = (x: number, z: number): number => (fbm(x * 0.065, z * 0.065, seed + 5, 3) - 0.5) * 2 * reliefM * 0.28;
   const rimAt = (r: number): number => smooth(play + 3, play + 30, r);
-  const hills = (x: number, z: number, rim: number): number => (rim > 0 ? rim * (2.2 + 6.5 * fbm(x * 0.028, z * 0.028, seed + 9, 3)) : 0);
+  // A3 (ART_DIRECTION 3.1): a deep valley; past the rim the slopes keep climbing, so the pine forest climbs them.
+  const slopeAt = (r: number): number => smooth(play + 12, play + 56, r);
+  const hills = (x: number, z: number, rim: number): number => {
+    if (rim <= 0) return 0;
+    const r = Math.hypot(x - cx, z - cz);
+    return rim * (2.2 + 6.5 * fbm(x * 0.028, z * 0.028, seed + 9, 3)) + slopeAt(r) * (6 + 10 * fbm(x * 0.017 + 4.2, z * 0.017 - 2.6, seed + 13, 3));
+  };
   const forest = (x: number, z: number): number => {
     const r = Math.hypot(x - cx, z - cz);
     const clump = fbm(x * 0.05 + 7, z * 0.05 - 3, seed + 21, 3);
@@ -1015,9 +1050,9 @@ export const PINE_RIVER_GROUND = {
   uGrassDeep: "#4a7444",
   uGrassMid: "#6e964d",
   uGrassLight: "#9cb862",
-  uSunCream: "#efe2b6",
-  uCoolTint: "#a2b9d8",
-  uForestFloor: "#3b5f56",
+  uSunCream: "#f0d9a8",
+  uCoolTint: "#9fb3cc",
+  uForestFloor: "#3a4a30",
   uVioletShade: "#b0a2dc",
   uRock: "#8f89a0",
   uSand: "#c9c2a6",

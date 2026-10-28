@@ -77,23 +77,23 @@ function manifestOf(kind: GroundKind): Promise<GroundManifest | null> {
 }
 
 /**
- * Map pilot palette over PINE_RIVER_GROUND (MAP_PLAN V2, V13, 2.5): one calm
- * bright meadow green (hue about 95°), a moss forest floor instead of teal,
- * cool blue-grey shade instead of violet, pale warm cliff stone and scree.
+ * Map pilot palette over PINE_RIVER_GROUND (MAP_PLAN V2, V13, 2.5). A3
+ * (ART_DIRECTION_2026-10-28 §3.3): no football-pitch green; the meadow leans
+ * pine and olive with golden sun patches, a pine-dark forest floor, cool
+ * blue-grey shade instead of violet, cream granite and scree.
  */
 export const PILOT_GROUND = {
-  uGrassDeep: "#4f7a40",
-  // V2 (A2): a step less saturated, toward the reference's soft light green.
-  uGrassMid: "#6b9e49",
-  uGrassLight: "#81b258",
-  uForestFloor: "#4d6a3f",
+  uGrassDeep: "#3c5634",
+  uGrassMid: "#66803f",
+  uGrassLight: "#8f9a4c",
+  uForestFloor: "#3a4a30",
   uVioletShade: "#b4c0d8",
-  uDirt: "#c9a77c",
-  uDirtLight: "#dcc59c",
-  uDirtDark: "#8a6c4e",
-  uRimStone: "#7d7a72",
-  uStone: "#bdb9b1",
-  uScree: "#b3b1aa",
+  uDirt: "#b89c74",
+  uDirtLight: "#cfb98f",
+  uDirtDark: "#7b6247",
+  uRimStone: "#76726a",
+  uStone: "#cfc6b2",
+  uScree: "#bdb5a3",
 } as const;
 
 export interface GroundPaint {
@@ -724,8 +724,12 @@ if (edge0 < 0.6 || pm2.g > 0.05) dRock = dhDetail(textureGrad(uTRock, p / 4.5, d
 float calm = broad * 0.75 + mid * 0.17 + stroke * 0.08;
 vec3 c = mix(uGrassMid, uGrassLight, clamp(0.4 + (calm - 0.5) * 1.1, 0.0, 1.0));
 c *= dGrass;
-// V2 (A2): soft 20–30 m patches drift the meadow ±4 % between a cooler fresh green and a warmer sunlit one.
-c *= mix(vec3(0.955, 0.975, 1.03), vec3(1.04, 1.025, 0.95), smoothstep(0.3, 0.7, dhFbm(p * 0.041 + 41.0)));
+// A3 (ART_DIRECTION 3.3): soft 25–35 m patches, cooler pine green in the low ones, golden sun on the high ones.
+{
+  float sunPatch = dhFbm(p * 0.034 + 41.0);
+  c *= mix(vec3(0.92, 0.97, 0.98), vec3(1.0), smoothstep(0.22, 0.5, sunPatch));
+  c = mix(c, c * vec3(1.2, 1.1, 0.74), smoothstep(0.5, 0.72, sunPatch) * 0.85);
+}
 // Meadow tufts (the reference's speckle): small dabs a step darker and deeper green, lit on the sun side; baked, so free per frame.
 {
   vec2 tc = floor(p / 0.75);
