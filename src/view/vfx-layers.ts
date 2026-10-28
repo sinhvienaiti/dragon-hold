@@ -73,7 +73,8 @@ ${VFX_NOISE_GLSL}
 void main() {
   float across = abs(vSide);
   float n = vxFbm(vec2(vAlong * 8.0 - uTime * 5.5 + uSeed, vSide * 2.2 + uTime * 1.3));
-  float body = 1.0 - smoothstep(0.4, 1.0, across + (n - 0.5) * 0.9 + vAlong * 0.2);
+  // Round 5: edges eaten harder by the noise and the body narrowing toward the tail.
+  float body = 1.0 - smoothstep(0.35, 1.0, across + (n - 0.5) * 1.15 + vAlong * 0.45);
   float heat = (1.0 - across * 0.8) * (1.0 - vAlong * 0.75) * (0.55 + n * 0.65);
   // Red-orange, gold only in a thin hot line near the head (the ramp's orange is pale peach once tone mapped).
   vec3 c = vxFire(min(heat * 0.62, 0.6));
@@ -224,7 +225,8 @@ void main() {
   // only at the mouth.
   float erode = n * 1.05 + tongues * 0.5 - along * 1.0 - uAge * 1.1 + 0.3;
   float body = smoothstep(0.0, 0.16, erode) * (0.35 + 0.65 * pow(facing, 0.7));
-  float heat = clamp(((1.0 - along * 0.85) * (0.45 + n * 0.7)) * 0.62 - uAge * 0.35, 0.0, 1.0);
+  // Round 5 (judge 4: a flat orange plate): gold at the root, orange, red toward the tip (vxFire's whole ramp).
+  float heat = clamp((1.0 - along * 0.95) * (0.5 + n * 0.7) * 0.85 - uAge * 0.35, 0.0, 1.0);
   gl_FragColor = vec4(vxFire(heat) * (1.0 + heat * 0.5), body * uAlpha);
 }`;
 

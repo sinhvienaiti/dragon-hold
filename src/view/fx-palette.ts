@@ -38,6 +38,9 @@ export const FX_COLORS = {
   white: new THREE.Color("#ffffff"),
   stun: new THREE.Color("#fff3b0"),
   mote: new THREE.Color("#e8f4d8"),
+  /** HDR crack glow of a fresh word scorch (additive): gold cooling to red; it reads on dusk grass too. */
+  crackHot: new THREE.Color("#ffa040").multiplyScalar(2.2),
+  crackRed: new THREE.Color("#e8552a").multiplyScalar(1.6),
   /** HDR orange (above the 1.6 bloom threshold once stacked): the hot heart of Thiên Hỏa's mass and blast. */
   blastHot: new THREE.Color("#ffa040").multiplyScalar(1.8),
 } as const;
