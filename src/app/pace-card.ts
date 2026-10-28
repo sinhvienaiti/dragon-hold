@@ -24,9 +24,9 @@ export function createPaceCard(root: HTMLElement): PaceCard {
   const card = el(doc, "section", "dh-panel dh-pacecard");
   card.dataset.dhAvoid = "";
   card.setAttribute("role", "dialog");
-  card.setAttribute("aria-label", "Tốc độ gõ");
-  const title = el(doc, "div", "dh-pacecard__title", "Bạn gõ nhanh cỡ nào?");
-  const lead = el(doc, "div", "dh-pacecard__lead", "Quái đến dày hay thưa, từ dài hay ngắn theo tốc độ này. Chưa biết: gõ mười ngón không nhìn phím thì chọn 35, còn nhìn phím thì chọn 20–25. Hết ải, game đo tốc độ thật của bạn cho lần sau.");
+  card.setAttribute("aria-label", "Typing speed");
+  const title = el(doc, "div", "dh-pacecard__title", "How fast do you type?");
+  const lead = el(doc, "div", "dh-pacecard__lead", "This sets foe pace and word length. Unsure? Pick 35 if you touch type, or 20–25 if you look at the keys. After each stage, your measured speed helps set the next one.");
   const list = el(doc, "div", "dh-pacecard__list");
   const keys = el(doc, "div", "dh-pacecard__keys", "");
   const noteNode = el(doc, "div", "dh-pacecard__note", "");
@@ -50,10 +50,10 @@ export function createPaceCard(root: HTMLElement): PaceCard {
     const wpm = items[index]?.header.typistWpm;
     easyShown = wpm !== undefined && (easy?.(wpm) ?? false);
     noteNode.textContent = easyShown
-      ? "Mới tập gõ: nên chơi mức Dễ, quái thưa và chậm hơn. ⇧↵ chọn tốc độ này và chơi mức Dễ."
+      ? "New typist? Try Easy for fewer, slower foes. ⇧↵ picks this speed and Easy."
       : originalNote;
     if (easyShown) {
-      easyButton.textContent = "Chơi mức Dễ ở " + wpm + " WPM";
+      easyButton.textContent = "Play Easy at " + wpm + " WPM";
       noteNode.append(" ", easyButton);
     }
     // While a row can take the hint, its two lines stay reserved so the rows never shift under the pointer.
@@ -106,14 +106,14 @@ export function createPaceCard(root: HTMLElement): PaceCard {
         row.append(
           el(doc, "span", "dh-key", String(option.key)),
           el(doc, "span", "dh-pacecard__wpm", option.label),
-          el(doc, "span", "dh-pacecard__hint", option.hint + (now && option.key !== PACE_CURRENT_KEY ? " · đang dùng" : "")),
+          el(doc, "span", "dh-pacecard__hint", option.hint + (now && option.key !== PACE_CURRENT_KEY ? " · in use" : "")),
         );
         row.addEventListener("pointerenter", () => select(k));
         return row;
       });
       list.replaceChildren(...rows);
       const digits = options.map((option) => option.key);
-      keys.textContent = "Phím " + Math.min(...digits) + "–" + Math.max(...digits) + " chọn · ↑ ↓ rồi Enter" + (back ? " · Esc quay lại" : "");
+      keys.textContent = "Keys " + Math.min(...digits) + "–" + Math.max(...digits) + " select · ↑ ↓ then Enter" + (back ? " · Esc back" : "");
       open = true;
       setShown(card, true);
       select(selected);

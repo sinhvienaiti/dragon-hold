@@ -1,0 +1,1093 @@
+{
+  "version": 1,
+  "level": 13,
+  "label": "A2 Foundation 013",
+  "entries": [
+    {
+      "id": "L013-001",
+      "en": "shark",
+      "vi": "cá mập; cá nhám; cá mập (đánh bắt cá mập)",
+      "ipa": "/ʃɑɹk/"
+    },
+    {
+      "id": "L013-002",
+      "en": "reflected",
+      "vi": "phản xạ, phản chiếu",
+      "ipa": "/ɹɪˈflɛktɪd/"
+    },
+    {
+      "id": "L013-003",
+      "en": "wild",
+      "vi": "hoang dã; một cách điên cuồng; hỗn loạn",
+      "ipa": "/waɪld/"
+    },
+    {
+      "id": "L013-004",
+      "en": "drug",
+      "vi": "ma túy; cho uống/thuốc; gây mê",
+      "ipa": "/dɹʌɡ/"
+    },
+    {
+      "id": "L013-005",
+      "en": "effort",
+      "vi": "sự cố gắng; nỗ lực; sự nỗ lực đạt được",
+      "ipa": "/ˈɛfɚt/"
+    },
+    {
+      "id": "L013-006",
+      "en": "boss",
+      "vi": "ông chủ; thủ trưởng; sếp",
+      "ipa": "/bɑs/"
+    },
+    {
+      "id": "L013-007",
+      "en": "crime",
+      "vi": "tội phạm, tội ác; tội lỗi, hành vi sai trái",
+      "ipa": "/kɹaɪm/"
+    },
+    {
+      "id": "L013-008",
+      "en": "net",
+      "vi": "ròng; thuần (sau khi khấu trừ); cuối cùng",
+      "ipa": "/nɛt/"
+    },
+    {
+      "id": "L013-009",
+      "en": "authorized",
+      "vi": "được ủy quyền; có thẩm quyền; được phê chuẩn, hợp pháp",
+      "ipa": "/ˈɔθˌɚaɪzd/"
+    },
+    {
+      "id": "L013-010",
+      "en": "opinion",
+      "vi": "ý kiến; quan điểm; nhận định",
+      "ipa": "/əˈpɪnjən/"
+    },
+    {
+      "id": "L013-011",
+      "en": "accept",
+      "vi": "chấp nhận; nhận; nhận vào",
+      "ipa": "/ækˈsɛpt/"
+    },
+    {
+      "id": "L013-012",
+      "en": "oriented",
+      "vi": "định hướng; thích nghi",
+      "ipa": "/ˈɔɹˌiɛntəd/"
+    },
+    {
+      "id": "L013-013",
+      "en": "degree",
+      "vi": "mức độ; trình độ; cấp độ",
+      "ipa": "/dɪˈɡɹi/"
+    },
+    {
+      "id": "L013-014",
+      "en": "award",
+      "vi": "giải thưởng; phần thưởng; (pháp lý) khoản bồi thường",
+      "ipa": "/əˈwɔɹd/"
+    },
+    {
+      "id": "L013-015",
+      "en": "specific",
+      "vi": "cụ thể, rõ ràng; chi tiết, tường minh; (sinh học) thuộc về loài",
+      "ipa": "/spəˈsɪfɪk/"
+    },
+    {
+      "id": "L013-016",
+      "en": "fix",
+      "vi": "sự sửa chữa; tình thế khó khăn; cảnh ngộ khó khăn",
+      "ipa": "/fɪks/"
+    },
+    {
+      "id": "L013-017",
+      "en": "popular",
+      "vi": "phổ biến, được ưa chuộng; bình dân, đại chúng",
+      "ipa": "/ˈpɑpjəlɚ/"
+    },
+    {
+      "id": "L013-018",
+      "en": "committee",
+      "vi": "ủy ban, ban chuyên trách; hội đồng, ban tổ chức",
+      "ipa": "/kəˈmɪti/"
+    },
+    {
+      "id": "L013-019",
+      "en": "honored",
+      "vi": "danh dự; vinh dự",
+      "ipa": "/ˈɑnɚd/"
+    },
+    {
+      "id": "L013-020",
+      "en": "captain",
+      "vi": "đại úy; thuyền trưởng (tàu hải quân); đội trưởng cảnh sát",
+      "ipa": "/ˈkæptən/"
+    },
+    {
+      "id": "L013-021",
+      "en": "host",
+      "vi": "chủ nhà; người chủ trì; người tổ chức",
+      "ipa": "/hoʊst/"
+    },
+    {
+      "id": "L013-022",
+      "en": "wonder",
+      "vi": "tự hỏi; băn khoăn; nghi ngờ",
+      "ipa": "/ˈwʌndɚ/"
+    },
+    {
+      "id": "L013-023",
+      "en": "serve",
+      "vi": "phục vụ; lên món; cú giao bóng, cú phát bóng",
+      "ipa": "/sɝv/"
+    },
+    {
+      "id": "L013-024",
+      "en": "alive",
+      "vi": "sống",
+      "ipa": "/əˈlaɪv/"
+    },
+    {
+      "id": "L013-025",
+      "en": "mad",
+      "vi": "điên; cuồng",
+      "ipa": "/mæd/"
+    },
+    {
+      "id": "L013-026",
+      "en": "titled",
+      "vi": "có tước hiệu; thuộc dòng dõi quý tộc",
+      "ipa": "/ˈtaɪtəld/"
+    },
+    {
+      "id": "L013-027",
+      "en": "senior",
+      "vi": "sinh viên năm cuối, học sinh cuối cấp; người lớn tuổi hơn; lớn tuổi hơn, cao niên",
+      "ipa": "/ˈsinjɚ/"
+    },
+    {
+      "id": "L013-028",
+      "en": "truly",
+      "vi": "thực sự; đúng sự thật; thực ra",
+      "ipa": "/ˈtɹuli/"
+    },
+    {
+      "id": "L013-029",
+      "en": "web",
+      "vi": "mạng; giăng tơ; dệt mạng (nhện)",
+      "ipa": "/wɛb/"
+    },
+    {
+      "id": "L013-030",
+      "en": "wine",
+      "vi": "rượu vàng; rượu vang; uống rượu vang",
+      "ipa": "/waɪn/"
+    },
+    {
+      "id": "L013-031",
+      "en": "weight",
+      "vi": "trọng lượng; tạ; tầm quan trọng, sức nặng",
+      "ipa": "/weɪt/"
+    },
+    {
+      "id": "L013-032",
+      "en": "skull",
+      "vi": "sọ; đầu lâu",
+      "ipa": "/skʌl/"
+    },
+    {
+      "id": "L013-033",
+      "en": "wasting",
+      "vi": "sự suy mòn, suy nhược; sự teo (cơ quan)",
+      "ipa": "/ˈweɪstɪŋ/"
+    },
+    {
+      "id": "L013-034",
+      "en": "bay",
+      "vi": "vịnh; (ngựa) màu hồng; màu hung",
+      "ipa": "/beɪ/"
+    },
+    {
+      "id": "L013-035",
+      "en": "direct",
+      "vi": "thẳng thắn, trực tiếp; trực tiếp; thẳng",
+      "ipa": "/dˈɚɛkt/"
+    },
+    {
+      "id": "L013-036",
+      "en": "dairy",
+      "vi": "sản phẩm sữa; chế phẩm sữa",
+      "ipa": "/ˈdɛɹi/"
+    },
+    {
+      "id": "L013-037",
+      "en": "interface",
+      "vi": "giao diện",
+      "ipa": "/ˈɪntɚˌfeɪs/"
+    },
+    {
+      "id": "L013-038",
+      "en": "fitting",
+      "vi": "thích hợp, phù hợp; đúng đắn, chính xác; sự điều chỉnh, sự thích nghi",
+      "ipa": "/ˈfɪtɪŋ/"
+    },
+    {
+      "id": "L013-039",
+      "en": "fresh",
+      "vi": "tươi; mới; vừa mới",
+      "ipa": "/fɹɛʃ/"
+    },
+    {
+      "id": "L013-040",
+      "en": "poorly",
+      "vi": "ốm yếu; không khỏe; kém",
+      "ipa": "/ˈpuɹli/"
+    },
+    {
+      "id": "L013-041",
+      "en": "pathetic",
+      "vi": "thảm hại; đáng thương; đáng khinh",
+      "ipa": "/pəˈθɛtɪk/"
+    },
+    {
+      "id": "L013-042",
+      "en": "shoot",
+      "vi": "bắn; bắn trúng; chồi non, mầm non",
+      "ipa": "/ʃut/"
+    },
+    {
+      "id": "L013-043",
+      "en": "heated",
+      "vi": "được làm nóng; sôi nổi, gay gắt (tranh luận)",
+      "ipa": "/ˈhitəd/"
+    },
+    {
+      "id": "L013-044",
+      "en": "century",
+      "vi": "thế kỷ; một trăm",
+      "ipa": "/ˈsɛntʃɚi/"
+    },
+    {
+      "id": "L013-045",
+      "en": "complaining",
+      "vi": "than phiền, phàn nàn",
+      "ipa": "/kəmˈpleɪnɪŋ/"
+    },
+    {
+      "id": "L013-046",
+      "en": "royal",
+      "vi": "hoàng gia; quí tộc; buồm trên cùng (của cột buồm)",
+      "ipa": "/ˈɹɔɪəl/"
+    },
+    {
+      "id": "L013-047",
+      "en": "ill",
+      "vi": "bệnh; ốm; tồi",
+      "ipa": "/ɪl/"
+    },
+    {
+      "id": "L013-048",
+      "en": "impact",
+      "vi": "tác động, ảnh hưởng lớn; sự va chạm; cú va đập",
+      "ipa": "/ˌɪmˈpækt/"
+    },
+    {
+      "id": "L013-049",
+      "en": "physical",
+      "vi": "thuộc thể chất; thân thể; thuộc vật lý",
+      "ipa": "/ˈfɪzɪkəl/"
+    },
+    {
+      "id": "L013-050",
+      "en": "pressure",
+      "vi": "áp suất; áp lực; sức ép",
+      "ipa": "/ˈpɹɛʃɚ/"
+    },
+    {
+      "id": "L013-051",
+      "en": "secret",
+      "vi": "bí mật, điều bí mật; sự huyền bí, điều bí ẩn; bí mật, kín đáo",
+      "ipa": "/ˈsikɹət/"
+    },
+    {
+      "id": "L013-052",
+      "en": "attempt",
+      "vi": "sự thử; cố gắng",
+      "ipa": "/əˈtɛmpt/"
+    },
+    {
+      "id": "L013-053",
+      "en": "murder",
+      "vi": "(tội) giết người; (tội) ám sát; giết người",
+      "ipa": "/ˈmɝdɚ/"
+    },
+    {
+      "id": "L013-054",
+      "en": "shape",
+      "vi": "hình dáng; hình thức; hình",
+      "ipa": "/ʃeɪp/"
+    },
+    {
+      "id": "L013-055",
+      "en": "anyway",
+      "vi": "dù sao đi nữa; vả lại; bằng cách nào đi nữa",
+      "ipa": "/ˈɛniˌweɪ/"
+    },
+    {
+      "id": "L013-056",
+      "en": "appear",
+      "vi": "xuất hiện",
+      "ipa": "/əˈpɪɹ/"
+    },
+    {
+      "id": "L013-057",
+      "en": "zone",
+      "vi": "khu vực; quy hoạch (khu vực); phân chia thành khu vực",
+      "ipa": "/zoʊn/"
+    },
+    {
+      "id": "L013-058",
+      "en": "enter",
+      "vi": "đi vào; vô; vào",
+      "ipa": "/ˈɛntɚ/"
+    },
+    {
+      "id": "L013-059",
+      "en": "mostly",
+      "vi": "chủ yếu; phần lớn; thường là",
+      "ipa": "/ˈmoʊstli/"
+    },
+    {
+      "id": "L013-060",
+      "en": "brand",
+      "vi": "nhãn hiệu; đóng dấu (bằng sắt nung); thương hiệu hóa",
+      "ipa": "/bɹænd/"
+    },
+    {
+      "id": "L013-061",
+      "en": "cheap",
+      "vi": "rẻ",
+      "ipa": "/tʃip/"
+    },
+    {
+      "id": "L013-062",
+      "en": "fashion",
+      "vi": "thời trang; mốt; chế tạo",
+      "ipa": "/ˈfæʃən/"
+    },
+    {
+      "id": "L013-063",
+      "en": "mix",
+      "vi": "pha; hỗn hợp khô (bán sẵn); sự pha trộn",
+      "ipa": "/mɪks/"
+    },
+    {
+      "id": "L013-064",
+      "en": "contact",
+      "vi": "sự liên lạc, giao tiếp; sự tiếp xúc, chạm vào; liên lạc với",
+      "ipa": "/ˈkɑnˌtækt/"
+    },
+    {
+      "id": "L013-065",
+      "en": "handle",
+      "vi": "cán; tay cầm; xử lý",
+      "ipa": "/ˈhændəl/"
+    },
+    {
+      "id": "L013-066",
+      "en": "purely",
+      "vi": "hoàn toàn; chỉ thuần túy",
+      "ipa": "/ˈpjʊɹli/"
+    },
+    {
+      "id": "L013-067",
+      "en": "beauty",
+      "vi": "đẹp; mỹ nhân; mỹ nữ",
+      "ipa": "/ˈbjuti/"
+    },
+    {
+      "id": "L013-068",
+      "en": "suit",
+      "vi": "âu phục; quần áo tây; com lê",
+      "ipa": "/sut/"
+    },
+    {
+      "id": "L013-069",
+      "en": "episode",
+      "vi": "tập (phim, chương trình); sự kiện, biến cố (trong chuỗi sự kiện); đoạn, hồi (trong tác phẩm)",
+      "ipa": "/ˈɛpəˌsoʊd/"
+    },
+    {
+      "id": "L013-070",
+      "en": "manager",
+      "vi": "người quản lý; giám đốc; huấn luyện viên trưởng",
+      "ipa": "/ˈmænədʒɚ/"
+    },
+    {
+      "id": "L013-071",
+      "en": "exist",
+      "vi": "tồn tại",
+      "ipa": "/ɪɡˈzɪst/"
+    },
+    {
+      "id": "L013-072",
+      "en": "ability",
+      "vi": "khả năng; năng lực",
+      "ipa": "/əˈbɪləˌti/"
+    },
+    {
+      "id": "L013-073",
+      "en": "wont",
+      "vi": "thói quen; tập quán",
+      "ipa": "/woʊnt/"
+    },
+    {
+      "id": "L013-074",
+      "en": "loading",
+      "vi": "tải trọng; mẻ tải; khối lượng xử lý",
+      "ipa": "/ˈloʊdɪŋ/"
+    },
+    {
+      "id": "L013-075",
+      "en": "sergeant",
+      "vi": "trung sĩ",
+      "ipa": "/ˈsɑɹdʒənt/"
+    },
+    {
+      "id": "L013-076",
+      "en": "clearly",
+      "vi": "rõ ràng là, chắc chắn là; rõ ràng, dễ hiểu",
+      "ipa": "/ˈklɪɹli/"
+    },
+    {
+      "id": "L013-077",
+      "en": "chick",
+      "vi": "gà con; chim non; cô gái (thân mật)",
+      "ipa": "/tʃɪk/"
+    },
+    {
+      "id": "L013-078",
+      "en": "deciding",
+      "vi": "quyết định; có tính quyết định; sự quyết định",
+      "ipa": "/ˌdɪˈsaɪdɪŋ/"
+    },
+    {
+      "id": "L013-079",
+      "en": "product",
+      "vi": "sản phẩm; hàng hóa; thành phẩm",
+      "ipa": "/ˈpɹɑdəkt/"
+    },
+    {
+      "id": "L013-080",
+      "en": "regular",
+      "vi": "bình thường; thông thường; thường xuyên",
+      "ipa": "/ˈɹɛɡjəlɚ/"
+    },
+    {
+      "id": "L013-081",
+      "en": "soft",
+      "vi": "khẽ; khẽ khàng; mềm",
+      "ipa": "/sɑft/"
+    },
+    {
+      "id": "L013-082",
+      "en": "square",
+      "vi": "vuông; quảng trường; hình vuông",
+      "ipa": "/skwɛɹ/"
+    },
+    {
+      "id": "L013-083",
+      "en": "valley",
+      "vi": "thung lũng",
+      "ipa": "/ˈvæli/"
+    },
+    {
+      "id": "L013-084",
+      "en": "meter",
+      "vi": "cái đo; người đo; đo bằng đồng hồ",
+      "ipa": "/ˈmitɚ/"
+    },
+    {
+      "id": "L013-085",
+      "en": "apart",
+      "vi": "xa nhau; cách nhau; không kể",
+      "ipa": "/əˈpɑɹt/"
+    },
+    {
+      "id": "L013-086",
+      "en": "military",
+      "vi": "quân sự; quân đội; (thuộc) quân sự",
+      "ipa": "/ˈmɪləˌtɛɹi/"
+    },
+    {
+      "id": "L013-087",
+      "en": "purpose",
+      "vi": "mục đích, ý định; công dụng, chức năng; quyết tâm, nghị lực",
+      "ipa": "/ˈpɝpəs/"
+    },
+    {
+      "id": "L013-088",
+      "en": "developed",
+      "vi": "phát triển (quốc gia); đã phát triển; tiến bộ",
+      "ipa": "/dɪˈvɛləpt/"
+    },
+    {
+      "id": "L013-089",
+      "en": "duo",
+      "vi": "bộ đôi, cặp đôi (ca sĩ, nghệ sĩ); cặp, đôi; cặp đôi (bạn bè, đối tác)",
+      "ipa": "/ˈduoʊ/"
+    },
+    {
+      "id": "L013-090",
+      "en": "meaning",
+      "vi": "nghĩa; ý nghĩa; ý vị",
+      "ipa": "/ˈminɪŋ/"
+    },
+    {
+      "id": "L013-091",
+      "en": "consider",
+      "vi": "cân nhắc, xem xét; coi là, cho là; lấy làm ví dụ",
+      "ipa": "/kənˈsɪdɚ/"
+    },
+    {
+      "id": "L013-092",
+      "en": "raise",
+      "vi": "nuôi; nêu; sự tăng lương",
+      "ipa": "/ɹeɪz/"
+    },
+    {
+      "id": "L013-093",
+      "en": "winner",
+      "vi": "người chiến thắng",
+      "ipa": "/ˈwɪnɚ/"
+    },
+    {
+      "id": "L013-094",
+      "en": "roll",
+      "vi": "cuốn; cuộn; quyển",
+      "ipa": "/ɹoʊl/"
+    },
+    {
+      "id": "L013-095",
+      "en": "recently",
+      "vi": "gần đây; mới đây",
+      "ipa": "/ˈɹisəntli/"
+    },
+    {
+      "id": "L013-096",
+      "en": "molecular",
+      "vi": "phân tử (thuộc về); cơ bản; phân tử (cấp độ)",
+      "ipa": "/məˈlɛkjəlɚ/"
+    },
+    {
+      "id": "L013-097",
+      "en": "promising",
+      "vi": "đầy triển vọng, hứa hẹn; có hứa hẹn, khả quan",
+      "ipa": "/ˈpɹɑməsɪŋ/"
+    },
+    {
+      "id": "L013-098",
+      "en": "youth",
+      "vi": "tuổi trẻ; thanh niên; giới trẻ",
+      "ipa": "/juθ/"
+    },
+    {
+      "id": "L013-099",
+      "en": "statement",
+      "vi": "lời phát biểu, tuyên bố; lời khai, bằng chứng; (âm nhạc) sự trình bày chủ đề",
+      "ipa": "/ˈsteɪtmənt/"
+    },
+    {
+      "id": "L013-100",
+      "en": "increase",
+      "vi": "tăng lên; lớn thêm; tăng",
+      "ipa": "/ˌɪnˈkɹis/"
+    },
+    {
+      "id": "L013-101",
+      "en": "walking",
+      "vi": "sự đi bộ; việc đi bộ; có thể đi bộ tới",
+      "ipa": "/ˈwɔkɪŋ/"
+    },
+    {
+      "id": "L013-102",
+      "en": "pack",
+      "vi": "bao; chồng; xấp",
+      "ipa": "/pæk/"
+    },
+    {
+      "id": "L013-103",
+      "en": "agent",
+      "vi": "người đại lý",
+      "ipa": "/ˈeɪdʒənt/"
+    },
+    {
+      "id": "L013-104",
+      "en": "silver",
+      "vi": "bạc; màu bạc; bằng bạc",
+      "ipa": "/ˈsɪlvɚ/"
+    },
+    {
+      "id": "L013-105",
+      "en": "overview",
+      "vi": "tổng quan; sơ lược",
+      "ipa": "/ˈoʊvɚˌvju/"
+    },
+    {
+      "id": "L013-106",
+      "en": "spread",
+      "vi": "sự lan rộng; phạm vi; chênh lệch",
+      "ipa": "/spɹɛd/"
+    },
+    {
+      "id": "L013-107",
+      "en": "guard",
+      "vi": "vệ sĩ; canh gác; bảo vệ",
+      "ipa": "/ɡɑɹd/"
+    },
+    {
+      "id": "L013-108",
+      "en": "remain",
+      "vi": "ở lại; còn",
+      "ipa": "/ɹɪˈmeɪn/"
+    },
+    {
+      "id": "L013-109",
+      "en": "matching",
+      "vi": "giống nhau; cùng bộ; phù hợp",
+      "ipa": "/ˈmætʃɪŋ/"
+    },
+    {
+      "id": "L013-110",
+      "en": "method",
+      "vi": "phương pháp; phương thức",
+      "ipa": "/ˈmɛθəd/"
+    },
+    {
+      "id": "L013-111",
+      "en": "frank",
+      "vi": "thẳng thắn; chân thành; rõ ràng",
+      "ipa": "/fɹæŋk/"
+    },
+    {
+      "id": "L013-112",
+      "en": "agency",
+      "vi": "đại lý, văn phòng dịch vụ; cơ quan, sở; tác động, tác dụng",
+      "ipa": "/ˈeɪdʒənsi/"
+    },
+    {
+      "id": "L013-113",
+      "en": "riot",
+      "vi": "bạo loạn; nổi loạn; tham gia bạo loạn",
+      "ipa": "/ˈɹaɪət/"
+    },
+    {
+      "id": "L013-114",
+      "en": "budget",
+      "vi": "ngân sách; lập ngân sách; dự trù",
+      "ipa": "/ˈbʌdʒɪt/"
+    },
+    {
+      "id": "L013-115",
+      "en": "diplomatic",
+      "vi": "ngoại giao",
+      "ipa": "/ˌdɪpləˈmætɪk/"
+    },
+    {
+      "id": "L013-116",
+      "en": "task",
+      "vi": "nhiệm vụ; mục tiêu; mục đích",
+      "ipa": "/tæsk/"
+    },
+    {
+      "id": "L013-117",
+      "en": "hub",
+      "vi": "trục bánh xe",
+      "ipa": "/hʌb/"
+    },
+    {
+      "id": "L013-118",
+      "en": "freedom",
+      "vi": "tự do",
+      "ipa": "/ˈfɹidəm/"
+    },
+    {
+      "id": "L013-119",
+      "en": "indeed",
+      "vi": "thực sự; quả thực; thật à",
+      "ipa": "/ˌɪnˈdid/"
+    },
+    {
+      "id": "L013-120",
+      "en": "plenty",
+      "vi": "sự đầy đủ; dư dật; nhiều",
+      "ipa": "/ˈplɛnti/"
+    },
+    {
+      "id": "L013-121",
+      "en": "vacuum",
+      "vi": "chân không; hút bụi; dùng máy hút bụi",
+      "ipa": "/ˈvækjum/"
+    },
+    {
+      "id": "L013-122",
+      "en": "target",
+      "vi": "bia; mục tiêu; nhắm",
+      "ipa": "/ˈtɑɹɡət/"
+    },
+    {
+      "id": "L013-123",
+      "en": "fault",
+      "vi": "lỗi; sai lầm; khuyết điểm",
+      "ipa": "/fɔlt/"
+    },
+    {
+      "id": "L013-124",
+      "en": "beginning",
+      "vi": "phần đầu, lúc bắt đầu; thời điểm bắt đầu; sự khởi đầu",
+      "ipa": "/bɪˈɡɪnɪŋ/"
+    },
+    {
+      "id": "L013-125",
+      "en": "certainly",
+      "vi": "chắc chắn; nhất định; dĩ nhiên",
+      "ipa": "/ˈsɝtənli/"
+    },
+    {
+      "id": "L013-126",
+      "en": "useful",
+      "vi": "có ích",
+      "ipa": "/ˈjusfəl/"
+    },
+    {
+      "id": "L013-127",
+      "en": "setup",
+      "vi": "hệ thống thiết bị; dàn máy; cách bố trí",
+      "ipa": "/ˈsɛˌtʌp/"
+    },
+    {
+      "id": "L013-128",
+      "en": "magic",
+      "vi": "ma thuật; yêu thuật; phép thuật",
+      "ipa": "/ˈmædʒɪk/"
+    },
+    {
+      "id": "L013-129",
+      "en": "fixing",
+      "vi": "sự sửa chữa; vật cố định, sự buộc chặt; sự triệt sản (thú vật)",
+      "ipa": "/ˈfɪksɪŋ/"
+    },
+    {
+      "id": "L013-130",
+      "en": "chain",
+      "vi": "dây xích; xích; chuỗi",
+      "ipa": "/tʃeɪn/"
+    },
+    {
+      "id": "L013-131",
+      "en": "wedding",
+      "vi": "đám cưới",
+      "ipa": "/ˈwɛdɪŋ/"
+    },
+    {
+      "id": "L013-132",
+      "en": "traffic",
+      "vi": "sự giao thông; giao thông; buôn bán bất hợp pháp",
+      "ipa": "/ˈtɹæfɪk/"
+    },
+    {
+      "id": "L013-133",
+      "en": "patient",
+      "vi": "bệnh nhân; kiên nhẫn",
+      "ipa": "/ˈpeɪʃənt/"
+    },
+    {
+      "id": "L013-134",
+      "en": "path",
+      "vi": "đường mòn; đường đi; đường lối",
+      "ipa": "/pæθ/"
+    },
+    {
+      "id": "L013-135",
+      "en": "split",
+      "vi": "bị chia; rẽ; chẻ",
+      "ipa": "/splɪt/"
+    },
+    {
+      "id": "L013-136",
+      "en": "material",
+      "vi": "vật liệu, chất liệu; tài liệu, tư liệu; vải, hàng dệt",
+      "ipa": "/məˈtɪɹiəl/"
+    },
+    {
+      "id": "L013-137",
+      "en": "addition",
+      "vi": "sự thêm vào; sự cộng vào; phần bổ sung",
+      "ipa": "/əˈdɪʃən/"
+    },
+    {
+      "id": "L013-138",
+      "en": "beer",
+      "vi": "bia",
+      "ipa": "/bɪɹ/"
+    },
+    {
+      "id": "L013-139",
+      "en": "flight",
+      "vi": "chuyến bay; bay; bắn chim đang bay",
+      "ipa": "/flaɪt/"
+    },
+    {
+      "id": "L013-140",
+      "en": "neighbor",
+      "vi": "hàng xóm; láng giềng; vật lân cận",
+      "ipa": "/ˈneɪbɚ/"
+    },
+    {
+      "id": "L013-141",
+      "en": "anymore",
+      "vi": "nữa (không còn ... nữa)",
+      "ipa": "/ˌɛniˈmɔɹ/"
+    },
+    {
+      "id": "L013-142",
+      "en": "develop",
+      "vi": "phát triển; trưởng thành; hình thành",
+      "ipa": "/dɪˈvɛləp/"
+    },
+    {
+      "id": "L013-143",
+      "en": "investing",
+      "vi": "việc đầu tư",
+      "ipa": "/ˌɪnˈvɛstɪŋ/"
+    },
+    {
+      "id": "L013-144",
+      "en": "native",
+      "vi": "bản địa, bản xứ; bẩm sinh, bản năng; thuộc về người bản xứ",
+      "ipa": "/ˈneɪtɪv/"
+    },
+    {
+      "id": "L013-145",
+      "en": "archives",
+      "vi": "tài liệu lưu trữ, kho lưu trữ",
+      "ipa": "/ˈɑɹˌkaɪvz/"
+    },
+    {
+      "id": "L013-146",
+      "en": "blame",
+      "vi": "đổ lỗi; khiển trách; chỉ trích",
+      "ipa": "/bleɪm/"
+    },
+    {
+      "id": "L013-147",
+      "en": "classic",
+      "vi": "kinh điển; cổ điển",
+      "ipa": "/ˈklæsɪk/"
+    },
+    {
+      "id": "L013-148",
+      "en": "lined",
+      "vi": "có hàng, được xếp thành hàng; có nếp nhăn; có lớp lót",
+      "ipa": "/laɪnd/"
+    },
+    {
+      "id": "L013-149",
+      "en": "museum",
+      "vi": "nhà bảo tàng; viện bảo tàng",
+      "ipa": "/mjuˈziəm/"
+    },
+    {
+      "id": "L013-150",
+      "en": "nation",
+      "vi": "quốc gia; đất nước; dân tộc",
+      "ipa": "/ˈneɪʃən/"
+    },
+    {
+      "id": "L013-151",
+      "en": "wave",
+      "vi": "sóng; vẫy tay; vẫy",
+      "ipa": "/weɪv/"
+    },
+    {
+      "id": "L013-152",
+      "en": "negative",
+      "vi": "tiêu cực; âm; phủ định",
+      "ipa": "/ˈnɛɡətɪv/"
+    },
+    {
+      "id": "L013-153",
+      "en": "ray",
+      "vi": "tia; cá đuối; phát ra (tia sáng, nhiệt)",
+      "ipa": "/ɹeɪ/"
+    },
+    {
+      "id": "L013-154",
+      "en": "roster",
+      "vi": "danh sách; danh sách nhân sự",
+      "ipa": "/ˈɹɑstɚ/"
+    },
+    {
+      "id": "L013-155",
+      "en": "fail",
+      "vi": "thất bại",
+      "ipa": "/feɪl/"
+    },
+    {
+      "id": "L013-156",
+      "en": "writing",
+      "vi": "việc viết lách; tác phẩm; trước tác",
+      "ipa": "/ˈɹaɪtɪŋ/"
+    },
+    {
+      "id": "L013-157",
+      "en": "novel",
+      "vi": "tiểu thuyết; mới lạ; độc đáo",
+      "ipa": "/ˈnɑvəl/"
+    },
+    {
+      "id": "L013-158",
+      "en": "id",
+      "vi": "giấy tờ tùy thân, thẻ căn cước; bản năng (phân tâm học)",
+      "ipa": "/ɪd/"
+    },
+    {
+      "id": "L013-159",
+      "en": "planet",
+      "vi": "hành tinh",
+      "ipa": "/ˈplænət/"
+    },
+    {
+      "id": "L013-160",
+      "en": "village",
+      "vi": "làng; làng quê; thôn",
+      "ipa": "/ˈvɪlədʒ/"
+    },
+    {
+      "id": "L013-161",
+      "en": "resolved",
+      "vi": "kiên quyết; cương quyết; đã giải quyết",
+      "ipa": "/ɹiˈzɑlvd/"
+    },
+    {
+      "id": "L013-162",
+      "en": "seek",
+      "vi": "tìm; tìm kiếm; sự di chuyển đầu đọc (đĩa)",
+      "ipa": "/sik/"
+    },
+    {
+      "id": "L013-163",
+      "en": "crowd",
+      "vi": "đám đông; dồn, xua (gia súc); chật kín, đông nghịt",
+      "ipa": "/kɹaʊd/"
+    },
+    {
+      "id": "L013-164",
+      "en": "nature",
+      "vi": "tự nhiên; thiên nhiên; bản chất",
+      "ipa": "/ˈneɪtʃɚ/"
+    },
+    {
+      "id": "L013-165",
+      "en": "possibly",
+      "vi": "có thể; có lẽ; có thể được",
+      "ipa": "/ˈpɑsəbli/"
+    },
+    {
+      "id": "L013-166",
+      "en": "salt",
+      "vi": "muối; chua cay; gay gắt (lời nói)",
+      "ipa": "/sɔlt/"
+    },
+    {
+      "id": "L013-167",
+      "en": "provider",
+      "vi": "nhà cung cấp; người chu cấp; trụ cột gia đình",
+      "ipa": "/pɹəˈvaɪdɚ/"
+    },
+    {
+      "id": "L013-168",
+      "en": "shaw",
+      "vi": "nghệ sĩ kèn clarinet và trưởng ban nhạc Mỹ (Artie Shaw); nhà hài hước Mỹ viết về đời sống nông thôn (Henry Wheeler Shaw); bác sĩ và nhà hoạt động nữ quyền Mỹ (Anna Shaw)",
+      "ipa": "/ʃɔ/"
+    },
+    {
+      "id": "L013-169",
+      "en": "audience",
+      "vi": "khán giả; quý vị",
+      "ipa": "/ˈɑdiəns/"
+    },
+    {
+      "id": "L013-170",
+      "en": "trouble",
+      "vi": "rắc rối; làm lo lắng; quấy rầy",
+      "ipa": "/ˈtɹʌbəl/"
+    },
+    {
+      "id": "L013-171",
+      "en": "hero",
+      "vi": "anh hùng; nhân vật chính; người đấu tranh cho lý tưởng",
+      "ipa": "/ˈhɪɹoʊ/"
+    },
+    {
+      "id": "L013-172",
+      "en": "joke",
+      "vi": "chuyện tiếu lâm; đùa; lời nói đùa",
+      "ipa": "/dʒoʊk/"
+    },
+    {
+      "id": "L013-173",
+      "en": "proper",
+      "vi": "thích hợp; đúng đắn; thực sự",
+      "ipa": "/ˈpɹɑpɚ/"
+    },
+    {
+      "id": "L013-174",
+      "en": "seriously",
+      "vi": "nghiêm túc; nghiêm trọng; thực sự",
+      "ipa": "/ˈsɪɹiəsli/"
+    },
+    {
+      "id": "L013-175",
+      "en": "upset",
+      "vi": "tức; sự lo lắng, sự buồn bã; sự xáo trộn (tinh thần hoặc cơ thể)",
+      "ipa": "/əpˈsɛt/"
+    },
+    {
+      "id": "L013-176",
+      "en": "produce",
+      "vi": "sản xuất; chế tạo; nông sản",
+      "ipa": "/pɹəˈdus/"
+    },
+    {
+      "id": "L013-177",
+      "en": "powerful",
+      "vi": "mạnh mẽ; hùng mạnh; hùng cường",
+      "ipa": "/ˈpaʊɚfəl/"
+    },
+    {
+      "id": "L013-178",
+      "en": "golden",
+      "vi": "bằng vàng, mạ vàng; màu vàng kim; thịnh vượng, tốt đẹp",
+      "ipa": "/ˈɡoʊldən/"
+    },
+    {
+      "id": "L013-179",
+      "en": "load",
+      "vi": "gánh nặng; chất",
+      "ipa": "/loʊd/"
+    },
+    {
+      "id": "L013-180",
+      "en": "earliest",
+      "vi": "sớm nhất, đầu tiên; sớm nhất",
+      "ipa": "/ˈɝliəst/"
+    },
+    {
+      "id": "L013-181",
+      "en": "forever",
+      "vi": "mãi mãi; vĩnh viễn",
+      "ipa": "/fˈɚɛvɚ/"
+    }
+  ]
+}

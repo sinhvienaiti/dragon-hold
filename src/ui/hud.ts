@@ -139,56 +139,56 @@ export function chainTierOf(chain: number): number {
 /** M_c of the chain tier as "×1,08" (00 §4.2); empty at tier 0. */
 export function chainMultiplier(chain: number): string {
   const tier = chainTierOf(chain);
-  return tier === 0 ? "" : "×" + (CHAIN.mcPm[tier]! / 1000).toFixed(2).replace(".", ",");
+  return tier === 0 ? "" : "×" + (CHAIN.mcPm[tier]! / 1000).toFixed(2);
 }
 
 /** Command-specific texts first ("command|reason"), then by reason, then by command. */
 const REJECT_PAIR: Readonly<Record<string, string>> = {
-  "consumable|cooldown": "Đồ tiêu hao đang hồi",
-  "consumable|none": "Hết đồ tiêu hao: mua thêm lúc nghỉ",
-  "consumable|empty": "Hết đồ tiêu hao: mua thêm lúc nghỉ",
-  "consumable|phase": "Chưa dùng được đồ lúc này",
-  "start|phase": "Ải đã bắt đầu",
-  "start|no-waves": "Ải không còn đợt nào",
-  "call-early|phase": "Chỉ gọi sớm được lúc nghỉ",
-  "continue|phase": "Chỉ vào đợt sớm được lúc nghỉ",
-  "upgrade|not-ruined": "Nhà chưa đổ nát, chưa cần sửa",
-  "buy|limit": "Đã mua đủ số lần trong ải",
-  "skill|no-target": "Không có mục tiêu: kỹ năng chưa dùng, không mất hồi chiêu",
+  "consumable|cooldown": "Item recharging",
+  "consumable|none": "No items: buy more at a break",
+  "consumable|empty": "No items: buy more at a break",
+  "consumable|phase": "Cannot use items now",
+  "start|phase": "Stage started",
+  "start|no-waves": "No waves left",
+  "call-early|phase": "Call early during breaks",
+  "continue|phase": "Start waves during breaks",
+  "upgrade|not-ruined": "House intact: no repair needed",
+  "buy|limit": "Stage purchase limit reached",
+  "skill|no-target": "No target: skill unused, cooldown unchanged",
 };
 
 const REJECT_TEXT: Readonly<Record<string, string>> = {
-  gold: "Chưa đủ Gold",
-  phase: "Việc này chỉ làm được lúc nghỉ",
-  cooldown: "Kỹ năng đang hồi",
-  rage: "Dragon Rage chưa đầy",
-  "ult-gap": "Tối Thượng: cách lần trước ít nhất 45 s",
-  occupied: "Ô đã có món",
-  "slot-kind": "Món này không đặt được ở ô đó",
-  limit: "Đã đủ giới hạn",
-  locked: "Món chưa mở",
-  full: "Túi đồ tiêu hao đã đầy",
-  empty: "Ô này chưa có món",
-  "max-level": "Đã ở cấp cao nhất",
-  building: "Món đang dựng",
-  "unknown-slot": "Không có ô này",
-  stunned: "Hỏa Long đang choáng",
+  gold: "Need Gold",
+  phase: "Only during breaks",
+  cooldown: "Skill recharging",
+  rage: "Dragon Rage not full",
+  "ult-gap": "Ultimate: wait at least 45 s between uses",
+  occupied: "Slot full",
+  "slot-kind": "Item does not fit this slot",
+  limit: "Limit reached",
+  locked: "Item locked",
+  full: "Item bag full",
+  empty: "Empty slot",
+  "max-level": "Max level",
+  building: "Building",
+  "unknown-slot": "No such slot",
+  stunned: "Hỏa Long stunned",
 };
 
 const COMMAND_TEXT: Partial<Record<SimCommand["type"], string>> = {
-  skill: "Chưa dùng được kỹ năng",
-  consumable: "Chưa dùng được đồ",
-  buy: "Chưa mua được",
-  place: "Chưa đặt được",
-  upgrade: "Chưa nâng được",
-  sell: "Chưa bán được",
-  "call-early": "Chưa gọi sớm được",
-  start: "Chưa bắt đầu được",
+  skill: "Cannot use skill yet",
+  consumable: "Cannot use item yet",
+  buy: "Cannot buy",
+  place: "Cannot place",
+  upgrade: "Cannot upgrade",
+  sell: "Cannot sell",
+  "call-early": "Cannot call early",
+  start: "Cannot start",
 };
 
 /** Gentle Vietnamese text for a `rejected` event (never a red alert). */
 export function rejectText(command: SimCommand["type"], reason: string): string {
-  return REJECT_PAIR[command + "|" + reason] ?? REJECT_TEXT[reason] ?? COMMAND_TEXT[command] ?? "Chưa làm được lúc này";
+  return REJECT_PAIR[command + "|" + reason] ?? REJECT_TEXT[reason] ?? COMMAND_TEXT[command] ?? "Cannot do this now";
 }
 
 // ── The HUD ─────────────────────────────────────────────────────────────────
@@ -241,11 +241,11 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   goldStat.append(goldValue, goldFloat);
   goldStat.title = "Gold";
   const waveStat = el(doc, "div", "dh-stat");
-  waveStat.append(el(doc, "span", "dh-label", "Đợt"));
+  waveStat.append(el(doc, "span", "dh-label", "Wave"));
   const waveValue = el(doc, "b", "", "0/0");
   waveStat.append(waveValue);
   const chainStat = el(doc, "div", "dh-stat dh-stat--chain");
-  chainStat.append(el(doc, "span", "dh-label", "Chuỗi"));
+  chainStat.append(el(doc, "span", "dh-label", "Chain"));
   const chainValue = el(doc, "b", "", "0");
   const chainMult = el(doc, "span", "dh-chain-mult");
   chainStat.append(chainValue, chainMult);
@@ -257,13 +257,13 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   system.dataset.keepout = "";
   const pauseButton = uiButton(doc, "dh-pause", () => options.onPause?.());
   pauseButton.innerHTML = icon("pause") + `<span class="dh-key">Esc</span>`;
-  pauseButton.title = "Tạm dừng (Esc)";
+  pauseButton.title = "Pause (Esc)";
   setShown(pauseButton, Boolean(options.onPause));
   system.append(pauseButton);
   if (options.onCameraReset) {
     const cameraButton = uiButton(doc, "dh-camera", () => options.onCameraReset?.());
     cameraButton.innerHTML = icon("camera") + `<span class="dh-key">${keyLabel("camera-reset")}</span>`;
-    cameraButton.title = "Camera về hướng chuẩn (" + keyLabel("camera-reset") + ")";
+    cameraButton.title = "Reset camera (" + keyLabel("camera-reset") + ")";
     system.prepend(cameraButton);
   }
 
@@ -274,24 +274,24 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   const portrait = el(doc, "div", "dh-portrait");
   portrait.innerHTML = icon("dragon");
   const levelBadge = el(doc, "span", "dh-level", "1");
-  levelBadge.title = "Cấp Rồng trong ải";
+  levelBadge.title = "Dragon level this stage";
   portrait.append(levelBadge);
   const guide = el(doc, "div", "dh-guide");
   guide.innerHTML = `<span class="dh-icon">${icon("white-dragon")}</span>`;
-  guide.append(el(doc, "span", "", "Bạch Long"), el(doc, "span", "", "dẫn đường"));
-  guide.title = "Bạch Long đứng cạnh dẫn lời, chưa vào trận";
+  guide.append(el(doc, "span", "", "Bạch Long"), el(doc, "span", "", "guide"));
+  guide.title = "Bạch Long guides you from the sidelines";
   side.append(portrait, guide);
 
   const main = el(doc, "div", "dh-dragon-main");
   const head = el(doc, "div", "dh-dragon-head");
   head.append(el(doc, "span", "dh-title", "Hỏa Long"));
   const armourChip = el(doc, "span", "dh-chip");
-  armourChip.title = "Giáp";
+  armourChip.title = "Armor";
   armourChip.innerHTML = `<span class="dh-icon">${icon("armour")}</span>`;
   const armourValue = el(doc, "b", "", "0");
   armourChip.append(armourValue);
   const shieldChip = el(doc, "span", "dh-chip");
-  shieldChip.title = "Khiên";
+  shieldChip.title = "Shield";
   shieldChip.innerHTML = `<span class="dh-icon">${icon("shield")}</span>`;
   const shieldValue = el(doc, "b", "", "0");
   shieldChip.append(shieldValue);
@@ -321,11 +321,11 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   const skillSlots = SKILL_SLOTS.map((slot) =>
     makeSlot("dh-skill", slot.icon, keyLabel(slot.action), slot.nameVi + " (" + keyLabel(slot.action) + ")", () => useSkill(slot.skill, slot.action)),
   );
-  const roarSlot = makeSlot("dh-roar", "roar", "Từ Khẩn", "Dragon Roar: gõ Từ Khẩn khi quái áp sát (một lần mỗi đợt)", () => undefined);
+  const roarSlot = makeSlot("dh-roar", "roar", "Urgent", "Dragon Roar: type the Urgent Word as foes close in (once per wave)", () => undefined);
   roarSlot.button.querySelector(".dh-key")?.classList.add("dh-key--word");
   const sep = el(doc, "span", "dh-actions__sep");
   const consumableNodes = Array.from({ length: OUR_SIDE.consumableSlots }, (_, index) =>
-    makeSlot("dh-consumable", "potion", keyLabel("consumable-" + (index + 1)), "Đồ tiêu hao (" + keyLabel("consumable-" + (index + 1)) + ")", () => useConsumable(index), true),
+    makeSlot("dh-consumable", "potion", keyLabel("consumable-" + (index + 1)), "Item (" + keyLabel("consumable-" + (index + 1)) + ")", () => useConsumable(index), true),
   );
 
   const rage = el(doc, "div", "dh-rage");
@@ -334,7 +334,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   const rageFill = el(doc, "div", "dh-rage__fill");
   rageBar.append(rageFill);
   const rageValue = el(doc, "span", "dh-rage__value", "0");
-  const ultSlot = makeSlot("dh-ult", ULT_SLOT.icon, keyLabel(ULT_SLOT.action), ULT_SLOT.nameVi + " (" + keyLabel(ULT_SLOT.action) + "): khi Dragon Rage đầy", () => useSkill(ULT_SLOT.skill, ULT_SLOT.action));
+  const ultSlot = makeSlot("dh-ult", ULT_SLOT.icon, keyLabel(ULT_SLOT.action), ULT_SLOT.nameVi + " (" + keyLabel(ULT_SLOT.action) + "): requires full Dragon Rage", () => useSkill(ULT_SLOT.skill, ULT_SLOT.action));
   rage.append(rageLabel, rageBar, rageValue);
   actions.append(...skillSlots.map((slot) => slot.button), roarSlot.button, ultSlot.button, sep, ...consumableNodes.map((slot) => slot.button));
 
@@ -396,7 +396,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     const slot = world ? consumableSlots(world)[index] : undefined;
     if (!slot || slot.item === null) {
       if (node) pressed(node, false);
-      toast("Ô đồ tiêu hao trống: mua Small Potion lúc nghỉ");
+      toast("Empty item slot: buy Small Potion at a break");
       return;
     }
     if (node) pressed(node, slot.cool.leftS === 0);
@@ -418,18 +418,18 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     // The wave card owns the countdown and call-early action.
     const left = phaseTicksLeft(w);
     let line = "";
-    if (phase === "prep") line = `Bày binh · <b>${keyLabel("enter")}</b> để bắt đầu`;
-    else if (phase === "warning") line = `Đợt ${upcomingWave(w)} sắp tới`;
+    if (phase === "prep") line = `Deploy · <b>${keyLabel("enter")}</b> to start`;
+    else if (phase === "warning") line = `Wave ${upcomingWave(w)} incoming`;
     else if (phase === "break") {
       const held = options.heldBy?.() ?? null;
       line = left === null
-        ? `Nghỉ · <b>${keyLabel("enter")}</b> để vào đợt ${upcomingWave(w)}`
+        ? `Break · <b>${keyLabel("enter")}</b> for wave ${upcomingWave(w)}`
         : held !== null
-          ? `Nghỉ giữa đợt · đứng chờ khi mở ${held}`
-          : "Nghỉ giữa đợt";
-    } else if (phase === "wave") line = `Đang giữ ải · đợt <b>${w.wave}</b>`;
-    else if (phase === "victory") line = "Giữ ải thành công";
-    else line = "Dragon Platform thất thủ";
+          ? `Break · paused for ${held}`
+          : "Wave break";
+    } else if (phase === "wave") line = `Defending · wave <b>${w.wave}</b>`;
+    else if (phase === "victory") line = "Stage cleared";
+    else line = "Dragon Platform lost";
     if (phaseLine.innerHTML !== line) phaseLine.innerHTML = line;
 
     // The toast sits just above the strip, which folds outside prep and breaks (CSS fallback; placeToast measures).
@@ -444,12 +444,12 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     const shieldFrac = hero.hpMax > 0 ? Math.min(1, hero.shield / hero.hpMax) : 0;
     setVar(hp, "--shield", shieldFrac.toFixed(4));
     setClass(hp, "is-low", hpFrac * 100 < URGENT.heroHpPct && hero.hp > 0);
-    setText(hpText, hero.hp + " / " + hero.hpMax + (hero.shield > 0 ? " · khiên " + hero.shield : ""));
+    setText(hpText, hero.hp + " / " + hero.hpMax + (hero.shield > 0 ? " · shield " + hero.shield : ""));
     setText(armourValue, String(hero.armour));
     setShown(shieldChip, hero.shield > 0);
     setText(shieldValue, String(hero.shield));
     setText(levelBadge, String(hero.level));
-    levelBadge.title = "Cấp Rồng " + hero.level + " · " + Math.round(levelProgress(hero.level, hero.xp) * 100) + " % tới cấp sau";
+    levelBadge.title = "Dragon level " + hero.level + " · " + Math.round(levelProgress(hero.level, hero.xp) * 100) + "% to next level";
 
     // Skills.
     const unlocked = w.stage.unlocks.heroSkills;
@@ -466,7 +466,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     const roarOpen = unlocked.includes("roar") && w.stage.unlocks.urgentWord;
     setShown(roarSlot.button, roarOpen);
     setClass(roarSlot.button, "is-used", w.combat.urgentUsed);
-    roarSlot.button.title = w.combat.urgentUsed ? "Dragon Roar: đã dùng trong đợt này" : "Dragon Roar: gõ Từ Khẩn khi quái áp sát (một lần mỗi đợt)";
+    roarSlot.button.title = w.combat.urgentUsed ? "Dragon Roar: used this wave" : "Dragon Roar: type the Urgent Word as foes close in (once per wave)";
 
     // Consumables.
     const slots = consumableSlots(w);
@@ -479,7 +479,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
       if (nodes.count) setText(nodes.count, has ? String(slot.count) : "");
       // Low HP in a wave and this slot can heal now: it pulses (test pass 27/10: potions stayed unused at 30 % HP).
       setClass(nodes.button, "is-hint", has && slot.cool.leftS === 0 && phase === "wave" && hpFrac * 100 < URGENT.heroHpPct && hero.hp > 0);
-      const name = slot.item ? CONSUMABLES[slot.item].nameVi : "Ô trống";
+      const name = slot.item ? CONSUMABLES[slot.item].nameVi : "Empty";
       nodes.button.title = name + " (" + keyLabel(slot.action) + ")";
     });
 

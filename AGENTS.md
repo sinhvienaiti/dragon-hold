@@ -127,7 +127,7 @@ contracts, the event list and how to ask for a shared type change.
 
 | Command | Does |
 |---|---|
-| `pnpm dev` | Vite on 127.0.0.1:3005 (strict port); serves `/vocabulary/` and `/typing-texts/` from the parent `shared/` |
+| `pnpm dev` | Vite on 127.0.0.1:3005 (strict port); serves the pinned vocabulary from `public/vocabulary/` |
 | `pnpm test` | Vitest (`tests/**`) |
 | `pnpm build` | `tsc --noEmit` then `vite build` |
 | `pnpm check` | Kit hash check, tests, build |

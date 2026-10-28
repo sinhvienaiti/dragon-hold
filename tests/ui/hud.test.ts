@@ -68,16 +68,16 @@ describe("ui hud read-outs", () => {
     expect(levelProgress(2, 35)).toBe(0.5);
     expect(levelProgress(10, 999)).toBe(1);
     expect(chainMultiplier(0)).toBe("");
-    expect(chainMultiplier(5)).toBe("×1,04");
-    expect(chainMultiplier(40)).toBe("×1,16");
-    expect(rejectText("buy", "gold")).toBe("Chưa đủ Gold");
-    expect(rejectText("skill", "something-new")).toBe("Chưa dùng được kỹ năng");
-    expect(rejectText("consumable", "cooldown")).toBe("Đồ tiêu hao đang hồi");
-    expect(rejectText("skill", "cooldown")).toBe("Kỹ năng đang hồi");
-    expect(rejectText("start", "phase")).toBe("Ải đã bắt đầu");
+    expect(chainMultiplier(5)).toBe("×1.04");
+    expect(chainMultiplier(40)).toBe("×1.16");
+    expect(rejectText("buy", "gold")).toBe("Need Gold");
+    expect(rejectText("skill", "something-new")).toBe("Cannot use skill yet");
+    expect(rejectText("consumable", "cooldown")).toBe("Item recharging");
+    expect(rejectText("skill", "cooldown")).toBe("Skill recharging");
+    expect(rejectText("start", "phase")).toBe("Stage started");
     // Never "cần nghỉ": "Nghỉ" is the break between waves.
-    expect(rejectText("skill", "ult-gap")).toBe("Tối Thượng: cách lần trước ít nhất 45 s");
-    expect(viNumber(1.5)).toBe("1,5");
+    expect(rejectText("skill", "ult-gap")).toBe("Ultimate: wait at least 45 s between uses");
+    expect(viNumber(1.5)).toBe("1.5");
   });
 
   it("labels keys from the 00 §6 table per platform (Option on Mac, Shift for digits on Linux)", () => {

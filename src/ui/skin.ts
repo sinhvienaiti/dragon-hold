@@ -81,10 +81,10 @@ export function setShown(node: HTMLElement, shown: boolean): void {
   if (node.hidden === shown) node.hidden = !shown;
 }
 
-/** Vietnamese number: decimal comma, at most one decimal ("1,5"). */
+/** A number with at most one decimal, US style ("1.5"). */
 export function viNumber(value: number): string {
   const rounded = Math.round(value * 10) / 10;
-  return String(rounded).replace(".", ",");
+  return String(rounded);
 }
 
 // ── Key labels (00 §6: event.code; Alt is Option on Mac, Shift on Linux for digits) ──

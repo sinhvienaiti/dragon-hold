@@ -453,20 +453,20 @@ export function ringSlot(bearing: number, taken: ReadonlySet<number>): number {
 
 /** Kind → icon and frame class (05 §4.3: a shape per kind, not only a colour). */
 const KIND_STYLE: Readonly<Record<WordKind, { readonly icon: string; readonly cls: string; readonly label: string }>> = {
-  enemy: { icon: "", cls: "is-enemy", label: "Quái" },
-  cluster: { icon: "swarm", cls: "is-cluster", label: "Bầy" },
-  elite: { icon: "crown", cls: "is-elite", label: "Tinh anh" },
-  general: { icon: "badge", cls: "is-general", label: "Tướng" },
-  seal: { icon: "seal", cls: "is-seal", label: "Ấn Phá" },
-  flag: { icon: "flag", cls: "is-flag", label: "Nhổ cờ" },
-  interrupt: { icon: "bolt", cls: "is-interrupt", label: "Từ Ngắt" },
+  enemy: { icon: "", cls: "is-enemy", label: "Foe" },
+  cluster: { icon: "swarm", cls: "is-cluster", label: "Mob" },
+  elite: { icon: "crown", cls: "is-elite", label: "Elite" },
+  general: { icon: "badge", cls: "is-general", label: "Gen." },
+  seal: { icon: "seal", cls: "is-seal", label: "Seal" },
+  flag: { icon: "flag", cls: "is-flag", label: "Flag" },
+  interrupt: { icon: "bolt", cls: "is-interrupt", label: "Stop" },
   urgent: { icon: "roar", cls: "is-urgent", label: "Dragon Roar" },
-  skill: { icon: "flame", cls: "is-skill", label: "Chữ Chiêu" },
-  assist: { icon: "leaf", cls: "is-assist", label: "Từ Trợ" },
-  trigger: { icon: "gear", cls: "is-trigger", label: "Từ Kích" },
-  "boss-part": { icon: "target", cls: "is-boss", label: "Bộ phận" },
-  "boss-seal": { icon: "target", cls: "is-boss", label: "Cụm Ấn" },
-  map: { icon: "gear", cls: "is-map", label: "Vật" },
+  skill: { icon: "flame", cls: "is-skill", label: "Skill" },
+  assist: { icon: "leaf", cls: "is-assist", label: "Aid" },
+  trigger: { icon: "gear", cls: "is-trigger", label: "Trigger" },
+  "boss-part": { icon: "target", cls: "is-boss", label: "Part" },
+  "boss-seal": { icon: "target", cls: "is-boss", label: "Seals" },
+  map: { icon: "gear", cls: "is-map", label: "Obj" },
 };
 
 /** Small inline icons (24 × 24 paths), drawn in currentColor. */
@@ -889,7 +889,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
     tag.word.innerHTML = html;
     tag.icon.innerHTML = svgIcon(style.icon);
     tag.icon.title = style.label;
-    tag.badge.textContent = isNew ? "MỚI" : "";
+    tag.badge.textContent = isNew ? "NEW" : "";
     tag.dots.innerHTML = seals ? seals.map((seal) => (seal ? '<span class="s">◆</span>' : "●")).join("") : "";
     tag.mean.textContent = meaning;
     tag.el.className =
