@@ -188,15 +188,43 @@ describe("view crowd", () => {
     crowd.dispose();
   });
 
-  it("takes a rigid GLB layer now and refuses skinned layers until M0b", () => {
+  it("takes a rigid GLB layer and a bones layer (M0b), carries live instances over, and refuses vat", () => {
     const crowd = createCrowd(8);
     const handle = crowd.add(grunt, "biped", "enemy/moss-grunt");
     crowd.set(handle, inst(2, 0));
     crowd.defineLayer("enemy/moss-grunt", { geometry: new THREE.BoxGeometry(1, 2, 1).translate(0, 1, 0), sizeM: [1, 2, 1], animation: { kind: "procedural" } });
     crowd.flush();
     expect(layers(crowd.group).get("crowd-enemy/moss-grunt")!.count).toBe(1);
+    expect(crowd.isSkinned("enemy/moss-grunt")).toBe(false);
+    // A bones layer: two clips in a 1-bone texture; the instance's clip time becomes a texture row.
+    const geometry = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+    const count = geometry.getAttribute("position").count;
+    geometry.setAttribute("aSkinI", new THREE.Float32BufferAttribute(new Float32Array(count * 4), 4));
+    geometry.setAttribute("aSkinW", new THREE.Float32BufferAttribute(new Float32Array(count * 4).fill(0).map((_, k) => (k % 4 === 0 ? 1 : 0)), 4));
+    const boneTexture = new THREE.DataTexture(new Float32Array(3 * 22 * 4), 3, 22, THREE.RGBAFormat, THREE.FloatType);
+    const clips = [
+      { start: 0, frames: 10, fps: 10, loop: true },
+      { start: 11, frames: 10, fps: 20, loop: false },
+    ];
+    crowd.defineLayer("enemy/moss-grunt", { geometry, sizeM: [0.5, 1, 0.4], animation: { kind: "bones", boneTexture, bones: 1, clips }, fit: "height", model: true });
+    expect(crowd.isSkinned("enemy/moss-grunt")).toBe(true);
+    crowd.set(handle, inst(2, 0, { clip: 0, clipTime: 1.25, clipB: 1, clipTimeB: 9, blend: 0.5 }));
+    crowd.flush();
+    const mesh = layers(crowd.group).get("crowd-enemy/moss-grunt")!;
+    expect(mesh.count).toBe(1);
+    const aClip = mesh.geometry.getAttribute("aClip").array as Float32Array;
+    // Loop: 1.25 s × 10 fps = 12.5 frames → 2.5 into the 10-frame loop; once: held just before its last row.
+    expect(aClip[0]).toBeCloseTo(2.5, 5);
+    expect(aClip[1]).toBeCloseTo(11 + 10 - 1e-4, 3);
+    expect(aClip[2]).toBe(0.5);
+    // Uniform fit: the placeholder's drawn height over the model's (1), the same on every axis.
+    const m = new THREE.Matrix4();
+    mesh.getMatrixAt(0, m);
+    const scale = new THREE.Vector3().setFromMatrixScale(m);
+    expect(scale.x).toBeCloseTo(scale.y, 5);
+    expect(scale.y).toBeCloseTo(grunt.sizeM[1] * CHARACTER_SCALE, 5);
     const texture = new THREE.DataTexture(new Float32Array(4), 1, 1);
-    expect(() => crowd.defineLayer("x", { geometry: new THREE.BoxGeometry(), sizeM: [1, 1, 1], animation: { kind: "vat", texture, frames: 1, clips: [] } })).toThrow(/M0b/);
+    expect(() => crowd.defineLayer("x", { geometry: new THREE.BoxGeometry(), sizeM: [1, 1, 1], animation: { kind: "vat", texture, frames: 1, clips: [] } })).toThrow(/vat/);
     crowd.dispose();
   });
 });

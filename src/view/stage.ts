@@ -23,6 +23,8 @@ import { MAP_L2_CAU } from "../content/data/maps";
 import { KEYS } from "../content/rules";
 import type { MapDef } from "../content/types";
 import { CAMERA_ACTIONS, createCameraRig, type CameraRig } from "./camera";
+import { BRIDGE_MODEL } from "./model-specs";
+import type { CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
 import { buildScatter, type ScatterView } from "./scatter";
 import { buildTerrain, SUN_DIRECTION, type PaintedTerrain } from "./terrain";
@@ -336,6 +338,8 @@ export interface MapStage {
   render(): void;
   /** World metres → CSS pixels (stage.project). */
   worldToScreen(xM: number, yM: number, zM: number, out?: ScreenPoint): ScreenPoint;
+  /** Swaps near scatter items and the bridge for the owner's GLB props once `models` has loaded them (M0b). */
+  useModels(models: CrowdModels): void;
   dispose(): void;
 }
 
@@ -352,6 +356,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   (stage.scene.fog as THREE.Fog).color.copy(terrain.look.mist);
   const rig = createCameraRig(stage.camera, map, host);
   rig.update(0);
+  let disposed = false;
   return {
     stage,
     scene: stage.scene,
@@ -373,7 +378,15 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
     worldToScreen(xM, yM, zM, out = { x: 0, y: 0, visible: false }) {
       return stage.project(xM, yM, zM, out);
     },
+    useModels(models: CrowdModels): void {
+      void models.ready.then(() => {
+        if (disposed) return;
+        scatter.useProps((key) => models.prop(key));
+        paths.useBridge(models.prop(BRIDGE_MODEL.manifest));
+      });
+    },
     dispose(): void {
+      disposed = true;
       rig.dispose();
       scatter.dispose();
       paths.dispose();

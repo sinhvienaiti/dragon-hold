@@ -10,11 +10,15 @@
  * here: the bridge (boxes, one draw call), the sky lane (a faint drifting
  * ribbon at flight height) and the slot ghosts (one instanced quad each,
  * hidden unless asked).
+ * M0b: the owner's old bridge (K12) replaces the box bridge once it loads,
+ * fitted to each span with its deck at the deck height actors stand on
+ * (heightAt and the sim are unchanged); the box bridge stays as the fallback.
  * Owner: view-terrain (LANES.md).
  */
 import * as THREE from "three";
 import type { MapDef, SlotKind, Vec2 } from "../content/types";
-import { catmullRom, DH_GLSL, hash2, mergeSimple, paintMaterial, Polyline, type PaintedTerrain } from "./terrain";
+import type { PropModel } from "./models";
+import { catmullRom, DH_GLSL, hash2, mergeSimple, paintMaterial, Polyline, type BridgeSpan, type PaintedTerrain } from "./terrain";
 
 export interface PathsView {
   readonly group: THREE.Group;
@@ -25,6 +29,50 @@ export interface PathsView {
   dispose(): void;
   /** Animates the sky marker and the slot pulse. */
   update(dt: number): void;
+  /** Swaps the box bridge for the owner's GLB bridge (M0b); null keeps the boxes. */
+  useBridge(prop: PropModel | null): void;
+}
+
+/** Height of a model's walkable top at its centre line (the deck under the rails), metres from its base. */
+export function deckHeight(geometry: THREE.BufferGeometry): number {
+  const position = geometry.getAttribute("position");
+  const index = geometry.getIndex();
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+  const width = box.max.x - box.min.x;
+  // Highest surface over the middle fifth of the width along the middle half of the length.
+  let best = -Infinity;
+  const a = new THREE.Vector3();
+  const count = index ? index.count : position.count;
+  for (let i = 0; i < count; i += 1) {
+    a.fromBufferAttribute(position, index ? index.getX(i) : i);
+    if (Math.abs(a.x - (box.min.x + width / 2)) < width * 0.1 && Math.abs(a.z) < (box.max.z - box.min.z) * 0.25) best = Math.max(best, a.y);
+  }
+  return Number.isFinite(best) ? best - box.min.y : (box.max.y - box.min.y) * 0.5;
+}
+
+/** The GLB bridge over each span: centre, along the span, wide as the deck plus its rails, deck top on topY. */
+function bridgeModel(prop: PropModel, bridges: readonly BridgeSpan[], material: THREE.Material): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "dh-bridge-model";
+  const deck = deckHeight(prop.geometry);
+  const size = prop.size;
+  for (const bridge of bridges) {
+    const dx = bridge.bx - bridge.ax;
+    const dz = bridge.bz - bridge.az;
+    const length = Math.hypot(dx, dz);
+    const along = (length + 1.6) / size.z;
+    const across = (bridge.halfWidth * 2 + 0.9) / size.x;
+    const up = (along + across) / 2;
+    const mesh = new THREE.Mesh(prop.geometry, material);
+    mesh.scale.set(across, up, along);
+    mesh.rotation.y = Math.atan2(dx, dz);
+    mesh.position.set((bridge.ax + bridge.bx) / 2, bridge.topY - deck * up, (bridge.az + bridge.bz) / 2);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+  return group;
 }
 
 /** Placeholder bridge: deck, side beams, rails and two piers, one merged mesh in wood tones. */
@@ -434,6 +482,14 @@ export function buildPaths(map: MapDef, terrain: PaintedTerrain): PathsView {
         // Chevrons drift only on an active lane.
         if (skyActive[index] === 1) uniforms.uFlow!.value = (uniforms.uFlow!.value as number) + dt;
       });
+    },
+    useBridge(prop: PropModel | null): void {
+      if (prop === null || bridge === null || terrain.field.bridges.length === 0) return;
+      const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: prop.map }), look, { key: "bridge-model", rim: 0.08 });
+      const model = bridgeModel(prop, terrain.field.bridges, material);
+      bridge.visible = false;
+      group.add(model);
+      disposables.push(material);
     },
     dispose(): void {
       group.removeFromParent();

@@ -44,6 +44,7 @@ import { createFx, type FxPresenter } from "../view/fx";
 import { createHeroes } from "../view/heroes";
 import { createHpBars } from "../view/hpbars";
 import { createMapStage, type MapStage } from "../view/stage";
+import { loadCrowdModels } from "../view/models";
 import { createLaneCue } from "../view/lane-cue";
 import { createTelegraphs, type TelegraphsView } from "../view/telegraphs";
 import type { ActionHandler, FrameInfo, Presenter, Quality, ScreenPoint } from "./contracts";
@@ -212,6 +213,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   // The Dragons live as long as the app: a retry resets them instead of loading and decoding the GLBs again.
   const heroes = createHeroes(map.stage, mapDef, { terrain: map.terrain });
+  // The owner's M0b models (foes, the warden, traps, the hut, scatter props, the bridge): loaded once, every run's crowd takes them.
+  const models = loadCrowdModels(quality);
+  map.useModels(models);
 
   // Persistent services: audio, the learning bridge and client.
   const bridge = createLearningBridge({ gameId: "dragon-hold" });
@@ -509,7 +513,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const layers = map.stage.layers;
     const onStage = (): Object3D[] => [...layers.ground.children, ...layers.actors.children, ...layers.fx.children];
     const before = new Set(onStage());
-    const actors = createActors(map.stage, map.terrain);
+    const actors = createActors(map.stage, map.terrain, { models });
     heroes.reset();
     heroes.setLocator(actors);
     const telegraphs = createTelegraphs(map.stage, map.terrain, { locator: actors });
@@ -950,7 +954,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         heroBuys: { ...world.shop.heroBuys },
         steps: loop?.steps ?? 0,
         commands: run!.log.length,
-        banners: { carried: run!.banners.carried, planted: run!.banners.planted, named: run!.banners.named },
+        banners: { carried: run!.banners.carried, carriedPlaceholders: run!.banners.carriedPlaceholders, planted: run!.banners.planted, named: run!.banners.named },
         layers: { actors: map.stage.layers.actors.children.length, fx: map.stage.layers.fx.children.length, overlay: overlay!.childElementCount },
       };
     },
@@ -1092,6 +1096,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       disposeRun();
       paceCard.dispose();
       heroes.dispose();
+      models.dispose();
       audio.dispose();
       learning.dispose();
       stopMusicWatch();

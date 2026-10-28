@@ -10,11 +10,16 @@
  * Source adapted: games/space-typing/src/defense/view/crowd.ts (V4 crowd).
  * Owner: view-crowd-fx (LANES.md).
  *
- * Skinned crowd later (05 §8, DESIGN §9 bench `bones`, `vat`): a layer takes a
- * CrowdLayerSource. "procedural" (a rigid GLB mesh, gait by shader, like
- * Space's V4 crowd) works today; "vat" (baked vertex animation texture) and
- * "bones" (bone matrices in a texture, skinned in the vertex shader) are the
- * typed slots M0b fills: the instance already carries clip and clip time.
+ * Skinned crowd (05 §8, DESIGN §9 bench `bones`; M0b): a layer takes a
+ * CrowdLayerSource. "procedural" (a primitive or a rigid GLB mesh, gait by
+ * shader) and "bones" (the owner's model with a rig and clips baked into a
+ * bone texture by view/crowd-rig.ts, skinned in the vertex shader for the
+ * body, its outline hull and its ghost) are built; "vat" stays a typed slot.
+ * Each instance carries clip A and its time, clip B and its time, and the
+ * blend (a short Hit over a walk), read as texture rows with frame lerp.
+ * Model layers draw the texture with a family wash (luminance kept) instead
+ * of the grey-box ash and cracks, fit uniformly to the placeholder's height
+ * or footprint, and push their outline along smoothed normals.
  */
 import * as THREE from "three";
 import type { Gait, PlaceholderDef } from "../content/types";
@@ -54,9 +59,13 @@ export interface CrowdInstance {
   stride?: number;
   /** Uniform scale on top of the size (a fallen unit's bud, a popping spike). */
   scale?: number;
-  /** Reserved for skinned layers (vat, bones): clip index and seconds into it. */
+  /** Bones layers: clip A (index in the layer's clip table) and seconds into it; default the first clip, running. */
   clip?: number;
   clipTime?: number;
+  /** Bones layers: clip B, its time, and how much of it shows (0: none) — a Hit over a walk, a walk cross-fade. */
+  clipB?: number;
+  clipTimeB?: number;
+  blend?: number;
 }
 
 /** How an instance reads: a foe (ash-grey shell, withered cracks) or ours. Default: anything with a gait is a foe. */
@@ -70,6 +79,8 @@ export interface CrowdLook {
   readonly rim?: number;
   /** How far a foe's colour greys toward ash 0–1 (05 §2.2); default 0.14 (0.38 before round 2). */
   readonly ash?: number;
+  /** Model layers: family wash 0–1 toward the instance colour, luminance kept (M0b); default 0. */
+  readonly wash?: number;
 }
 
 /** A ground ring the crowd draws with the shadows (a swarm cluster's outline, view only). */
@@ -106,6 +117,15 @@ export interface CrowdLayerSource {
   /** Base material properties (the crowd patches its own copy). */
   readonly roughness?: number;
   readonly map?: THREE.Texture | null;
+  /**
+   * How the geometry meets the placeholder size: "stretch" each axis (primitives, default), or one
+   * uniform scale from the placeholder's "height" (characters) or its "footprint" (placed things).
+   */
+  readonly fit?: "stretch" | "height" | "footprint";
+  /** The owner's model: its texture with the family wash, no ash greying and no drawn cracks. */
+  readonly model?: boolean;
+  /** The geometry carries aHullN (smoothed normals): the outline hull is pushed along them. */
+  readonly hullNormals?: boolean;
 }
 
 export interface Crowd {
@@ -124,8 +144,10 @@ export interface Crowd {
   prepare(shape: PlaceholderDef["shape"], key?: string): void;
   /** Uploads instance buffers once a frame; `timeS` drives the gait. */
   flush(timeS?: number): void;
-  /** Swaps a layer's geometry (the owner's GLB); "vat" and "bones" throw until M0b. */
+  /** Swaps a layer's geometry (the owner's GLB; live instances carry over); "vat" throws (not built). */
   defineLayer(key: string, source: CrowdLayerSource): void;
+  /** Whether a layer draws a skinned model now (actors run clips only there). */
+  isSkinned(key: string): boolean;
   /** Live instances, and draw calls the crowd costs now (layers in use with their outlines and foe ghosts, plus shadows). */
   readonly size: number;
   drawCalls(): number;
@@ -140,6 +162,37 @@ attribute vec4 aState;
 attribute vec4 aAnim;
 attribute vec4 aLook;
 uniform float uTime;
+#ifdef DH_HULLN
+attribute vec3 aHullN;
+#endif
+#ifdef DH_BONES
+// Bone texture: row = frame, 3 texels per bone (rows of its 3 × 4 matrix); aClip = (row A, row B, blend of B, -).
+attribute vec4 aSkinI;
+attribute vec4 aSkinW;
+attribute vec4 aClip;
+uniform highp sampler2D uBones;
+mat4 dhBone(float row, float bone) {
+  int b = int(bone + 0.5) * 3;
+  int r0 = int(row);
+  float f = row - float(r0);
+  vec4 x = mix(texelFetch(uBones, ivec2(b, r0), 0), texelFetch(uBones, ivec2(b, r0 + 1), 0), f);
+  vec4 y = mix(texelFetch(uBones, ivec2(b + 1, r0), 0), texelFetch(uBones, ivec2(b + 1, r0 + 1), 0), f);
+  vec4 z = mix(texelFetch(uBones, ivec2(b + 2, r0), 0), texelFetch(uBones, ivec2(b + 2, r0 + 1), 0), f);
+  return mat4(x.x, y.x, z.x, 0.0, x.y, y.y, z.y, 0.0, x.z, y.z, z.z, 0.0, x.w, y.w, z.w, 1.0);
+}
+mat4 dhSkinAt(float row) {
+  mat4 m = aSkinW.x * dhBone(row, aSkinI.x);
+  if (aSkinW.y > 0.0) m += aSkinW.y * dhBone(row, aSkinI.y);
+  if (aSkinW.z > 0.0) m += aSkinW.z * dhBone(row, aSkinI.z);
+  if (aSkinW.w > 0.0) m += aSkinW.w * dhBone(row, aSkinI.w);
+  return m;
+}
+mat4 dhSkin() {
+  mat4 m = dhSkinAt(aClip.x);
+  if (aClip.z > 0.001) m = m * (1.0 - aClip.z) + dhSkinAt(aClip.y) * aClip.z;
+  return m;
+}
+#endif
 varying vec3 vTint;
 varying vec4 vState;
 varying vec4 vLook;
@@ -159,7 +212,12 @@ vec3 crowdTint(float id) {
 }
 `;
 
-// Object-space gait (aAnim: x gait id, + 8 for a foe; y phase 0–1, z stride 0–1).
+/** Skinning matrix once per vertex, at the top of main (bones layers). */
+const SKIN_MAIN = "void main() {\n#ifdef DH_BONES\nmat4 dhSkinM = dhSkin();\n#endif";
+/** Bones layers skin the normal before lighting. */
+const SKIN_NORMAL = "#include <beginnormal_vertex>\n#ifdef DH_BONES\nobjectNormal = mat3(dhSkinM) * objectNormal;\n#endif";
+
+// Object-space gait (aAnim: x gait id, + 8 for a foe; y phase 0–1, z stride 0–1); bones layers skin instead.
 const CROWD_BEGIN = /* glsl */ `
 #include <begin_vertex>
 vState = aState;
@@ -171,6 +229,10 @@ vPhase = aAnim.y;
 float gaitPhase = aAnim.y * 6.2831;
 float stride = aAnim.z;
 float gait = aAnim.x - vFoe * 8.0;
+#ifdef DH_BONES
+transformed = (dhSkinM * vec4(position, 1.0)).xyz;
+gait = 0.0;
+#endif
 if (gait > 0.5 && gait < 1.5) {
   // Biped: waddle side to side, leaning from the feet.
   transformed.x += sin(uTime * 4.6 + gaitPhase) * 0.09 * stride * transformed.y;
@@ -204,7 +266,9 @@ vec4 mvPosition = vec4( transformed, 1.0 );
 #ifdef USE_INSTANCING
 mvPosition = instanceMatrix * mvPosition;
 #endif
+#ifndef DH_BONES
 ${CROWD_BOB}
+#endif
 mvPosition = modelViewMatrix * mvPosition;
 gl_Position = projectionMatrix * mvPosition;
 `;
@@ -217,12 +281,22 @@ gl_Position = projectionMatrix * mvPosition;
  */
 const OUTLINE_PROJECT = /* glsl */ `
 vec4 mvPosition = vec4( transformed, 1.0 );
+#ifdef DH_HULLN
+#ifdef DH_BONES
+vec3 crowdOut = mat3(dhSkinM) * aHullN;
+#else
+vec3 crowdOut = aHullN;
+#endif
+#else
 vec3 crowdOut = transformed - uCenter;
+#endif
 #ifdef USE_INSTANCING
 crowdOut = mat3(instanceMatrix) * crowdOut;
 mvPosition = instanceMatrix * mvPosition;
 #endif
+#ifndef DH_BONES
 ${CROWD_BOB}
+#endif
 vec4 crowdWorld = modelMatrix * mvPosition;
 crowdOut = mat3(modelMatrix) * crowdOut;
 float crowdWidth = uOutlineK * length(cameraPosition - crowdWorld.xyz) * aLook.x * (1.0 - aState.y);
@@ -249,10 +323,13 @@ const OUTLINE_PX = 2.1;
  */
 const GHOST_VERTEX = /* glsl */ `
 varying vec3 vGhost;
-void main() {
+${SKIN_MAIN}
 ${CROWD_BEGIN}
 ${CROWD_PROJECT}
   vec3 ghostN = normal;
+#ifdef DH_BONES
+  ghostN = mat3(dhSkinM) * ghostN;
+#endif
 #ifdef USE_INSTANCING
   ghostN = mat3(instanceMatrix) * ghostN;
 #endif
@@ -321,17 +398,29 @@ float crowdN = crowdNoise(vLocal * 7.0) * 0.75 + crowdNoise(vLocal * 19.0) * 0.2
 if (vState.y > 0.001 && crowdN < vState.y * 1.08) discard;
 `;
 
-// Bầy Héo (05 §2.2): the family colour greyed toward ash; our side keeps its colour.
+// Bầy Héo (05 §2.2): the family colour greyed toward ash; our side keeps its colour. The owner's models keep
+// their texture (it carries the ash shell and the withered cracks) under a family wash that keeps luminance.
 const CROWD_COLOR = /* glsl */ `
 #include <color_fragment>
+#ifdef DH_MODEL
+float dhLum = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+vec3 dhWash = vColorCrowd * (dhLum / max(0.04, dot(vColorCrowd, vec3(0.3, 0.59, 0.11))));
+diffuseColor.rgb = mix(diffuseColor.rgb, dhWash, vLook.w);
+#else
 diffuseColor.rgb *= vColorCrowd;
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))) * vec3(0.98, 0.95, 0.88), vLook.z * vFoe);
+#endif
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vTint * 1.25, vState.w * 0.75);
 `;
 
 const CROWD_EMISSIVE = /* glsl */ `
 #include <emissivemap_fragment>
 float crowdRim = pow(1.0 - abs(vViewN.z), 2.2);
+#ifdef DH_MODEL
+// A modelled body turns its normals away from the camera far more often than a primitive: a thinner, softer rim,
+// or the whole body washes toward cream (G01 at rim 0.95 read pale in the 27/10 sheets).
+crowdRim = pow(1.0 - abs(vViewN.z), 3.4) * 0.55;
+#endif
 // A bright rim in the body's own colour lifted toward cream (aLook.y), so every body reads against the ground
 // even on its shaded side; an aura rim is withered yellow.
 vec3 crowdRimColor = mix(vColorCrowd, vec3(1.0, 0.97, 0.88), 0.55) * vLook.y;
@@ -339,9 +428,11 @@ totalEmissiveRadiance += mix(crowdRimColor, vTint * 0.35, step(3.5, vState.z) * 
 totalEmissiveRadiance += vTint * vState.w * 0.12;
 // Withered-yellow cracks on every foe's shell (05 §2.2 "khe nứt vàng úa"): each instance samples its own patch of
 // noise (its gait phase), stretched unevenly, so no two shells carry the same mark and none reads as a letter.
+#ifndef DH_MODEL
 vec3 crackAt = vec3(vLocal.x * 4.1, vLocal.y * 6.3, vLocal.z * 4.7) + vec3(3.7 + vPhase * 41.0, vPhase * 23.0, 1.3 + vPhase * 17.0);
 float crowdCrack = 1.0 - smoothstep(0.0, 0.045, abs(crowdNoise(crackAt) - 0.5));
 totalEmissiveRadiance += vec3(${hexVec("#c8d24a")}) * crowdCrack * 0.6 * vFoe;
+#endif
 totalEmissiveRadiance += vec3(1.6, 1.55, 1.4) * vState.x;
 if (vState.y > 0.001) {
   float edge = 1.0 - smoothstep(0.0, 0.09, crowdN - vState.y * 1.08);
@@ -456,8 +547,13 @@ interface Layer {
   readonly state: THREE.InstancedBufferAttribute;
   readonly anim: THREE.InstancedBufferAttribute;
   readonly look: THREE.InstancedBufferAttribute;
+  /** Bones layers: texture rows of clip A and B and the blend (aClip). */
+  readonly clip: THREE.InstancedBufferAttribute;
   readonly owner: Int32Array;
   readonly sizeM: [number, number, number];
+  readonly fit: "stretch" | "height" | "footprint";
+  /** The clip table of a bones layer (null: no clips). */
+  readonly clips: readonly CrowdClip[] | null;
   count: number;
   dirty: boolean;
 }
@@ -603,19 +699,32 @@ class InstancedCrowd implements Crowd {
     const state = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
     const anim = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
     const look = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
+    const clip = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aColor", color);
     geometry.setAttribute("aState", state);
     geometry.setAttribute("aAnim", anim);
     geometry.setAttribute("aLook", look);
+    geometry.setAttribute("aClip", clip);
     // Our side (units, traps, houses) draws with the world; foes after their ghosts.
     const foe = !key.startsWith(OUR_LAYER);
+    const bones = source.animation.kind === "bones" ? source.animation : null;
+    const defines: Record<string, string> = {};
+    if (bones !== null) defines.DH_BONES = "";
+    if (source.model) defines.DH_MODEL = "";
+    if (source.hullNormals) defines.DH_HULLN = "";
+    const variant = Object.keys(defines).join("-") || "plain";
+    const boneUniform = { value: bones?.boneTexture ?? null };
     const material = new THREE.MeshStandardMaterial({ roughness: source.roughness ?? 0.85, metalness: 0, map: source.map ?? null, emissive: "#000000" });
+    material.defines = { ...defines };
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = this.time;
+      shader.uniforms.uBones = boneUniform;
       shader.vertexShader =
         CROWD_VERTEX_HEAD +
         "varying vec3 vColorCrowd;\n" +
         shader.vertexShader
+          .replace("void main() {", SKIN_MAIN)
+          .replace("#include <beginnormal_vertex>", SKIN_NORMAL)
           .replace("#include <begin_vertex>", CROWD_BEGIN + "\nvColorCrowd = aColor;")
           .replace("#include <defaultnormal_vertex>", CROWD_NORMAL)
           .replace("#include <project_vertex>", CROWD_PROJECT);
@@ -626,7 +735,7 @@ class InstancedCrowd implements Crowd {
           .replace("#include <color_fragment>", CROWD_COLOR)
           .replace("#include <emissivemap_fragment>", CROWD_EMISSIVE);
     };
-    material.customProgramCacheKey = () => "dh-crowd-v2";
+    material.customProgramCacheKey = () => "dh-crowd-v3-" + variant;
     const mesh = new THREE.InstancedMesh(geometry, material, capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.count = 0;
@@ -638,17 +747,19 @@ class InstancedCrowd implements Crowd {
     // The hull: same geometry and instance matrices, back faces, pushed out in the vertex shader.
     const center = { value: new THREE.Vector3(0, source.sizeM[1] / 2, 0) };
     const outlineMaterial = new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR, side: THREE.BackSide });
+    outlineMaterial.defines = { ...defines };
     outlineMaterial.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = this.time;
       shader.uniforms.uOutlineK = this.outlineK;
       shader.uniforms.uCenter = center;
+      shader.uniforms.uBones = boneUniform;
       shader.vertexShader =
         CROWD_VERTEX_HEAD +
         "uniform float uOutlineK;\nuniform vec3 uCenter;\n" +
-        shader.vertexShader.replace("#include <begin_vertex>", CROWD_BEGIN).replace("#include <project_vertex>", OUTLINE_PROJECT);
+        shader.vertexShader.replace("void main() {", SKIN_MAIN).replace("#include <begin_vertex>", CROWD_BEGIN).replace("#include <project_vertex>", OUTLINE_PROJECT);
       shader.fragmentShader = "varying vec4 vState;\nvarying vec4 vLook;\n" + shader.fragmentShader.replace("#include <clipping_planes_fragment>", OUTLINE_CLIP);
     };
-    outlineMaterial.customProgramCacheKey = () => "dh-crowd-outline-v1";
+    outlineMaterial.customProgramCacheKey = () => "dh-crowd-outline-v2-" + variant;
     const outline = new THREE.InstancedMesh(geometry, outlineMaterial, capacity);
     outline.instanceMatrix = mesh.instanceMatrix;
     outline.count = 0;
@@ -670,7 +781,8 @@ class InstancedCrowd implements Crowd {
     let ghost: THREE.InstancedMesh | null = null;
     if (foe && this.ghosts) {
       const ghostMaterial = new THREE.ShaderMaterial({
-        uniforms: { uTime: this.time, uGhost: { value: GHOST_ALPHA }, uCut: { value: source.sizeM[1] * 0.1 } },
+        defines: { ...defines },
+        uniforms: { uTime: this.time, uGhost: { value: GHOST_ALPHA }, uCut: { value: source.sizeM[1] * 0.1 }, uBones: boneUniform },
         vertexShader: CROWD_VERTEX_HEAD + GHOST_VERTEX,
         fragmentShader: GHOST_FRAGMENT,
         depthTest: true,
@@ -690,7 +802,23 @@ class InstancedCrowd implements Crowd {
       ghost.name = "crowd-ghost-" + key;
       this.group.add(ghost);
     }
-    return { key, mesh, outline, ghost, color, state, anim, look, owner: new Int32Array(capacity).fill(-1), sizeM: [source.sizeM[0], source.sizeM[1], source.sizeM[2]], count: 0, dirty: true };
+    return {
+      key,
+      mesh,
+      outline,
+      ghost,
+      color,
+      state,
+      anim,
+      look,
+      clip,
+      owner: new Int32Array(capacity).fill(-1),
+      sizeM: [source.sizeM[0], source.sizeM[1], source.sizeM[2]],
+      fit: source.fit ?? "stretch",
+      clips: bones?.clips ?? null,
+      count: 0,
+      dirty: true,
+    };
   }
 
   private disposeLayer(layer: Layer): void {
@@ -704,10 +832,14 @@ class InstancedCrowd implements Crowd {
     layer.mesh.dispose();
   }
 
+  isSkinned(key: string): boolean {
+    return this.layers.get(key)?.clips != null;
+  }
+
   defineLayer(key: string, source: CrowdLayerSource): void {
-    if (source.animation.kind !== "procedural") {
-      // M0b: bake the owner's skinned GLB into a vat or bone texture and sample it in CROWD_BEGIN by aAnim / clip.
-      throw new Error("crowd: " + source.animation.kind + " layers are not built yet (M0b, skinned crowd)");
+    if (source.animation.kind === "vat") {
+      // Bones layers cover M0b; a vertex-animation texture stays a typed slot.
+      throw new Error("crowd: vat layers are not built (M0b uses bones)");
     }
     const old = this.layers.get(key);
     const layer = this.makeLayer(key, source);
@@ -721,6 +853,7 @@ class InstancedCrowd implements Crowd {
       (layer.state.array as Float32Array).set(old.state.array as Float32Array);
       (layer.anim.array as Float32Array).set(old.anim.array as Float32Array);
       (layer.look.array as Float32Array).set(old.look.array as Float32Array);
+      (layer.clip.array as Float32Array).set(old.clip.array as Float32Array);
       layer.owner.set(old.owner);
       layer.count = old.count;
       for (const rec of this.handles) if (rec !== null && rec.layer === old) rec.layer = layer;
@@ -758,7 +891,8 @@ class InstancedCrowd implements Crowd {
     o[index * 4] = look.outline ?? (gait === "still" ? 0.6 : 1);
     o[index * 4 + 1] = look.rim ?? (foe ? 0.6 : 0.35);
     o[index * 4 + 2] = look.ash ?? 0.14;
-    o[index * 4 + 3] = 0;
+    o[index * 4 + 3] = look.wash ?? 0;
+    (layer.clip.array as Float32Array).fill(0, index * 4, index * 4 + 4);
     // Hidden until the first set().
     this.matrix.makeScale(0, 0, 0);
     layer.mesh.setMatrixAt(index, this.matrix);
@@ -781,6 +915,7 @@ class InstancedCrowd implements Crowd {
       copyItem(layer.state.array as Float32Array, 4, last, index);
       copyItem(layer.anim.array as Float32Array, 4, last, index);
       copyItem(layer.look.array as Float32Array, 4, last, index);
+      copyItem(layer.clip.array as Float32Array, 4, last, index);
       const moved = layer.owner[last]!;
       layer.owner[index] = moved;
       const movedRec = this.handles[moved];
@@ -807,7 +942,12 @@ class InstancedCrowd implements Crowd {
     const [sw, sh, sl] = layer.sizeM;
     this.pos.set(instance.x + (instance.knockX ?? 0), instance.y + lift - dissolve * 0.25, instance.z + (instance.knockZ ?? 0));
     this.quat.setFromAxisAngle(this.axisY, instance.yaw);
-    this.scaleV.set((rec.w / sw) * widen * extra, (rec.h / sh) * squash * extra, (rec.l / sl) * widen * extra);
+    if (layer.fit === "stretch") this.scaleV.set((rec.w / sw) * widen * extra, (rec.h / sh) * squash * extra, (rec.l / sl) * widen * extra);
+    else {
+      // The owner's model keeps its proportions: one scale from the placeholder's height or footprint.
+      const k = layer.fit === "height" ? rec.h / sh : Math.max(rec.w, rec.l) / Math.max(sw, sl);
+      this.scaleV.set(k * widen * extra, k * squash * extra, k * widen * extra);
+    }
     this.matrix.compose(this.pos, this.quat, this.scaleV);
     layer.mesh.setMatrixAt(index, this.matrix);
     const s = layer.state.array as Float32Array;
@@ -818,6 +958,17 @@ class InstancedCrowd implements Crowd {
     const a = layer.anim.array as Float32Array;
     a[index * 4 + 2] = instance.stride ?? 1;
     a[index * 4 + 3] = instance.clipTime ?? 0;
+    const clips = layer.clips;
+    if (clips !== null && clips.length > 0) {
+      const c = layer.clip.array as Float32Array;
+      // No clip given: the first clip runs on its own, each instance at its own phase (never a frozen statue).
+      const first = clips[Math.min(clips.length - 1, Math.max(0, instance.clip ?? 0))]!;
+      c[index * 4] = clipRow(first, instance.clip === undefined ? this.time.value + a[index * 4 + 1]! * 7 : (instance.clipTime ?? 0));
+      const blend = instance.blend ?? 0;
+      const second = clips[Math.min(clips.length - 1, Math.max(0, instance.clipB ?? 0))]!;
+      c[index * 4 + 1] = blend > 0 ? clipRow(second, instance.clipTimeB ?? 0) : c[index * 4]!;
+      c[index * 4 + 2] = blend;
+    }
     rec.gx = instance.x + (instance.knockX ?? 0);
     rec.gy = instance.y;
     rec.gz = instance.z + (instance.knockZ ?? 0);
@@ -863,6 +1014,7 @@ class InstancedCrowd implements Crowd {
       layer.state.needsUpdate = true;
       layer.anim.needsUpdate = true;
       layer.look.needsUpdate = true;
+      layer.clip.needsUpdate = true;
     }
     if (this.shadows === null) return;
     let n = 0;
@@ -905,6 +1057,16 @@ class InstancedCrowd implements Crowd {
     }
     this.group.removeFromParent();
   }
+}
+
+/** Texture row (frame blend in the fraction) of a clip `seconds` in: a loop wraps, a one-shot holds its end. */
+export function clipRow(info: CrowdClip, seconds: number): number {
+  let f = seconds * info.fps;
+  if (info.loop) {
+    f %= info.frames;
+    if (f < 0) f += info.frames;
+  } else f = Math.min(Math.max(0, f), info.frames - 1e-4);
+  return info.start + f;
 }
 
 function copyItem(array: Float32Array, size: number, from: number, to: number): void {

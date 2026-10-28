@@ -8,6 +8,7 @@
 // Q=low|medium|high|ultra, COUNT=220, SECONDS=6, FX=0 without effects, SHOTS=0 without pictures,
 // GROUND=painted on view-terrain's diorama (createMapStage) instead of the flat bench ground,
 // SHOWCASE=1 adds the effects close-ups (bench.ts runFxShowcase), BENCH=0 SHOWCASE only.
+// MODE=bones (M0b gate): the owner's models with bones and clips, and the GLB props with GROUND=painted.
 // Output: tmp/shots/view-crowd-fx/.
 // Source adapted: games/space-typing/scripts/visual/scenarios/defense-bench.mjs.
 // Owner: view-crowd-fx (LANES.md).
@@ -61,7 +62,8 @@ export default async function (page) {
   const fx = process.env.FX !== "0";
   const ground = process.env.GROUND === "painted" ? "painted" : "flat";
   const shots = process.env.SHOTS !== "0";
-  const tag = quality + "-" + page.width + "x" + page.height + "@" + page.dpr + (fx ? "" : "-nofx") + (ground === "painted" ? "-painted" : "");
+  const bones = process.env.MODE === "bones";
+  const tag = quality + "-" + page.width + "x" + page.height + "@" + page.dpr + (fx ? "" : "-nofx") + (ground === "painted" ? "-painted" : "") + (bones ? "-bones" : "");
   mkdirSync(OUT, { recursive: true });
   await page.goto(base + "/?bench=crowd&q=" + quality + "&count=" + count, { settle: 600 });
   // Start the bench unless the app already did (integrator route).
@@ -69,7 +71,7 @@ export default async function (page) {
     "(async () => { if (window.__dhBenchStop) return 'app'; const bench = await import('/src/view/bench.ts');" +
       " const host = document.createElement('div'); host.id = 'dh-bench'; host.style.cssText = 'position:fixed;inset:0;z-index:50;background:#a9c2cf';" +
       " document.body.append(host); bench.runCrowdBench(host, " +
-      JSON.stringify({ count, quality, seconds, fx, ground }) +
+      JSON.stringify({ count, quality, seconds, fx, ground, bones }) +
       "); return 'scenario'; })()",
   );
   let result = null;

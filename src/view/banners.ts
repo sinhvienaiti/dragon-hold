@@ -5,7 +5,11 @@
  * in the aura colour rises, the aura ring shows its 5 m reach and "Cắm Cờ"
  * floats over it for 1 s), raise it ("windup"), and take it down ("pulled":
  * it falls; "expired": it sinks; "cancel": the general lowers it again).
- * Pole and cloth are primitive placeholders (AGENTS.md) until the G01 GLB.
+ * Pole and cloth are primitive placeholders (AGENTS.md). M0b: while a general
+ * is drawn as the owner's G01 model (FoeLocator.drawsModel), the model carries
+ * its own banner and its clips raise it (intro, Cắm Cờ) and drop it (death),
+ * so the carried placeholder, its wind-up lift and its fallen copy are not
+ * drawn; the planted banner stays (it holds the flag word, pillar and ring).
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
@@ -194,6 +198,8 @@ interface Carried {
   /** Windup until (seconds, −1 none); hidden while its own banner stands. */
   raiseUntil: number;
   planted: number;
+  /** Drawn as the G01 model, which carries its own banner: the placeholder stays hidden. */
+  onModel: boolean;
 }
 
 interface Planted {
@@ -219,8 +225,13 @@ export interface BannersOptions {
 }
 
 export interface BannersView extends Presenter {
-  /** Banners drawn now: carried by generals, standing on the ground, and "Cắm Cờ" labels showing. */
+  /**
+   * Banners drawn now: carried by generals (the placeholder, or the G01 model's own while it is drawn), standing
+   * on the ground, and "Cắm Cờ" labels showing.
+   */
   readonly carried: number;
+  /** Of the carried ones, how many are the placeholder (0 once every general is drawn as the model). */
+  readonly carriedPlaceholders: number;
   readonly planted: number;
   readonly named: number;
 }
@@ -281,7 +292,7 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
     const group = makeBanner(pole, cloth, poleMat, clothMat, height);
     root.add(group);
     // Just outside the drawn body (back-left), so the pole is not inside the capsule.
-    rec = { serial, group, height, side: w * 0.55, back: l * 0.45, x: 0, z: 0, yaw: 0, seen: stamp, raiseUntil: -1, planted: -1 };
+    rec = { serial, group, height, side: w * 0.55, back: l * 0.45, x: 0, z: 0, yaw: 0, seen: stamp, raiseUntil: -1, planted: -1, onModel: false };
     carried.set(serial, rec);
     return rec;
   };
@@ -342,6 +353,11 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
   return {
     get carried(): number {
       let n = 0;
+      for (const rec of carried.values()) if (rec.group.visible || (rec.onModel && rec.planted < 0)) n += 1;
+      return n;
+    },
+    get carriedPlaceholders(): number {
+      let n = 0;
       for (const rec of carried.values()) if (rec.group.visible) n += 1;
       return n;
     },
@@ -355,6 +371,7 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
       for (const event of events) {
         if (event.type === "death" && event.foe in GENERALS) {
           const rec = carried.get(event.enemy.serial);
+          // The G01 model drops its own banner in its death clip; only a placeholder falls here.
           if (rec && rec.group.visible) {
             carried.delete(event.enemy.serial);
             // It falls away from the dais, the way the general was walking.
@@ -394,11 +411,12 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
       nowS = info.now / 1000;
       const dt = info.worldDt;
       const toCamera = faceCamera(stage.camera, look);
-      // Carried banners: on every live general's back, facing the way it walks.
+      // Carried banners: on every live general's back, facing the way it walks (none over the G01 model).
       for (const foe of world.enemies.list) {
         if (!foe.alive || foe.freed || !(foe.foe in GENERALS)) continue;
         const rec = carry(foe.serial, foe.foe);
         rec.seen = stamp;
+        rec.onModel = options.locator?.drawsModel?.(foe.slot, foe.serial) ?? false;
         const drawn = options.locator?.locate(foe.slot, foe.serial, "base", at) ?? false;
         if (!drawn) at.set(uToM(foe.x), groundY(uToM(foe.x), uToM(foe.z)), uToM(foe.z));
         const mx = at.x - rec.x;
@@ -411,7 +429,8 @@ export function createBanners(stage: Stage, terrain: TerrainView, options: Banne
         const fx = Math.sin(rec.yaw);
         const fz = Math.cos(rec.yaw);
         const g = rec.group;
-        g.visible = rec.planted < 0;
+        g.visible = rec.planted < 0 && !rec.onModel;
+        if (!g.visible) continue;
         const raising = rec.raiseUntil > nowS;
         g.position.set(at.x - fx * rec.back - fz * rec.side, at.y + (raising ? WINDUP_LIFT : 0), at.z - fz * rec.back + fx * rec.side);
         g.rotation.set(0, toCamera, raising ? Math.sin(nowS * 14) * 0.08 : 0);

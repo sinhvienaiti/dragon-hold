@@ -6,6 +6,12 @@
  * from kit/feedback Reactions with the dragon profile, status tints from
  * `status` and `aura` events and the world's status lists (05 §5, §6.2).
  * Also the FoeLocator other view parts use to follow a drawn foe.
+ * M0b: with the owner's models loaded (view/models.ts), each foe, unit and
+ * trap draws in its model's layer and plays clips (view/motion.ts): walk at
+ * the drawn speed, the attack wind-up held to the strike, a Hit over it, the
+ * family death before the dissolve; the warden blocks, falls and rises;
+ * spikes sink and pop, the net launcher turns to the nearest flyer, the bomb
+ * and the hut breathe. Until a model loads its primitive stands in.
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
@@ -17,6 +23,9 @@ import type { EnemyState, World } from "../sim/world";
 import type { FrameInfo, Presenter } from "../app/contracts";
 import { createCrowd, TINT, type Crowd, type CrowdGait, type CrowdInstance, type CrowdLook, type CrowdRing, type TintId } from "./crowd";
 import { drawnClusters, foeDrawLook, swarmOffset, UNIT_DRAW_SCALE, type FoeLook } from "./foe-look";
+import { MODEL_SPECS, type ModelSpec } from "./model-specs";
+import type { CrowdModels } from "./models";
+import { Motion } from "./motion";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 
@@ -26,6 +35,11 @@ export type FoeAnchor = "base" | "center" | "top";
 /** Finds the drawn position of foe {slot, serial}, metres; false when it is not drawn. */
 export interface FoeLocator {
   locate(slot: number, serial: number, at: FoeAnchor, out: THREE.Vector3): boolean;
+  /**
+   * True while foe {slot, serial} is drawn as the owner's model with its clips (M0b), false while a primitive
+   * stands in. G01's model carries its own banner, so banners.ts hides the carried placeholder then.
+   */
+  drawsModel?(slot: number, serial: number): boolean;
 }
 
 /** The disc under our units (a flat pale-blue ellipse, one layer for all of them), as wide as the drawn unit. */
@@ -73,6 +87,12 @@ interface FoeRec {
   slot: number;
   handle: number;
   look: FoeLook;
+  /** The owner's model and its clips once the layer is skinned (null: primitive). */
+  spec: ModelSpec | null;
+  motion: Motion | null;
+  /** Last drawn ground point, for the speed the walk cycle follows. */
+  lastX: number;
+  lastZ: number;
   /** Swarm cluster (−1: none) and the drawn spread from its sim point (view only, metres). */
   cluster: number;
   ox: number;
@@ -106,6 +126,14 @@ interface OurRec {
   handle: number;
   key: string;
   seen: number;
+  /** The crowd layer it draws in, and its clips once skinned. */
+  layer: string | undefined;
+  motion: Motion | null;
+  lastX: number;
+  lastZ: number;
+  /** Launcher head yaw (relative, radians) and spikes pop time (s since the last stab, −1: none). */
+  aim: number;
+  pop: number;
 }
 
 const DEATH_SECONDS = 0.6;
@@ -138,12 +166,41 @@ export interface ActorsView extends Presenter, FoeLocator {
 export interface ActorsOptions {
   /** Crowd capacity per layer (220 foes, dissolving ones and our side). */
   capacity?: number;
+  /** The owner's models (M0b); without them every actor stays a primitive. */
+  models?: CrowdModels;
 }
+
+/** Seconds into Attack where the blow lands, per rig (the wind-up holds there until the sim's strike). */
+export function strikeSeconds(spec: ModelSpec): number {
+  const marks = spec.marks;
+  if (marks?.kind === "biped") return marks.weapon === "left" && !spec.ours && marks.pole === undefined ? 0.6 : 0.5;
+  if (marks?.kind === "hexapod") return 0.4;
+  return 0.5;
+}
+
+/** A model's death leaves this long for the dissolve after its clip. */
+const MODEL_DISSOLVE_S = 0.4;
 
 export function createActors(stage: Stage, terrain: TerrainView, options: ActorsOptions = {}): ActorsView {
   const capacity = options.capacity ?? 320;
   const crowd = createCrowd(capacity);
   stage.layers.actors.add(crowd.group);
+  const models = options.models;
+  const detachModels = models?.attach(crowd);
+  let phaseSeed = 0x9e3779b9;
+  const nextPhase = (): number => {
+    phaseSeed ^= phaseSeed << 13;
+    phaseSeed ^= phaseSeed >>> 17;
+    phaseSeed ^= phaseSeed << 5;
+    return ((phaseSeed >>> 0) % 9973) / 9973;
+  };
+  /** A Motion for a model whose layer is skinned now (null: still a primitive, or a rig with no clips). */
+  const motionFor = (spec: ModelSpec | null, key: string | undefined, drawnH: number): Motion | null => {
+    if (spec === null || key === undefined || models === undefined || !crowd.isSkinned(key)) return null;
+    const baked = models.layer(spec.content)?.baked;
+    if (!baked) return null;
+    return new Motion(baked, { strideM: spec.strideH * drawnH, cadence: spec.cadence, strikeS: strikeSeconds(spec), phase: nextPhase() });
+  };
   // Every primitive layer exists from the start: the effects' warm-up compile (fx.ts) covers bodies and outline
   // hulls, so the first foe of a wave never stalls a frame on a shader link.
   for (const shape of ["capsule", "box", "sphere", "cone"] as const) crowd.prepare(shape);
@@ -165,6 +222,11 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
   const heightAt = (x: number, z: number): number => terrain.heightAt(x, z);
 
   const reset = (inst: CrowdInstance): CrowdInstance => {
+    inst.clip = undefined;
+    inst.clipTime = undefined;
+    inst.clipB = undefined;
+    inst.clipTimeB = undefined;
+    inst.blend = 0;
     inst.lift = undefined;
     inst.knockX = 0;
     inst.knockZ = 0;
@@ -221,12 +283,13 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
 
   const ourKey = (kind: string, index: number): string => kind + ":" + index;
 
-  const placeOur = (key: string, placeholder: PlaceholderDef, x: number, z: number, yaw: number, extra: Partial<CrowdInstance>, reactSlot: number, gait: CrowdGait = "still", look: CrowdLook = { foe: false }): void => {
+  const placeOur = (key: string, placeholder: PlaceholderDef, x: number, z: number, yaw: number, extra: Partial<CrowdInstance>, reactSlot: number, gait: CrowdGait = "still", look: CrowdLook = { foe: false }, model?: string): OurRec | null => {
     let rec = ours.get(key);
     if (rec === undefined) {
-      const handle = crowd.add(placeholder, gait, undefined, look);
-      if (handle < 0) return;
-      rec = { handle, key, seen: stamp };
+      const layer = model === undefined ? undefined : models?.layerKey(model);
+      const handle = crowd.add(placeholder, gait, layer, look);
+      if (handle < 0) return null;
+      rec = { handle, key, seen: stamp, layer, motion: null, lastX: x, lastZ: z, aim: 0, pop: -1 };
       ours.set(key, rec);
     }
     rec.seen = stamp;
@@ -240,7 +303,11 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
     instance.squash = sample[3]!;
     instance.stride = gait === "still" ? 0 : 0.12;
     Object.assign(instance, extra);
-    crowd.set(rec.handle, instance);
+    return rec;
+  };
+  /** Writes an our-side instance placed by placeOur (after its clips are set). */
+  const commitOur = (rec: OurRec | null): void => {
+    if (rec !== null) crowd.set(rec.handle, instance);
   };
 
   /** Adds a live swarm member to its cluster's ring this frame. */
@@ -289,6 +356,43 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
     return out;
   };
 
+  /**
+   * Trap motion on a model layer: spikes stand up, sink while switched off and pump on each stab; the net
+   * launcher's head turns to the nearest flyer; the bomb breathes while ready (05 §6.5). Writes into `instance`.
+   */
+  const animateTrap = (rec: OurRec, model: string, world: World, x: number, z: number, yaw: number, recharging: boolean, off: boolean, dt: number): void => {
+    if (rec.layer === undefined) return;
+    const baked = models?.layer(model)?.baked;
+    if (rec.pop >= 0) rec.pop += dt;
+    if (model === "traps/pine-bomb") {
+      if (!recharging) instance.squash *= 1 + 0.035 * Math.sin(nowS * 2.4 + x);
+      return;
+    }
+    if (!baked || !crowd.isSkinned(rec.layer)) return;
+    if (baked.index.ready !== undefined) {
+      // 0 sunk … 1 up; a stab pops it from half way.
+      const pump = rec.pop >= 0 && rec.pop < 0.3 ? 0.45 + 0.55 * (rec.pop / 0.3) : 1;
+      instance.clip = baked.index.ready;
+      instance.clipTime = off ? 0.12 : pump;
+    } else if (baked.index.aim !== undefined) {
+      let best = Infinity;
+      let want = rec.aim;
+      for (const foe of world.enemies.list) {
+        if (!foe.alive || foe.mode === "grounded" || uToM(foe.y) < 0.5) continue;
+        const dx = uToM(foe.x) - x;
+        const dz = uToM(foe.z) - z;
+        const d = dx * dx + dz * dz;
+        if (d < best) {
+          best = d;
+          want = Math.atan2(dx, dz) - yaw;
+        }
+      }
+      rec.aim = turnToward(rec.aim, Math.atan2(Math.sin(want), Math.cos(want)), dt * 3.5);
+      instance.clip = baked.index.aim;
+      instance.clipTime = (Math.atan2(Math.sin(rec.aim), Math.cos(rec.aim)) + Math.PI) / (Math.PI * 2);
+    }
+  };
+
   const view: ActorsView = {
     crowd,
     reactions,
@@ -304,6 +408,11 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
       return true;
     },
 
+    drawsModel(slot: number, serial: number): boolean {
+      const rec = foes.get(serial);
+      return rec !== undefined && rec.slot === slot && rec.motion !== null;
+    },
+
     onEvents(events: readonly SimEvent[], world: World): void {
       for (const event of events) {
         switch (event.type) {
@@ -312,17 +421,39 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
             const away = awayFrom(event.source, world);
             const dx = event.x - away[0];
             const dz = event.z - away[1];
-            if (target.kind === "enemy") reactions.hit(target.slot % REACTION_SLOTS, target.serial, event.tier, dx, dz, nowS);
-            else if (target.kind === "unit") ourReactions.hit(target.slot % 64, 1, event.tier, dx, dz, nowS);
-            else if (target.kind === "house") ourReactions.hit((32 + target.slot) % 64, 1, event.tier, dx, dz, nowS);
+            if (target.kind === "enemy") {
+              reactions.hit(target.slot % REACTION_SLOTS, target.serial, event.tier, dx, dz, nowS);
+              foes.get(target.serial)?.motion?.hit();
+            } else if (target.kind === "unit") {
+              ourReactions.hit(target.slot % 64, 1, event.tier, dx, dz, nowS);
+              ours.get(ourKey("unit", target.slot))?.motion?.play("block");
+            } else if (target.kind === "house") ourReactions.hit((32 + target.slot) % 64, 1, event.tier, dx, dz, nowS);
             break;
           }
+          case "attack": {
+            const source = event.source;
+            if (source.kind === "enemy") foes.get(source.serial)?.motion?.attack(event.stage);
+            else if (source.kind === "unit" && event.stage === "strike") ours.get(ourKey("unit", source.slot))?.motion?.attack("strike");
+            break;
+          }
+          case "banner":
+            // G01's Cắm Cờ: stands with the banner high, plants it.
+            if (event.stage === "windup") foes.get(event.owner.serial)?.motion?.play("cast");
+            break;
+          case "unit-down":
+            ours.get(ourKey("unit", event.unit))?.motion?.play("down");
+            break;
+          case "unit-up":
+            ours.get(ourKey("unit", event.unit))?.motion?.play("rise");
+            break;
           case "death": {
             const rec = foes.get(event.enemy.serial);
             if (rec !== undefined && rec.dying < 0) {
               rec.dying = 0;
               rec.cx = rec.px = event.x;
               rec.cz = rec.pz = event.z;
+              rec.motion?.die();
+              if (rec.motion !== null) rec.deathS = Math.max(rec.deathS, rec.motion.deathSeconds + MODEL_DISSOLVE_S);
             }
             statuses.delete(event.enemy.serial);
             break;
@@ -335,9 +466,12 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
             if (rec !== undefined) rec.aura = event.on;
             break;
           }
-          case "trap-trigger":
+          case "trap-trigger": {
             ourReactions.hit((48 + event.slot) % 64, 1, 3, 0, 1, nowS);
+            const rec = ours.get(ourKey("trap", event.slot));
+            if (rec !== undefined) rec.pop = 0;
             break;
+          }
           default:
             break;
         }
@@ -356,7 +490,9 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         const z = uToM(foe.z);
         if (rec === undefined) {
           const look = foeLook(foe.foe);
-          const handle = crowd.add(look.placeholder, look.gait, undefined, crowdLookOf(look));
+          const spec = MODEL_SPECS[look.model] ?? null;
+          const layer = spec === null ? undefined : models?.layerKey(look.model);
+          const handle = crowd.add(look.placeholder, look.gait, layer, { ...crowdLookOf(look), wash: spec?.wash ?? 0 });
           if (handle < 0) continue;
           let ox = 0;
           let oz = 0;
@@ -368,7 +504,34 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
             ox = spread[0];
             oz = spread[1];
           }
-          rec = { serial: foe.serial, slot: foe.slot, handle, look, cluster: look.gait === "swarm" ? foe.cluster : -1, ox, oz, px: x, pz: z, cx: x, cz: z, tick, x, y: 0, z, lift: 0, yaw: Math.atan2(-x, -z), mode: foe.mode, dying: -1, deathS: foe.general ? GENERAL_DEATH_SECONDS : DEATH_SECONDS, seen: stamp, aura: false };
+          rec = {
+            serial: foe.serial,
+            slot: foe.slot,
+            handle,
+            look,
+            spec: layer === undefined ? null : spec,
+            motion: null,
+            lastX: x + ox,
+            lastZ: z + oz,
+            cluster: look.gait === "swarm" ? foe.cluster : -1,
+            ox,
+            oz,
+            px: x,
+            pz: z,
+            cx: x,
+            cz: z,
+            tick,
+            x,
+            y: 0,
+            z,
+            lift: 0,
+            yaw: Math.atan2(-x, -z),
+            mode: foe.mode,
+            dying: -1,
+            deathS: foe.general ? GENERAL_DEATH_SECONDS : DEATH_SECONDS,
+            seen: stamp,
+            aura: false,
+          };
           foes.set(foe.serial, rec);
         } else if (rec.tick !== tick) {
           rec.px = rec.cx;
@@ -406,6 +569,20 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         instance.tint = tint;
         instance.tintMix = tint === TINT.aura ? 0.35 : tint === TINT.none ? 0 : 0.85;
         instance.stride = strideOf(foe.mode);
+        if (rec.motion === null && rec.spec !== null) {
+          rec.motion = motionFor(rec.spec, models?.layerKey(rec.look.model), rec.look.placeholder.sizeM[1] * rec.look.scale);
+          // A general shows itself with its banner (02 §3.4 intro).
+          if (rec.motion !== null && rec.look.tier === "general") rec.motion.play("intro");
+        }
+        if (rec.motion !== null) {
+          const worldDt = info.worldDt;
+          const moved = Math.hypot(drawX - rec.lastX, drawZ - rec.lastZ);
+          rec.motion.update(worldDt, worldDt > 1e-4 ? moved / worldDt : 0, foe.mode === "charge");
+          rec.motion.write(instance);
+          // Stunned or held foes keep the yaw shake and tints (05 §6.2: statuses never change the clip).
+        }
+        rec.lastX = drawX;
+        rec.lastZ = drawZ;
         crowd.set(rec.handle, instance);
         if (rec.cluster >= 0) gatherRing(rec);
       }
@@ -429,11 +606,18 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         const t = rec.dying / rec.deathS;
         instance.lift = rec.lift * (1 - t);
         instance.yaw += rec.lift > 0.5 ? rec.dying * 9 : 0;
-        instance.dissolve = Math.min(1, rec.deathS > DEATH_SECONDS ? Math.max(0, t * 1.4 - 0.4) : t);
+        const general = rec.look.tier === "general";
+        if (rec.motion !== null) {
+          // The owner's model plays its family's death first; the dissolve takes the end.
+          rec.motion.update(info.worldDt, 0);
+          rec.motion.write(instance);
+          const start = rec.deathS - MODEL_DISSOLVE_S - (general ? 0.3 : 0);
+          instance.dissolve = Math.min(1, Math.max(0, (rec.dying - start) / (rec.deathS - start)));
+        } else instance.dissolve = Math.min(1, general ? Math.max(0, t * 1.4 - 0.4) : t);
         instance.flash = Math.max(0, 1 - rec.dying * 8);
-        if (rec.deathS > DEATH_SECONDS) {
+        if (general) {
           instance.y -= t * t * 0.9;
-          instance.squash = 1 - 0.25 * Math.min(1, t * 2);
+          if (rec.motion === null) instance.squash = 1 - 0.25 * Math.min(1, t * 2);
           // Moss green (crowd TINT "held" is the moss colour #7fbf5a).
           instance.tint = TINT.held;
           instance.tintMix = Math.min(0.9, t * 1.5);
@@ -451,14 +635,20 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         const lane = slot.lane !== undefined ? world.map.lanes.find((item) => item.id === slot.lane) : undefined;
         const yaw = lane !== undefined ? laneYawAt(lane.points, slot.pos) : 0;
         const recharging = trap.readyAt > tick;
-        placeOur(ourKey("trap", trap.slot), def.show.placeholder, slot.pos[0], slot.pos[1], yaw, { scale: recharging ? 0.8 : 1, tint: recharging ? TINT.stun : TINT.none, tintMix: recharging ? 0.4 : 0 }, 48 + trap.slot);
+        const off = trap.offUntil > tick;
+        const rec = placeOur(ourKey("trap", trap.slot), def.show.placeholder, slot.pos[0], slot.pos[1], yaw, { scale: recharging ? 0.8 : 1, tint: recharging || off ? TINT.stun : TINT.none, tintMix: recharging || off ? 0.4 : 0 }, 48 + trap.slot, "still", { foe: false }, def.show.model);
+        if (rec !== null) animateTrap(rec, def.show.model, world, slot.pos[0], slot.pos[1], yaw, recharging, off, info.dt);
+        commitOur(rec);
       }
       for (const house of world.houses.list) {
         const slot = slots[house.slot];
         const def = HOUSES[house.house];
         if (!slot || !def) continue;
         const yaw = Math.atan2(-slot.pos[0], -slot.pos[1]);
-        placeOur(ourKey("house", house.slot), def.show.placeholder, slot.pos[0], slot.pos[1], yaw, house.ruined ? { squash: 0.6, tint: TINT.stun, tintMix: 0.6 } : {}, 32 + house.slot);
+        const rec = placeOur(ourKey("house", house.slot), def.show.placeholder, slot.pos[0], slot.pos[1], yaw, house.ruined ? { squash: 0.6, tint: TINT.stun, tintMix: 0.6 } : {}, 32 + house.slot, "still", { foe: false }, def.show.model);
+        // The hut breathes (a slow swell; its heal drops and pulse are fx.ts), never while ruined.
+        if (rec !== null && !house.ruined && rec.layer !== undefined) instance.squash *= 1 + 0.018 * Math.sin(nowS * 1.7 + house.slot);
+        commitOur(rec);
       }
       for (const unit of world.units.list) {
         const def = UNITS[unit.unit];
@@ -466,10 +656,25 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
         const x = uToM(unit.x);
         const z = uToM(unit.z);
         const down = unit.downUntil >= 0;
-        // A fallen unit is a bud until it rises (05 §6.6).
-        placeOur(ourKey("unit", unit.index), def.show.placeholder, x, z, Math.atan2(-x, -z) + Math.PI, down ? { scale: 0.4, tint: TINT.bud, tintMix: 1 } : {}, unit.index, "biped", UNIT_LOOK);
+        const key = ourKey("unit", unit.index);
+        // A fallen unit is a bud until it rises (05 §6.6); a model crouches into it first.
+        const known = ours.get(key);
+        const crouching = known?.motion !== null && known?.motion !== undefined;
+        const rec = placeOur(key, def.show.placeholder, x, z, Math.atan2(-x, -z) + Math.PI, down ? { scale: crouching ? 0.55 : 0.4, tint: TINT.bud, tintMix: 1 } : {}, unit.index, "biped", UNIT_LOOK, def.show.model);
+        if (rec !== null) {
+          const spec = MODEL_SPECS[def.show.model] ?? null;
+          if (rec.motion === null && spec !== null) rec.motion = motionFor(spec, rec.layer, def.show.placeholder.sizeM[1] * UNIT_DRAW_SCALE);
+          if (rec.motion !== null) {
+            const moved = Math.hypot(x - rec.lastX, z - rec.lastZ);
+            rec.motion.update(info.worldDt, info.worldDt > 1e-4 ? moved / info.worldDt : 0);
+            rec.motion.write(instance);
+          }
+          rec.lastX = x;
+          rec.lastZ = z;
+        }
+        commitOur(rec);
         // A blue disc under each of ours: told apart from a moss foe at a glance, even before its HP bar shows.
-        if (!down) placeOur(ourKey("unit-disc", unit.index), UNIT_DISC, x, z, 0, {}, unit.index, "still", UNIT_DISC_LOOK);
+        if (!down) commitOur(placeOur(ourKey("unit-disc", unit.index), UNIT_DISC, x, z, 0, {}, unit.index, "still", UNIT_DISC_LOOK));
       }
       for (const rec of ours.values()) {
         if (rec.seen === stamp) continue;
@@ -481,6 +686,7 @@ export function createActors(stage: Stage, terrain: TerrainView, options: Actors
     },
 
     dispose(): void {
+      detachModels?.();
       crowd.dispose();
       foes.clear();
       ours.clear();
