@@ -48,6 +48,10 @@ export interface BenchOptions {
   readonly ground?: "flat" | "painted";
   /** M0b: the owner's models with bones and clips (and GLB props on the painted ground); default primitives. */
   readonly bones?: boolean;
+  /** Painted ground only: the HDR bloom on or off (unset: the tier's default). */
+  readonly bloom?: boolean;
+  /** Hỏa Long's mouth light in the effects (unset: the tier's default, fx.ts FX_MOUTH_LIGHT). */
+  readonly mouthLight?: boolean;
 }
 
 export interface BenchResult {
@@ -615,8 +619,9 @@ export class BenchEffects {
   private meteorClock = 2;
   private bombClock = 0.5;
 
-  constructor(private readonly stage: Stage, crowd: BenchCrowd, private readonly random: () => number) {
-    this.core = new FxCore(stage.quality, { locator: crowd, random, heightAt: crowd.heightAt });
+  constructor(private readonly stage: Stage, crowd: BenchCrowd, private readonly random: () => number, mouthLight?: boolean) {
+    this.core = new FxCore(stage.quality, { locator: crowd, random, heightAt: crowd.heightAt, mouthLight });
+    this.core.setMouth(this.mouth);
     stage.layers.fx.add(this.core.group);
     this.core.warm(stage.renderer, stage.scene, stage.camera);
   }
@@ -764,7 +769,8 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   const random = benchRandom(20_261_023);
   const crowd = new BenchCrowd(stage, options.count, random, MAP_L2_CAU, painted?.heightAt ?? (() => 0), models);
   const fxOn = options.fx !== false;
-  const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77)) : null;
+  const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77), options.mouthLight) : null;
+  if (options.bloom !== undefined) painted?.stage.setBloom(options.bloom);
   const gpu = new GpuTimer(stage.renderer.getContext() as WebGL2RenderingContext);
   // Every material compiled before the clock starts.
   stage.renderer.compile(stage.scene, stage.camera);

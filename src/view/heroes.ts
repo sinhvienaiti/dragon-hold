@@ -27,7 +27,7 @@
  */
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { Hero, loadModel, type ShotName } from "../kit/three";
+import { Hero, loadModel, Ribbon, type ShotName } from "../kit/three";
 import type { EntityRef, MapDef, SimEvent } from "../content/types";
 import { RINGS } from "../content/rules";
 import { uToM } from "../sim/fixed";
@@ -35,7 +35,7 @@ import type { World } from "../sim/world";
 import type { FrameInfo, Presenter, Quality } from "../app/contracts";
 import type { FoeLocator } from "./actors";
 import { turnToward } from "./actors";
-import type { MouthSource } from "./fx";
+import { FX_RIBBON_ORDER, type MouthSource } from "./fx";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 
@@ -59,6 +59,58 @@ export const FIRE_CLIPS = {
 } as const;
 export const GUIDE_CLIPS_DH = { idle: "Guide_Idle", wave: "Guide_Wave", talk: "Guide_Talk", flap: "Guide_Flap" } as const;
 export type GuideAct = "wave" | "talk" | "flap";
+
+/**
+ * Release table of Hỏa Long's Attack clips (VFX_STANDARD §3.1 rule 3): the clip time, at speed 1, where the jaws
+ * let go. Measured on draconis-v2.high.glb on 28/10 (each clip sampled at 60 Hz, FX_MOUTH and the head, neck and
+ * chest bones): Attack_L and Attack_R toss the head aside, fastest from frame 10 to the peak at frame 15
+ * (0.25 s, a 24 fps key); Attack_Both rears the chest to frame 12 and lunges, past its fastest at frame 17.5
+ * (0.292 s, a key). Before those frames the clips barely move: the head lifts ≤ 1°, Both's chest rears 4.5°.
+ * At their play speeds (1.6, 1.4) the releases come 156 ms and 208 ms after play(): far over the 50 ms a key may
+ * wait for its bolt. So the Dragon plays each clip from its release frame (strike clips, FIRE_STRIKE), the bolt
+ * leaves on the frame the word completes, and the wind-up before it follows the typing (coil, below).
+ */
+export const FIRE_RELEASE_S = { attackL: 6 / 24, attackR: 6 / 24, attackBoth: 7 / 24 } as const;
+/** The strike clips the Hero plays: each Attack clip from its release frame on (releaseDelay 0 by construction). */
+export const FIRE_STRIKE = { attackL: FIRE_CLIPS.attackL + "_Strike", attackR: FIRE_CLIPS.attackR + "_Strike", attackBoth: FIRE_CLIPS.attackBoth + "_Strike" } as const;
+
+/**
+ * A (the wind-up follows the typing, VFX_STANDARD §5.3 part 1): with each right letter the head and neck draw back
+ * and up and the chest rears, a step at a time, to these angles (rad, local X) on a whole word; the idle loop and
+ * the wing beat play on underneath. R: on release the head kicks back on a spring (peak ~4 frames, settled by 10).
+ */
+const COIL = { neck: 0.2, head: 0.13, chest: -0.08 } as const;
+const HEAD_KICK = { rad: 0.16, peakS: 0.06 } as const;
+/** A word left half typed holds its coil this long (s), then lets go. */
+const COIL_HOLD_S = 1.4;
+/** Wing ribbons on FX_WING_L/R/L2/R2: points (one a frame), half-width (m), how long they burn after an attack (s). */
+const WING_TRAIL_POINTS = 16;
+const WING_TRAIL_WIDTH_M = 0.16;
+const WING_TRAIL_S = 0.5;
+const WING_COLORS = [new THREE.Color("#ffb37a"), new THREE.Color("#ff7a32")] as const;
+
+/**
+ * An Attack clip from `fromS` on, resampled at 60 Hz (every track kept: a dropped track would let a bone fall to
+ * its rest pose under the full-weight shot).
+ */
+export function strikeClip(clip: THREE.AnimationClip, fromS: number, name: string): THREE.AnimationClip {
+  const fps = 60;
+  const length = Math.max(1 / fps, clip.duration - fromS);
+  const count = Math.round(length * fps) + 1;
+  const tracks = clip.tracks.map((track) => {
+    const size = track.getValueSize();
+    const interpolant = track.createInterpolant();
+    const times = new Float32Array(count);
+    const values = new Float32Array(count * size);
+    for (let i = 0; i < count; i += 1) {
+      times[i] = Math.min(length, i / fps);
+      values.set(interpolant.evaluate(Math.min(clip.duration, fromS + i / fps)) as ArrayLike<number>, i * size);
+    }
+    const Track = track.constructor as new (name: string, times: Float32Array, values: Float32Array) => THREE.KeyframeTrack;
+    return new Track(track.name, times, values);
+  });
+  return new THREE.AnimationClip(name, length, tracks);
+}
 
 /** 05 §2.3 at the default camera: Hỏa Long 80–100 px, Bạch Long 60–70 px at 1080p. */
 const FIRE_SIZE_M = 4.2;
@@ -201,6 +253,26 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
   let lockedFoe: { slot: number; serial: number } | null = null;
   const at = new THREE.Vector3();
   const mouthFallback = [0, 0.2, 1.9] as const;
+  /** A: the typed share of the word being typed (target) and the coil as drawn; R: seconds since the release (head kick). */
+  let coilTarget = 0;
+  let coil = 0;
+  let coilIdle = 0;
+  let typing = -1;
+  let kickAge = Number.POSITIVE_INFINITY;
+  let kickGain = 1;
+  /** Wing trails: how bright they burn now (an attack lights them, they fade over WING_TRAIL_S). */
+  let wingHeat = 0;
+  let bones: { neck: THREE.Object3D | null; head: THREE.Object3D | null; chest: THREE.Object3D | null } = { neck: null, head: null, chest: null };
+  let wingTips: THREE.Object3D[] = [];
+  const wings = [0, 1, 2, 3].map((index) => {
+    const ribbon = new Ribbon(WING_TRAIL_POINTS, WING_COLORS[Math.floor(index / 2) % WING_COLORS.length]!, WING_TRAIL_WIDTH_M);
+    ribbon.mesh.renderOrder = FX_RIBBON_ORDER;
+    ribbon.mesh.visible = false;
+    stage.layers.fx.add(ribbon.mesh);
+    return ribbon;
+  });
+  const tip = new THREE.Vector3();
+  const eye = new THREE.Vector3();
 
   const loadFire = async (): Promise<void> => {
     const url = modelUrl(HERO_MODELS.fire, stage.quality);
@@ -211,18 +283,31 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
         freeObject(gltf.scene);
         return;
       }
-      const hero = new Hero(gltf.scene, gltf.animations, {
+      const strikes: THREE.AnimationClip[] = [];
+      for (const key of ["attackL", "attackR", "attackBoth"] as const) {
+        const clip = gltf.animations.find((item) => item.name === FIRE_CLIPS[key]);
+        if (clip !== undefined) strikes.push(strikeClip(clip, FIRE_RELEASE_S[key], FIRE_STRIKE[key]));
+      }
+      const hero = new Hero(gltf.scene, [...gltf.animations, ...strikes], {
         tipsPerSide: 0,
-        trail: 2,
+        // The kit's own ribbons on FX_WING_* are 5 cm wide (fixed in the kit) and never added to the scene here;
+        // the wing trails below use the same sockets and length at a width the play camera sees.
+        trail: WING_TRAIL_POINTS,
+        palette: WING_COLORS,
         fitSize: FIRE_SIZE_M,
         // Generated facing +Z; the anchor turns it to the foe.
         faceAway: false,
-        clips: { idle: [FIRE_CLIPS.idle], attackL: [FIRE_CLIPS.attackL], attackR: [FIRE_CLIPS.attackR], attackBoth: [FIRE_CLIPS.attackBoth], cast: [FIRE_CLIPS.cast], hit: [FIRE_CLIPS.hit], death: [FIRE_CLIPS.death], victory: [FIRE_CLIPS.victory] },
+        clips: { idle: [FIRE_CLIPS.idle], attackL: [FIRE_STRIKE.attackL], attackR: [FIRE_STRIKE.attackR], attackBoth: [FIRE_STRIKE.attackBoth], cast: [FIRE_CLIPS.cast], hit: [FIRE_CLIPS.hit], death: [FIRE_CLIPS.death], victory: [FIRE_CLIPS.victory] },
+        // The strike clips start at their release: the bolt leaves on play() (FIRE_RELEASE_S).
+        release: { attackL: 0, attackR: 0, attackBoth: 0 },
         knock: 0.6,
       });
       fireAnchor.add(hero.root);
       firePlaceholder.visible = false;
       fire = hero;
+      bones = { neck: hero.node("neck"), head: hero.node("head"), chest: hero.node("chest") };
+      wingTips = hero.tips.slice(0, 4);
+      for (const ribbon of wings) ribbon.reset(hero.root.getWorldPosition(at));
     } catch (error) {
       console.warn("heroes: Hỏa Long model failed, placeholder kept", url, error);
     }
@@ -325,6 +410,37 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     if (dx * dx + dz * dz > 0.01) wantYaw = Math.atan2(dx, dz);
   };
 
+  /**
+   * Over the clips' pose (after the mixer): the coil eases to the typed share (a letter lands in ~3 frames) and
+   * the release kick springs the head back. Bone rotations are rewritten by the mixer every frame, so nothing adds up.
+   */
+  const pose = (dt: number): void => {
+    // A word left half typed lets go slowly (fx.ts lets its charge go on the same clock).
+    coilIdle += dt;
+    if (coilIdle > COIL_HOLD_S) coilTarget = Math.max(0, coilTarget - dt * 2.5);
+    coil += (coilTarget - coil) * (1 - Math.exp(-dt * 16));
+    const t = kickAge;
+    kickAge += dt;
+    const kick = Number.isFinite(t) ? HEAD_KICK.rad * kickGain * (t / HEAD_KICK.peakS) * Math.exp(1 - t / HEAD_KICK.peakS) : 0;
+    if (coil < 0.002 && Math.abs(kick) < 0.002) return;
+    bones.neck?.rotateX(COIL.neck * coil + kick * 0.4);
+    bones.head?.rotateX(COIL.head * coil + kick);
+    bones.chest?.rotateX(COIL.chest * coil);
+    fire?.root.updateMatrixWorld(true);
+  };
+
+  /** Wing ribbons through the FX_WING_* sockets: lit by an attack or a boost, fading over WING_TRAIL_S. */
+  const trailWings = (dt: number): void => {
+    const boosting = time < boostUntil;
+    wingHeat = Math.max(boosting ? 0.8 : 0, wingHeat - dt / WING_TRAIL_S);
+    stage.camera.getWorldPosition(eye);
+    wingTips.forEach((socket, index) => {
+      const ribbon = wings[index]!;
+      ribbon.update(socket.getWorldPosition(tip), dt, 0, eye, wingHeat * 0.9);
+      ribbon.mesh.visible = wingHeat > 0.01;
+    });
+  };
+
   const tick = (dt: number, now: number): void => {
     time = now;
     if (lockedFoe !== null && locator?.locate(lockedFoe.slot, lockedFoe.serial, "base", at)) face(at.x, at.z);
@@ -336,6 +452,8 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
       fire.locomotion = time < boostUntil ? "boost" : "idle";
       fire.update(dt, time, 0);
       fire.setLook(hurt, glow, 1);
+      pose(dt);
+      trailWings(dt);
     } else {
       // Placeholder hover bob.
       firePlaceholder.position.y = Math.sin(time * 1.7) * 0.12;
@@ -361,6 +479,10 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
       dead = false;
       hurt = 0;
       glow = 0;
+      coil = coilTarget = 0;
+      kickAge = Number.POSITIVE_INFINITY;
+      wingHeat = 0;
+      typing = -1;
       boostUntil = 0;
       words.clear();
       lockedFoe = null;
@@ -387,14 +509,23 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
             if (event.target !== null) words.set(event.word, event.target);
             else words.delete(event.word);
             break;
-          case "word-progress":
+          case "word-progress": {
             if (event.key === "lock") {
               const target = words.get(event.word);
               lockedFoe = target?.kind === "enemy" ? { slot: target.slot, serial: target.serial } : null;
             }
+            // A: the wind-up follows the typing, a step a letter (the bench drives this with partial worlds).
+            const length = world.words?.live[event.word]?.text.length ?? 0;
+            if (length > 0 && (event.key === "lock" || event.key === "advance" || event.key === "back" || event.key === "switch")) {
+              typing = event.word;
+              coilTarget = event.typed / length;
+              coilIdle = 0;
+            }
             break;
+          }
           case "word-released":
             words.delete(event.word);
+            if (event.word === typing) coilTarget = 0;
             break;
           case "word-complete": {
             const target = event.target;
@@ -403,11 +534,17 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
               const foe = world.enemies.list[target.slot];
               const near = foe !== undefined && Math.hypot(uToM(foe.x), uToM(foe.z)) <= RINGS.meleeMm / 1000;
               // 05 §6.1: L and R in turn; Both on Chớp, Hoàn hảo or a foe within 6 m.
-              if (event.grade === "flash" || event.grade === "perfect" || near) play("attackBoth");
+              const strong = event.grade === "flash" || event.grade === "perfect";
+              if (strong || near) play("attackBoth");
               else {
                 play(side === 0 ? "attackL" : "attackR");
                 side = 1 - side;
               }
+              // R: the strike clip starts at its release; the coil lets go into it, the head kicks back, the wings flare.
+              coilTarget = 0;
+              kickAge = 0;
+              kickGain = strong ? 1.3 : 1;
+              wingHeat = 1;
             }
             words.delete(event.word);
             break;
@@ -469,6 +606,10 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
         freeObject(guide.root);
       }
       guideEnv?.dispose();
+      for (const ribbon of wings) {
+        ribbon.mesh.removeFromParent();
+        ribbon.dispose();
+      }
       body.geometry.dispose();
       snout.geometry.dispose();
       bodyMaterial.dispose();

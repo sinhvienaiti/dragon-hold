@@ -18,7 +18,7 @@
  */
 import * as THREE from "three";
 import { Debris, DRAGON, HitStop, NumberField, NumberSprites, STYLE, Trauma, tier as tierRow } from "../kit/feedback";
-import { LightTrail, ParticlePool, textures } from "../kit/three";
+import { FLAME_FRAGMENT, FLAME_VERTEX, LightTrail, ParticlePool, textures } from "../kit/three";
 import { HOUSES, TRAPS } from "../content/data/our-side";
 import { GENERALS } from "../content/data/generals";
 import { DAMAGE, HERO_SKILLS, RINGS } from "../content/rules";
@@ -108,6 +108,9 @@ const SEEP_GLOW = new THREE.Color("#b58cff");
 const BOLT_CATCH_UP = 0.06;
 /** A bolt that arrived first waits this long for its hit (s), then fizzles. */
 const BOLT_WAIT = 0.35;
+/** The fire ribbon behind a bolt reaches this far back along its curve (m), and its tail runs into the impact in 8 frames. */
+const BOLT_RIBBON_M = 5;
+const BOLT_TAIL_S = 8 / 60;
 const MAX_BOLTS = 16;
 const MAX_METEORS = 4;
 const MAX_EMITTERS = 48;
@@ -338,6 +341,256 @@ class QuadPool {
   }
 }
 
+// ── Flares: HDR billboards with an exact envelope (VFX_STANDARD §3.4) ─────────
+
+/**
+ * Render order of the fire ribbons (bolts, Hỏa Long's wings): above the river surface (view/water.ts, 2), which
+ * is transparent and writes no depth, so at an equal order it could be sorted after the fire and cover it.
+ */
+export const FX_RIBBON_ORDER = 4;
+
+/**
+ * 1 for the frames younger than `hold`, then falling a frame at a time to 0 at `life` (seconds of age, read
+ * before it advances): hold 2/60, life 3/60 draws 1, 1, ½, 0.
+ */
+export function flareEnvelope(age: number, hold: number, life: number): number {
+  if (age < hold - 1e-6) return 1;
+  return Math.max(0, Math.min(1, (life - age) / (life - hold + 1 / 60)));
+}
+
+const FLARE_VERTEX = /* glsl */ `
+attribute vec3 iPos;
+attribute vec4 iColor;
+attribute float iSize;
+varying vec2 vUv;
+varying vec4 vColor;
+void main() {
+  vUv = uv;
+  vColor = iColor;
+  vec4 view = modelViewMatrix * vec4(iPos, 1.0);
+  view.xy += position.xy * iSize;
+  gl_Position = projectionMatrix * view;
+}`;
+
+// A small hot centre (≤ 30 % of the radius) over a soft coloured body; the colour is HDR, so only the centre
+// reaches the bloom threshold (05 §2.1: 1.6) and the rim keeps the fire's hue.
+const FLARE_FRAGMENT = /* glsl */ `
+varying vec2 vUv;
+varying vec4 vColor;
+void main() {
+  float r = length((vUv - 0.5) * 2.0);
+  if (r >= 1.0 || vColor.a <= 0.0) discard;
+  float body = pow(1.0 - r, 2.0);
+  float core = 1.0 - smoothstep(0.0, 0.3, r);
+  // Additive with alpha 1: the frame gains colour × shape × alpha.
+  gl_FragColor = vec4(vColor.rgb * (body * 0.7 + core * 0.8) * vColor.a, 1.0);
+}`;
+
+/**
+ * Additive billboards in one draw call, two kinds: timed flares that are full bright on the frame they are born
+ * (the envelope reads the age before it advances: a 3-frame flash shows 100 %, 100 %, then falls, never 44 %
+ * as in Tuyến Cuối's Glows, VFX_STANDARD §1.2), and one-frame sprites the caller sets each frame (the charge at
+ * the mouth, bolt heads).
+ */
+class FlarePool {
+  readonly mesh: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
+  private readonly iPos: Float32Array;
+  private readonly iColor: Float32Array;
+  private readonly iSize: Float32Array;
+  /** Timed flares: x y z, size, grow, r g b, alpha, age, life, hold. */
+  private readonly timed: Float32Array;
+  private readonly timedCount: number;
+  private cursor = 0;
+  private drawn = 0;
+  private now = 0;
+  live = 0;
+
+  constructor(readonly capacity: number) {
+    this.timedCount = Math.floor(capacity / 2);
+    this.timed = new Float32Array(this.timedCount * 12);
+    this.iPos = new Float32Array(capacity * 3);
+    this.iColor = new Float32Array(capacity * 4);
+    this.iSize = new Float32Array(capacity);
+    const base = new THREE.PlaneGeometry(1, 1);
+    const geometry = new THREE.InstancedBufferGeometry();
+    geometry.index = base.index;
+    geometry.setAttribute("position", base.getAttribute("position"));
+    geometry.setAttribute("uv", base.getAttribute("uv"));
+    geometry.setAttribute("iPos", new THREE.InstancedBufferAttribute(this.iPos, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.iColor, 4).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("iSize", new THREE.InstancedBufferAttribute(this.iSize, 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.instanceCount = 0;
+    const material = new THREE.ShaderMaterial({ vertexShader: FLARE_VERTEX, fragmentShader: FLARE_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 6;
+    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 12 + 10] = 0;
+  }
+
+  /**
+   * A flare at `at`, `size` metres across (growing by `grow` × over its life), `color` × `intensity` (HDR),
+   * full bright for `hold` seconds from the frame it is born, then falling to nothing at `life`.
+   */
+  flare(at: THREE.Vector3, size: number, color: THREE.Color, intensity: number, life: number, hold: number, grow = 0, alpha = 1): void {
+    const o = this.cursor * 12;
+    this.cursor = (this.cursor + 1) % this.timedCount;
+    this.timed.set([at.x, at.y, at.z, size, grow, color.r * intensity, color.g * intensity, color.b * intensity, alpha, 0, Math.max(0.001, life), Math.max(0, hold)], o);
+  }
+
+  /** A sprite for this frame only (call before update). */
+  draw(at: THREE.Vector3, size: number, color: THREE.Color, intensity: number, alpha = 1): void {
+    if (this.drawn >= this.capacity - this.timedCount) return;
+    const n = this.timedCount + this.drawn;
+    this.drawn += 1;
+    this.write(n, at.x, at.y, at.z, size, color.r * intensity, color.g * intensity, color.b * intensity, alpha);
+  }
+
+  private write(slot: number, x: number, y: number, z: number, size: number, r: number, g: number, b: number, a: number): void {
+    this.iPos[slot * 3] = x;
+    this.iPos[slot * 3 + 1] = y;
+    this.iPos[slot * 3 + 2] = z;
+    this.iSize[slot] = size;
+    this.iColor[slot * 4] = r;
+    this.iColor[slot * 4 + 1] = g;
+    this.iColor[slot * 4 + 2] = b;
+    this.iColor[slot * 4 + 3] = a;
+  }
+
+  /** Draws the timed flares at their current age, then ages them by `dt`; the one-frame sprites are dropped after. */
+  update(dt: number): void {
+    this.now += dt;
+    let live = 0;
+    for (let i = 0; i < this.timedCount; i += 1) {
+      const o = i * 12;
+      const life = this.timed[o + 10]!;
+      const age = this.timed[o + 9]!;
+      if (life <= 0 || age >= life) {
+        this.iColor[i * 4 + 3] = 0;
+        this.iSize[i] = 0;
+        continue;
+      }
+      live += 1;
+      const hold = this.timed[o + 11]!;
+      const k = flareEnvelope(age, hold, life) ** 1.6;
+      const size = this.timed[o + 3]! * (1 + this.timed[o + 4]! * (age / life));
+      this.write(i, this.timed[o]!, this.timed[o + 1]!, this.timed[o + 2]!, size, this.timed[o + 5]!, this.timed[o + 6]!, this.timed[o + 7]!, this.timed[o + 8]! * k);
+      this.timed[o + 9] = age + dt;
+    }
+    this.live = live + this.drawn;
+    const geometry = this.mesh.geometry;
+    geometry.instanceCount = this.timedCount + this.drawn;
+    geometry.getAttribute("iPos").needsUpdate = true;
+    geometry.getAttribute("iColor").needsUpdate = true;
+    geometry.getAttribute("iSize").needsUpdate = true;
+    this.drawn = 0;
+  }
+
+  clear(): void {
+    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 12 + 10] = 0;
+    this.drawn = 0;
+  }
+
+  dispose(): void {
+    this.mesh.removeFromParent();
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+}
+
+/**
+ * A tapered fire ribbon behind a bolt (VFX_STANDARD §3.2 L1): LightTrail's strip through points the caller lays
+ * along the flight (head first, so it bends with the arc however fast the bolt flies), drawn with the kit's flame
+ * shader (FLAME_FRAGMENT: a noise-torn edge, tongues scrolling back, white-gold only in a few licks). Its width
+ * is set each frame (the play camera scales the fire). Source: kit three/particles.ts LightTrail.
+ */
+class FlameStreak {
+  readonly mesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  readonly points: THREE.Vector3[];
+  private readonly position: Float32Array;
+  private readonly alpha: Float32Array;
+  private readonly tangent = new THREE.Vector3();
+  private readonly toEye = new THREE.Vector3();
+  private readonly side = new THREE.Vector3();
+
+  constructor(readonly count: number, seed: number) {
+    this.points = Array.from({ length: count }, () => new THREE.Vector3());
+    this.position = new Float32Array(count * 6);
+    this.alpha = new Float32Array(count * 2);
+    const side = new Float32Array(count * 2);
+    const along = new Float32Array(count * 2);
+    const index: number[] = [];
+    for (let i = 0; i < count; i += 1) {
+      side[i * 2] = -1;
+      side[i * 2 + 1] = 1;
+      along[i * 2] = along[i * 2 + 1] = i / (count - 1);
+      if (i < count - 1) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(this.position, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("aAlpha", new THREE.BufferAttribute(this.alpha, 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("aSide", new THREE.BufferAttribute(side, 1));
+    geometry.setAttribute("aAlong", new THREE.BufferAttribute(along, 1));
+    geometry.setIndex(index);
+    const material = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uSeed: { value: seed }, uIntensity: { value: 1 } },
+      vertexShader: FLAME_VERTEX,
+      fragmentShader: FLAME_FRAGMENT,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.frustumCulled = false;
+    // After the river (view/water.ts, transparent at order 2): at the same order the sort could draw the water
+    // over the fire wherever the bolt crossed it on screen (28/10 capture: the ribbon went out over the river).
+    this.mesh.renderOrder = FX_RIBBON_ORDER;
+    this.mesh.visible = false;
+  }
+
+  /** Draws the strip through `points` (head first): `width` just behind the head, tapering to a point. */
+  update(eye: THREE.Vector3, width: number, intensity: number, time: number): void {
+    this.mesh.visible = intensity > 0.001;
+    if (!this.mesh.visible) return;
+    const n = this.count;
+    for (let i = 0; i < n; i += 1) {
+      const point = this.points[i]!;
+      this.tangent.subVectors(this.points[Math.max(0, i - 1)]!, this.points[Math.min(n - 1, i + 1)]!);
+      if (this.tangent.lengthSq() < 1e-8) this.tangent.set(0, 0, 1);
+      this.toEye.subVectors(eye, point);
+      this.side.crossVectors(this.tangent, this.toEye);
+      if (this.side.lengthSq() < 1e-10) this.side.set(1, 0, 0);
+      const k = i / (n - 1);
+      // Swells just behind the head, then a long taper (the flame shader tears the edge).
+      this.side.normalize().multiplyScalar(width * Math.min(1, 0.45 + k * 5) * (1 - k) ** 0.75);
+      const o = i * 6;
+      this.position[o] = point.x - this.side.x;
+      this.position[o + 1] = point.y - this.side.y;
+      this.position[o + 2] = point.z - this.side.z;
+      this.position[o + 3] = point.x + this.side.x;
+      this.position[o + 4] = point.y + this.side.y;
+      this.position[o + 5] = point.z + this.side.z;
+      const alpha = (1 - k) ** 1.1;
+      this.alpha[i * 2] = alpha;
+      this.alpha[i * 2 + 1] = alpha;
+    }
+    const uniforms = this.mesh.material.uniforms;
+    uniforms.uTime!.value = time;
+    uniforms.uIntensity!.value = intensity;
+    this.mesh.geometry.getAttribute("position").needsUpdate = true;
+    this.mesh.geometry.getAttribute("aAlpha").needsUpdate = true;
+  }
+
+  hide(): void {
+    this.mesh.visible = false;
+  }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+}
+
 // ── Effects that live over several frames ──────────────────────────────────
 
 /** What a bolt or an emitter follows: a drawn foe, or a fixed point. */
@@ -352,7 +605,9 @@ export interface FxTarget {
 
 interface Bolt {
   active: boolean;
-  trail: LightTrail;
+  trail: FlameStreak;
+  /** Seconds since it landed (−1: still flying): the ribbon's tail runs into the impact and fades (§3.4: 6–12 frames). */
+  landed: number;
   from: THREE.Vector3;
   to: THREE.Vector3;
   target: FxTarget;
@@ -406,7 +661,36 @@ export interface FxCoreOptions {
   locator?: FoeLocator;
   /** View-side randomness (default Math.random). */
   random?: () => number;
+  /** Hỏa Long's mouth light (VFX_STANDARD §3.2 L14): built once here, so the light count never changes in a wave. Default per tier (FX_MOUTH_LIGHT). */
+  mouthLight?: boolean;
+  /** Reduced motion (VFX_STANDARD §3.8): flashes softer and smaller, fewer embers. */
+  reduced?: boolean;
 }
+
+/**
+ * Hỏa Long's mouth light per tier (VFX_STANDARD §3.7: Rồng Giữ Ải High has 1 light "once measured", Ultra 2):
+ * one pre-built PointLight (no shader rebuild in a wave). High: see docs/changelog/2026-10-28-vfx-word-attack.md.
+ */
+export const FX_MOUTH_LIGHT: Readonly<Record<Quality, boolean>> = { low: false, medium: false, high: true, ultra: true };
+
+/** The word attack's timing in 60 Hz frames (VFX_STANDARD §3.4, §5.3 part 1). */
+const WORD_FX = {
+  /** Mouth flash: full on frames 0–1, gone by frame 3. */
+  flashHoldS: 2 / 60,
+  flashS: 3 / 60,
+  /** Its body: full on frames 0–1, out by frame 7. */
+  flashBodyS: 7 / 60,
+  /** Mouth light: full on frames 0–1, out by frame 5 (4–6 frames). */
+  lightHoldS: 2 / 60,
+  lightS: 5 / 60,
+  /** Light peak (candela, decay 2, reach 14 m) on a release and the share of it the charge holds while typing. */
+  lightPeak: 70,
+  lightCharge: 0.1,
+  /** An abandoned charge holds this long after the last letter, then fades (s). */
+  chargeHoldS: 1.4,
+  /** Scorch under a bolt's impact (I, F): seconds. */
+  scorchS: 2,
+} as const;
 
 /** The effects themselves, without a World: the bench, the showcase and createFx drive it. */
 export class FxCore {
@@ -414,9 +698,30 @@ export class FxCore {
   readonly sparks: ParticlePool;
   readonly glows: ParticlePool;
   readonly debris: Debris;
+  /** HDR flashes and one-frame sprites (mouth charge, release flash, bolt heads). */
+  private readonly flares: FlarePool;
+  /** Hỏa Long's mouth light, or null on tiers without it. */
+  readonly light: THREE.PointLight | null;
+  readonly reduced: boolean;
   private readonly puffs: QuadPool;
   private readonly rings: QuadPool;
   private readonly marks: QuadPool;
+  /** Where Hỏa Long's mouth is this frame (setMouth) and the flat way it faces (from the dais out). */
+  private readonly mouthAt = new THREE.Vector3(0, 4.2, -0.8);
+  private readonly facing = new THREE.Vector3(0, 0, -1);
+  /** The word being typed (0–1 of its letters, step by step), as drawn (eases to `chargeTarget`), and its letter pulse. */
+  private chargeTarget = 0;
+  private chargeLevel = 0;
+  private chargePulse = 0;
+  private chargeIdle = 0;
+  /** The release light's age (s; Infinity: none) and strength. */
+  private lightAge = Number.POSITIVE_INFINITY;
+  private lightGain = 1;
+  /** Releases drawn since the last frame (the presenter's key → release clock). */
+  released = 0;
+  /** Where the last release flash was born (captures: the first frame against the peak, VFX_STANDARD §5.6). */
+  readonly releasePoint = new THREE.Vector3();
+  private time = 0;
   private readonly bolts: Bolt[] = [];
   private readonly meteors: Meteor[] = [];
   private readonly emitters: Emitter[] = [];
@@ -447,11 +752,20 @@ export class FxCore {
     this.rings = new QuadPool(64, true, THREE.AdditiveBlending, 4, this.random);
     this.marks = new QuadPool(96, true, THREE.NormalBlending, 2, this.random);
     this.debris = new Debris(budget.debris, { profile: DRAGON, floorY: this.heightAt(0, 0) + 0.04, random: this.random });
-    this.group.add(this.marks.mesh, this.rings.mesh, this.puffs.mesh, this.debris.mesh, this.glows.points, this.sparks.points);
+    this.flares = new FlarePool(96);
+    this.reduced = options.reduced ?? false;
+    this.group.add(this.marks.mesh, this.rings.mesh, this.puffs.mesh, this.debris.mesh, this.glows.points, this.sparks.points, this.flares.mesh);
+    this.light = (options.mouthLight ?? FX_MOUTH_LIGHT[quality]) ? new THREE.PointLight("#ff9a4a", 0, 14, 2) : null;
+    if (this.light !== null) {
+      this.light.name = "fx-mouth-light";
+      this.light.castShadow = false;
+      this.light.position.copy(this.mouthAt);
+      this.group.add(this.light);
+    }
     for (let k = 0; k < MAX_BOLTS; k += 1) {
-      const trail = new LightTrail(14, k * 1.7);
+      const trail = new FlameStreak(16, k * 1.7);
       this.group.add(trail.mesh);
-      this.bolts.push({ active: false, trail, from: new THREE.Vector3(), to: new THREE.Vector3(), target: { slot: -1, serial: -1, x: 0, y: 0, z: 0 }, t: 0, duration: 1, length: 1, arc: 1, strong: false, hitTier: -1, waited: 0, dirX: 0, dirZ: 1 });
+      this.bolts.push({ active: false, trail, landed: -1, from: new THREE.Vector3(), to: new THREE.Vector3(), target: { slot: -1, serial: -1, x: 0, y: 0, z: 0 }, t: 0, duration: 1, length: 1, arc: 1, strong: false, hitTier: -1, waited: 0, dirX: 0, dirZ: 1 });
     }
     for (let k = 0; k < MAX_METEORS; k += 1) {
       const trail = new LightTrail(18, 40 + k);
@@ -479,16 +793,113 @@ export class FxCore {
     for (const object of hidden) object.visible = false;
   }
 
-  /** Live counts (bench, tests). */
-  stats(): { sparks: number; glows: number; puffs: number; bolts: number; emitters: number; debris: number } {
+  /** Live counts (bench, tests, captures). */
+  stats(): { sparks: number; glows: number; puffs: number; bolts: number; emitters: number; debris: number; flares: number; marks: number; charge: number; light: number } {
     return {
       sparks: this.sparks.count,
       glows: this.glows.count,
       puffs: this.puffs.live,
-      bolts: this.bolts.filter((bolt) => bolt.active).length,
+      // In flight; a landed bolt's ribbon tail (8 frames) is not counted.
+      bolts: this.bolts.filter((bolt) => bolt.active && bolt.landed < 0).length,
       emitters: this.emitters.filter((emitter) => emitter.active).length,
       debris: this.debris.live,
+      flares: this.flares.live,
+      marks: this.marks.live,
+      charge: +this.chargeLevel.toFixed(3),
+      light: +this.mouthLightLevel.toFixed(3),
     };
+  }
+
+  /** Where the bolts in flight are drawn now (captures only: the head size at the play camera, VFX_STANDARD §5.6). */
+  boltHeads(): THREE.Vector3[] {
+    return this.bolts.filter((bolt) => bolt.active && bolt.landed < 0 && bolt.t < 1).map((bolt) => this.bezier(bolt, bolt.arc, bolt.t, new THREE.Vector3()));
+  }
+
+  /** The mouth light as drawn this frame, 0–1 of its release peak (captures: first frame against peak). */
+  get mouthLightLevel(): number {
+    return this.light === null ? 0 : this.light.intensity / WORD_FX.lightPeak;
+  }
+
+  /** Hỏa Long's mouth this frame and the flat way it faces (view/heroes FX_MOUTH): the charge and the light follow it. */
+  setMouth(at: THREE.Vector3): void {
+    this.mouthAt.copy(at);
+    const length = Math.hypot(at.x, at.z);
+    if (length > 0.3) this.facing.set(at.x / length, 0, at.z / length);
+  }
+
+  /**
+   * A (VFX_STANDARD §5.3 part 1): one more right letter of the word being typed. The glow at the mouth grows a
+   * step to `frac` (0–1 of the word) and flares for a moment; 2–3 embers are pulled into the mouth from round
+   * the head. `frac` lower than before (Backspace, another word) only sets the level.
+   */
+  charge(frac: number, letter = true): void {
+    const next = Math.max(0, Math.min(1, frac));
+    this.chargeIdle = 0;
+    if (!letter || next <= this.chargeTarget) {
+      this.chargeTarget = next;
+      return;
+    }
+    this.chargeTarget = next;
+    this.chargePulse = 1;
+    const s = this.k;
+    const n = this.reduced ? 1 : 2 + (this.random() < 0.5 ? 1 : 0);
+    for (let i = 0; i < n; i += 1) {
+      // From behind and beside the head, toward the camera's side less often (they read against the body).
+      const angle = this.rand(-2.6, 2.6);
+      const cs = Math.cos(angle);
+      const sn = Math.sin(angle);
+      const dx = -this.facing.x * cs - this.facing.z * sn;
+      const dz = -this.facing.z * cs + this.facing.x * sn;
+      const r = this.rand(1.3, 2) * s;
+      const start = this.v.set(this.mouthAt.x + dx * r, this.mouthAt.y + this.rand(-0.4, 1.1) * s, this.mouthAt.z + dz * r);
+      const life = this.rand(0.2, 0.28);
+      const velocity = this.u.set((this.mouthAt.x - start.x) / life, (this.mouthAt.y - start.y) / life, (this.mouthAt.z - start.z) / life);
+      this.sparks.spawn(start, velocity, i === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.34 * s, life, { drag: 0, gravity: 0 });
+    }
+  }
+
+  /**
+   * R (VFX_STANDARD §5.3 part 1) at the mouth, on the frame the word completes: a flash full bright on frame 0
+   * (2–3 frames) in a coloured body (4–8 frames), a short burst of fire along the shot that reads on the light
+   * ground, sparks along it, dark smoke behind from frame 3, and the mouth light (4–6 frames). The charge is spent.
+   */
+  private release(from: THREE.Vector3, toX: number, toZ: number, strong: boolean): void {
+    const s = this.k;
+    const soft = this.reduced ? 0.6 : 1;
+    const big = this.reduced ? 0.8 : 1;
+    const dx = toX - from.x;
+    const dz = toZ - from.z;
+    const flat = Math.hypot(dx, dz) || 1;
+    const ux = dx / flat;
+    const uz = dz / flat;
+    // Just in front of the snout, so the head does not hide the flash.
+    const at = this.v.set(from.x + ux * 0.35 * s, from.y + 0.05, from.z + uz * 0.35 * s);
+    const hot = strong ? FX_COLORS.teal : FX_COLORS.fireHot;
+    this.releasePoint.copy(at);
+    this.flares.flare(at, 1.25 * s * big, hot, 3.2 * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.3);
+    this.flares.flare(at, 2.9 * s * big, FX_COLORS.fire, 1.5 * soft, WORD_FX.flashBodyS, WORD_FX.flashHoldS, 0.5);
+    // The burst: deep-orange bodies (normal blend) stepping out along the shot, full on frame 0.
+    for (let k = 0; k < 3; k += 1) {
+      const d = (0.45 + k * 0.45) * s;
+      this.puffs.spawn(from.x + ux * d, from.y - k * 0.05, from.z + uz * d, (0.85 - k * 0.15) * s * big, 0.1 + k * 0.03, k === 0 ? FX_COLORS.blastHot : FX_COLORS.fireDeep, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, grow: 0.6, rot: this.random() * TAU });
+    }
+    for (let k = 0; k < (this.reduced ? 5 : 10); k += 1) {
+      const yaw = this.rand(-0.45, 0.45);
+      const cs = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      const speed = this.rand(8, 13) * Math.sqrt(s);
+      this.sparks.spawn(at, this.u.set((ux * cs - uz * sn) * speed, this.rand(-1, 2.5), (uz * cs + ux * sn) * speed), k % 2 === 0 ? FX_COLORS.fireHot : FX_COLORS.fire, 0.36 * s, this.rand(0.14, 0.24), { drag: 4, gravity: 4 });
+    }
+    // Dark behind the bright (§3.5 rule 4): grey smoke from the mouth, in from frame 3.
+    for (let k = 0; k < 2; k += 1) {
+      this.puffs.spawn(from.x + this.rand(-0.2, 0.2) * s, from.y + 0.2 * s, from.z + this.rand(-0.2, 0.2) * s, 0.75 * s, this.rand(0.55, 0.7), FX_COLORS.smoke, 0.42 * soft, { vy: 0.9, vx: -ux * 0.6, vz: -uz * 0.6, grow: 1.3, fadeIn: 0.06, spin: this.rand(-1, 1), rot: this.random() * TAU });
+    }
+    this.lightAge = 0;
+    this.lightGain = (strong ? 1.25 : 1) * soft;
+    this.chargeTarget = 0;
+    this.chargeLevel = 0;
+    this.chargePulse = 0;
+    this.released += 1;
   }
 
   private rand(low: number, high: number): number {
@@ -534,13 +945,12 @@ export class FxCore {
     bolt.strong = strong;
     bolt.hitTier = -1;
     bolt.waited = 0;
+    bolt.landed = -1;
     bolt.dirX = bolt.to.x - from.x;
     bolt.dirZ = bolt.to.z - from.z;
     for (const point of bolt.trail.points) point.copy(from);
-    // Muzzle flash at the mouth (05 §6 "phát"): a hot puff with body, so it reads on the light dais.
-    this.glow(from, strong ? FX_COLORS.teal : FX_COLORS.fireHot, 2 * this.k, 0.14);
-    this.puffs.spawn(from.x, from.y, from.z, 0.9 * this.k, 0.16, FX_COLORS.fireDeep, 0.9, { fadeIn: 0.001, grow: 0.6, rot: this.random() * TAU });
-    for (let k = 0; k < 8; k += 1) this.spark(from, k % 2 === 0 ? FX_COLORS.fireHot : FX_COLORS.fire, 0.4 * this.k, 0.28, 4);
+    // R at the mouth (05 §6 "phát", VFX_STANDARD §5.3 part 1).
+    this.release(from, bolt.to.x, bolt.to.z, strong);
     return index;
   }
 
@@ -575,7 +985,8 @@ export class FxCore {
     const bx = (dirX / length) * 0.8;
     const bz = (dirZ / length) * 0.8;
     const s = this.k;
-    this.glow(at, strong ? FX_COLORS.teal : FX_COLORS.fireHot, (1.2 + tierId * 0.45) * s, 0.12);
+    // The flash is full bright on the frame the blow lands (a flare, not an aged glow: VFX_STANDARD §3.1 rule 5).
+    this.flares.flare(at, (1.4 + tierId * 0.5) * s * (this.reduced ? 0.8 : 1), strong ? FX_COLORS.teal : FX_COLORS.fireHot, 2.2 * (this.reduced ? 0.6 : 1), 0.1, 2 / 60, 0.4);
     this.glow(at, FX_COLORS.fire, (1.6 + tierId * 0.5) * s, 0.42, this.u.set(0, 0.6, 0), 0.9);
     for (let k = 0; k < row.sparks; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.28 * s, 0.45, (5 + tierId * 1.5) * Math.sqrt(s), 0.4, 6, bx, bz);
     // A star of rays: fast, short sparks in a flat fan.
@@ -587,7 +998,26 @@ export class FxCore {
     const rs = Math.sqrt(s);
     if (row.ring) this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.12, at.z, 1.2 * rs, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.9, { grow: (2.2 + tierId * 0.4) * rs, kind: 1, thickness: 0.18, drag: 0 });
     if (tierId >= 4) this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.13, at.z, 1.6, 0.5, FX_COLORS.fireHot, 0.7, { grow: 4, kind: 1, thickness: 0.1, drag: 0 });
-    this.puffs.spawn(at.x, at.y, at.z, 0.9, 0.7, FX_COLORS.smoke, 0.35, { vy: 1.2, grow: 1.4, spin: this.rand(-1, 1) });
+    // F: a small grey smoke, in from frame 4 (§3.4).
+    this.puffs.spawn(at.x, at.y, at.z, 0.9, 0.7, FX_COLORS.smoke, 0.35, { vy: 1.2, grow: 1.4, spin: this.rand(-1, 1), fadeIn: 0.07 });
+  }
+
+  /** A bolt landed (I, F of the word attack): the impact by tier and a small scorch under it for 2 s. */
+  private boltLanded(at: THREE.Vector3, tierId: number, dirX: number, dirZ: number, strong: boolean): void {
+    this.impact(at, tierId, dirX, dirZ, strong);
+    // Wider than the body that falls on it, so a kill leaves its edge in sight.
+    const size = (1.1 + tierId * 0.3) * Math.sqrt(this.k);
+    this.marks.spawn(at.x, this.markY(at.x, at.z, size) + 0.06, at.z, size, WORD_FX.scorchS, FX_COLORS.scorch, 0.55, { kind: 2, fadeIn: 0.08, drag: 0, rot: this.random() * TAU });
+  }
+
+  /**
+   * Height for a flat mark `size` metres across at (x, z): the highest ground under its middle. heightAt is the
+   * analytic ground; the drawn grid is coarser, and by a river bank it runs above the analytic bed, so a mark at the
+   * centre's height alone was buried (28/10 capture: the scorch at the ford never showed).
+   */
+  private markY(x: number, z: number, size: number): number {
+    const r = Math.max(0.6, size * 0.3);
+    return Math.max(this.heightAt(x, z), this.heightAt(x + r, z), this.heightAt(x - r, z), this.heightAt(x, z + r), this.heightAt(x, z - r));
   }
 
   /** A foe dies: shards of its material along the blow, a puff, a small light flying back to the forest (05 §6.3). */
@@ -807,10 +1237,11 @@ export class FxCore {
    * fire mote that runs to the target, and a glow at the mouth that grows with the share of the word typed
    * (`frac` 0–1). Test passes 26–27/10: three 0.22 m sparks at the mouth were not seen at the play camera.
    */
-  keySpark(from: THREE.Vector3, to: THREE.Vector3 | null = null, frac = 0): void {
+  keySpark(from: THREE.Vector3, to: THREE.Vector3 | null = null, frac = 0, charge = true): void {
     const s = this.k;
-    for (let k = 0; k < 3; k += 1) this.spark(from, FX_COLORS.fire, 0.3 * s, 0.3, 1.8, 0.6, -1);
-    this.glow(from, FX_COLORS.fireHot, (0.9 + 1.8 * Math.min(1, frac)) * s, 0.24, this.u.set(0, 0, 0), 0.2);
+    // A (28/10, VFX_STANDARD §5.3 part 1): the glow held at the mouth grows a step and embers are pulled in (charge());
+    // it replaces the three sparks and the 0.24 s glow that went out from the mouth.
+    if (charge) this.charge(frac);
     if (to === null) return;
     const life = 0.16;
     const velocity = this.u.set((to.x - from.x) / life, (to.y - from.y) / life, (to.z - from.z) / life);
@@ -994,29 +1425,49 @@ export class FxCore {
    */
   update(worldDt: number, time: number, cameraPos: THREE.Vector3, pointScale: number): void {
     const dt = worldDt;
+    this.time = time;
+    this.updateCharge(dt);
     for (const bolt of this.bolts) {
       if (!bolt.active) continue;
+      const width = (bolt.strong ? 0.68 : 0.6) * this.k;
+      const n = bolt.trail.count;
+      if (bolt.landed >= 0) {
+        // Landed: the ribbon's tail runs into the impact and fades (§3.4: 6–12 frames after the hit).
+        bolt.landed += dt;
+        const left = 1 - bolt.landed / BOLT_TAIL_S;
+        if (left <= 0) {
+          bolt.active = false;
+          bolt.trail.hide();
+          continue;
+        }
+        const span = Math.min(1, BOLT_RIBBON_M / bolt.length) * left;
+        for (let i = 0; i < n; i += 1) this.bezier(bolt, bolt.arc, 1 - (span * i) / (n - 1), bolt.trail.points[i]!);
+        bolt.trail.update(cameraPos, width * (0.6 + 0.4 * left), left, time);
+        continue;
+      }
       this.where(bolt.target, bolt.to);
       bolt.t = Math.min(1, bolt.t + dt / bolt.duration);
       const head = this.bezier(bolt, bolt.arc, bolt.t, this.v);
-      // Trail points sampled back along the bolt's own curve (≈ 2.5 m).
-      const span = Math.min(bolt.t, 2.5 / bolt.length);
-      for (let i = 0; i < bolt.trail.count; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (bolt.trail.count - 1), bolt.trail.points[i]!);
-      bolt.trail.update(cameraPos, (bolt.strong ? 0.85 : 0.75) * this.k, bolt.t < 1 ? 1 : Math.max(0, 1 - bolt.waited * 6), time);
+      // T: the fire ribbon through points sampled back along the bolt's own curve (up to BOLT_RIBBON_M).
+      const span = Math.min(bolt.t, BOLT_RIBBON_M / bolt.length);
+      for (let i = 0; i < n; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (n - 1), bolt.trail.points[i]!);
+      bolt.trail.update(cameraPos, width, bolt.t < 1 ? 1 : Math.max(0, 1 - bolt.waited * 6), time);
       if (bolt.t < 1) {
         // A fireball with a body (test passes 26–27/10: a pale see-through spot): a deep-orange core and a hot heart in
-        // normal blending under the glow, so it reads on the light path at 720p; a strong word keeps its teal glow.
+        // normal blending, so it reads on the light path at 720p; over them an HDR head (2–4) that reaches the bloom
+        // threshold, teal for a strong word (05 §6).
         this.puffs.spawn(head.x, head.y, head.z, 0.95 * this.k, 0.06, FX_COLORS.fireDeep, 0.95, { fadeIn: 0.001, spin: 5, rot: this.random() * TAU });
         this.puffs.spawn(head.x, head.y, head.z, 0.55 * this.k, 0.05, FX_COLORS.blastHot, 0.95, { fadeIn: 0.001, spin: -4, rot: this.random() * TAU });
-        this.glows.spawn(head, this.u.set(0, 0, 0), bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, (bolt.strong ? 1.9 : 1.6) * this.k, 0.05, { drag: 0 });
+        this.flares.draw(head, 1.7 * this.k, bolt.strong ? FX_COLORS.teal : FX_COLORS.fire, bolt.strong ? 1.1 : 1.3);
+        this.flares.draw(head, 0.62 * this.k, bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, bolt.strong ? 2.6 : 3);
         if (this.random() < 70 * dt) this.sparks.spawn(head, this.u.set(this.rand(-1.5, 1.5), this.rand(0, 2), this.rand(-1.5, 1.5)), this.random() < 0.5 ? FX_COLORS.ember : FX_COLORS.fireHot, 0.32 * this.k, 0.32, { drag: 2, gravity: 3 });
-        if (this.random() < 25 * dt) this.puffs.spawn(head.x, head.y + 0.1, head.z, 0.5 * this.k, 0.35, FX_COLORS.smoke, 0.35, { vy: 0.6, grow: 1.2, spin: this.rand(-1, 1) });
+        // A thin dark wake behind the fire (§3.5 rule 4).
+        if (this.random() < 30 * dt) this.puffs.spawn(head.x, head.y + 0.1, head.z, 0.5 * this.k, 0.4, FX_COLORS.smoke, 0.38, { vy: 0.6, grow: 1.2, spin: this.rand(-1, 1), fadeIn: 0.04 });
         continue;
       }
       if (bolt.hitTier >= 0) {
-        this.impact(this.v.copy(bolt.to), bolt.hitTier, bolt.dirX, bolt.dirZ, bolt.strong);
-        bolt.active = false;
-        bolt.trail.hide();
+        this.boltLanded(this.v.copy(bolt.to), bolt.hitTier, bolt.dirX, bolt.dirZ, bolt.strong);
+        bolt.landed = 0;
         continue;
       }
       bolt.waited += dt;
@@ -1066,9 +1517,49 @@ export class FxCore {
     this.rings.update(dt);
     this.marks.update(dt);
     this.debris.update(dt);
+    this.flares.update(dt);
+  }
+
+  /**
+   * A, each frame: the charge eases to its step (a letter lands in ~2 frames), flares on a letter, follows the
+   * mouth, and an abandoned word's charge fades. Then the mouth light: the release peak on the frame it is born
+   * (its age is read before it advances, VFX_STANDARD §3.1 rule 5), a faint glow while a word is being typed.
+   */
+  private updateCharge(dt: number): void {
+    this.chargeIdle += dt;
+    if (this.chargeIdle > WORD_FX.chargeHoldS) this.chargeTarget = Math.max(0, this.chargeTarget - dt * 2.5);
+    this.chargeLevel += (this.chargeTarget - this.chargeLevel) * (1 - Math.exp(-dt * 30));
+    this.chargePulse = Math.max(0, this.chargePulse - dt * 7);
+    const level = this.chargeLevel;
+    const s = this.k;
+    if (level > 0.01) {
+      // Held in front of the snout, so the head does not hide it from a camera behind the Dragon.
+      const at = this.w.set(this.mouthAt.x + this.facing.x * 0.45 * s, this.mouthAt.y + 0.05, this.mouthAt.z + this.facing.z * 0.45 * s);
+      const flicker = 0.92 + 0.08 * Math.sin(this.time * 41) * Math.sin(this.time * 17 + 1.3);
+      const pulse = this.chargePulse;
+      const soft = this.reduced ? 0.7 : 1;
+      // An ember body (normal blend) under the glow, so the gathering fire reads as fire on the sunlit dais and not
+      // as a pale wash (§3.5 rule 4); it lives two frames and is laid again each frame.
+      // Sizes: a whole word gathers a fire about half the release flash (2.9 m body), so the release still reads bigger.
+      // The halo is the saturated ember orange: the peach fire colour, added over the sunlit dais, read pink (28/10).
+      this.puffs.spawn(at.x, at.y, at.z, (0.45 + 0.95 * level + 0.15 * pulse) * s, 1 / 30, FX_COLORS.fireDeep, 0.75 + 0.25 * level, { fadeIn: 0.001, spin: 4, rot: this.random() * TAU });
+      this.flares.draw(at, (0.7 + 1.6 * level + 0.4 * pulse) * s, FX_COLORS.ember, (0.6 + 0.8 * level + 0.6 * pulse) * flicker * soft);
+      this.flares.draw(at, (0.3 + 0.6 * level + 0.12 * pulse) * s, FX_COLORS.fireHot, (1.6 + 1.8 * level + pulse) * flicker * soft);
+    }
+    if (this.light !== null) {
+      const age = this.lightAge;
+      const hold = WORD_FX.lightHoldS;
+      const release = flareEnvelope(age, hold, WORD_FX.lightS) ** 1.5;
+      this.lightAge = age + dt;
+      this.light.intensity = WORD_FX.lightPeak * Math.max(release * this.lightGain, level * WORD_FX.lightCharge);
+      this.light.position.set(this.mouthAt.x + this.facing.x * 0.6, this.mouthAt.y, this.mouthAt.z + this.facing.z * 0.6);
+    }
   }
 
   dispose(): void {
+    this.flares.dispose();
+    this.light?.removeFromParent();
+    this.light?.dispose();
     for (const bolt of this.bolts) bolt.trail.dispose();
     for (const meteor of this.meteors) meteor.trail.dispose();
     this.sparks.dispose();
@@ -1114,8 +1605,17 @@ export interface FxOptions {
    */
   shake?: (pixels: number) => void;
   onShake?: (x: number, y: number, roll: number) => void;
+  /** A directional camera kick of `px` along the screen direction (dx, dy) (view/camera.ts kick): strong words only. */
+  kick?: (dx: number, dy: number, px: number) => void;
   random?: () => number;
+  /** Hỏa Long's mouth light; unset: the tier's default (FX_MOUTH_LIGHT). */
+  mouthLight?: boolean;
+  /** Reduced motion; unset: the system setting (prefers-reduced-motion). */
+  reduced?: boolean;
 }
+
+/** The camera kick of a strong word's release (VFX_STANDARD §5.3 part 1: 1–2 px, T3 only). */
+const STRONG_KICK_PX = 1.6;
 
 export interface FxPresenter extends Presenter {
   /** World time scale the loop should run at this frame (hit-stop 0.05, else 1). Keys never wait on it. */
@@ -1129,6 +1629,8 @@ export interface FxPresenter extends Presenter {
   readonly numbers: NumberField;
   /** The quads the numbers were last drawn with (null before the first number): scenarios read them, never box(). */
   readonly sprites: NumberSprites | null;
+  /** When the last word bolt was drawn leaving the mouth (performance.now() of that frame): key → release (dh-vfx-word LIVE). */
+  readonly lastRelease: { readonly at: number } | null;
 }
 
 /** Grade → strong bolt (teal head, Attack_Both): Chớp and Hoàn hảo (05 §6). */
@@ -1136,7 +1638,11 @@ export const strongGrade = (grade: Grade | null): boolean => grade === "flash" |
 
 export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const heightAt = options.terrain ? (x: number, z: number) => options.terrain!.heightAt(x, z) : () => 0;
-  const core = new FxCore(stage.quality, { heightAt, locator: options.locator, random: options.random });
+  const reduced = options.reduced ?? (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const core = new FxCore(stage.quality, { heightAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });
+  const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
+  const kickTo: ScreenPoint = { x: 0, y: 0, visible: false };
+  let lastRelease: { at: number } | null = null;
   stage.layers.fx.add(core.group);
   core.warm(stage.renderer, stage.scene, stage.camera);
   const hitStop = new HitStop(DRAGON);
@@ -1191,6 +1697,9 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     get sprites() {
       return sprites;
     },
+    get lastRelease() {
+      return lastRelease;
+    },
 
     timeScale(now: number): number {
       return hitStop.scale(now);
@@ -1202,20 +1711,31 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
       beamsDrawn.clear();
       for (const event of events) {
         switch (event.type) {
-          case "word-progress":
+          case "word-progress": {
+            // The bench and tests drive this with partial worlds.
+            const word = world.words?.live[event.word];
+            const frac = word ? event.typed / Math.max(1, word.text.length) : 0;
             if (event.key === "advance" || event.key === "lock" || event.key === "done") {
-              // The bench and tests drive this with partial worlds.
-              const word = world.words?.live[event.word];
               const target = word?.target;
               const to = target && target.kind === "enemy" ? foePoint(target.slot, target.serial, 0, 0, at) : null;
-              core.keySpark(mouthOf(mouth), to, word ? event.typed / Math.max(1, word.text.length) : 0);
-            }
+              // The last letter's charge is spent by the release in the same batch: no embers for it.
+              core.keySpark(mouthOf(mouth), to, frac, event.key !== "done");
+            } else if (event.key === "back" || event.key === "switch") core.charge(frac, false);
             break;
+          }
           case "word-complete": {
             const target = event.target;
             if (target?.kind === "enemy") {
               const point = foePoint(target.slot, target.serial, 0, 0, at);
-              core.launchBolt(mouthOf(mouth), { slot: target.slot, serial: target.serial, x: point.x, y: point.y, z: point.z }, strongGrade(event.grade));
+              const from = mouthOf(mouth);
+              const strong = strongGrade(event.grade);
+              core.launchBolt(from, { slot: target.slot, serial: target.serial, x: point.x, y: point.y, z: point.z }, strong);
+              // R: a 1–2 px kick along the shot on a strong word only (T3); never under reduced motion (§3.8).
+              if (strong && options.kick && !core.reduced) {
+                stage.project(from.x, from.y, from.z, kickFrom);
+                stage.project(point.x, point.y, point.z, kickTo);
+                options.kick(kickTo.x - kickFrom.x, kickTo.y - kickFrom.y, STRONG_KICK_PX);
+              }
             }
             break;
           }
@@ -1346,7 +1866,13 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
       stage.camera.getWorldPosition(camPos);
       // Far from the dais the fire grows (×1 within 40 m, ×2.4 at most), so a strike reads at the play camera (05 §5).
       core.k = Math.min(2.4, Math.max(1, camPos.length() / 40));
+      // The heroes ran first this frame: the mouth is where the coiled or striking head holds it now.
+      core.setMouth(mouthOf(mouth));
       core.update(worldDt, worldTime, camPos, pointScaleOf(stage.renderer, stage.camera, size));
+      if (core.released > 0) {
+        core.released = 0;
+        lastRelease = { at: performance.now() };
+      }
       stage.renderer.getSize(size);
       trauma.update(info.dt, size.y);
       if (options.shake) {

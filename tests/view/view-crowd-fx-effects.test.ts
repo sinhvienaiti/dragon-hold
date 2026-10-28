@@ -7,8 +7,8 @@ import type { SimEvent } from "../../src/content/types";
 import type { World } from "../../src/sim/world";
 import type { FrameInfo, ScreenPoint } from "../../src/app/contracts";
 import { createActors, type FoeLocator } from "../../src/view/actors";
-import { createFx, FX_BUDGET, FxCore, strongGrade, tierForGrade } from "../../src/view/fx";
-import { createHeroes, modelUrl } from "../../src/view/heroes";
+import { createFx, FX_BUDGET, FX_RIBBON_ORDER, FxCore, flareEnvelope, strongGrade, tierForGrade } from "../../src/view/fx";
+import { createHeroes, FIRE_RELEASE_S, modelUrl, strikeClip } from "../../src/view/heroes";
 import type { Stage } from "../../src/view/stage";
 import { createTelegraphs, MIN_WINDUP_S, TELEGRAPH_COLORS, telegraphColors } from "../../src/view/telegraphs";
 import { drawnWarnings } from "../../src/view/foe-look";
@@ -198,10 +198,75 @@ describe("view fx", () => {
     const eye = new THREE.Vector3(0, 60, 60);
     core.keySpark(new THREE.Vector3(0, 4, 0), null, 0);
     core.update(0.001, 0, eye, 600);
-    const mouthOnly = core.stats().glows;
+    const before = core.stats();
     core.keySpark(new THREE.Vector3(0, 4, 0), new THREE.Vector3(0, 1, -12), 0.5);
-    core.update(0.001, 0.001, eye, 600);
-    expect(core.stats().glows).toBeGreaterThan(mouthOnly + 1);
+    core.update(1 / 60, 0.001, eye, 600);
+    const after = core.stats();
+    // The mote, the glow held at the mouth (a step up), embers pulled in.
+    expect(after.glows).toBeGreaterThan(before.glows);
+    expect(after.charge).toBeGreaterThan(before.charge);
+    expect(after.flares).toBeGreaterThan(0);
+    expect(after.sparks).toBeGreaterThanOrEqual(before.sparks + 3);
+    core.dispose();
+  });
+
+  it("draws the release flash and the mouth light full bright on the frame the word completes (VFX_STANDARD §3.1 rule 5)", () => {
+    const core = new FxCore("high", { locator: fixed(0, 1, -15), mouthLight: true });
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.setMouth(new THREE.Vector3(0, 4, -1));
+    core.launchBolt(new THREE.Vector3(0, 4, -1), { slot: 0, serial: 3, x: 0, y: 1, z: -15 }, false);
+    const levels: number[] = [];
+    for (let k = 0; k < 7; k += 1) {
+      core.update(1 / 60, k / 60, eye, 600);
+      levels.push(core.mouthLightLevel);
+    }
+    // Frames 0–1 at the peak, out by frame 5 (4–6 frames).
+    expect(levels[0]).toBeCloseTo(1, 5);
+    expect(levels[1]).toBeCloseTo(1, 5);
+    expect(levels[2]!).toBeLessThan(1);
+    expect(levels[5]).toBe(0);
+    expect(core.light).not.toBeNull();
+    core.dispose();
+    // No light where the tier has none: the light count never changes in a wave.
+    expect(new FxCore("medium").light).toBeNull();
+  });
+
+  it("draws a 3-frame flash 100 %, 100 %, then falling, never aged before its first frame (VFX_STANDARD §3.4)", () => {
+    expect([0, 1, 2, 3].map((f) => flareEnvelope(f / 60, 2 / 60, 3 / 60))).toEqual([1, 1, 0.5, 0]);
+    // The fire ribbons draw after the river surface (view/water.ts, order 2), so the water never covers them.
+    expect(FX_RIBBON_ORDER).toBeGreaterThan(2);
+  });
+
+  it("starts each strike clip at its release frame (the bolt leaves on play, key → release ≤ 50 ms)", () => {
+    const times = new Float32Array([0, 0.5, 1]);
+    const clip = new THREE.AnimationClip("Hero_Attack_L", 1, [new THREE.NumberKeyframeTrack("head.morphTargetInfluences[0]", times, new Float32Array([0, 0.5, 1]))]);
+    const strike = strikeClip(clip, FIRE_RELEASE_S.attackL, "Hero_Attack_L_Strike");
+    expect(strike.duration).toBeCloseTo(1 - FIRE_RELEASE_S.attackL, 5);
+    const track = strike.tracks[0]!;
+    // Linear track: value = time; the strike's frame 0 is the clip at its release, its last frame the clip's end.
+    expect(track.values[0]).toBeCloseTo(FIRE_RELEASE_S.attackL, 5);
+    expect(track.values[track.values.length - 1]).toBeCloseTo(1, 5);
+    expect(track.times[1]! - track.times[0]!).toBeCloseTo(1 / 60, 5);
+  });
+
+  it("charges the mouth a step a letter, spends it on the release, lets an abandoned word go", () => {
+    const core = new FxCore("high", { locator: fixed(0, 1, -15) });
+    const eye = new THREE.Vector3(0, 60, 60);
+    const mouth = new THREE.Vector3(0, 4, -1);
+    const levels: number[] = [];
+    for (const frac of [0.25, 0.5, 0.75]) {
+      core.keySpark(mouth, null, frac);
+      for (let k = 0; k < 6; k += 1) core.update(1 / 60, 0, eye, 600);
+      levels.push(core.stats().charge);
+    }
+    expect(levels[0]!).toBeLessThan(levels[1]!);
+    expect(levels[1]!).toBeLessThan(levels[2]!);
+    core.launchBolt(mouth, { slot: 0, serial: 4, x: 0, y: 1, z: -15 }, true);
+    core.update(1 / 60, 0.1, eye, 600);
+    expect(core.stats().charge).toBe(0);
+    core.keySpark(mouth, null, 0.5);
+    for (let k = 0; k < 150; k += 1) core.update(1 / 60, 0.2 + k / 60, eye, 600);
+    expect(core.stats().charge).toBeLessThan(0.01);
     core.dispose();
   });
 

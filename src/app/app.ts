@@ -550,7 +550,15 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const banners = createBanners(map.stage, map.terrain, { locator: actors, telegraphs });
     const hpbars = createHpBars(map.stage, { locator: actors, terrain: map.terrain });
     // VFX randomness from its own seeded stream (VFX_STANDARD §3.1 rule 4): a capture plays the same twice.
-    const fx = createFx(map.stage, { locator: actors, terrain: map.terrain, heroes, shake: (px) => map.rig.shake(px), random: seededRandom(seed ^ 0x5eed) });
+    const fx = createFx(map.stage, {
+      locator: actors,
+      terrain: map.terrain,
+      heroes,
+      shake: (px) => map.rig.shake(px),
+      kick: (dx, dy, px) => map.rig.kick(dx, dy, px),
+      random: seededRandom(seed ^ 0x5eed),
+      mouthLight: options.mouthLight,
+    });
     const tags = createTags(overlay!, map.stage.project, {
       gloss: learning.gloss,
       sizePct: options.tagSizePct === undefined ? undefined : Math.min(150, Math.max(80, options.tagSizePct)),
