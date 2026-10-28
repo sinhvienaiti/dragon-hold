@@ -13,13 +13,17 @@
  * the ground shader then reads that one texture inside the square, paints
  * only the cliff stone live (steep faces stretch in a top-down bake), and
  * keeps the live paint outside the square. `?bake=0` keeps the live paint.
- * Tiles and decals load from /art-src in dev only (interim until
- * prepare-ground and prepare-decals, Codex MF-C24); until a texture loads it
- * is a 1 × 1 texel of its own mean colour, so the palette alone shows.
+ * A3 (DH-12): tiles and decals load, in dev and in a build alike, from the
+ * game's public assets: `pnpm prepare-ground` / `prepare-decals` (Codex 080,
+ * MF-C24) write the WebP files and manifests the pick list
+ * (`ground-pick.json`) names under /assets/dragon-hold/{ground,decals}/. Until
+ * a texture loads it is a 1 × 1 texel of its own mean colour, so the palette
+ * alone shows; a missing one is an error (`dh-ground-tiles` fails on it).
  * Owner: map pilot.
  */
 import * as THREE from "three";
 import type { Quality } from "../app/contracts";
+import { loadGroundManifest, type GroundKind, type GroundManifest } from "./ground-manifest";
 import { LAYOUT_RULES, type MapLayout, type PaintDisc } from "./layout";
 import { DH_GLSL, fbm, GROUND_PARS, PINE_RIVER_GROUND, type HeightField, type PaintLook } from "./terrain";
 
@@ -29,25 +33,48 @@ export const PAINT_MASK = { halfM: 52, cellM: 0.25 } as const;
 /** The baked ground colour target: texels a side (2048 over 104 m is about 5 cm a texel; Low takes half). */
 export const GROUND_BAKE_SIZE = 2048;
 
-/** Ground tiles: file, metres per repeat, linear mean colour (measured once with ImageMagick, -colorspace RGB). */
+/** Ground tiles: manifest key (ground-pick.json), linear mean colour (measured once with ImageMagick, -colorspace RGB). */
 const TILES = {
-  uTGrassA: { file: "ground/pine-river/grass-a.png", mean: [0.1346, 0.2216, 0.0679] },
-  uTGrassB: { file: "ground/pine-river/grass-b.1024.png", mean: [0.093, 0.1827, 0.078] },
-  uTMoss: { file: "ground/pine-river/moss.fix.png", mean: [0.1065, 0.1878, 0.0832] },
-  uTPath: { file: "ground/pine-river/path.png", mean: [0.4155, 0.2689, 0.135] },
-  uTEarth: { file: "ground/pine-river/earth.png", mean: [0.1101, 0.0646, 0.0318] },
-  uTSand: { file: "ground/pine-river/river-sand.png", mean: [0.5685, 0.4972, 0.4149] },
-  uTRock: { file: "ground/pine-river/rock.1024.png", mean: [0.1235, 0.1392, 0.1465] },
-  uTLitter: { file: "ground/pine-river/pine-litter.png", mean: [0.1205, 0.0649, 0.0331] },
+  uTGrassA: { key: "pine-river/grass-a", mean: [0.1346, 0.2216, 0.0679] },
+  uTGrassB: { key: "pine-river/grass-b", mean: [0.093, 0.1827, 0.078] },
+  uTMoss: { key: "pine-river/moss", mean: [0.1065, 0.1878, 0.0832] },
+  uTPath: { key: "pine-river/path", mean: [0.4155, 0.2689, 0.135] },
+  uTEarth: { key: "pine-river/earth", mean: [0.1101, 0.0646, 0.0318] },
+  uTSand: { key: "pine-river/river-sand", mean: [0.5685, 0.4972, 0.4149] },
+  uTRock: { key: "pine-river/rock", mean: [0.1235, 0.1392, 0.1465] },
+  uTLitter: { key: "pine-river/pine-litter", mean: [0.1205, 0.0649, 0.0331] },
 } as const;
 
-/** Decal sheets (2 × 2 each): the accepted files of art request 015 / Codex 017. */
+/** Decal sheets (2 × 2 each, the accepted files of art request 015 / Codex 017): manifest keys. */
 const DECALS = {
-  uDDirt: "decals/pine-river/dirt-patches.alpha.png",
-  uDFlowers: "decals/pine-river/flower-clusters.015.1024.png",
-  uDLitter: "decals/pine-river/forest-litter.alpha.png",
-  uDMoss: "decals/pine-river/moss-puddles.v1.alpha.png",
+  uDDirt: "pine-river/dirt-patches",
+  uDFlowers: "pine-river/flower-clusters",
+  uDLitter: "pine-river/forest-litter",
+  uDMoss: "pine-river/moss-puddles",
 } as const;
+
+/** Every key the paint loads, per kind (tests check them against ground-pick.json). */
+export const GROUND_KEYS: Readonly<Record<GroundKind, readonly string[]>> = {
+  ground: Object.values(TILES).map((tile) => tile.key),
+  decals: Object.values(DECALS),
+};
+
+/** What the last buildGroundPaint loaded (the `dh-ground-tiles` check reads it): per kind, keys loaded and keys missing. */
+export const groundTextureStatus: { loaded: string[]; missing: string[]; manifests: Partial<Record<GroundKind, boolean>> } = { loaded: [], missing: [], manifests: {} };
+
+// One fetch per manifest a page (Vite inlines the pick list; the manifest carries the cache-busting URLs).
+const manifests = new Map<GroundKind, Promise<GroundManifest | null>>();
+function manifestOf(kind: GroundKind): Promise<GroundManifest | null> {
+  let job = manifests.get(kind);
+  if (!job) {
+    job = loadGroundManifest(kind).catch((error: unknown) => {
+      console.error("paint: the " + kind + " manifest did not load (run pnpm prepare-" + kind + "); the palette stays", error);
+      return null;
+    });
+    manifests.set(kind, job);
+  }
+  return job;
+}
 
 /**
  * Map pilot palette over PINE_RIVER_GROUND (MAP_PLAN V2, V13, 2.5): one calm
@@ -68,8 +95,6 @@ export const PILOT_GROUND = {
   uStone: "#bdb9b1",
   uScree: "#b3b1aa",
 } as const;
-
-const ART_BASE = "/art-src/";
 
 export interface GroundPaint {
   readonly uniforms: Record<string, { value: unknown }>;
@@ -369,10 +394,8 @@ export function buildGroundPaint(field: HeightField, layout: MapLayout, quality:
   const t0 = performance.now();
   const mask = bakePaintMask(field, layout);
   const bakeMs = performance.now() - t0;
-  // Interim (MF-C24 not done): the tiles and decals come from /art-src in dev only; a build shows the palette.
-  const artOn = import.meta.env.DEV;
-  const tilesOn = artOn && quality !== "low" && mapSwitch("tiles") !== "0";
-  const decalsOn = artOn && quality !== "low";
+  const tilesOn = quality !== "low" && mapSwitch("tiles") !== "0";
+  const decalsOn = quality !== "low";
   const uniforms: Record<string, { value: unknown }> = {
     uPaintMask: { value: mask.texture },
     uPaintMask2: { value: mask.texture2 },
@@ -387,43 +410,53 @@ export function buildGroundPaint(field: HeightField, layout: MapLayout, quality:
   const loader = new THREE.TextureLoader();
   const anisotropy = quality === "ultra" ? 8 : quality === "high" ? 4 : 1;
   const jobs: Promise<void>[] = [];
+  groundTextureStatus.loaded = [];
+  groundTextureStatus.missing = [];
+  /** Loads one manifest key into `name`; a missing manifest, key or file leaves the stand-in and is logged as an error. */
+  const load = (kind: GroundKind, key: string, name: string, setup: (texture: THREE.Texture) => void): void => {
+    const id = kind + ":" + key;
+    jobs.push(
+      manifestOf(kind)
+        .then((manifest) => {
+          groundTextureStatus.manifests[kind] = manifest !== null;
+          const entry = manifest?.textures[key];
+          if (!entry) throw new Error("not in the " + kind + " manifest");
+          return loader.loadAsync(entry.url);
+        })
+        .then((texture) => {
+          setup(texture);
+          texture.anisotropy = anisotropy;
+          texture.needsUpdate = true;
+          uniforms[name]!.value = texture;
+          disposables.push(texture);
+          groundTextureStatus.loaded.push(id);
+        })
+        .catch((error: unknown) => {
+          groundTextureStatus.missing.push(id);
+          console.error("paint: " + id + " did not load; the palette stays", error instanceof Error ? error.message : error);
+        }),
+    );
+  };
   for (const [name, tile] of Object.entries(TILES)) {
     const fallback = meanTexel(tile.mean);
     uniforms[name] = { value: fallback };
     uniforms[name.replace("uT", "uM")] = { value: new THREE.Vector3(tile.mean[0], tile.mean[1], tile.mean[2]) };
     disposables.push(fallback);
     if (!tilesOn) continue;
-    jobs.push(
-      loader
-        .loadAsync(ART_BASE + tile.file)
-        .then((texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-          texture.anisotropy = anisotropy;
-          uniforms[name]!.value = texture;
-          disposables.push(texture);
-        })
-        .catch(() => console.warn("paint: " + tile.file + " did not load; the palette stays")),
-    );
+    load("ground", tile.key, name, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    });
   }
-  for (const [name, file] of Object.entries(DECALS)) {
+  for (const [name, key] of Object.entries(DECALS)) {
     const fallback = emptyDecal();
     uniforms[name] = { value: fallback };
     disposables.push(fallback);
     if (!decalsOn) continue;
-    jobs.push(
-      loader
-        .loadAsync(ART_BASE + file)
-        .then((texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.premultiplyAlpha = true;
-          texture.anisotropy = anisotropy;
-          texture.needsUpdate = true;
-          uniforms[name]!.value = texture;
-          disposables.push(texture);
-        })
-        .catch(() => console.warn("paint: " + file + " did not load; no decals of it")),
-    );
+    load("decals", key, name, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.premultiplyAlpha = true;
+    });
   }
 
   let target: THREE.WebGLRenderTarget | null = null;

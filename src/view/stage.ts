@@ -28,7 +28,7 @@ import { BRIDGE_MODEL, PROP_SPECS } from "./model-specs";
 import { loadCrowdModels, type CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
 import { buildScatter, type ScatterView } from "./scatter";
-import { mapSwitch } from "./paint";
+import { groundTextureStatus, mapSwitch } from "./paint";
 import { buildTerrain, SUN_DIRECTION, sunDirection, type PaintedTerrain } from "./terrain";
 import { buildWater, type WaterView } from "./water";
 
@@ -457,6 +457,8 @@ export interface TerrainPreviewInfo {
   readonly pitchDeg: number;
   readonly zoom: number;
   readonly load?: MapStage["loadStats"];
+  /** DH-12: ground tiles and decals loaded and missing ("ground:pine-river/grass-a", …). */
+  readonly ground?: { readonly loaded: readonly string[]; readonly missing: readonly string[] };
 }
 
 declare global {
@@ -543,6 +545,7 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
     info: () => ({
       ready: frames > 2 && propsSettled && (world.loadStats.baked || mapSwitch("bake") === "0"),
       load: world.loadStats,
+      ground: { loaded: [...groundTextureStatus.loaded], missing: [...groundTextureStatus.missing] },
       frames,
       frameMs,
       ...world.stage.stats(),
