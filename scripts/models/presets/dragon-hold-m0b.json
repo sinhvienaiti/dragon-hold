@@ -518,6 +518,118 @@
     },
     "pivot": "base"
    }
+  },
+  "props/pine-river-lantern-post": {
+   "source": "props/pine-river/lantern-post.glb",
+   "triangles": 600,
+   "reviewed": true,
+   "note": "K13 Lantern Post (unlit), 2.2 m; path dressing (FB-16); scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-rail-fence": {
+   "source": "props/pine-river/rail-fence.glb",
+   "triangles": 600,
+   "reviewed": true,
+   "note": "K14 Rail Fence, 2.4 m section; long side along X; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-cliff-rock-a": {
+   "source": "props/pine-river/cliff-rock-a.glb",
+   "triangles": 800,
+   "reviewed": true,
+   "note": "K15 Cliff Rock, tall face block 4 m (FB-10 tiered cliff); scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-cliff-rock-b": {
+   "source": "props/pine-river/cliff-rock-b.glb",
+   "triangles": 800,
+   "reviewed": true,
+   "note": "K16 Cliff Rock (wide), 4 m; long side along X; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-wooden-jetty": {
+   "source": "props/pine-river/wooden-jetty.glb",
+   "triangles": 1500,
+   "reviewed": true,
+   "note": "K17 Wooden Jetty, 4 m; long side along Z, steps at +Z; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "depth",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-reed-clump": {
+   "source": "props/pine-river/reed-clump.glb",
+   "triangles": 400,
+   "reviewed": true,
+   "note": "K18 Reed Clump, 1.2 m; pond and river shore; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "height",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-wildflower-clump": {
+   "source": "props/pine-river/wildflower-clump.glb",
+   "triangles": 300,
+   "reviewed": true,
+   "note": "K19 Wildflower Clump, 0.45 m (cream and pale lavender); scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
+  },
+  "props/pine-river-grass-tuft": {
+   "source": "props/pine-river/grass-tuft.glb",
+   "triangles": 300,
+   "reviewed": true,
+   "note": "K20 Grass Tuft, 0.5 m; scatter prop seen from 60 m and more: hard budget (05 §8 prop cap)",
+   "static": {
+    "yaw": 90,
+    "size": {
+     "measure": "width",
+     "metres": 1
+    },
+    "pivot": "base"
+   }
   }
  }
 }

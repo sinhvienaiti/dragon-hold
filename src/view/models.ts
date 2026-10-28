@@ -18,7 +18,7 @@ import { ModelLibrary, loadModel, pickModelTier, type ModelKind } from "../kit/t
 import type { Quality } from "../app/contracts";
 import type { Crowd, CrowdLayerSource } from "./crowd";
 import { bakeRig, rigOf, skinWeights, smoothNormals, type BakedRig, type Rig } from "./crowd-rig";
-import { BRIDGE_MODEL, M0B_MANIFEST_URL, MODEL_SPECS, PROP_SPECS, modelLayerKey, type ModelSpec } from "./model-specs";
+import { BRIDGE_MODEL, KIT3_MANIFEST_URL, M0B_MANIFEST_URL, MODEL_SPECS, PROP_SPECS, modelLayerKey, type ModelSpec } from "./model-specs";
 
 export interface ModelLayer {
   readonly spec: ModelSpec;
@@ -174,7 +174,7 @@ export function loadCrowdModels(quality: Quality, options: { manifest?: string; 
   const loaded: string[] = [];
   const missing: string[] = [];
   let disposed = false;
-  const library = new ModelLibrary({ manifests: options.manifest ?? M0B_MANIFEST_URL, retryMs: 600_000 });
+  const library = new ModelLibrary({ manifests: options.manifest ?? [M0B_MANIFEST_URL, KIT3_MANIFEST_URL], retryMs: 600_000 });
   const wanted = (key: string): boolean => options.only === undefined || options.only.includes(key);
 
   const fetchRoot = async (manifestKey: string): Promise<THREE.Object3D | null> => {
