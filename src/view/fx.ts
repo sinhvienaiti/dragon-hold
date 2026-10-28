@@ -18,7 +18,7 @@
  */
 import * as THREE from "three";
 import { Debris, DRAGON, HitStop, NumberField, NumberSprites, STYLE, Trauma, tier as tierRow } from "../kit/feedback";
-import { FLAME_FRAGMENT, FLAME_VERTEX, LightTrail, ParticlePool, textures } from "../kit/three";
+import { ParticlePool, textures } from "../kit/three";
 import { HOUSES, TRAPS } from "../content/data/our-side";
 import { GENERALS } from "../content/data/generals";
 import { DAMAGE, HERO_SKILLS, RINGS } from "../content/rules";
@@ -30,38 +30,11 @@ import type { FrameInfo, Presenter, Quality, ScreenPoint } from "../app/contract
 import type { FoeLocator } from "./actors";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
+import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
+import { SkyFire } from "./skyfire";
+import { Streak } from "./vfx-layers";
 
-// ── Colours (05 §2.2: semantic colours only for their meaning) ──────────────
-
-/** Hỏa Long's fire: peach orange; strong (Chớp, Hoàn hảo) heads are typing teal (05 §6). */
-export const FX_COLORS = {
-  fire: new THREE.Color("#ff9e6b"),
-  fireHot: new THREE.Color("#ffd9a0"),
-  fireDeep: new THREE.Color("#e8552a"),
-  /**
-   * The white-hot centre of the release flash. The grade's Neutral tone map keeps hues, so the peach fireHot never
-   * reaches white however bright (28/10 capture: the plain flash read as a peach haze); this one does.
-   */
-  flashCore: new THREE.Color("#fff4e2"),
-  /** The darkest of the fire ramp: the body under the release flash, so the white-hot core has a dark edge on the sunlit dais. */
-  fireDark: new THREE.Color("#a8321a"),
-  teal: new THREE.Color("#7ff5e0"),
-  ember: new THREE.Color("#ff7a32"),
-  smoke: new THREE.Color("#5a5650"),
-  /** Soot: the dark puffs of a word bolt's impact (§3.5 rule 4, dark behind the bright). */
-  soot: new THREE.Color("#2e2723"),
-  dust: new THREE.Color("#a89272"),
-  scorch: new THREE.Color("#2a2018"),
-  wood: new THREE.Color("#8a6a45"),
-  vine: new THREE.Color("#7fbf5a"),
-  heal: new THREE.Color("#a6f0c0"),
-  gold: new THREE.Color("#ffc83a"),
-  white: new THREE.Color("#ffffff"),
-  stun: new THREE.Color("#fff3b0"),
-  mote: new THREE.Color("#e8f4d8"),
-  /** HDR orange (above the 1.6 bloom threshold once stacked): the hot heart of Thiên Hỏa's mass and blast. */
-  blastHot: new THREE.Color("#ffa040").multiplyScalar(1.8),
-} as const;
+export { FX_COLORS, FX_RIBBON_ORDER };
 
 /** Death shards by material (05 §6.3): two colours each. */
 export const MATERIAL_COLORS: Readonly<Record<Material, readonly [string, string]>> = {
@@ -123,7 +96,6 @@ const BOLT_TAIL_S = 8 / 60;
 /** A bolt's head and ribbon come up over its first frames, inside the release flash (3 frames: ⅓, ⅔, full). */
 const BOLT_BORN_S = 3 / 60;
 const MAX_BOLTS = 16;
-const MAX_METEORS = 4;
 const MAX_EMITTERS = 48;
 
 // ── Quads: soft billboards and flat ground marks ────────────────────────────
@@ -209,7 +181,7 @@ void main() {
 }`;
 
 /** Pooled quads updated on the CPU, one draw call: billboards (puffs) or flat marks. */
-class QuadPool {
+export class QuadPool {
   readonly mesh: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
   private readonly iPos: Float32Array;
   private readonly iData: Float32Array;
@@ -371,12 +343,6 @@ class QuadPool {
 // ── Flares: HDR billboards with an exact envelope (VFX_STANDARD §3.4) ─────────
 
 /**
- * Render order of the fire ribbons (bolts, Hỏa Long's wings): above the river surface (view/water.ts, 2), which
- * is transparent and writes no depth, so at an equal order it could be sorted after the fire and cover it.
- */
-export const FX_RIBBON_ORDER = 4;
-
-/**
  * 1 for the frames younger than `hold`, then falling a frame at a time to 0 at `life` (seconds of age, read
  * before it advances): hold 2/60, life 3/60 draws 1, 1, ½, 0.
  */
@@ -422,7 +388,7 @@ void main() {
  * as in Tuyến Cuối's Glows, VFX_STANDARD §1.2), and one-frame sprites the caller sets each frame (the charge at
  * the mouth, bolt heads).
  */
-class FlarePool {
+export class FlarePool {
   readonly mesh: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
   private readonly iPos: Float32Array;
   private readonly iColor: Float32Array;
@@ -535,100 +501,6 @@ class FlarePool {
   }
 }
 
-/**
- * A tapered fire ribbon behind a bolt (VFX_STANDARD §3.2 L1): LightTrail's strip through points the caller lays
- * along the flight (head first, so it bends with the arc however fast the bolt flies), drawn with the kit's flame
- * shader (FLAME_FRAGMENT: a noise-torn edge, tongues scrolling back, white-gold only in a few licks). Its width
- * is set each frame (the play camera scales the fire). Source: kit three/particles.ts LightTrail.
- */
-class FlameStreak {
-  readonly mesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
-  readonly points: THREE.Vector3[];
-  private readonly position: Float32Array;
-  private readonly alpha: Float32Array;
-  private readonly tangent = new THREE.Vector3();
-  private readonly toEye = new THREE.Vector3();
-  private readonly side = new THREE.Vector3();
-
-  constructor(readonly count: number, seed: number) {
-    this.points = Array.from({ length: count }, () => new THREE.Vector3());
-    this.position = new Float32Array(count * 6);
-    this.alpha = new Float32Array(count * 2);
-    const side = new Float32Array(count * 2);
-    const along = new Float32Array(count * 2);
-    const index: number[] = [];
-    for (let i = 0; i < count; i += 1) {
-      side[i * 2] = -1;
-      side[i * 2 + 1] = 1;
-      along[i * 2] = along[i * 2 + 1] = i / (count - 1);
-      if (i < count - 1) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(this.position, 3).setUsage(THREE.DynamicDrawUsage));
-    geometry.setAttribute("aAlpha", new THREE.BufferAttribute(this.alpha, 1).setUsage(THREE.DynamicDrawUsage));
-    geometry.setAttribute("aSide", new THREE.BufferAttribute(side, 1));
-    geometry.setAttribute("aAlong", new THREE.BufferAttribute(along, 1));
-    geometry.setIndex(index);
-    const material = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uSeed: { value: seed }, uIntensity: { value: 1 } },
-      vertexShader: FLAME_VERTEX,
-      fragmentShader: FLAME_FRAGMENT,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-    });
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.frustumCulled = false;
-    // After the river (view/water.ts, transparent at order 2): at the same order the sort could draw the water
-    // over the fire wherever the bolt crossed it on screen (28/10 capture: the ribbon went out over the river).
-    this.mesh.renderOrder = FX_RIBBON_ORDER;
-    this.mesh.visible = false;
-  }
-
-  /** Draws the strip through `points` (head first): `width` just behind the head, tapering to a point. */
-  update(eye: THREE.Vector3, width: number, intensity: number, time: number): void {
-    this.mesh.visible = intensity > 0.001;
-    if (!this.mesh.visible) return;
-    const n = this.count;
-    for (let i = 0; i < n; i += 1) {
-      const point = this.points[i]!;
-      this.tangent.subVectors(this.points[Math.max(0, i - 1)]!, this.points[Math.min(n - 1, i + 1)]!);
-      if (this.tangent.lengthSq() < 1e-8) this.tangent.set(0, 0, 1);
-      this.toEye.subVectors(eye, point);
-      this.side.crossVectors(this.tangent, this.toEye);
-      if (this.side.lengthSq() < 1e-10) this.side.set(1, 0, 0);
-      const k = i / (n - 1);
-      // Swells just behind the head, then a long taper (the flame shader tears the edge).
-      this.side.normalize().multiplyScalar(width * Math.min(1, 0.45 + k * 5) * (1 - k) ** 0.75);
-      const o = i * 6;
-      this.position[o] = point.x - this.side.x;
-      this.position[o + 1] = point.y - this.side.y;
-      this.position[o + 2] = point.z - this.side.z;
-      this.position[o + 3] = point.x + this.side.x;
-      this.position[o + 4] = point.y + this.side.y;
-      this.position[o + 5] = point.z + this.side.z;
-      const alpha = (1 - k) ** 1.1;
-      this.alpha[i * 2] = alpha;
-      this.alpha[i * 2 + 1] = alpha;
-    }
-    const uniforms = this.mesh.material.uniforms;
-    uniforms.uTime!.value = time;
-    uniforms.uIntensity!.value = intensity;
-    this.mesh.geometry.getAttribute("position").needsUpdate = true;
-    this.mesh.geometry.getAttribute("aAlpha").needsUpdate = true;
-  }
-
-  hide(): void {
-    this.mesh.visible = false;
-  }
-
-  dispose(): void {
-    this.mesh.geometry.dispose();
-    this.mesh.material.dispose();
-  }
-}
-
 // ── Effects that live over several frames ──────────────────────────────────
 
 /** What a bolt or an emitter follows: a drawn foe, or a fixed point. */
@@ -643,7 +515,8 @@ export interface FxTarget {
 
 interface Bolt {
   active: boolean;
-  trail: FlameStreak;
+  /** The tapered fire ribbon (VFX_STANDARD §3.2 L1; vfx-layers Streak, the kit flame shader). */
+  trail: Streak;
   /** Seconds since it landed (−1: still flying): the ribbon's tail runs into the impact and fades (§3.4: 6–12 frames). */
   landed: number;
   from: THREE.Vector3;
@@ -660,16 +533,6 @@ interface Bolt {
   waited: number;
   dirX: number;
   dirZ: number;
-}
-
-interface Meteor {
-  active: boolean;
-  trail: LightTrail;
-  from: THREE.Vector3;
-  to: THREE.Vector3;
-  t: number;
-  duration: number;
-  radius: number;
 }
 
 type EmitterKind = "breath" | "burn" | "heal" | "net" | "stun" | "inferno";
@@ -742,14 +605,16 @@ export class FxCore {
   readonly sparks: ParticlePool;
   readonly glows: ParticlePool;
   readonly debris: Debris;
-  /** HDR flashes and one-frame sprites (mouth charge, release flash, bolt heads). */
-  private readonly flares: FlarePool;
+  /** HDR flashes and one-frame sprites (mouth charge, release flash, bolt heads). Read by Sky Fire (skyfire.ts). */
+  readonly flares: FlarePool;
   /** Hỏa Long's mouth light, or null on tiers without it. */
   readonly light: THREE.PointLight | null;
   readonly reduced: boolean;
-  private readonly puffs: QuadPool;
-  private readonly rings: QuadPool;
-  private readonly marks: QuadPool;
+  readonly puffs: QuadPool;
+  readonly rings: QuadPool;
+  readonly marks: QuadPool;
+  /** Thiên Hỏa in five phases (VFX_STANDARD §5.3 part 2). */
+  readonly sky: SkyFire;
   /** Where Hỏa Long's mouth is this frame (setMouth) and the flat way it faces (from the dais out). */
   private readonly mouthAt = new THREE.Vector3(0, 4.2, -0.8);
   private readonly facing = new THREE.Vector3(0, 0, -1);
@@ -769,10 +634,9 @@ export class FxCore {
   readonly scorchPoint = new THREE.Vector3();
   private time = 0;
   private readonly bolts: Bolt[] = [];
-  private readonly meteors: Meteor[] = [];
   private readonly emitters: Emitter[] = [];
-  private readonly random: () => number;
-  private readonly heightAt: (x: number, z: number) => number;
+  readonly random: () => number;
+  private readonly heightOf: (x: number, z: number) => number;
   locator: FoeLocator | null;
   /**
    * World-size multiplier of the fire effects (bolts, impacts, Phun Lửa, Thiên Hỏa), set each frame from the camera
@@ -787,7 +651,7 @@ export class FxCore {
 
   constructor(readonly quality: Quality, options: FxCoreOptions = {}) {
     this.random = options.random ?? Math.random;
-    this.heightAt = options.heightAt ?? (() => 0);
+    this.heightOf = options.heightAt ?? (() => 0);
     this.locator = options.locator ?? null;
     this.group.name = "fx";
     const budget = FX_BUDGET[quality];
@@ -797,7 +661,7 @@ export class FxCore {
     this.puffs = new QuadPool(quality === "low" ? 120 : 260, false, THREE.NormalBlending, 5, this.random);
     this.rings = new QuadPool(64, true, THREE.AdditiveBlending, 4, this.random);
     this.marks = new QuadPool(96, true, THREE.NormalBlending, 2, this.random);
-    this.debris = new Debris(budget.debris, { profile: DRAGON, floorY: this.heightAt(0, 0) + 0.04, random: this.random });
+    this.debris = new Debris(budget.debris, { profile: DRAGON, floorY: this.heightOf(0, 0) + 0.04, random: this.random });
     this.flares = new FlarePool(96);
     this.reduced = options.reduced ?? false;
     this.group.add(this.marks.mesh, this.rings.mesh, this.puffs.mesh, this.debris.mesh, this.glows.points, this.sparks.points, this.flares.mesh);
@@ -809,15 +673,12 @@ export class FxCore {
       this.group.add(this.light);
     }
     for (let k = 0; k < MAX_BOLTS; k += 1) {
-      const trail = new FlameStreak(16, k * 1.7);
+      const trail = new Streak(16, k * 1.7, "flame");
       this.group.add(trail.mesh);
       this.bolts.push({ active: false, trail, landed: -1, from: new THREE.Vector3(), to: new THREE.Vector3(), target: { slot: -1, serial: -1, x: 0, y: 0, z: 0 }, t: 0, duration: 1, length: 1, arc: 1, strong: false, hitTier: -1, waited: 0, dirX: 0, dirZ: 1 });
     }
-    for (let k = 0; k < MAX_METEORS; k += 1) {
-      const trail = new LightTrail(18, 40 + k);
-      this.group.add(trail.mesh);
-      this.meteors.push({ active: false, trail, from: new THREE.Vector3(), to: new THREE.Vector3(), t: 0, duration: 0.8, radius: 4 });
-    }
+    this.sky = new SkyFire(this, 3, quality);
+    this.group.add(this.sky.group);
     for (let k = 0; k < MAX_EMITTERS; k += 1) {
       this.emitters.push({ active: false, kind: "burn", left: 0, total: 0, target: null, x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: 0, radius: 0, mark: -1 });
     }
@@ -1069,8 +930,8 @@ export class FxCore {
     }
     // The ground ring grows by √k only: a storm of rings must not paint the whole field.
     const rs = Math.sqrt(s);
-    if (row.ring) this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.12, at.z, 1.2 * rs, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.9, { grow: (2.2 + tierId * 0.4) * rs, kind: 1, thickness: 0.18, drag: 0 });
-    if (tierId >= 4) this.rings.spawn(at.x, this.heightAt(at.x, at.z) + 0.13, at.z, 1.6, 0.5, FX_COLORS.fireHot, 0.7, { grow: 4, kind: 1, thickness: 0.1, drag: 0 });
+    if (row.ring) this.rings.spawn(at.x, this.heightOf(at.x, at.z) + 0.12, at.z, 1.2 * rs, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.9, { grow: (2.2 + tierId * 0.4) * rs, kind: 1, thickness: 0.18, drag: 0 });
+    if (tierId >= 4) this.rings.spawn(at.x, this.heightOf(at.x, at.z) + 0.13, at.z, 1.6, 0.5, FX_COLORS.fireHot, 0.7, { grow: 4, kind: 1, thickness: 0.1, drag: 0 });
     // F: a small grey smoke, in from frame 4 (§3.4).
     this.puffs.spawn(at.x, at.y, at.z, 0.9, 0.7, FX_COLORS.smoke, 0.35, { vy: 1.2, grow: 1.4, spin: this.rand(-1, 1), fadeIn: 0.07 });
   }
@@ -1119,7 +980,7 @@ export class FxCore {
    */
   private markY(x: number, z: number, size: number): number {
     const r = Math.max(0.6, size * 0.3);
-    return Math.max(this.heightAt(x, z), this.heightAt(x + r, z), this.heightAt(x - r, z), this.heightAt(x, z + r), this.heightAt(x, z - r));
+    return Math.max(this.heightOf(x, z), this.heightOf(x + r, z), this.heightOf(x - r, z), this.heightOf(x, z + r), this.heightOf(x, z - r));
   }
 
   /** A foe dies: shards of its material along the blow, a puff, a small light flying back to the forest (05 §6.3). */
@@ -1143,7 +1004,7 @@ export class FxCore {
     const dx = toX - from.x;
     const dz = toZ - from.z;
     const flat = Math.hypot(dx, dz) || 1;
-    const groundY = this.heightAt(from.x + (dx / flat) * lengthM * 0.6, from.z + (dz / flat) * lengthM * 0.6);
+    const groundY = this.heightOf(from.x + (dx / flat) * lengthM * 0.6, from.z + (dz / flat) * lengthM * 0.6);
     const dir = this.v.set(dx / flat, (groundY + 0.4 - from.y) / (lengthM * 0.75), dz / flat).normalize();
     this.emit("breath", null, from.x, from.y, from.z, 0.7, lengthM, dir.x, dir.y, dir.z);
     // Scorch along the cone (05 §6.1 "đất cháy decal").
@@ -1151,81 +1012,49 @@ export class FxCore {
       const s = (k / 4.2) * lengthM;
       const x = from.x + (dx / flat) * s;
       const z = from.z + (dz / flat) * s;
-      this.marks.spawn(x, this.heightAt(x, z) + 0.06, z, 1.2 + s * 0.45, 6, FX_COLORS.scorch, 0.55, { kind: 2, fadeIn: 0.5, drag: 0, rot: this.random() * TAU });
-    }
-  }
-
-  /** Thiên Hỏa: a burning mass falls on (x, z) over `delayS`, a ring of `radiusM`, stun stars. */
-  meteor(x: number, z: number, delayS = HERO_SKILLS.skyfire.delayMs / 1000, radiusM = HERO_SKILLS.skyfire.radiusMm / 1000): void {
-    const meteor = this.meteors.find((item) => !item.active);
-    if (meteor === undefined) return;
-    const ground = this.heightAt(x, z);
-    meteor.active = true;
-    meteor.to.set(x, ground + 0.3, z);
-    // From high on the camera's side, so the fall reads in the default view.
-    meteor.from.set(x + 4, ground + 16, z + 5);
-    meteor.t = 0;
-    meteor.duration = Math.max(0.25, delayS);
-    meteor.radius = radiusM;
-    for (const point of meteor.trail.points) point.copy(meteor.from);
-  }
-
-  /** Lands any meteor on (x, z) now (the sim's impact came first). */
-  landMeteor(x: number, z: number): void {
-    for (const meteor of this.meteors) {
-      if (!meteor.active || Math.hypot(meteor.to.x - x, meteor.to.z - z) > 1.5) continue;
-      meteor.t = Math.max(meteor.t, meteor.duration - 0.03);
+      this.marks.spawn(x, this.heightOf(x, z) + 0.06, z, 1.2 + s * 0.45, 6, FX_COLORS.scorch, 0.55, { kind: 2, fadeIn: 0.5, drag: 0, rot: this.random() * TAU });
     }
   }
 
   /**
-   * Thiên Hỏa lands (05 §6.1: a 4 m ring, stun stars). Round 2 readability: the
-   * light additive glows washed out on the sunlit path and the pale target disc,
-   * so the blast now has body in normal-blended colour (a deep-orange fireball,
-   * dark smoke, a dust wave), a ring that really reaches the radius, a darker
-   * scorch and flying stones. View only.
+   * Thiên Hỏa (VFX_STANDARD §5.3 part 2, skyfire.ts): the charge at Hỏa Long's mouth now, the release 12 frames on,
+   * then one arc from the mouth to (x, z) landing `delayS` after the cast (the sim's delay), a blast of `radiusM`.
    */
-  private meteorImpact(meteor: Meteor): void {
-    const at = meteor.to;
-    const r = meteor.radius;
-    const s = Math.sqrt(this.k);
-    const ground = this.heightAt(at.x, at.z);
-    this.glow(at, FX_COLORS.white, 5 * this.k, 0.16);
-    this.glow(at, FX_COLORS.fireHot, r * 1.6 * s, 0.5, this.u.set(0, 1, 0), 0.8);
-    // The fireball: saturated puffs that rise and swell, then dark smoke rolls up from them.
-    for (let k = 0; k < 10; k += 1) {
-      const angle = (k / 10) * TAU + this.random() * 0.5;
-      const d = r * this.rand(0.05, 0.4);
-      const color = k < 4 ? FX_COLORS.blastHot : k % 2 === 0 ? FX_COLORS.fireDeep : FX_COLORS.ember;
-      this.puffs.spawn(at.x + Math.cos(angle) * d, ground + this.rand(0.4, 1.4), at.z + Math.sin(angle) * d, r * this.rand(0.45, 0.65) * s, this.rand(0.45, 0.7), color, 0.95, { vx: Math.cos(angle) * 1.5, vz: Math.sin(angle) * 1.5, vy: this.rand(2, 4), grow: 1.1, spin: this.rand(-1, 1), fadeIn: 0.02 });
-    }
-    for (let k = 0; k < 7; k += 1) {
-      this.puffs.spawn(at.x + this.rand(-r, r) * 0.45, ground + this.rand(1, 2), at.z + this.rand(-r, r) * 0.45, r * 0.55 * s, this.rand(1.4, 1.9), FX_COLORS.smoke, 0.6, { vy: this.rand(1.2, 2), grow: 1.7, spin: this.rand(-0.6, 0.6), fadeIn: 0.35 });
-    }
-    // Flames licking up round the edge.
-    for (let k = 0; k < 14; k += 1) {
-      const angle = (k / 14) * TAU;
-      this.glow(this.v.set(at.x + Math.cos(angle) * r * 0.5, at.y + 0.4, at.z + Math.sin(angle) * r * 0.5), FX_COLORS.fire, 1.8 * s, 0.7, this.u.set(Math.cos(angle) * 3, 1.5, Math.sin(angle) * 3), 1.2);
-      if (k % 2 === 0) this.puffs.spawn(at.x + Math.cos(angle) * r * 0.7, ground + 0.5, at.z + Math.sin(angle) * r * 0.7, 1.1 * s, this.rand(0.5, 0.8), FX_COLORS.fireDeep, 0.85, { vy: this.rand(2, 3.2), grow: 0.6, fadeIn: 0.05 });
-    }
-    for (let k = 0; k < 70; k += 1) this.spark(at, k % 3 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.45 * this.k, 0.9, 11, 0.8, 9);
-    // The ring runs out to the blast radius (size is a diameter); a dust wave rolls with it.
-    this.rings.spawn(at.x, ground + 0.14, at.z, r * 0.5, 0.45, FX_COLORS.fireHot, 1, { grow: 3.4, kind: 1, thickness: 0.2, drag: 0 });
-    this.rings.spawn(at.x, ground + 0.15, at.z, r * 0.4, 0.6, FX_COLORS.fire, 0.8, { grow: 4.2, kind: 1, thickness: 0.32, drag: 0 });
-    for (let k = 0; k < 16; k += 1) {
-      const angle = (k / 16) * TAU + this.random() * 0.2;
-      this.puffs.spawn(at.x + Math.cos(angle) * r * 0.35, ground + 0.35, at.z + Math.sin(angle) * r * 0.35, 1.3 * s, 0.9, FX_COLORS.dust, 0.55, { vx: Math.cos(angle) * 7.5, vz: Math.sin(angle) * 7.5, vy: 0.5, grow: 1.3, drag: 2.6 });
-    }
-    this.marks.spawn(at.x, ground + 0.07, at.z, r * 2, 7, FX_COLORS.scorch, 0.72, { kind: 2, fadeIn: 0.12, drag: 0, rot: this.random() * TAU });
-    this.c.set(MATERIAL_COLORS.stone[0]);
-    this.c2.set(MATERIAL_COLORS.mud[1]);
-    this.debris.burst(at.x, ground + 0.4, at.z, 0, 1, 10, 7, this.c, this.c2);
-    this.emit("stun", null, at.x, at.y + 1.6, at.z, HERO_SKILLS.skyfire.stunMs / 1000, r * 0.6, 0, 0, 0);
+  meteor(x: number, z: number, delayS = HERO_SKILLS.skyfire.delayMs / 1000, radiusM = HERO_SKILLS.skyfire.radiusMm / 1000): void {
+    this.sky.cast(x, z, delayS, radiusM);
+  }
+
+  /** The sim's impact on (x, z) came: Sky Fire there lands now (within 3 frames if it had not left the mouth). */
+  landMeteor(x: number, z: number): void {
+    this.sky.land(x, z);
+  }
+
+  /** Sky Fire as drawn now (captures: phases, points, live layers). */
+  skyDebug(): ReturnType<SkyFire["debug"]> {
+    return this.sky.debug();
+  }
+
+  // ── What Sky Fire draws with (skyfire.ts SkyFireHost) ───────────────
+
+  heightAt(x: number, z: number): number {
+    return this.heightOf(x, z);
+  }
+
+  mouthPoint(out: THREE.Vector3): THREE.Vector3 {
+    return out.copy(this.mouthAt);
+  }
+
+  mouthFacing(out: THREE.Vector3): THREE.Vector3 {
+    return out.copy(this.facing);
+  }
+
+  stunStars(x: number, y: number, z: number, seconds: number, radius: number): void {
+    this.emit("stun", null, x, y, z, seconds, radius, 0, 0, 0);
   }
 
   /** Long Hống: a shock ring out to `radiusM` from the dais, dust at its edge (T4). */
   roar(x: number, z: number, radiusM = HERO_SKILLS.roar.radiusMm / 1000): void {
-    const y = this.heightAt(x, z) + 0.15;
+    const y = this.heightOf(x, z) + 0.15;
     this.rings.spawn(x, y, z, 2, 0.55, FX_COLORS.fireHot, 1, { grow: radiusM - 1, kind: 1, thickness: 0.12, drag: 0 });
     this.rings.spawn(x, y + 0.01, z, 1.6, 0.75, FX_COLORS.fire, 0.7, { grow: radiusM * 0.9, kind: 1, thickness: 0.3, drag: 0 });
     for (let k = 0; k < 24; k += 1) {
@@ -1264,7 +1093,7 @@ export class FxCore {
 
   /** Gai Chông: stakes jab up, splinters and dust along the strip. */
   spikes(x: number, z: number, count = 1, lengthM = 3.6): void {
-    const y = this.heightAt(x, z);
+    const y = this.heightOf(x, z);
     for (let k = 0; k < 10 + count * 2; k += 1) {
       const at = this.v.set(x + this.rand(-0.8, 0.8), y + 0.2, z + this.rand(-lengthM / 2, lengthM / 2));
       this.sparks.spawn(at, this.u.set(this.rand(-1, 1), this.rand(5, 9), this.rand(-1, 1)), FX_COLORS.wood, 0.35, 0.45, { drag: 1.5, gravity: 18 });
@@ -1274,7 +1103,7 @@ export class FxCore {
 
   /** Bom Hạt Thông: flash, a column of fire and resin, a ring of the blast radius, smoke and shells (T3–T4). */
   bomb(x: number, z: number, radiusM: number, count = 1): void {
-    const y = this.heightAt(x, z);
+    const y = this.heightOf(x, z);
     const at = this.v.set(x, y + 0.6, z);
     this.glow(at, FX_COLORS.white, 3, 0.1);
     this.glow(at, FX_COLORS.fireHot, radiusM * 1.5, 0.4, this.u.set(0, 2, 0), 0.8);
@@ -1290,7 +1119,7 @@ export class FxCore {
 
   /** Lưới Phóng: a net flies up from the post and drops over (x, z), cords pulling in (03 §7: grounds low flyers). */
   net(x: number, z: number, radiusM = 1.6, fromX = x, fromZ = z, target: FxTarget | null = null): void {
-    const y = this.heightAt(x, z);
+    const y = this.heightOf(x, z);
     for (let k = 0; k < 14; k += 1) {
       const at = this.v.set(fromX, y + 1.8, fromZ);
       this.sparks.spawn(at, this.u.set((x - fromX) * 2.5 + this.rand(-1.5, 1.5), this.rand(3, 6), (z - fromZ) * 2.5 + this.rand(-1.5, 1.5)), FX_COLORS.vine, 0.3, 0.5, { drag: 1.8, gravity: 9 });
@@ -1302,7 +1131,7 @@ export class FxCore {
 
   /** Heal: a pale ring and motes rising over (x, z) (Lều Thuốc Nam pulse, Bình Máu Nhỏ). */
   heal(x: number, z: number, radiusM: number, seconds = 1.2): void {
-    const y = this.heightAt(x, z);
+    const y = this.heightOf(x, z);
     this.rings.spawn(x, y + 0.12, z, radiusM * 2, 1.1, FX_COLORS.heal, 0.5, { kind: 4, thickness: 0.1, fadeIn: 0.15, drag: 0 });
     this.rings.spawn(x, y + 0.13, z, radiusM * 0.6, 0.7, FX_COLORS.heal, 0.7, { grow: 2.3, kind: 1, thickness: 0.16, drag: 0 });
     this.emit("heal", null, x, y, z, seconds, radiusM, 0, 0, 0);
@@ -1310,7 +1139,7 @@ export class FxCore {
 
   /** Héo lan: a grey-violet wisp drifts from a foe standing near toward the dais (BALANCE.md §5; Hắc Vụ's colour, D02). */
   blightWisp(fromX: number, fromZ: number): void {
-    const y = this.heightAt(fromX, fromZ) + 1.2;
+    const y = this.heightOf(fromX, fromZ) + 1.2;
     const life = 1.1;
     const s = this.k;
     this.c.set("#8a7fa8");
@@ -1319,12 +1148,12 @@ export class FxCore {
 
   /** One heal beat (Lều Thuốc Nam): a light drop floats from the house to the ally, a small ring where it lands (05 §6.6). */
   healDrop(fromX: number, fromZ: number, toX: number, toZ: number, toY = 1): void {
-    const y0 = this.heightAt(fromX, fromZ) + 2.2;
-    const y1 = this.heightAt(toX, toZ) + toY;
+    const y0 = this.heightOf(fromX, fromZ) + 2.2;
+    const y1 = this.heightOf(toX, toZ) + toY;
     const life = 0.8;
     const s = this.k;
     this.glows.spawn(this.v.set(fromX, y0, fromZ), this.u.set((toX - fromX) / life, (y1 - y0) / life + 1.2, (toZ - fromZ) / life), FX_COLORS.heal, 0.7 * s, life, { drag: 0, gravity: 2.4, grow: -0.2 });
-    this.rings.spawn(toX, this.heightAt(toX, toZ) + 0.12, toZ, 0.6 * s, 0.6, FX_COLORS.heal, 0.6, { grow: 1.2 * s, kind: 1, thickness: 0.18, drag: 0 });
+    this.rings.spawn(toX, this.heightOf(toX, toZ) + 0.12, toZ, 0.6 * s, 0.6, FX_COLORS.heal, 0.6, { grow: 1.2 * s, kind: 1, thickness: 0.18, drag: 0 });
   }
 
   /** Gold: coins glint up from a kill and fade (gold is money, so only here, 05 §2.2). */
@@ -1367,7 +1196,7 @@ export class FxCore {
       this.puffs.spawn(at.x, at.y + 0.2, at.z, widthM * 0.95 * s, BEAM_S + delay * 0.15, index % 2 === 0 ? FX_COLORS.fireDeep : FX_COLORS.blastHot, 0.9, { vy: this.rand(1.5, 3), grow: 0.8, spin: this.rand(-2, 2), fadeIn: 0.01 + delay * 0.12, rot: this.random() * TAU });
       this.glow(at, FX_COLORS.fire, widthM * 1.4 * s, BEAM_S, this.u.set(0, this.rand(1, 2.5), 0), 0.8);
       for (let k = 0; k < 3; k += 1) this.spark(at, k === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 0.35 * this.k, 0.5, 5, 1.4, 6);
-      if (index % 2 === 0) this.marks.spawn(at.x, this.heightAt(at.x, at.z) + 0.06, at.z, widthM * 1.3, 4, FX_COLORS.scorch, 0.5, { kind: 2, fadeIn: 0.2, drag: 0, rot: this.random() * TAU });
+      if (index % 2 === 0) this.marks.spawn(at.x, this.heightOf(at.x, at.z) + 0.06, at.z, widthM * 1.3, 4, FX_COLORS.scorch, 0.5, { kind: 2, fadeIn: 0.2, drag: 0, rot: this.random() * TAU });
     });
   }
 
@@ -1378,7 +1207,7 @@ export class FxCore {
    * the only sign of the main HP loss of the last waves.
    */
   seep(fromX: number, fromZ: number, to: THREE.Vector3): void {
-    const y = this.heightAt(fromX, fromZ) + 1.2;
+    const y = this.heightOf(fromX, fromZ) + 1.2;
     const s = this.k;
     for (let k = 0; k < 7; k += 1) {
       const f = k / 7;
@@ -1404,7 +1233,7 @@ export class FxCore {
    * ground, a withered-yellow ring runs out over the allies that flinch.
    */
   generalDeath(at: THREE.Vector3, flinchRadiusM: number): void {
-    const ground = this.heightAt(at.x, at.z);
+    const ground = this.heightOf(at.x, at.z);
     const s = Math.sqrt(this.k);
     // Dark moss and withered-yellow tufts (00 D02): the grass is green, so the moss is darker than it.
     this.c.set("#c8d24a");
@@ -1497,7 +1326,7 @@ export class FxCore {
         break;
       }
       case "net": {
-        if (emitter.target !== null && emitter.mark >= 0) this.marks.moveTo(emitter.mark, at.x, this.heightAt(at.x, at.z) + 0.08, at.z);
+        if (emitter.target !== null && emitter.mark >= 0) this.marks.moveTo(emitter.mark, at.x, this.heightOf(at.x, at.z) + 0.08, at.z);
         if (this.random() < 6 * dt) this.sparks.spawn(this.w.set(at.x + this.rand(-0.6, 0.6), at.y + 0.3, at.z + this.rand(-0.6, 0.6)), this.u.set(0, 0.6, 0), FX_COLORS.vine, 0.25, 0.4, { drag: 2 });
         break;
       }
@@ -1583,31 +1412,9 @@ export class FxCore {
         bolt.trail.hide();
       }
     }
-    for (const meteor of this.meteors) {
-      if (!meteor.active) continue;
-      meteor.t = Math.min(meteor.duration, meteor.t + dt);
-      // Falls faster as it comes down.
-      const k = meteor.t / meteor.duration;
-      const head = this.v.lerpVectors(meteor.from, meteor.to, k ** 1.5);
-      for (let i = 0; i < meteor.trail.count; i += 1) {
-        const kk = Math.max(0, k - i * 0.035);
-        meteor.trail.points[i]!.lerpVectors(meteor.from, meteor.to, kk ** 1.5);
-      }
-      meteor.trail.update(cameraPos, 1.5 * this.k, 1, time);
-      // The burning mass: a deep-orange body under the glow (reads on light ground), a smoke wake behind it.
-      this.puffs.spawn(head.x, head.y, head.z, 1.8 * this.k, 0.07, FX_COLORS.fireDeep, 0.95, { fadeIn: 0.001, spin: 4, rot: this.random() * TAU });
-      this.puffs.spawn(head.x, head.y, head.z, 1.0 * this.k, 0.06, FX_COLORS.blastHot, 0.95, { fadeIn: 0.001, spin: -3, rot: this.random() * TAU });
-      this.glows.spawn(head, this.u.set(0, 0, 0), FX_COLORS.fireHot, 3 * this.k, 0.05, { drag: 0 });
-      if (this.random() < 45 * dt) this.puffs.spawn(head.x, head.y + 0.3, head.z, 1.1 * this.k, 0.6, FX_COLORS.smoke, 0.5, { vy: 0.6, grow: 1.4, spin: this.rand(-1, 1) });
-      if (this.random() < 60 * dt) this.sparks.spawn(head, this.u.set(this.rand(-2, 2), this.rand(0, 3), this.rand(-2, 2)), FX_COLORS.ember, 0.5, 0.5, { drag: 1.5, gravity: 4 });
-      // Its shadow on the target darkens and widens as it comes down (05 §6.1 "bóng báo").
-      this.marks.spawn(meteor.to.x, meteor.to.y - 0.22, meteor.to.z, meteor.radius * (0.35 + 0.65 * k), 0.05, FX_COLORS.scorch, 0.3 + 0.45 * k, { kind: 2, fadeIn: 0.001, drag: 0 });
-      if (meteor.t >= meteor.duration) {
-        meteor.active = false;
-        meteor.trail.hide();
-        this.meteorImpact(meteor);
-      }
-    }
+    // Sky Fire draws at its ages, then the light picks the strongest request of this frame (its own or a word's).
+    this.sky.update(dt, time, cameraPos);
+    this.updateLight(dt);
     for (const emitter of this.emitters) {
       if (!emitter.active) continue;
       this.runEmitter(emitter, dt);
@@ -1627,8 +1434,7 @@ export class FxCore {
 
   /**
    * A, each frame: the charge eases to its step (a letter lands in ~2 frames), flares on a letter, follows the
-   * mouth, and an abandoned word's charge fades. Then the mouth light: the release peak on the frame it is born
-   * (its age is read before it advances, VFX_STANDARD §3.1 rule 5), a faint glow while a word is being typed.
+   * mouth, and an abandoned word's charge fades.
    */
   private updateCharge(dt: number): void {
     this.chargeIdle += dt;
@@ -1652,12 +1458,27 @@ export class FxCore {
       this.flares.draw(at, (0.5 + 0.95 * level + 0.3 * pulse) * s, FX_COLORS.ember, (0.45 + 0.45 * level + 0.5 * pulse) * flicker * soft);
       this.flares.draw(at, (0.22 + 0.36 * level + 0.1 * pulse) * s, FX_COLORS.fireHot, (1.0 + 0.9 * level + 0.8 * pulse) * flicker * soft);
     }
-    if (this.light !== null) {
-      const age = this.lightAge;
-      const hold = WORD_FX.lightHoldS;
-      const release = flareEnvelope(age, hold, WORD_FX.lightS) ** 1.5;
-      this.lightAge = age + dt;
-      this.light.intensity = WORD_FX.lightPeak * Math.max(release * this.lightGain, level * WORD_FX.lightCharge);
+  }
+
+  /**
+   * The one pre-built light (VFX_STANDARD §3.7: High has one): the word release's peak on the frame it is born (its
+   * age is read before it advances, §3.1 rule 5), a faint glow while a word is being typed, or Sky Fire's request
+   * (its charge, release and impact) when that is stronger, at Sky Fire's point and reach.
+   */
+  private updateLight(dt: number): void {
+    if (this.light === null) return;
+    const age = this.lightAge;
+    const release = flareEnvelope(age, WORD_FX.lightHoldS, WORD_FX.lightS) ** 1.5;
+    this.lightAge = age + dt;
+    const word = WORD_FX.lightPeak * Math.max(release * this.lightGain, this.chargeLevel * WORD_FX.lightCharge);
+    const sky = this.sky.lightCd;
+    if (sky > word) {
+      this.light.intensity = sky;
+      this.light.distance = this.sky.lightReach;
+      this.light.position.copy(this.sky.lightAt);
+    } else {
+      this.light.intensity = word;
+      this.light.distance = 14;
       this.light.position.set(this.mouthAt.x + this.facing.x * 0.6, this.mouthAt.y, this.mouthAt.z + this.facing.z * 0.6);
     }
   }
@@ -1667,7 +1488,7 @@ export class FxCore {
     this.light?.removeFromParent();
     this.light?.dispose();
     for (const bolt of this.bolts) bolt.trail.dispose();
-    for (const meteor of this.meteors) meteor.trail.dispose();
+    this.sky.dispose();
     this.sparks.dispose();
     this.glows.dispose();
     this.puffs.dispose();
@@ -1722,6 +1543,19 @@ export interface FxOptions {
 
 /** The camera kick of a strong word's release (VFX_STANDARD §5.3 part 1: 1–2 px, T3 only). */
 const STRONG_KICK_PX = 1.6;
+/** Sky Fire's release (§5.3 part 2): a 2–4 px kick along the launch, the FOV pushed +1° for 8 frames (full on 2). */
+const SKY_KICK_PX = 3;
+const SKY_FOV_DEG = 1;
+const SKY_FOV_HOLD_S = 2 / 60;
+const SKY_FOV_S = 8 / 60;
+
+/** The FOV push (deg) `age` s after it began: full for its hold, then easing back to 0 by SKY_FOV_S. */
+export function fovPush(age: number): number {
+  if (age < 0 || age >= SKY_FOV_S) return 0;
+  if (age < SKY_FOV_HOLD_S) return SKY_FOV_DEG;
+  const k = (age - SKY_FOV_HOLD_S) / (SKY_FOV_S - SKY_FOV_HOLD_S);
+  return SKY_FOV_DEG * (1 - k) * (1 - k);
+}
 
 export interface FxPresenter extends Presenter {
   /** World time scale the loop should run at this frame (hit-stop 0.05, else 1). Keys never wait on it. */
@@ -1737,6 +1571,8 @@ export interface FxPresenter extends Presenter {
   readonly sprites: NumberSprites | null;
   /** When the last word bolt was drawn leaving the mouth (performance.now() of that frame): key → release (dh-vfx-word LIVE). */
   readonly lastRelease: { readonly at: number } | null;
+  /** When the last Sky Fire cast was first drawn (its charge at the mouth): Alt + 2 → A (dh-vfx-skyfire LIVE). */
+  readonly lastCast: { readonly at: number } | null;
 }
 
 /** Grade → strong bolt (teal head, Attack_Both): Chớp and Hoàn hảo (05 §6). */
@@ -1749,7 +1585,35 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
   const kickTo: ScreenPoint = { x: 0, y: 0, visible: false };
   let lastRelease: { at: number } | null = null;
+  let lastCast: { at: number } | null = null;
   stage.layers.fx.add(core.group);
+  // The FOV push lives only while the 3D scene renders (scene hooks): the DOM tags, projected through the clean
+  // camera between frames, stay still, as with the shake (camera.ts puts the shake where projectToScreen ignores it).
+  let fovAge = Number.POSITIVE_INFINITY;
+  let fovSaved: [number, number] | null = null;
+  const previousBefore = stage.scene.onBeforeRender;
+  const previousAfter = stage.scene.onAfterRender;
+  stage.scene.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
+    previousBefore.call(stage.scene, renderer, scene, camera, geometry, material, group);
+    const push = fovPush(fovAge);
+    if (push <= 0 || camera !== stage.camera) return;
+    const lens = camera as THREE.PerspectiveCamera;
+    const e = lens.projectionMatrix.elements;
+    const half = THREE.MathUtils.degToRad(lens.fov) / 2;
+    const k = Math.tan(half) / Math.tan(half + THREE.MathUtils.degToRad(push) / 2);
+    fovSaved = [e[0]!, e[5]!];
+    e[0] = e[0]! * k;
+    e[5] = e[5]! * k;
+  };
+  stage.scene.onAfterRender = (renderer, scene, camera, geometry, material, group) => {
+    if (fovSaved !== null && camera === stage.camera) {
+      const e = (camera as THREE.PerspectiveCamera).projectionMatrix.elements;
+      e[0] = fovSaved[0];
+      e[5] = fovSaved[1];
+      fovSaved = null;
+    }
+    previousAfter.call(stage.scene, renderer, scene, camera, geometry, material, group);
+  };
   core.warm(stage.renderer, stage.scene, stage.camera);
   const hitStop = new HitStop(DRAGON);
   const trauma = new Trauma(DRAGON, options.random);
@@ -1805,6 +1669,9 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     },
     get lastRelease() {
       return lastRelease;
+    },
+    get lastCast() {
+      return lastCast;
     },
 
     timeScale(now: number): number {
@@ -1871,7 +1738,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
               }
               const point = foePoint(target.slot, target.serial, event.x, event.z, at);
               if (event.source.kind === "hero" && event.damageType === "word") core.landBolt(target.serial, event.tier, point, dirX, dirZ);
-              else if (event.tier >= 1) core.impact(point, Math.min(event.tier, 2), dirX, dirZ, false);
+              // Sky Fire's victims: the blast is the skill's own (skyfire.ts); the foes flash and jerk (actors' reactions).
+              else if (event.tier >= 1 && event.by !== "skyfire") core.impact(point, Math.min(event.tier, 2), dirX, dirZ, false);
               const style = strongGrade(event.grade) ? STYLE.perfect : event.source.kind === "trap" || event.source.kind === "unit" ? STYLE.tick : event.tier >= 3 ? STYLE.crit : STYLE.normal;
               // A finishing word shows its strength: lock protection or a trap may have left the foe at 1 HP (test pass 27/10: "HOÀN HẢO 1").
               number(target.serial, point, event.damageType === "word" && event.source.kind === "hero" && event.power !== undefined ? event.power : event.amount, event.tier, style);
@@ -1882,7 +1750,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
               at.set(event.x, heightAt(event.x, event.z) + 1, event.z);
               core.impact(at, 1, 0, 1, false);
             }
-            blow(event.tier, now);
+            // Sky Fire's hit stop and shake come once with its impact (T3, 05 §5), not once a victim.
+            if (event.by !== "skyfire") blow(event.tier, now);
             break;
           }
           case "death": {
@@ -1908,7 +1777,10 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             else if (event.skill === "roar" && (event.stage === "cast" || event.stage === "impact")) core.roar(0, 0);
             else if (event.skill === "inferno" && event.stage === "cast") core.inferno(from);
             else if (event.skill === "inferno" && event.stage === "end") core.bomb(event.x, event.z, HERO_SKILLS.inferno.finaleRadiusMm / 1000, 8);
-            if (event.stage === "cast" || event.stage === "impact") blow(event.skill === "roar" ? 4 : event.skill === "inferno" ? 5 : 3, now);
+            // Sky Fire's cast is its charge (A): the hit stop and the shake come with its impact (I), not on the key.
+            if (event.skill === "skyfire") {
+              if (event.stage === "impact") blow(3, now);
+            } else if (event.stage === "cast" || event.stage === "impact") blow(event.skill === "roar" ? 4 : event.skill === "inferno" ? 5 : 3, now);
             break;
           }
           case "trap-trigger": {
@@ -1979,6 +1851,23 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
         core.released = 0;
         lastRelease = { at: performance.now() };
       }
+      if (core.sky.castsDrawn > 0) {
+        core.sky.castsDrawn = 0;
+        lastCast = { at: performance.now() };
+      }
+      fovAge += info.dt;
+      if (core.sky.releases > 0) {
+        core.sky.releases = 0;
+        // R: a kick along the launch on screen and the FOV push; never under reduced motion (§3.8).
+        if (!core.reduced) {
+          if (options.kick) {
+            stage.project(core.sky.cueFrom.x, core.sky.cueFrom.y, core.sky.cueFrom.z, kickFrom);
+            stage.project(core.sky.cueTo.x, core.sky.cueTo.y, core.sky.cueTo.z, kickTo);
+            options.kick(kickTo.x - kickFrom.x, kickTo.y - kickFrom.y, SKY_KICK_PX);
+          }
+          fovAge = 0;
+        }
+      }
       stage.renderer.getSize(size);
       trauma.update(info.dt, size.y);
       if (options.shake) {
@@ -2000,6 +1889,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     },
 
     dispose(): void {
+      stage.scene.onBeforeRender = previousBefore;
+      stage.scene.onAfterRender = previousAfter;
       core.dispose();
       sprites?.dispose();
       canvas.style.transform = "";

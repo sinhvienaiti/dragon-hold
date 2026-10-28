@@ -81,6 +81,8 @@ export const FIRE_STRIKE = { attackL: FIRE_CLIPS.attackL + "_Strike", attackR: F
  */
 const COIL = { neck: 0.2, head: 0.13, chest: -0.08 } as const;
 const HEAD_KICK = { rad: 0.16, peakS: 0.06 } as const;
+/** Sky Fire (VFX_STANDARD §5.3 part 2): the head jerks up at the release, 12 frames into the Cast clip (skyfire.ts SKY_FX.releaseS), harder than a word's. */
+const SKYFIRE_KICK = { delayS: 12 / 60, gain: 1.6 } as const;
 /** A word left half typed holds its coil this long (s), then lets go. */
 const COIL_HOLD_S = 1.4;
 /** Wing ribbons on FX_WING_L/R/L2/R2: points (one a frame), half-width (m), how long they burn after an attack (s). */
@@ -422,7 +424,8 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     coil += (coilTarget - coil) * (1 - Math.exp(-dt * 16));
     const t = kickAge;
     kickAge += dt;
-    const kick = Number.isFinite(t) ? HEAD_KICK.rad * kickGain * (t / HEAD_KICK.peakS) * Math.exp(1 - t / HEAD_KICK.peakS) : 0;
+    // A kick may be booked ahead (negative age: Sky Fire's release comes 12 frames after its cast).
+    const kick = Number.isFinite(t) && t >= 0 ? HEAD_KICK.rad * kickGain * (t / HEAD_KICK.peakS) * Math.exp(1 - t / HEAD_KICK.peakS) : 0;
     if (coil < 0.002 && Math.abs(kick) < 0.002) return;
     bones.neck?.rotateX(COIL.neck * coil + kick * 0.4);
     bones.head?.rotateX(COIL.head * coil + kick);
@@ -554,7 +557,12 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
             if (event.stage !== "cast") break;
             face(event.x, event.z);
             if (event.skill === "breath") play("attackBoth");
-            else if (event.skill === "skyfire" || event.skill === "inferno") play("cast");
+            else if (event.skill === "skyfire") {
+              play("cast");
+              // R: the head jerks up as the fireball leaves the mouth (L18).
+              kickAge = -SKYFIRE_KICK.delayS;
+              kickGain = SKYFIRE_KICK.gain;
+            } else if (event.skill === "inferno") play("cast");
             else if (event.skill === "roar") {
               boostUntil = time + 0.9;
               guideAct("flap");
