@@ -58,7 +58,31 @@ void main() {
   gl_FragColor = vec4(color, body * wisps * vAlpha * uIntensity * 0.75);
 }`;
 
-export type StreakLook = "flame" | "smoke";
+/**
+ * A fire ribbon in normal blend (L1; round 4: the additive flame read pale cream on sunlit grass): a noise-torn body,
+ * orange-gold along its hot middle near the head, red-orange out to a dark-red edge, gaps opening toward the tail.
+ */
+const FIRE_RIBBON_FRAGMENT = /* glsl */ `
+uniform float uTime;
+uniform float uSeed;
+uniform float uIntensity;
+varying float vAlong;
+varying float vSide;
+varying float vAlpha;
+${VFX_NOISE_GLSL}
+void main() {
+  float across = abs(vSide);
+  float n = vxFbm(vec2(vAlong * 8.0 - uTime * 5.5 + uSeed, vSide * 2.2 + uTime * 1.3));
+  float body = 1.0 - smoothstep(0.4, 1.0, across + (n - 0.5) * 0.9 + vAlong * 0.2);
+  float heat = (1.0 - across * 0.8) * (1.0 - vAlong * 0.75) * (0.55 + n * 0.65);
+  // Red-orange, gold only in a thin hot line near the head (the ramp's orange is pale peach once tone mapped).
+  vec3 c = vxFire(min(heat * 0.62, 0.6));
+  c = mix(c, vec3(0.16, 0.02, 0.005), smoothstep(0.5, 0.92, across + (n - 0.5) * 0.35) * 0.85);
+  float a = clamp(body * 1.3, 0.0, 1.0) * vAlpha * uIntensity * smoothstep(0.12, 0.5, n + 0.5 * (1.0 - vAlong));
+  gl_FragColor = vec4(c, clamp(a, 0.0, 1.0));
+}`;
+
+export type StreakLook = "flame" | "smoke" | "fire";
 
 /**
  * A ribbon through points the caller lays along a flight (head first, so it bends with the arc however fast the head
@@ -99,7 +123,7 @@ export class Streak {
     const material = new THREE.ShaderMaterial({
       uniforms: { uTime: { value: 0 }, uSeed: { value: seed }, uIntensity: { value: 1 } },
       vertexShader: FLAME_VERTEX,
-      fragmentShader: flame ? FLAME_FRAGMENT : SMOKE_FRAGMENT,
+      fragmentShader: flame ? FLAME_FRAGMENT : look === "fire" ? FIRE_RIBBON_FRAGMENT : SMOKE_FRAGMENT,
       transparent: true,
       depthWrite: false,
       blending: flame ? THREE.AdditiveBlending : THREE.NormalBlending,
@@ -110,7 +134,7 @@ export class Streak {
     // After the river (view/water.ts, transparent at order 2): at the same order the sort could draw the water
     // over the fire wherever the bolt crossed it on screen (28/10 capture: the ribbon went out over the river).
     // The smoke goes just before the fire.
-    this.mesh.renderOrder = flame ? FX_RIBBON_ORDER : FX_RIBBON_ORDER - 0.1;
+    this.mesh.renderOrder = look === "smoke" ? FX_RIBBON_ORDER - 0.1 : FX_RIBBON_ORDER;
     this.mesh.visible = false;
   }
 
@@ -119,7 +143,8 @@ export class Streak {
     this.mesh.visible = intensity > 0.001;
     if (!this.mesh.visible) return;
     const n = this.count;
-    const flame = this.look === "flame";
+    // Fire and flame share the shape: a swell just behind the head, then a long taper.
+    const flame = this.look !== "smoke";
     for (let i = 0; i < n; i += 1) {
       const point = this.points[i]!;
       this.tangent.subVectors(this.points[Math.max(0, i - 1)]!, this.points[Math.min(n - 1, i + 1)]!);
@@ -138,7 +163,8 @@ export class Streak {
       this.position[o + 3] = point.x + this.side.x;
       this.position[o + 4] = point.y + this.side.y;
       this.position[o + 5] = point.z + this.side.z;
-      const alpha = flame ? (1 - k) ** 1.1 : Math.min(1, k / 0.18) * (1 - k) ** 0.9;
+      // Fire holds its alpha further back (a trail seen over most of the flight); smoke comes in behind the head.
+      const alpha = this.look === "fire" ? (1 - k) ** 0.7 : flame ? (1 - k) ** 1.1 : Math.min(1, k / 0.18) * (1 - k) ** 0.9;
       this.alpha[i * 2] = alpha;
       this.alpha[i * 2 + 1] = alpha;
     }
@@ -198,7 +224,7 @@ void main() {
   // only at the mouth.
   float erode = n * 1.05 + tongues * 0.5 - along * 1.0 - uAge * 1.1 + 0.3;
   float body = smoothstep(0.0, 0.16, erode) * (0.35 + 0.65 * pow(facing, 0.7));
-  float heat = clamp(((1.0 - along * 0.85) * (0.45 + n * 0.7)) * 0.85 - uAge * 0.4, 0.0, 1.0);
+  float heat = clamp(((1.0 - along * 0.85) * (0.45 + n * 0.7)) * 0.62 - uAge * 0.35, 0.0, 1.0);
   gl_FragColor = vec4(vxFire(heat) * (1.0 + heat * 0.5), body * uAlpha);
 }`;
 

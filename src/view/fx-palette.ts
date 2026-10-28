@@ -25,6 +25,8 @@ export const FX_COLORS = {
   teal: new THREE.Color("#7ff5e0"),
   ember: new THREE.Color("#ff7a32"),
   smoke: new THREE.Color("#5a5650"),
+  /** Light grey smoke over a word hit: it reads on dusk grass, where soot does not. */
+  ash: new THREE.Color("#8a847c"),
   /** Soot: the dark puffs of a word bolt's impact (§3.5 rule 4, dark behind the bright). */
   soot: new THREE.Color("#2e2723"),
   dust: new THREE.Color("#a89272"),

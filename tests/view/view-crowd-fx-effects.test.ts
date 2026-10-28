@@ -272,8 +272,9 @@ describe("view fx", () => {
       for (let k = 0; k < Math.round(seconds * 60); k += 1) core.update(1 / 60, 1, eye, 600);
       return alpha();
     };
-    expect(at(0.2)).toBeCloseTo(0.92, 3);
-    expect(at(1.2)).toBeCloseTo(0.92, 3);
+    // Round 4: the black-brown char is near opaque (0.96).
+    expect(at(0.2)).toBeCloseTo(0.96, 3);
+    expect(at(1.2)).toBeCloseTo(0.96, 3);
     const late = at(0.6);
     expect(late).toBeGreaterThan(0.2);
     expect(late).toBeLessThan(0.8);
