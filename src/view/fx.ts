@@ -93,8 +93,8 @@ const BOLT_WAIT = 0.35;
 /** A landed bolt's ribbon tail runs into the impact in 8 frames. */
 const BOLT_TAIL_S = 8 / 60;
 /**
- * A bolt's head and ribbon come up over its first frames, inside the release flash: nothing on frame 0 (the flash's
- * peak; round 3: a strong word's teal head at ⅓ on frame 0 doubled the white core), ½ on frame 1, full from frame 2.
+ * A bolt's head and ribbon come up over its first frames, out of the release jet: nothing on frames 0–1 (the jet's
+ * peak; round 3: a strong word's teal head at ⅓ on frame 0 doubled the white core), ½ on frame 2, full from frame 3.
  */
 const BOLT_BORN_S = 2 / 60;
 const MAX_BOLTS = 16;
@@ -1634,8 +1634,9 @@ export class FxCore {
       // bolt's own curve over up to 65 % of the flight, a thin dark smoke strand behind it, embers falling along it.
       const span = Math.min(bolt.t, BOLT_TRAIL_SPAN);
       for (let i = 0; i < n; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (n - 1), bolt.trail.points[i]!);
-      // Born inside the release: the head and ribbon come up after its frame 0 (f1 ½, f2 full).
-      const born = Math.min(1, Math.max(0, bolt.t * bolt.duration - 1 / 60 + 1e-6) / BOLT_BORN_S);
+      // Born out of the jet: the head and ribbon come up after its 2 full frames (f2 ½, f3 full), so frame 0 stays the
+      // peak at the mouth (vfx-sheet's ring at the close-up read f1 over f0 by 6–7 % when the head came in on f1).
+      const born = Math.min(1, Math.max(0, bolt.t * bolt.duration - 2 / 60 + 1e-6) / BOLT_BORN_S);
       bolt.trail.update(cameraPos, width, bolt.t < 1 ? born : Math.max(0, 1 - bolt.waited * 6), time);
       this.smokeStrand(bolt, bolt.t, cameraPos, time, bolt.t < 1 ? born : 1);
       if (bolt.t < 1) {
