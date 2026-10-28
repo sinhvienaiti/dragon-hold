@@ -14,6 +14,7 @@
  * Owner: map spike.
  */
 import type { MapDef, Vec2 } from "../content/types";
+import { sceneFor, type SceneAnchor, type SceneCliff, type SceneFootpath, type ScenePond, type SceneSpec } from "./maps/scene";
 import { catmullRom, extendLine, hash2, Polyline, valueNoise, type Nearest } from "./terrain";
 
 // ── Rules and their parameters (metres, degrees: bearing 0 = north (−z), 90 = east) ──
@@ -36,16 +37,8 @@ export const LAYOUT_RULES = {
     /** Water this far under the dry ground at the centre. */
     levelBelowM: 0.3,
   },
-  /** L2: one cliff mark in the outer skirt that frames one side (authored line, profile by rule). */
+  /** L2: cliff marks in the outer skirt that frame one side (line and height pinned in the map's scene spec, profile by rule). */
   cliff: {
-    line: [
-      [-19, -40],
-      [-28, -33],
-      [-35.5, -22],
-      [-39, -10],
-      [-40, 0],
-    ] as readonly Vec2[],
-    heightM: 9,
     /** Share of the height reached at the first ledge (two-step stylised face). */
     ledge: 0.72,
     /** Signed offset (m, + away from the dais): the face rises from faceFromM to faceToM, the top runs to plateauM, then falls over backM. */
@@ -79,18 +72,14 @@ export const LAYOUT_RULES = {
     iterations: 10,
     /** Edge anchors sit this far past the play radius. */
     edgeOutM: 6,
-    /**
-     * Each route bows off its chord: a quadratic Bézier whose control point is
-     * the chord midpoint moved along the chord normal by bend × length (signed:
-     * + to the left of from→to). Small wobble rides on top.
+    /** A `cliff` anchor stops this far in front of the face foot (on the scree). */
+    cliffStopM: 4,
+    /*
+     * Routes come from the scene spec. Each bows off its chord: a quadratic
+     * Bézier whose control point is the chord midpoint moved along the chord
+     * normal by bend × length (signed: + to the left of from→to). Small wobble
+     * rides on top.
      */
-    routes: [
-      { id: "fp-pond", from: { dais: "pond" }, to: { pond: true }, bend: 0.1 },
-      { id: "fp-west", from: { path: "fp-pond", at: 0.45 }, to: { river: 236 }, bend: -0.14 },
-      { id: "fp-south", from: { pond: 218 }, to: { edge: 196 }, bend: 0.16 },
-      { id: "fp-east", from: { pond: 84 }, to: { edge: 116 }, bend: -0.18 },
-      { id: "fp-north", from: { edge: 324 }, to: { edge: 283 }, bend: 0.3 },
-    ] as readonly FootpathRoute[],
   },
   /** L6: groves (cluster centres, then trees inside), replacing the even scatter inside the play area. */
   groves: {
@@ -162,20 +151,8 @@ export const LAYOUT_RULES = {
   },
 } as const;
 
-export type FootpathAnchor =
-  | { readonly dais: number | "pond" }
-  | { readonly edge: number }
-  | { readonly pond: true | number }
-  | { readonly river: number }
-  | { readonly path: string; readonly at: number };
-
-export interface FootpathRoute {
-  readonly id: string;
-  readonly from: FootpathAnchor;
-  readonly to: FootpathAnchor;
-  /** Bow of the route as a share of its chord length (+ left of from→to). */
-  readonly bend: number;
-}
+export type FootpathAnchor = SceneAnchor;
+export type FootpathRoute = SceneFootpath;
 
 // ── Output ─────────────────────────────────────────────────────────────────
 
@@ -365,10 +342,10 @@ const TINTS: readonly (readonly [number, number, number])[] = [
 
 // ── L3 pond ────────────────────────────────────────────────────────────────
 
-function sitePond(f: LayoutFields, seed: number): Pond | null {
+function sitePond(f: LayoutFields, seed: number, pinned: ScenePond | null): Pond | null {
   const P = LAYOUT_RULES.pond;
-  let best: { x: number; z: number; score: number } | null = null;
-  const reach = P.ringM[1];
+  let best: { x: number; z: number; score: number } | null = pinned ? { x: pinned.at[0], z: pinned.at[1], score: 0 } : null;
+  const reach = pinned ? -1 : P.ringM[1];
   for (let z = -reach; z <= reach; z += P.gridM) {
     for (let x = -reach; x <= reach; x += P.gridM) {
       const r = f.r(x + f.cx, z + f.cz);
@@ -433,9 +410,9 @@ function sitePond(f: LayoutFields, seed: number): Pond | null {
 
 // ── L2 cliff mark ─────────────────────────────────────────────────────────
 
-function buildCliff(f: LayoutFields, seed: number): Cliff {
-  const C = LAYOUT_RULES.cliff;
-  const line = new Polyline(catmullRom(C.line, 1).points);
+function buildCliff(f: LayoutFields, seed: number, spec: SceneCliff): Cliff {
+  const C = { ...LAYOUT_RULES.cliff, heightM: spec.heightM };
+  const line = new Polyline(catmullRom(spec.line, 1).points);
   const hit: Nearest = { dist: 0, along: 0, x: 0, z: 0 };
   const offset = (x: number, z: number): { s: number; cap: number; along: number } => {
     line.nearest(x, z, hit);
@@ -464,12 +441,12 @@ function buildCliff(f: LayoutFields, seed: number): Cliff {
 
 // ── L4 footpaths ──────────────────────────────────────────────────────────
 
-function routeFootpaths(f: LayoutFields, pond: Pond | null, seed: number): Footpath[] {
+function routeFootpaths(f: LayoutFields, pond: Pond | null, cliff: Cliff | null, seed: number, routes: readonly SceneFootpath[]): Footpath[] {
   const F = LAYOUT_RULES.footpaths;
   const paths: Footpath[] = [];
   const plazaR = f.map.dais.radiusM + 2.4;
 
-  const resolve = (anchor: FootpathAnchor, toward: Vec2 | null): { p: Vec2; kind: "plaza" | "edge" | "pond" | "river" | "junction" } | null => {
+  const resolve = (anchor: FootpathAnchor, toward: Vec2 | null): { p: Vec2; kind: "plaza" | "edge" | "pond" | "river" | "junction" | "cliff" | "point" } | null => {
     if ("dais" in anchor) {
       let dx: number;
       let dz: number;
@@ -512,13 +489,26 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, seed: number): Footp
       }
       return null;
     }
+    if ("cliff" in anchor) {
+      // The scree in front of the cliff foot toward a bearing (a rock field is the path's destination).
+      if (!cliff) return null;
+      const [dx, dz] = LayoutFields.dir(anchor.cliff);
+      for (let t = 10; t < 70; t += 0.25) {
+        const x = f.cx + dx * t;
+        const z = f.cz + dz * t;
+        const o = cliff.offset(x, z);
+        if (o.cap > 0.3 && o.s > -LAYOUT_RULES.footpaths.cliffStopM) return { p: [x, z], kind: "cliff" };
+      }
+      return null;
+    }
+    if ("point" in anchor) return { p: [anchor.point[0], anchor.point[1]], kind: "point" };
     const other = paths.find((path) => path.id === anchor.path);
     if (!other) return null;
     const point = other.line.pointAt(other.line.length * anchor.at);
     return { p: [point.x, point.z], kind: "junction" };
   };
 
-  F.routes.forEach((route, routeIndex) => {
+  routes.forEach((route, routeIndex) => {
     const fromFirst = "pond" in route.from && route.from.pond === true ? null : resolve(route.from, null);
     const to = resolve(route.to, fromFirst?.p ?? null);
     const from = fromFirst ?? (to ? resolve(route.from, to.p) : null);
@@ -619,12 +609,13 @@ function treeCap(f: LayoutFields, x: number, z: number): number {
   return Math.min(G.capMax, G.capA + G.capB * Math.max(0, f.r(x, z) - 10));
 }
 
-export function buildLayout(map: MapDef): MapLayout {
+export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)): MapLayout {
   const f = new LayoutFields(map);
   const seed = map.terrain.seed ^ 0x6d61;
-  const pond = sitePond(f, seed);
-  const cliff = buildCliff(f, seed);
-  const footpaths = routeFootpaths(f, pond, seed);
+  const pond = sitePond(f, seed, scene?.ponds[0] ?? null);
+  const cliffSpec = scene?.cliffs[0];
+  const cliff = cliffSpec ? buildCliff(f, seed, cliffSpec) : null;
+  const footpaths = routeFootpaths(f, pond, cliff, seed, scene?.footpaths ?? []);
   const pathHit: Nearest = { dist: 0, along: 0, x: 0, z: 0 };
   const pathGap = (x: number, z: number): number => {
     let best = 99;
@@ -643,7 +634,13 @@ export function buildLayout(map: MapDef): MapLayout {
   // Groves.
   const G = LAYOUT_RULES.groves;
   const groves: Grove[] = [];
-  for (const c of candidates(f, G.cellM, G.ringM[1], RULE.grove, seed)) {
+  // Pinned groves (scene spec): centre and radius as authored, the violet rule as ever.
+  for (const pin of scene?.groves ?? []) {
+    const [x, z] = pin.at;
+    const violet = Math.min(f.laneGap(x, z), f.skyDist(x, z)) - pin.radiusM >= G.violetLaneM;
+    groves.push({ id: pin.id, x, z, radius: pin.radiusM, violet });
+  }
+  for (const c of scene && scene.groves.length > 0 ? [] : candidates(f, G.cellM, G.ringM[1], RULE.grove, seed)) {
     if (groves.length >= G.countMax) break;
     const r = f.r(c.x, c.z);
     if (r < G.ringM[0] || r > G.ringM[1]) continue;
@@ -846,7 +843,7 @@ export function buildLayout(map: MapDef): MapLayout {
     }
   }
   // Boulders and slabs along the cliff foot.
-  {
+  if (cliff) {
     const C = LAYOUT_RULES.cliff;
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
     let index = 0;
@@ -943,7 +940,7 @@ export function buildLayout(map: MapDef): MapLayout {
     }
   });
   // Scree at the cliff foot.
-  {
+  if (cliff) {
     const point = { x: 0, z: 0, dx: 0, dz: 1 };
     let index = 0;
     for (let s = 3; s < cliff.line.length - 3; s += 2.6, index += 1) {

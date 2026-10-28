@@ -12,6 +12,7 @@ import * as THREE from "three";
 import type { Quality } from "../app/contracts";
 import type { MapDef, Vec2 } from "../content/types";
 import { buildLayout, type MapLayout } from "./layout";
+import { sceneFor, sunVector } from "./maps/scene";
 import { buildGroundPaint, spikeSwitch, type GroundPaint } from "./paint";
 
 // ── Noise and seeded random (view only: deterministic per map, not sim) ─────
@@ -239,6 +240,14 @@ const MAX_SKY_SEGMENTS = 8;
 /** Sun from the south-west, ~48° up: shadows fall to the north-east, away from the default camera. */
 export const SUN_DIRECTION = new THREE.Vector3(-0.55, 1.05, 0.62).normalize();
 
+/** The map's sun (scene spec lighting), else SUN_DIRECTION. Unit vector toward the sun. */
+export function sunDirection(map: MapDef): THREE.Vector3 {
+  const scene = sceneFor(map);
+  if (!scene) return SUN_DIRECTION.clone();
+  const [x, y, z] = sunVector(scene.lighting);
+  return new THREE.Vector3(x, y, z).normalize();
+}
+
 export function createPaintLook(map: MapDef): PaintLook {
   const play = map.terrain.playRadiusM;
   const cool = new THREE.Color("#a3b6d6");
@@ -284,7 +293,7 @@ export function createPaintLook(map: MapDef): PaintLook {
       uFogFar: { value: play + 62 },
       uFogCool: { value: cool },
       uFogWarm: { value: warm },
-      uSunDir: { value: SUN_DIRECTION.clone() },
+      uSunDir: { value: sunDirection(map) },
       uSunColor: { value: new THREE.Color("#fff0d2") },
       uRimColor: { value: new THREE.Color("#ffe9c4") },
     },

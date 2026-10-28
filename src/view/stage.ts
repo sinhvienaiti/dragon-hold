@@ -27,7 +27,7 @@ import { BRIDGE_MODEL, PROP_SPECS } from "./model-specs";
 import { loadCrowdModels, type CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
 import { buildScatter, type ScatterView } from "./scatter";
-import { buildTerrain, SUN_DIRECTION, type PaintedTerrain } from "./terrain";
+import { buildTerrain, SUN_DIRECTION, sunDirection, type PaintedTerrain } from "./terrain";
 import { buildWater, type WaterView } from "./water";
 
 export interface StageLayers {
@@ -351,6 +351,8 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   const paths = buildPaths(map, terrain);
   const scatter = buildScatter(map, terrain, quality);
   stage.layers.ground.add(terrain.group, water.group, paths.group, scatter.group);
+  // The map's light (scene spec): the key sun moves to the map's bearing and elevation.
+  stage.lights.key.position.copy(sunDirection(map)).multiplyScalar(140);
   stage.scene.background = terrain.look.mist.clone();
   stage.renderer.setClearColor(terrain.look.mist, 1);
   (stage.scene.fog as THREE.Fog).color.copy(terrain.look.mist);
