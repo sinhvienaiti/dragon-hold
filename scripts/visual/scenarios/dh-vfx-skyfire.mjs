@@ -90,10 +90,12 @@ async function cropBox(page, foe, w, h) {
   const apex = await page.eval("window.__dh.project(" + foe.x / 2 + ", 9, " + foe.z / 2 + ")");
   const s = h / 720;
   const pad = 80 * s;
-  let x0 = Math.min(a.x, b.x, apex.x) - pad;
-  let x1 = Math.max(a.x, b.x, apex.x) + pad;
-  let y0 = Math.min(a.y, b.y, apex.y) - pad;
-  let y1 = Math.max(a.y, b.y, apex.y) + pad * 0.8;
+  // A point the camera cannot project (the apex behind the close-up's near plane) is left out.
+  const pts = [a, b, apex].filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  let x0 = Math.min(...pts.map((p) => p.x)) - pad;
+  let x1 = Math.max(...pts.map((p) => p.x)) + pad;
+  let y0 = Math.min(...pts.map((p) => p.y)) - pad;
+  let y1 = Math.max(...pts.map((p) => p.y)) + pad * 0.8;
   let cw = Math.max(x1 - x0, 420 * s);
   let ch = Math.max(y1 - y0, 236 * s);
   if (cw / ch < 16 / 9) cw = (ch * 16) / 9;
@@ -126,7 +128,7 @@ async function capture(page, [w, h], cam, ground) {
   mkdirSync(dir, { recursive: true });
   const opened = await open(page, w, h, ground);
   const picked = await pickTarget(page);
-  if (!picked) return { dir, error: "no foe in the word zone", opened };
+  if (!picked || picked.evalError) return { dir, error: "no foe in the word zone", opened };
   const view = await aim(page, cam, picked);
   const crop = await cropBox(page, picked, w, h);
   const frames = [];
@@ -315,7 +317,9 @@ export default async function (page) {
     for (const size of SIZES) {
       for (const cam of CAMS) {
         for (const ground of GROUNDS) {
-          const run = await capture(page, size, cam, ground);
+          // One retry: a page that was not ready (the game's handle missing under a loaded machine) gives no target.
+          let run = await capture(page, size, cam, ground);
+          if (run.error || !(run.crop?.w > 0)) run = await capture(page, size, cam, ground);
           if (run.error) {
             report.runs.push({ size: size.join("x"), cam, ground, error: run.error });
             continue;

@@ -164,7 +164,8 @@ export class SkyFire {
     this.rune = new RuneCircle(textures().runes);
     this.group.add(this.cones.group, this.domes.group, this.streaks.mesh, this.rocks.mesh, this.shards.mesh, this.fissures.group, this.rune.mesh);
     for (let i = 0; i < slots; i += 1) {
-      const flame = new Streak(24, 40 + i * 2.3, "flame");
+      // Normal-blended fire (round 4 word-attack lesson: additive flame reads pale cream on sunlit grass).
+      const flame = new Streak(24, 40 + i * 2.3, "fire");
       const smoke = new Streak(20, 70 + i * 1.9, "smoke");
       this.group.add(smoke.mesh, flame.mesh);
       this.casts.push({
@@ -347,9 +348,12 @@ export class SkyFire {
     // body (normal blend) that gives it an edge on the sunlit dais (§3.5 rule 4); drawn nearer the eye than the head.
     // Round 3 (word attack lesson, judge 1a: additive gold over beige stone reads cream): the colour is a normal-blended
     // fire ball (gold, red-orange, a dark-red rim); white is only a small core (≤ 30 % of the radius, §3.5 rule 3).
-    host.puffs.spawn(at.x, at.y - 0.05, at.z, 3.6 * k * big, 8 / 60, FX_COLORS.releaseBall, 0.97, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.25, rot: host.random() * TAU, shape: PUFF_FIRE });
+    // Out along the launch, not on the head (judge 3 on the word attack: a ball over both dragons).
+    this.s.copy(at).addScaledVector(dir, 1.5 * k);
+    host.puffs.spawn(this.s.x, this.s.y - 0.05, this.s.z, 3.0 * k * big, 8 / 60, FX_COLORS.releaseBall, 0.97, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.25, rot: host.random() * TAU, shape: PUFF_FIRE });
     const lift = 1.1 * k;
-    host.flares.flare(at, 1.1 * k * big, FX_COLORS.flashCore, 2.4 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.2, 1, lift);
+    // The white core sits at the mouth for 1 frame only.
+    host.flares.flare(at, 1.0 * k * big, FX_COLORS.flashCore, 2.4 * soft, SKY_FX.flashS, 1 / 60, 0.2, 1, lift);
     host.flares.flare(at, 2.0 * k * big, FX_COLORS.fireHot, 1.0 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.25, 1, lift);
     // L13: a short cone of fire at the mouth along the flight (8–12 frames).
     this.cones.cone(at, dir, 2.9 * k * big, 1.05 * k * big, SKY_FX.coneS, SKY_FX.flashHoldS, host.reduced ? 0.6 : 1);
