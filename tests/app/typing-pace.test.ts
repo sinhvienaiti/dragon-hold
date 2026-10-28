@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PACE_CURRENT_KEY, PACE_PICK_KEY, PACE_PRESETS, PaceMeter, clampWpm, measuredHeader, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceStorage } from "../../src/app/typing-pace";
-import type { SimEvent, WordGroup } from "../../src/content/types";
+import { PACE_CURRENT_KEY, PACE_PICK_KEY, PACE_PRESETS, PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceStorage } from "../../src/app/typing-pace";
+import type { Difficulty, SimEvent, WordGroup } from "../../src/content/types";
 
 /** A storage over a Map, as kit/platform's SafeStorage answers. */
 function memoryStorage(): PaceStorage & { map: Map<string, string> } {
@@ -23,6 +23,14 @@ function typedWords(wpm: number, words: number, groups: readonly WordGroup[] = [
 }
 
 describe("typing pace", () => {
+  it.each([15, 20, 25].flatMap((wpm) =>
+    (["normal", "easy", "hard"] as const).flatMap((difficulty: Difficulty) =>
+      [false, true].map((fromMenu) => ({ wpm, difficulty, fromMenu })),
+    ),
+  ))("offers Easy at $wpm WPM, $difficulty, fromMenu=$fromMenu only for beginners before a Normal stage", ({ wpm, difficulty, fromMenu }) => {
+    expect(offerEasy(wpm, difficulty, fromMenu)).toBe(wpm <= 20 && difficulty === "normal" && !fromMenu);
+  });
+
   it("keeps the world's speed a whole WPM in 10–120", () => {
     expect(clampWpm(undefined)).toBeUndefined();
     expect(clampWpm(Number.NaN)).toBeUndefined();
@@ -92,9 +100,9 @@ describe("typing pace", () => {
     const row = url70.options[url70.selected]!;
     expect(row.key).toBe(PACE_CURRENT_KEY);
     expect(row.header).toEqual({ typistWpm: 70, source: "url" });
-    expect(row.label).toBe("Đang dùng: 70 WPM");
+    expect(row.label).toBe("In use: 70 WPM");
     expect(url70.options).toHaveLength(PACE_PRESETS.length + 1);
-    expect(paceLabel({ typistWpm: 70, source: "url" })).toBe("70 WPM (cổng game đặt)");
+    expect(paceLabel({ typistWpm: 70, source: "url" })).toBe("70 WPM (portal preset)");
     // A 75 WPM row for fast typists (test pass 26/10).
     expect(PACE_PRESETS.map((preset) => preset.wpm)).toContain(75);
   });

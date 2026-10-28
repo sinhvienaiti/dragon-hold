@@ -52,7 +52,7 @@ import { createInputRouter, type InputRouter, type KeyPanel } from "./input-rout
 import { createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
-import { PaceMeter, clampWpm, measuredHeader, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
+import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
 
 export interface App {
   dispose(): void;
@@ -83,7 +83,7 @@ const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
 const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
 /** One level easier (00 §4.10), and the levels' names (00 §4.10 table). */
 const EASIER: Readonly<Record<Difficulty, Difficulty | null>> = { hard: "normal", normal: "easy", easy: null };
-const DIFFICULTY_VI: Readonly<Record<Difficulty, string>> = { easy: "Dễ", normal: "Thường", hard: "Khó" };
+const DIFFICULTY_VI: Readonly<Record<Difficulty, string>> = { easy: "Easy", normal: "Normal", hard: "Hard" };
 /** Countdown after a pause in a wave (06 §2 rule 4). */
 const COUNTDOWN_MS = 3000;
 /** How often the UI rectangles damage numbers keep off are read (fx.numbers.protected). */
@@ -230,7 +230,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   if (!overlay || !canvasHost) throw new Error("app: #dh-overlay or #dh-canvas missing from index.html");
   overlay.replaceChildren();
 
-  const notice = el(doc, "div", "dh-boot", "Rồng Giữ Ải · " + stage.nameVi + " · đang nạp từ…");
+  const notice = el(doc, "div", "dh-boot", "Dragonhold · " + stage.nameVi + " · loading words…");
   overlay.append(notice);
 
   const foundMap = MAPS[stage.mapId];
@@ -285,10 +285,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const menu = el(doc, "section", "dh-panel dh-pausemenu");
   menu.dataset.dhAvoid = "";
   menu.setAttribute("role", "dialog");
-  menu.setAttribute("aria-label", "Tạm dừng");
+  menu.setAttribute("aria-label", "Paused");
   const menuItems: HTMLButtonElement[] = [];
-  const menuTitle = el(doc, "div", "dh-pausemenu__title", "Tạm dừng");
-  const menuKeys = el(doc, "div", "dh-pausemenu__keys", "↑ ↓ chọn · Enter chọn · Esc tiếp tục");
+  const menuTitle = el(doc, "div", "dh-pausemenu__title", "Paused");
+  const menuKeys = el(doc, "div", "dh-pausemenu__keys", "↑ ↓ select · Enter confirm · Esc resume");
   setShown(menu, false);
   overlay.append(hurt, seep, lowEdge, notice2, ffBadge);
 
@@ -368,9 +368,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   // ── Pause menu ──
   const menuActions: { label: string; run(): void }[] = [
-    { label: "Tiếp tục", run: () => closeMenu() },
-    { label: "Chơi lại ải", run: () => { closeMenu(); restart(); } },
-    { label: "Tốc độ gõ", run: () => openPaceFromMenu() },
+    { label: "Resume", run: () => closeMenu() },
+    { label: "Replay", run: () => { closeMenu(); restart(); } },
+    { label: "Typing speed", run: () => openPaceFromMenu() },
   ];
   for (const [index, item] of menuActions.entries()) {
     const button = uiButton(doc, "dh-pausemenu__item", () => item.run());
@@ -392,7 +392,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const phase = run.world.phase;
     if (phase === "victory" || phase === "defeat") return;
     menuOpen = true;
-    paceItem.textContent = "Tốc độ gõ: " + paceLabel(run.header);
+    paceItem.textContent = "Typing speed: " + paceLabel(run.header);
     selectMenu(0);
     setShown(menu, true);
     loop?.setPaused(true);
@@ -404,15 +404,15 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
    * From the menu the speed in use is preselected (its own row when no
    * preset has it), so Enter on the card goes back to the game.
    */
-  function askPace(onPick: (picked: PaceHeader) => void, back?: () => void): void {
+  function askPace(onPick: (picked: PaceHeader, choice?: { easy: boolean }) => void, back?: () => void): void {
     const current = back ? run?.header : undefined;
     const { options: rows, selected } = paceOptions(readPaceMemory(safeLocalStorage), current);
-    const note = current ? "Chọn tốc độ khác thì ải chơi lại từ đầu." : undefined;
-    paceCard.open(rows, selected, (picked) => {
+    const note = current ? "A new speed restarts the stage." : undefined;
+    paceCard.open(rows, selected, (picked, choice) => {
       // Keeping the speed in use keeps its source: a ?wpm= stays the portal's.
       if (!(current && sameSpeed(picked, current))) rememberPick(safeLocalStorage, picked);
-      onPick(picked);
-    }, back, run?.header, note);
+      onPick(picked, choice);
+    }, back, run?.header, note, back ? undefined : (wpm) => offerEasy(wpm, difficulty, false));
   }
   /**
    * Pause menu → speed card: another WPM replays the stage with it; the same
@@ -432,7 +432,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         }
         header = picked;
         restart();
-        run?.hud.toast("Chơi lại ải với tốc độ " + paceLabel(picked));
+        run?.hud.toast("Replay at " + paceLabel(picked));
       },
       () => startCountdownIfWave(),
     );
@@ -457,7 +457,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     if (!run) return;
     if (inPlay()) {
       veilMode = "focus";
-      veilText.textContent = "Bấm hoặc gõ phím bất kỳ để tiếp";
+      veilText.textContent = "Click or press any key to resume";
       veil.classList.remove("is-soft");
       setShown(veil, true);
       countdownUntil = 0;
@@ -571,7 +571,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       onPause: openMenu,
       onCameraReset: () => map.rig.reset(),
       // The break clock stands still while a learning panel is open (00 §4.5): the HUD says so.
-      heldBy: () => (run?.review.isOpen ? "Thẻ Ôn" : run?.prelearn.isOpen ? "Học trước" : null),
+      heldBy: () => (run?.review.isOpen ? "Review" : run?.prelearn.isOpen ? "Preview" : null),
     });
     const waveCard = createWaveCard(overlay!, sink);
     // The card's "Quái sắp vào từ các đường sáng": the coming wave's lanes light on the map (26/10 review).
@@ -589,7 +589,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         difficulty = next;
         lossStreak = 0;
         restart();
-        run?.hud.toast("Chơi lại ải ở mức " + DIFFICULTY_VI[next]);
+        run?.hud.toast("Replay on " + DIFFICULTY_VI[next]);
       },
     });
     const hooks = {
@@ -744,9 +744,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   /** Why Alt + → is refused now, in the player's terms (test pass 27/10: the old line named words only). */
   function fastForwardRefusal(world: World): string {
-    if (world.phase !== "wave" && world.phase !== "warning") return "Tua nhanh chỉ dùng trong đợt và lúc nghỉ";
-    if (world.words.live.some((word) => word !== null)) return "Còn chữ trên quái: gõ hết rồi mới tua nhanh";
-    return "Quái đã vào Vùng Chữ, chữ sắp hiện: chưa tua nhanh được";
+    if (world.phase !== "wave" && world.phase !== "warning") return "Fast forward: waves and breaks only";
+    if (world.words.live.some((word) => word !== null)) return "Type all visible words before fast forwarding";
+    return "Foes in the Word Zone: wait for their words";
   }
 
   const fallback = (action: string): boolean => {
@@ -866,7 +866,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     lowEdge.classList.toggle("is-on", lowHp);
     // The notice over the learning frame: the IME first, then low HP with a potion ready.
     const potion = Object.values(world.shop.held).some((count) => count > 0) && world.tick >= world.shop.consumableReadyAt;
-    const noticeText = now < imeUntil ? "Hãy tắt bộ gõ tiếng Việt (Unikey, Telex) để gõ từ tiếng Anh" : lowHp && potion ? "Máu Hỏa Long thấp: " + keyLabel("consumable-1") + " uống Bình Máu" : "";
+    const noticeText = now < imeUntil ? "Turn off Vietnamese input (Unikey, Telex) to type English" : lowHp && potion ? "Hỏa Long low on HP: press " + keyLabel("consumable-1") + " for a Small Potion" : "";
     setShown(notice2, noticeText !== "" && !menuOpen && !paceCard.isOpen);
     if (notice2.textContent !== noticeText) notice2.textContent = noticeText;
     notice2.classList.toggle("is-ime", now < imeUntil);
@@ -918,7 +918,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     loop.start();
     if (!doc.hasFocus()) {
       veilMode = "soft";
-      veilText.textContent = "Bấm hoặc gõ phím bất kỳ để bắt đầu";
+      veilText.textContent = "Click or press any key to start";
       veil.classList.add("is-soft");
       setShown(veil, true);
     }
@@ -942,8 +942,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     });
     if (header !== null) begin();
     else
-      askPace((picked) => {
+      askPace((picked, choice) => {
         header = picked;
+        if (choice?.easy) difficulty = "easy";
         begin();
       });
   });

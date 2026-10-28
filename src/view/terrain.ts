@@ -11,6 +11,9 @@
 import * as THREE from "three";
 import type { Quality } from "../app/contracts";
 import type { MapDef, Vec2 } from "../content/types";
+import { buildLayout, type MapLayout } from "./layout";
+import { sceneFor, sunVector } from "./maps/scene";
+import { buildGroundPaint, mapSwitch, type GroundPaint } from "./paint";
 
 // ── Noise and seeded random (view only: deterministic per map, not sim) ─────
 
@@ -237,6 +240,14 @@ const MAX_SKY_SEGMENTS = 8;
 /** Sun from the south-west, ~48° up: shadows fall to the north-east, away from the default camera. */
 export const SUN_DIRECTION = new THREE.Vector3(-0.55, 1.05, 0.62).normalize();
 
+/** The map's sun (scene spec lighting), else SUN_DIRECTION. Unit vector toward the sun. */
+export function sunDirection(map: MapDef): THREE.Vector3 {
+  const scene = sceneFor(map);
+  if (!scene) return SUN_DIRECTION.clone();
+  const [x, y, z] = sunVector(scene.lighting);
+  return new THREE.Vector3(x, y, z).normalize();
+}
+
 export function createPaintLook(map: MapDef): PaintLook {
   const play = map.terrain.playRadiusM;
   const cool = new THREE.Color("#a3b6d6");
@@ -278,11 +289,11 @@ export function createPaintLook(map: MapDef): PaintLook {
     uniforms: {
       uTime: { value: 0 },
       uDhCentre: { value: new THREE.Vector2(map.dais.center[0], map.dais.center[1]) },
-      uFogNear: { value: play + 9 },
-      uFogFar: { value: play + 62 },
+      uFogNear: { value: sceneFor(map)?.lighting.fogNearM ?? play + 9 },
+      uFogFar: { value: sceneFor(map)?.lighting.fogFarM ?? play + 62 },
       uFogCool: { value: cool },
       uFogWarm: { value: warm },
-      uSunDir: { value: SUN_DIRECTION.clone() },
+      uSunDir: { value: sunDirection(map) },
       uSunColor: { value: new THREE.Color("#fff0d2") },
       uRimColor: { value: new THREE.Color("#ffe9c4") },
     },
@@ -353,6 +364,8 @@ export interface PaintOptions {
   readonly dither?: boolean;
   /** The geometry carries an `aDhMask` vec4 attribute (ground). */
   readonly mask?: boolean;
+  /** Mip bias of the colour map (map pilot: foliage reads as painted leaf masses, not leaf noise). */
+  readonly mapBias?: number;
 }
 
 const RAMP_GLSL = /* glsl */ `
@@ -461,6 +474,7 @@ export function paintMaterial<T extends THREE.MeshLambertMaterial>(material: T, 
         .replace("void main() {", DITHER_GLSL + "\nvoid main() {")
         .replace("#include <clipping_planes_fragment>", "#include <clipping_planes_fragment>\nif (dhHidesLane(vDhWorld) && dhBayer(gl_FragCoord.xy) > 0.35) discard;");
     }
+    if (options.mapBias) fragment = fragment.replace("#include <map_fragment>", THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, vMapUv, " + options.mapBias.toFixed(2) + " )"));
     if (options.paint) fragment = fragment.replace("#include <color_fragment>", "#include <color_fragment>\n{\n" + options.paint + "\n}\n");
     const rim = options.rim ?? 0;
     fragment = fragment.replace(
@@ -530,6 +544,12 @@ export interface HeightField {
   riverEdge(x: number, z: number): number;
   /** Forest density 0–1 (dense in the skirt, clumps inside the play area, none near the dais). */
   forest(x: number, z: number): number;
+  /** Map spike: the decorative layout (pond, cliff, footpaths, groves, rock lines, paint stamps). */
+  readonly layout: MapLayout;
+  /** Pond water level, metres (NaN without a pond). */
+  readonly pondLevel: number;
+  /** Time the layout took to build, ms. */
+  readonly layoutMs: number;
 }
 
 /** Trail painted past each gate into the forest (metres). */
@@ -581,6 +601,11 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
   const nx = xs.length;
   const nz = zs.length;
   const count = nx * nz;
+  const layoutStart = performance.now();
+  const layout = buildLayout(map);
+  const layoutMs = performance.now() - layoutStart;
+  const cliff = layout.cliff;
+  const pond = layout.pond;
 
   const low = (x: number, z: number): number => (fbm(x * 0.016 + 3.1, z * 0.016 - 1.7, seed, 3) - 0.5) * 2 * reliefM * 0.8;
   const detail = (x: number, z: number): number => (fbm(x * 0.065, z * 0.065, seed + 5, 3) - 0.5) * 2 * reliefM * 0.28;
@@ -645,12 +670,14 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
     const t = Math.min(1, Math.max(0, (along - line.cum[k]!) / Math.max(1e-9, line.cum[k + 1]! - line.cum[k]!)));
     return mix(widths[k]!, widths[k + 1]!, t);
   };
-  const riverEdge = (x: number, z: number): number => {
+  const riverOnly = (x: number, z: number): number => {
     if (!river) return 99;
     river.line.nearest(x, z, nearest, 40);
     if (!Number.isFinite(nearest.dist)) return 99;
     return nearest.dist - riverWidthAt(nearest.along) / 2;
   };
+  // The pond counts as water for every reader (banks, scatter clearances).
+  const riverEdge = (x: number, z: number): number => Math.min(riverOnly(x, z), pond ? pond.edge(x, z) : 99);
 
   const waterLevel = -0.55;
   const bankM = map.river?.bankM ?? 0.4;
@@ -664,7 +691,7 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
     const rim = rimAt(r);
     const lowH = low(x, z);
     const hillH = hills(x, z, rim);
-    let h = lowH + detail(x, z) + hillH;
+    let h = lowH + detail(x, z) + hillH + (cliff ? cliff.lift(x, z) : 0);
     if (laneDist < laneHalf + 2.4) h = mix(h, lowH + hillH - 0.07, smooth(laneHalf + 2.4, laneHalf + 0.15, laneDist));
     if (r < 10) h = mix(h, daisBase, smooth(9.5, 4.8, r));
     return h;
@@ -676,6 +703,9 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
       const lane = laneAt(slot.pos[0], slot.pos[1]);
       return { x: slot.pos[0], z: slot.pos[1], h: dryHeight(slot.pos[0], slot.pos[1], lane.dist, lane.half) };
     });
+
+  // Pond water sits a little under the dry ground at its centre.
+  const pondLevel = pond ? dryHeight(pond.x, pond.z, 99, 1) - 0.3 : Number.NaN;
 
   // Distance fields stamped per grid cell (exact segment distances near each line).
   const laneDist = new Float32Array(count).fill(99);
@@ -782,10 +812,21 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
           h = mix(h, bed, channel);
         }
       }
+      let waterEdge = dRiver < 900 ? Math.min(60, dRiver - halfR) : 60;
+      if (pond) {
+        const e = pond.edge(x, z);
+        if (e < 4) {
+          // Level bank, then a bowl under the water.
+          h = mix(h, pondLevel + bankM * 0.8, smooth(3.5, 0.4, e));
+          const bed = pondLevel - (0.2 + pond.depthM * smooth(0, pond.radiusM * 0.75, -e));
+          h = mix(h, bed, smooth(0.35, -0.9, e));
+          waterEdge = Math.min(waterEdge, e);
+        }
+      }
       heights[index] = h;
       masks[index * 4] = Math.min(laneDist[index]!, 60);
       masks[index * 4 + 1] = laneHalf[index]!;
-      masks[index * 4 + 2] = dRiver < 900 ? Math.min(60, dRiver - halfR) : 60;
+      masks[index * 4 + 2] = waterEdge;
       masks[index * 4 + 3] = forest(x, z);
     }
   }
@@ -856,6 +897,9 @@ export function buildHeightField(map: MapDef, cellM = 0.5): HeightField {
     laneAt,
     riverEdge,
     forest,
+    layout,
+    pondLevel,
+    layoutMs,
   };
 }
 
@@ -876,12 +920,15 @@ export interface PaintedTerrain extends TerrainView {
   readonly look: PaintLook;
   /** Advances the shared clock (water flow, wind). */
   update(dt: number): void;
+  /** Map spike: the ground paint (mask bake time, tiles and decals loading). */
+  readonly paint: GroundPaint;
 }
 
 /** Ground cell size by quality, metres. */
 export const GROUND_CELL: Readonly<Record<Quality, number>> = { low: 1, medium: 0.75, high: 0.5, ultra: 0.5 };
 
-const GROUND_PAINT = /* glsl */ `
+/** The M0b procedural-only ground paint (kept for comparison; the spike paints with view/paint.ts). */
+export const GROUND_PAINT_M0B = /* glsl */ `
 vec2 p = vDhWorld.xz;
 vec3 nW = normalize(vDhNormal);
 float slope = 1.0 - clamp(nW.y, 0.0, 1.0);
@@ -938,7 +985,7 @@ c = mix(c, petal, dot1 * meadow * 0.8);
 diffuseColor.rgb = c;
 `;
 
-const GROUND_PARS = /* glsl */ `
+export const GROUND_PARS = /* glsl */ `
 uniform vec3 uGrassDeep;
 uniform vec3 uGrassMid;
 uniform vec3 uGrassLight;
@@ -1112,11 +1159,15 @@ export function buildTerrain(map: MapDef, quality: Quality): PaintedTerrain {
   const look = createPaintLook(map);
   const group = new THREE.Group();
   group.name = "dh-terrain";
+  // Map spike: the L7 paint (mask, tiles, decals) replaces the procedural-only ground paint.
+  const groundPaint: GroundPaint = buildGroundPaint(field, field.layout, quality);
+  // Spike perf split: ?paint=m0b draws the M0b procedural ground paint instead.
+  const m0bPaint = mapSwitch("paint") === "m0b";
   const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff" }), look, {
-    key: "ground",
-    fragmentPars: GROUND_PARS,
-    paint: GROUND_PAINT,
-    uniforms: colorUniforms(PINE_RIVER_GROUND),
+    key: m0bPaint ? "ground" : "ground-spike",
+    fragmentPars: m0bPaint ? GROUND_PARS : GROUND_PARS + groundPaint.pars,
+    paint: m0bPaint ? GROUND_PAINT_M0B : groundPaint.paint,
+    uniforms: m0bPaint ? colorUniforms(PINE_RIVER_GROUND) : { ...colorUniforms(PINE_RIVER_GROUND), ...groundPaint.uniforms },
     mask: true,
   });
   const ground = new THREE.Mesh(groundGeometry(field), material);
@@ -1130,6 +1181,7 @@ export function buildTerrain(map: MapDef, quality: Quality): PaintedTerrain {
     group,
     field,
     look,
+    paint: groundPaint,
     heightAt: field.heightAt,
     update(dt: number): void {
       look.uniforms.uTime.value += dt;
@@ -1140,6 +1192,7 @@ export function buildTerrain(map: MapDef, quality: Quality): PaintedTerrain {
         mesh.geometry.dispose();
         (mesh.material as THREE.Material).dispose();
       }
+      groundPaint.dispose();
     },
   };
 }

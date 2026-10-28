@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MAP_L2_CAU } from "../../src/content/data/maps";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import type { StageDef, WaveDef } from "../../src/content/types";
-import { bannerText, summarizeWave } from "../../src/ui/wave-card";
+import { bannerText, shortFoeName, summarizeWave } from "../../src/ui/wave-card";
 
 const wave = (n: number, groups: WaveDef["groups"], generals: WaveDef["generals"] = []): WaveDef => ({
   n,
@@ -38,16 +38,16 @@ describe("ui wave card summary (02 §5.6)", () => {
   it("tallies foes per lane in stage lane order, with sorted unique group beats", () => {
     const summary = summarizeWave(STAGE, MAP_L2_CAU, 1)!;
     expect(summary.lanes.map((lane) => [lane.id, lane.nameVi, lane.sky, lane.count])).toEqual([
-      ["cau", "Đường Cầu", false, 5],
-      ["suoi", "Đường Suối", false, 8],
-      ["troi", "Đường Trời", true, 0],
+      ["cau", "Bridge Lane", false, 5],
+      ["suoi", "Brook Lane", false, 8],
+      ["troi", "Sky Lane", true, 0],
     ]);
     expect(summary.lanes[0]!.foes.map((foe) => [foe.foe, foe.count])).toEqual([["moss-grunt", 5]]);
     expect(summary.total).toBe(13);
     expect(summary.flyers).toBe(0);
     expect(summary.generals).toEqual([]);
     expect(summary.beats).toEqual([0, 9000]);
-    expect(bannerText(summary)).toBe("Đợt 1 · 2 đường");
+    expect(bannerText(summary)).toBe("Wave 1 · 2 lanes");
   });
 
   it("counts escorts, puts the general first, marks elites and counts flyers", () => {
@@ -61,7 +61,10 @@ describe("ui wave card summary (02 §5.6)", () => {
     expect(summary.lanes[2]!.foes[0]).toMatchObject({ foe: "thorn-wasp", flyer: true, gait: "flyer" });
     expect(summary.flyers).toBe(3);
     expect(summary.generals).toEqual(["moss-banner"]);
-    expect(bannerText(summary)).toBe("Đợt cuối · 2 đường · có quái bay · có tướng địch");
+    expect(bannerText(summary)).toBe("Last wave · 2 lanes · with flyers · with generals");
+    // English game nouns (owner 27/10): a kind shows its full name, a general its class label.
+    expect(cau.foes.map(shortFoeName)).toEqual(["Gen.", "Moss Grunt"]);
+    expect(shortFoeName(summary.lanes[2]!.foes[0]!)).toBe("Thorn Wasp");
   });
 
   it("returns null past the last wave and still crowns generals of a wave without groups", () => {

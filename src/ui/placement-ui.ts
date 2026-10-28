@@ -63,22 +63,22 @@ const DAIS_KEEP_TOP_M = 7;
 /** Building, upgrading and selling happen in prep and breaks (03 §0.1 rule 6; quick place from C6 is not in M0). */
 export const buildPhase = (phase: World["phase"]): boolean => phase === "prep" || phase === "break";
 
-const SLOT_KIND_VI: Readonly<Record<SlotKind, string>> = { trap: "Ô bẫy", house: "Bệ nhà", block: "Điểm giữ" };
+const SLOT_KIND_VI: Readonly<Record<SlotKind, string>> = { trap: "Trap slot", house: "House pad", block: "Block point" };
 
 const PLACE_REASON_VI: Readonly<Record<Exclude<PlaceCheck, { ok: true }>["reason"], string>> = {
-  "slot-kind": "Món này không hợp ô này",
-  occupied: "Ô đã có món",
-  phase: "Chỉ đặt lúc nghỉ đợt",
-  gold: "Chưa đủ vàng",
-  limit: "Đã đủ số món này",
-  locked: "Món chưa mở",
-  "unknown-slot": "Không có ô này",
+  "slot-kind": "Item does not fit slot",
+  occupied: "Slot full",
+  phase: "Place during breaks",
+  gold: "Need Gold",
+  limit: "Item limit reached",
+  locked: "Item locked",
+  "unknown-slot": "No such slot",
 };
 
 /** Vietnamese reason a place check failed, with the gold missing when that is why; null when it is fine. */
 export function placeReason(check: PlaceCheck, gold: number, cost: number): string | null {
   if (check.ok) return null;
-  if (check.reason === "gold") return "Thiếu " + Math.max(0, cost - gold) + " vàng";
+  if (check.reason === "gold") return "Need " + Math.max(0, cost - gold) + " Gold";
   return PLACE_REASON_VI[check.reason];
 }
 
@@ -281,7 +281,7 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
     const slot = w.slots[index];
     if (!slot) return "";
     const lane = slot.def.lane ? w.map.lanes.find((entry) => entry.id === slot.def.lane)?.nameVi : null;
-    return SLOT_KIND_VI[slot.def.kind] + (lane ? " · " + lane : slot.def.ring === "outer" ? " · vòng ngoài" : slot.def.ring === "inner" ? " · vòng trong" : "");
+    return SLOT_KIND_VI[slot.def.kind] + (lane ? " · " + lane : slot.def.ring === "outer" ? " · outer ring" : slot.def.ring === "inner" ? " · inner ring" : "");
   };
 
   const closeMenu = (): void => {
@@ -303,7 +303,7 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
   const begin = (next: PlaceableId): boolean => {
     if (!world) return false;
     if (!buildPhase(world.phase)) {
-      say("Chỉ đặt món lúc nghỉ đợt");
+      say("Place items during breaks");
       return false;
     }
     closeMenu();
@@ -323,11 +323,11 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
   const edit = (): boolean => {
     if (!world) return false;
     if (!buildPhase(world.phase)) {
-      say("Chỉ sửa món lúc nghỉ đợt");
+      say("Edit items during breaks");
       return false;
     }
     if (!world.slots.some((slot) => slot.item !== null)) {
-      say("Chưa có món nào để sửa");
+      say("No items to edit");
       return false;
     }
     closeMenu();
@@ -358,7 +358,7 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
     const slot = world.slots[index];
     if (!slot || slot.item === null) return;
     if (action === "upgrade" && upgradeCost(slot.item, slot.level) === null) {
-      say("Đã ở cấp cao nhất");
+      say("Max level");
       return;
     }
     const current = viaMenu ? menuArmed : armed && armed.slot === index ? armed : null;
@@ -521,21 +521,21 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         button.append(el(doc, "span", "", info.nameVi), el(doc, "span", "", String(info.cost)));
         children.push(button);
       }
-      if (items.length === 0) children.push(el(doc, "span", "dh-place-card__line", "Bộ Mang Theo không có món cho ô này"));
+      if (items.length === 0) children.push(el(doc, "span", "dh-place-card__line", "No loadout item fits this slot"));
     } else {
       const info = placeableInfo(slot.item);
-      children.push(el(doc, "span", "dh-title", info.nameVi + " · cấp " + slot.level));
+      children.push(el(doc, "span", "dh-title", info.nameVi + " · Lv. " + slot.level));
       const cost = upgradeCost(slot.item, slot.level);
       const short = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
       const up = uiButton(doc, cost === null || short > 0 ? "is-poor" + (short > 0 ? " is-short" : "") : "", () => pressEdit("upgrade", menuSlot, true));
       up.innerHTML = `<span class="dh-key">=</span>`;
       // Short of gold: the whole row dims and says by how much, like the carry strip (test pass 27/10).
-      const upLabel = menuArmed?.action === "upgrade" ? "Bấm lần nữa để nâng" : cost === null ? "Cấp tối đa" : "Nâng cấp " + (slot.level + 1) + (short > 0 ? " · thiếu " + short + " vàng" : "");
+      const upLabel = menuArmed?.action === "upgrade" ? "Press again to upgrade" : cost === null ? "Max level" : "Upgrade " + (slot.level + 1) + (short > 0 ? " · need " + short + " Gold" : "");
       up.append(el(doc, "span", "", upLabel), el(doc, "span", "", cost === null ? "" : String(cost)));
       if (cost === null) up.disabled = true;
       const sell = uiButton(doc, "", () => pressEdit("sell", menuSlot, true));
       sell.innerHTML = `<span class="dh-key">-</span>`;
-      sell.append(el(doc, "span", "", menuArmed?.action === "sell" ? "Bấm lần nữa để bán" : "Bán"), el(doc, "span", "", "+" + sellRefund(w, menuSlot)));
+      sell.append(el(doc, "span", "", menuArmed?.action === "sell" ? "Press again to sell" : "Sell"), el(doc, "span", "", "+" + sellRefund(w, menuSlot)));
       children.push(up, sell);
     }
     menu.replaceChildren(...children);
@@ -600,7 +600,7 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         marker.node.innerHTML = slot.item
           ? `<span class="dh-icon">${icon(slot.item)}</span><span class="dh-marker__pips">${[1, 2, 3].map((k) => `<i class="${k <= slot.level ? "is-on" : ""}"></i>`).join("")}</span>`
           : `<span class="dh-icon">${icon(kindIcon[slot.def.kind])}</span>`;
-        marker.node.title = slot.item ? placeableInfo(slot.item).nameVi + " · cấp " + slot.level : slotName(w, index);
+        marker.node.title = slot.item ? placeableInfo(slot.item).nameVi + " · Lv. " + slot.level : slotName(w, index);
       }
       setClass(marker.node, "is-filled", slot.item !== null);
       setClass(marker.node, "is-cand", mode === "place");
@@ -633,25 +633,25 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
         const info = placeableInfo(item);
         titleText = info.nameVi;
         const reason = placeReason(rules.canPlace(w, item, cursor), w.economy.gold, info.cost);
-        lines.push({ html: `<span class="dh-money">${info.cost} vàng</span> · ${slotName(w, cursor)}` });
+        lines.push({ html: `<span class="dh-money">${info.cost} Gold</span> · ${slotName(w, cursor)}` });
         if (cursorSlot.def.lane) {
           const summary = summarizeWave(w.stage, w.map, upcomingWave(w));
           const count = summary?.lanes.find((lane) => lane.id === cursorSlot.def.lane)?.count ?? 0;
-          lines.push({ html: `Đợt kế: <b>${count}</b> quái qua đường này` });
+          lines.push({ html: `Next wave: <b>${count}</b> foes on this lane` });
         }
-        lines.push({ html: reason ? `<b>${reason}</b>` : `<span class="dh-key">${keyLabel("enter")}</span> đặt · <span class="dh-key">Esc</span> hủy` });
+        lines.push({ html: reason ? `<b>${reason}</b>` : `<span class="dh-key">${keyLabel("enter")}</span> place · <span class="dh-key">Esc</span> cancel` });
       } else if (mode === "edit" && cursorSlot.item) {
         const info = placeableInfo(cursorSlot.item);
-        titleText = info.nameVi + " · cấp " + cursorSlot.level;
+        titleText = info.nameVi + " · Lv. " + cursorSlot.level;
         const cost = upgradeCost(cursorSlot.item, cursorSlot.level);
         const lack = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
         lines.push({
-          html: cost === null ? "Cấp tối đa" : `<span class="dh-key">=</span> nâng cấp ${cursorSlot.level + 1}: <span class="dh-money">${cost} vàng</span>` + (lack > 0 ? ` · <b>thiếu ${lack} vàng</b>` : ""),
+          html: cost === null ? "Max level" : `<span class="dh-key">=</span> upgrade ${cursorSlot.level + 1}: <span class="dh-money">${cost} Gold</span>` + (lack > 0 ? ` · <b>need ${lack} Gold</b>` : ""),
         });
-        lines.push({ html: `<span class="dh-key">-</span> bán: <span class="dh-money">+${sellRefund(w, cursor)} vàng</span>` });
+        lines.push({ html: `<span class="dh-key">-</span> sell: <span class="dh-money">+${sellRefund(w, cursor)} Gold</span>` });
         if (armed && armed.slot === cursor) {
           const up = armed.action === "upgrade";
-          lines.push({ html: `Bấm <span class="dh-key">${up ? "=" : "-"}</span> lần nữa để ${up ? "nâng" : "bán"}`, armed: true });
+          lines.push({ html: `Press <span class="dh-key">${up ? "=" : "-"}</span> again to ${up ? "upgrade" : "sell"}`, armed: true });
         }
       }
       const cardKey = titleText + "|" + lines.map((line) => line.html).join("|");
@@ -671,8 +671,8 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
     // Help line: the keys of the current mode, or a short notice.
     let helpHtml = "";
     if (now < noticeUntil) helpHtml = notice;
-    else if (mode === "place") helpHtml = candidates.length === 0 ? "Hết ô trống cho món này · <span class=\"dh-key\">Esc</span> hủy" : `<span class="dh-key">←</span><span class="dh-key">→</span><span class="dh-key">↑</span><span class="dh-key">↓</span> đổi ô · <span class="dh-key">${keyLabel("enter")}</span> đặt · <span class="dh-key">Esc</span> hủy · chữ cái vẫn gõ quái`;
-    else if (mode === "edit") helpHtml = `Sửa món: <span class="dh-key">←</span><span class="dh-key">→</span> chọn · <span class="dh-key">=</span> nâng (2 lần) · <span class="dh-key">-</span> bán (2 lần) · <span class="dh-key">Esc</span> thoát`;
+    else if (mode === "place") helpHtml = candidates.length === 0 ? "No free slot for this item · <span class=\"dh-key\">Esc</span> cancel" : `<span class="dh-key">←</span><span class="dh-key">→</span><span class="dh-key">↑</span><span class="dh-key">↓</span> move · <span class="dh-key">${keyLabel("enter")}</span> place · <span class="dh-key">Esc</span> cancel · letters still target foes`;
+    else if (mode === "edit") helpHtml = `Edit: <span class="dh-key">←</span><span class="dh-key">→</span> pick · <span class="dh-key">=</span> upgrade (twice) · <span class="dh-key">-</span> sell (twice) · <span class="dh-key">Esc</span> exit`;
     if (help.innerHTML !== helpHtml) help.innerHTML = helpHtml;
     setShown(help, helpHtml !== "");
 
@@ -727,7 +727,7 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
       case "enter":
         if (mode === "place" && item) {
           if (cursor >= 0) placeAt(cursor, item);
-          else say("Hết ô trống cho món này");
+          else say("No free slot for this item");
           return true;
         }
         return mode === "edit";

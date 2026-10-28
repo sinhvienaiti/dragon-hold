@@ -312,9 +312,9 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
         el.classList.toggle("is-idle", view === null);
         if (view === null) {
           word.innerHTML = resting
-            ? '<span class="dh-learn__idle">' + (world.phase === "prep" ? "Bày binh" : "Nghỉ") + "</span>"
+            ? '<span class="dh-learn__idle">' + (world.phase === "prep" ? "Deploy" : "Break") + "</span>"
             : anyWord
-              ? '<span class="dh-learn__idle">Gõ chữ đầu của một từ để khóa</span>'
+              ? '<span class="dh-learn__idle">Type the first letter to lock</span>'
               : "";
           ipa.textContent = meaning.textContent = "";
           dot.className = "dh-learn__dot";
@@ -323,7 +323,7 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
           const rest = escapeHtml(view.text.slice(view.typed));
           word.innerHTML =
             '<span class="' + c.typed + '">' + typed + "</span>" + rest + (view.done ? ' <span class="dh-learn__check">✓</span>' : "") +
-            (view.level === "new" ? ' <span class="dh-learn__badge">MỚI</span>' : "");
+            (view.level === "new" ? ' <span class="dh-learn__badge">NEW</span>' : "");
           ipa.textContent = view.ipa;
           meaning.textContent = view.meaning;
           dot.className = "dh-learn__dot is-" + view.level;
@@ -335,7 +335,7 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
       const recentNext = q.recent.slice(0, room).map((item) => item.text + " (" + shortMeaning(item.vi) + ")").join(" · ");
       if (recentNext !== recentKey) {
         recentKey = recentNext;
-        recent.textContent = recentNext === "" ? "" : "Vừa học: " + recentNext;
+        recent.textContent = recentNext === "" ? "" : "Learned: " + recentNext;
       }
     },
 
@@ -440,7 +440,7 @@ const hookLater = (hooks: PanelHooks, ms: number, run: () => void) => (hooks.lat
  * with the right answers (+5 gold each, at most +40, in the sim).
  */
 export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPanel & { show(words: readonly PanelWord[]): void } {
-  const box = panelBox(root, "Học trước");
+  const box = panelBox(root, "Preview");
   let words: readonly PanelWord[] = [];
   let index = 0;
   let typed = "";
@@ -452,19 +452,19 @@ export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPa
 
   const draw = () => {
     const word = words[index]!;
-    box.title.textContent = "HỌC TRƯỚC · TỪ MỚI CỦA ẢI";
+    box.title.textContent = "PREVIEW · NEW STAGE WORDS";
     box.step.textContent = index + 1 + " / " + words.length;
     box.word.textContent = word.text;
     box.ipa.textContent = word.ipa;
     box.mean.textContent = word.vi;
     box.answer.innerHTML = blanksAgainst(typed, word.text);
-    box.keys.textContent = "Gõ lại từ · Enter nộp · Tab nghe lại · Esc bỏ từ này · Esc 2 lần bỏ hết";
+    box.keys.textContent = "Retype · Enter submit · Tab replay · Esc skip word · Esc twice skip all";
   };
   const redraw = () => {
     const word = words[index]!;
     box.answer.innerHTML = blanksAgainst(typed, word.text);
     const slip = typed.length === word.text.length && typed !== word.text;
-    box.result.textContent = slip ? "Có chữ sai: Backspace để sửa, Enter để nộp" : "";
+    box.result.textContent = slip ? "Typo: Backspace to fix, Enter to submit" : "";
     box.result.className = "dh-lpanel__result" + (slip ? " is-wrong" : "");
   };
   const finish = () => {
@@ -489,7 +489,7 @@ export function createPrelearn(root: HTMLElement, hooks: PanelHooks): LearningPa
     const right = typed === word.text;
     if (right) correct += 1;
     hooks.recall(word.text, right, hookNow(hooks) - startedAt, typed);
-    box.result.textContent = right ? "Đúng! +5 Vàng đầu ải" : "Chưa đúng: " + word.text;
+    box.result.textContent = right ? "Correct! +5 Gold at stage start" : "Not quite: " + word.text;
     box.result.className = "dh-lpanel__result " + (right ? "is-right" : "is-wrong");
     waiting = true;
     hookLater(hooks, right ? 700 : 1400, next);
@@ -561,7 +561,7 @@ export interface ReviewQuestion extends PanelWord {
  * preview) it keeps the CSS spot at the top centre.
  */
 export function createReviewCard(root: HTMLElement, hooks: PanelHooks): LearningPanel & { show(items: readonly ReviewQuestion[]): void } {
-  const box = panelBox(root, "Thẻ Ôn", true);
+  const box = panelBox(root, "Review", true);
   let spot = -1;
   let placeTimer = 0;
   /** Candidate spots: top centre, top right, top left, then the sides at mid height (CSS px). */
@@ -611,15 +611,15 @@ export function createReviewCard(root: HTMLElement, hooks: PanelHooks): Learning
 
   const draw = () => {
     const item = items[index]!;
-    box.title.textContent = "THẺ ÔN";
-    box.step.textContent = (item.mode === "listen" ? "Nghe rồi gõ từ" : "Xem nghĩa rồi gõ từ") + " · " + (index + 1) + " / " + items.length;
+    box.title.textContent = "REVIEW";
+    box.step.textContent = (item.mode === "listen" ? "Listen and type" : "Read the meaning, type the word") + " · " + (index + 1) + " / " + items.length;
     box.word.textContent = "";
     box.ipa.textContent = "";
     box.mean.textContent = item.mode === "meaning" ? item.vi : "🔊";
     box.answer.innerHTML = blanks(typed, item.text.length);
     box.result.textContent = "";
     box.result.className = "dh-lpanel__result";
-    box.keys.textContent = "Enter nộp · Tab nghe lại · Esc đóng thẻ";
+    box.keys.textContent = "Enter submit · Tab replay · Esc close";
     if (item.mode === "listen") hooks.speak(item.text);
   };
   const close = () => {
@@ -642,13 +642,13 @@ export function createReviewCard(root: HTMLElement, hooks: PanelHooks): Learning
     hooks.recall(item.text, right, hookNow(hooks) - startedAt, typed);
     hooks.send({ type: "review-card", correct: right });
     if (right) {
-      box.result.textContent = "Đúng! +10 Vàng";
+      box.result.textContent = "Correct! +10 Gold";
       box.result.className = "dh-lpanel__result is-right";
     } else {
       box.word.textContent = item.text;
       box.ipa.textContent = item.ipa;
       box.mean.textContent = item.vi;
-      box.result.textContent = "Chưa đúng, nhớ lại nhé";
+      box.result.textContent = "Not quite. Try to remember it";
       box.result.className = "dh-lpanel__result is-wrong";
       hooks.speak(item.text);
     }

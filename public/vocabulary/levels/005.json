@@ -1,0 +1,1093 @@
+{
+  "version": 1,
+  "level": 5,
+  "label": "A1 Foundation 005",
+  "entries": [
+    {
+      "id": "L005-001",
+      "en": "due",
+      "vi": "đến hạn trả; phải thanh toán; dự kiến đến",
+      "ipa": "/du/"
+    },
+    {
+      "id": "L005-002",
+      "en": "post",
+      "vi": "chức vụ; vị trí công tác; vọng gác",
+      "ipa": "/poʊst/"
+    },
+    {
+      "id": "L005-003",
+      "en": "saw",
+      "vi": "cái cưa tay; máy cưa; cưa máy",
+      "ipa": "/sɔ/"
+    },
+    {
+      "id": "L005-004",
+      "en": "mind",
+      "vi": "trí óc; tâm trí; tinh thần",
+      "ipa": "/maɪnd/"
+    },
+    {
+      "id": "L005-005",
+      "en": "labor",
+      "vi": "lao động chân tay; nhân công; lao động, công việc (chân tay)",
+      "ipa": "/ˈleɪbɚ/"
+    },
+    {
+      "id": "L005-006",
+      "en": "organization",
+      "vi": "tổ chức; cơ quan; đoàn thể",
+      "ipa": "/ˌɔɹɡənəˈzeɪʃən/"
+    },
+    {
+      "id": "L005-007",
+      "en": "type",
+      "vi": "loại, kiểu; hạng người, loại người; nhóm điển hình (sinh học)",
+      "ipa": "/taɪp/"
+    },
+    {
+      "id": "L005-008",
+      "en": "self",
+      "vi": "bản thân, cái tôi; bản thân, chính mình; tự, bản thân",
+      "ipa": "/sɛlf/"
+    },
+    {
+      "id": "L005-009",
+      "en": "fine",
+      "vi": "tốt, ổn; tinh tế, rất nhỏ (về sự khác biệt); mỏng, mảnh, sợi nhỏ",
+      "ipa": "/faɪn/"
+    },
+    {
+      "id": "L005-010",
+      "en": "miss",
+      "vi": "bỏ lỡ; không nhận ra; trượt",
+      "ipa": "/mɪs/"
+    },
+    {
+      "id": "L005-011",
+      "en": "site",
+      "vi": "địa điểm, khu đất, vị trí; trang web, website; đặt, bố trí, định vị trí",
+      "ipa": "/saɪt/"
+    },
+    {
+      "id": "L005-012",
+      "en": "cards",
+      "vi": "bài, trò chơi bài",
+      "ipa": "/kɑɹdz/"
+    },
+    {
+      "id": "L005-013",
+      "en": "above",
+      "vi": "ở trên, bên trên; (trong văn bản) ở phần trên; nói trên, kể trên, đã nêu",
+      "ipa": "/əˈbʌv/"
+    },
+    {
+      "id": "L005-014",
+      "en": "club",
+      "vi": "câu lạc bộ, hội; dùi cui, gậy; đội bóng chày chuyên nghiệp",
+      "ipa": "/klʌb/"
+    },
+    {
+      "id": "L005-015",
+      "en": "helping",
+      "vi": "suất; phần ăn",
+      "ipa": "/ˈhɛlpɪŋ/"
+    },
+    {
+      "id": "L005-016",
+      "en": "war",
+      "vi": "chiến tranh; cuộc chiến; sự tranh đấu",
+      "ipa": "/wɔɹ/"
+    },
+    {
+      "id": "L005-017",
+      "en": "boy",
+      "vi": "con trai; cậu bé; thiếu niên",
+      "ipa": "/bɔɪ/"
+    },
+    {
+      "id": "L005-018",
+      "en": "funds",
+      "vi": "quỹ; tiền; vốn",
+      "ipa": "/fʌndz/"
+    },
+    {
+      "id": "L005-019",
+      "en": "guess",
+      "vi": "ước lượng, ước chừng; đoán (rằng), cho rằng; phỏng đoán, ướm thử",
+      "ipa": "/ɡɛs/"
+    },
+    {
+      "id": "L005-020",
+      "en": "social",
+      "vi": "xã hội; sống thành đàn, có tính xã hội; thượng lưu, (thuộc) tầng lớp trên",
+      "ipa": "/ˈsoʊʃəl/"
+    },
+    {
+      "id": "L005-021",
+      "en": "happening",
+      "vi": "sự kiện; sự việc xảy ra",
+      "ipa": "/ˈhæpənɪŋ/"
+    },
+    {
+      "id": "L005-022",
+      "en": "cool",
+      "vi": "mát; mát mẻ; điềm tĩnh",
+      "ipa": "/kul/"
+    },
+    {
+      "id": "L005-023",
+      "en": "true",
+      "vi": "đúng, thật, chính xác; trung thành, tận tụy; chính xác (đường bóng, phát đạn)",
+      "ipa": "/tɹu/"
+    },
+    {
+      "id": "L005-024",
+      "en": "party",
+      "vi": "bữa tiệc, buổi liên hoan; đảng phái (chính trị); nhóm, đoàn (cùng tham gia hoạt động)",
+      "ipa": "/ˈpɑɹti/"
+    },
+    {
+      "id": "L005-025",
+      "en": "save",
+      "vi": "cứu; cứu sống; cứu nguy",
+      "ipa": "/seɪv/"
+    },
+    {
+      "id": "L005-026",
+      "en": "along",
+      "vi": "tiến về phía trước; đi cùng; theo cùng",
+      "ipa": "/əˈlɔŋ/"
+    },
+    {
+      "id": "L005-027",
+      "en": "event",
+      "vi": "sự kiện, sự việc; sự kiện, buổi họp mặt; sự kiện (vật lý, thuyết tương đối)",
+      "ipa": "/ɪˈvɛnt/"
+    },
+    {
+      "id": "L005-028",
+      "en": "blue",
+      "vi": "xanh dương; xanh lam; buồn bã, chán nản",
+      "ipa": "/blu/"
+    },
+    {
+      "id": "L005-029",
+      "en": "match",
+      "vi": "que diêm, diêm; trận đấu, cuộc thi đấu; mồi lửa, bùi nhùi cháy",
+      "ipa": "/mætʃ/"
+    },
+    {
+      "id": "L005-030",
+      "en": "size",
+      "vi": "kích thước, cỡ, khổ; cỡ, số (quần áo); hồ (dùng để lấp lỗ hoặc làm cứng vải)",
+      "ipa": "/saɪz/"
+    },
+    {
+      "id": "L005-031",
+      "en": "gold",
+      "vi": "bằng vàng, mạ vàng; (màu) vàng óng; vàng (kim loại quý)",
+      "ipa": "/ɡoʊld/"
+    },
+    {
+      "id": "L005-032",
+      "en": "step",
+      "vi": "bước, bước đi; đặt chân, giẫm lên; (máy tính) chạy từng bước, thực thi từng lệnh",
+      "ipa": "/stɛp/"
+    },
+    {
+      "id": "L005-033",
+      "en": "mom",
+      "vi": "mẹ; má",
+      "ipa": "/mɑm/"
+    },
+    {
+      "id": "L005-034",
+      "en": "alone",
+      "vi": "một mình; chỉ; cô đơn",
+      "ipa": "/əˈloʊn/"
+    },
+    {
+      "id": "L005-035",
+      "en": "operations",
+      "vi": "nghiệp vụ (môi giới chứng khoán)",
+      "ipa": "/ˌɑpˈɚeɪʃənz/"
+    },
+    {
+      "id": "L005-036",
+      "en": "vote",
+      "vi": "sự bỏ phiếu, sự bầu cử; kết quả bầu cử; quyền bầu cử",
+      "ipa": "/voʊt/"
+    },
+    {
+      "id": "L005-037",
+      "en": "age",
+      "vi": "tuổi; độ tuổi; thời đại",
+      "ipa": "/eɪdʒ/"
+    },
+    {
+      "id": "L005-038",
+      "en": "dog",
+      "vi": "chó; người phụ nữ xấu xí; gã, thằng cha",
+      "ipa": "/dɔɡ/"
+    },
+    {
+      "id": "L005-039",
+      "en": "red",
+      "vi": "đỏ, màu đỏ; đỏ bừng, ửng đỏ (mặt); đẫm máu, bạo lực",
+      "ipa": "/ɹɛd/"
+    },
+    {
+      "id": "L005-040",
+      "en": "large",
+      "vi": "lớn; to; rộng",
+      "ipa": "/lɑɹdʒ/"
+    },
+    {
+      "id": "L005-041",
+      "en": "greatest",
+      "vi": "vĩ đại nhất; tốt nhất; xuất sắc nhất",
+      "ipa": "/ˈɡɹeɪtəst/"
+    },
+    {
+      "id": "L005-042",
+      "en": "form",
+      "vi": "hình dạng, hình thể; loại, kiểu; dạng thức (của từ)",
+      "ipa": "/fɔɹm/"
+    },
+    {
+      "id": "L005-043",
+      "en": "add",
+      "vi": "thêm vào; cộng; nói thêm",
+      "ipa": "/æd/"
+    },
+    {
+      "id": "L005-044",
+      "en": "lee",
+      "vi": "khuất gió, dưới gió; Lý Tiểu Long (diễn viên Mỹ gốc Hoa)",
+      "ipa": "/li/"
+    },
+    {
+      "id": "L005-045",
+      "en": "kill",
+      "vi": "giết, gây chết; chấm dứt, dập tắt (hoạt động, hy vọng); ngăn chặn, bác bỏ (dự luật, kiến nghị)",
+      "ipa": "/kɪl/"
+    },
+    {
+      "id": "L005-046",
+      "en": "code",
+      "vi": "bộ luật, quy tắc; mật mã, mã; mã (máy tính)",
+      "ipa": "/koʊd/"
+    },
+    {
+      "id": "L005-047",
+      "en": "housing",
+      "vi": "nhà ở; chỗ ở; vỏ bọc",
+      "ipa": "/ˈhaʊzɪŋ/"
+    },
+    {
+      "id": "L005-048",
+      "en": "pick",
+      "vi": "chọn, lựa; hái, nhặt, thu lượm; chỉ trích, bắt bẻ",
+      "ipa": "/pɪk/"
+    },
+    {
+      "id": "L005-049",
+      "en": "sign",
+      "vi": "dấu hiệu; biển hiệu, bảng chỉ dẫn; dấu hiệu, ký hiệu (cử chỉ)",
+      "ipa": "/saɪn/"
+    },
+    {
+      "id": "L005-050",
+      "en": "business",
+      "vi": "doanh nghiệp, cơ sở kinh doanh; kinh doanh, việc buôn bán; nghề nghiệp, công việc chính",
+      "ipa": "/ˈbɪznəs/"
+    },
+    {
+      "id": "L005-051",
+      "en": "board",
+      "vi": "tấm, bảng, ván; tấm ván; ban, hội đồng",
+      "ipa": "/bɔɹd/"
+    },
+    {
+      "id": "L005-052",
+      "en": "buying",
+      "vi": "việc mua; sự mua bán",
+      "ipa": "/ˈbaɪɪŋ/"
+    },
+    {
+      "id": "L005-053",
+      "en": "behind",
+      "vi": "phía sau; đằng sau; ở lại",
+      "ipa": "/bɪˈhaɪnd/"
+    },
+    {
+      "id": "L005-054",
+      "en": "goal",
+      "vi": "mục tiêu; mục đích; đích đến",
+      "ipa": "/ɡoʊl/"
+    },
+    {
+      "id": "L005-055",
+      "en": "sea",
+      "vi": "biển; sóng biển lớn, biển động; (lượng) vô vàn, vô số",
+      "ipa": "/si/"
+    },
+    {
+      "id": "L005-056",
+      "en": "ball",
+      "vi": "quả bóng, banh; quả cầu, vật hình cầu; đạn bi (súng hỏa mai)",
+      "ipa": "/bɔl/"
+    },
+    {
+      "id": "L005-057",
+      "en": "either",
+      "vi": "cũng không; cũng chẳng",
+      "ipa": "/ˈiðɚ/"
+    },
+    {
+      "id": "L005-058",
+      "en": "note",
+      "vi": "ghi chú; ghi chép; thư ngắn",
+      "ipa": "/noʊt/"
+    },
+    {
+      "id": "L005-059",
+      "en": "piece",
+      "vi": "mảnh; miếng; phần",
+      "ipa": "/pis/"
+    },
+    {
+      "id": "L005-060",
+      "en": "wall",
+      "vi": "bức tường; thành, vách; vách, thành (giải phẫu)",
+      "ipa": "/wɔl/"
+    },
+    {
+      "id": "L005-061",
+      "en": "march",
+      "vi": "tháng Ba; sự tiến triển, bước tiến; cuộc diễu hành, cuộc hành quân",
+      "ipa": "/mɑɹtʃ/"
+    },
+    {
+      "id": "L005-062",
+      "en": "share",
+      "vi": "chia sẻ; san sẻ; dùng chung",
+      "ipa": "/ʃɛɹ/"
+    },
+    {
+      "id": "L005-063",
+      "en": "moment",
+      "vi": "chốc lát, giây phút; thời điểm; lúc này, hiện tại",
+      "ipa": "/ˈmoʊmənt/"
+    },
+    {
+      "id": "L005-064",
+      "en": "star",
+      "vi": "ngôi sao, vì sao; ngôi sao (người nổi tiếng); (thiên văn) ngôi sao",
+      "ipa": "/stɑɹ/"
+    },
+    {
+      "id": "L005-065",
+      "en": "design",
+      "vi": "thiết kế; bản thiết kế; kiểu dáng",
+      "ipa": "/dɪˈzaɪn/"
+    },
+    {
+      "id": "L005-066",
+      "en": "funny",
+      "vi": "buồn cười; hài hước; kỳ lạ, khó hiểu",
+      "ipa": "/ˈfʌni/"
+    },
+    {
+      "id": "L005-067",
+      "en": "peace",
+      "vi": "hòa bình; hòa thuận; hòa hợp",
+      "ipa": "/pis/"
+    },
+    {
+      "id": "L005-068",
+      "en": "steps",
+      "vi": "cầu thang, bậc thang; bước chân, dấu chân",
+      "ipa": "/stɛps/"
+    },
+    {
+      "id": "L005-069",
+      "en": "sorry",
+      "vi": "hối tiếc; xin lỗi; tồi tệ",
+      "ipa": "/ˈsɑɹi/"
+    },
+    {
+      "id": "L005-070",
+      "en": "below",
+      "vi": "bên dưới, ở dưới; (trong văn bản) ở dưới, bên dưới; tầng dưới",
+      "ipa": "/bɪˈloʊ/"
+    },
+    {
+      "id": "L005-071",
+      "en": "paying",
+      "vi": "sinh lời; có lãi; có trả tiền",
+      "ipa": "/ˈpeɪɪŋ/"
+    },
+    {
+      "id": "L005-072",
+      "en": "completed",
+      "vi": "hoàn thành; xong; đã hoàn hợp (hôn nhân)",
+      "ipa": "/kəmˈplitəd/"
+    },
+    {
+      "id": "L005-073",
+      "en": "king",
+      "vi": "vua, nhà vua; ông vua, người giỏi nhất (lĩnh vực); ông trùm (kinh doanh)",
+      "ipa": "/kɪŋ/"
+    },
+    {
+      "id": "L005-074",
+      "en": "henry",
+      "vi": "henri (đơn vị điện cảm)",
+      "ipa": "/ˈhɛnɹi/"
+    },
+    {
+      "id": "L005-075",
+      "en": "bank",
+      "vi": "ngân hàng; bờ (sông, hồ); đống, ụ (tuyết, đất)",
+      "ipa": "/bæŋk/"
+    },
+    {
+      "id": "L005-076",
+      "en": "bigger",
+      "vi": "lớn hơn, to hơn",
+      "ipa": "/ˈbɪɡɚ/"
+    },
+    {
+      "id": "L005-077",
+      "en": "august",
+      "vi": "tháng Tám; oai nghiêm, đáng kính",
+      "ipa": "/ˈɑɡəst/"
+    },
+    {
+      "id": "L005-078",
+      "en": "role",
+      "vi": "vai trò; nhiệm vụ; vai (diễn)",
+      "ipa": "/ɹoʊl/"
+    },
+    {
+      "id": "L005-079",
+      "en": "reason",
+      "vi": "lý do, nguyên nhân; lý trí; lẽ phải, lý lẽ",
+      "ipa": "/ˈɹizən/"
+    },
+    {
+      "id": "L005-080",
+      "en": "ice",
+      "vi": "nước đá; đá; băng (trên mặt nước)",
+      "ipa": "/aɪs/"
+    },
+    {
+      "id": "L005-081",
+      "en": "living",
+      "vi": "(người) còn sống; sống động như thật; tuyệt đối, đích thực (thân mật)",
+      "ipa": "/ˈlɪvɪŋ/"
+    },
+    {
+      "id": "L005-082",
+      "en": "album",
+      "vi": "an-bum; album nhạc; an-bum ảnh",
+      "ipa": "/ˈælbəm/"
+    },
+    {
+      "id": "L005-083",
+      "en": "kid",
+      "vi": "đứa trẻ; trẻ con; da dê non",
+      "ipa": "/kɪd/"
+    },
+    {
+      "id": "L005-084",
+      "en": "sale",
+      "vi": "vụ bán; mối bán; việc bán hàng",
+      "ipa": "/seɪl/"
+    },
+    {
+      "id": "L005-085",
+      "en": "green",
+      "vi": "xanh lá cây; lục; thuộc về môi trường",
+      "ipa": "/ɡɹin/"
+    },
+    {
+      "id": "L005-086",
+      "en": "stated",
+      "vi": "đã nêu; đã được tuyên bố",
+      "ipa": "/ˈsteɪtɪd/"
+    },
+    {
+      "id": "L005-087",
+      "en": "sell",
+      "vi": "bán; bán được; có giá",
+      "ipa": "/sɛl/"
+    },
+    {
+      "id": "L005-088",
+      "en": "sun",
+      "vi": "mặt trời; ánh nắng, ánh mặt trời; người rực rỡ như mặt trời",
+      "ipa": "/sʌn/"
+    },
+    {
+      "id": "L005-089",
+      "en": "light",
+      "vi": "nhẹ; (màu sắc) nhạt, sáng; (quân sự, công nghiệp) nhẹ",
+      "ipa": "/laɪt/"
+    },
+    {
+      "id": "L005-090",
+      "en": "heavy",
+      "vi": "nặng; nặng nề; nhiều",
+      "ipa": "/ˈhɛvi/"
+    },
+    {
+      "id": "L005-091",
+      "en": "dad",
+      "vi": "bố; ba; cha",
+      "ipa": "/dæd/"
+    },
+    {
+      "id": "L005-092",
+      "en": "poor",
+      "vi": "nghèo, khó khăn; đáng thương, tội nghiệp; tồi tàn, kém chất lượng",
+      "ipa": "/puɹ/"
+    },
+    {
+      "id": "L005-093",
+      "en": "cover",
+      "vi": "vật che, mái che; chăn, mền; sự che giấu, sự che đậy",
+      "ipa": "/ˈkʌvɚ/"
+    },
+    {
+      "id": "L005-094",
+      "en": "super",
+      "vi": "tuyệt vời, siêu hạng; siêu to, khổng lồ; siêu, tổng (bao gồm phạm vi rộng hơn)",
+      "ipa": "/ˈsupɚ/"
+    },
+    {
+      "id": "L005-095",
+      "en": "spend",
+      "vi": "dành, sử dụng (thời gian); tiêu, chi tiêu; tiêu hao, dùng hết",
+      "ipa": "/spɛnd/"
+    },
+    {
+      "id": "L005-096",
+      "en": "coach",
+      "vi": "huấn luyện viên; thầy dạy kèm; người hướng dẫn riêng",
+      "ipa": "/koʊtʃ/"
+    },
+    {
+      "id": "L005-097",
+      "en": "player",
+      "vi": "cầu thủ; người chơi; nhạc công",
+      "ipa": "/ˈpleɪɚ/"
+    },
+    {
+      "id": "L005-098",
+      "en": "focus",
+      "vi": "tập trung (sự chú ý); tụ tiêu; hội tụ",
+      "ipa": "/ˈfoʊkəs/"
+    },
+    {
+      "id": "L005-099",
+      "en": "ship",
+      "vi": "tàu thủy; tàu; vận chuyển",
+      "ipa": "/ʃɪp/"
+    },
+    {
+      "id": "L005-100",
+      "en": "band",
+      "vi": "nhóm; băng; đám",
+      "ipa": "/bænd/"
+    },
+    {
+      "id": "L005-101",
+      "en": "beach",
+      "vi": "bãi biển; (tàu thuyền) mắc cạn; cho mắc cạn",
+      "ipa": "/bitʃ/"
+    },
+    {
+      "id": "L005-102",
+      "en": "fan",
+      "vi": "người hâm mộ; fan; cái quạt",
+      "ipa": "/fæn/"
+    },
+    {
+      "id": "L005-103",
+      "en": "fight",
+      "vi": "trận đánh, trận chiến; cuộc ẩu đả; sự chiến đấu",
+      "ipa": "/faɪt/"
+    },
+    {
+      "id": "L005-104",
+      "en": "science",
+      "vi": "ngành khoa học; nghệ thuật, tài khéo",
+      "ipa": "/ˈsaɪəns/"
+    },
+    {
+      "id": "L005-105",
+      "en": "sir",
+      "vi": "thưa ông, thưa ngài; ngài, tước hiệu hiệp sĩ",
+      "ipa": "/sɝ/"
+    },
+    {
+      "id": "L005-106",
+      "en": "lady",
+      "vi": "quý bà, quý cô; quý bà, tiểu thư (phụ nữ thanh lịch); nữ quý tộc (Anh)",
+      "ipa": "/ˈleɪdi/"
+    },
+    {
+      "id": "L005-107",
+      "en": "church",
+      "vi": "nhà thờ; giáo hội; giáo phái",
+      "ipa": "/tʃɝtʃ/"
+    },
+    {
+      "id": "L005-108",
+      "en": "period",
+      "vi": "giai đoạn, thời kỳ; chu kỳ; hiệp (khúc côn cầu trên băng)",
+      "ipa": "/ˈpɪɹiəd/"
+    },
+    {
+      "id": "L005-109",
+      "en": "luck",
+      "vi": "vận may, sự may mắn; vận mệnh, số phận; vận, thời vận",
+      "ipa": "/lʌk/"
+    },
+    {
+      "id": "L005-110",
+      "en": "sweet",
+      "vi": "ngọt; dịu dàng; đáng yêu",
+      "ipa": "/swit/"
+    },
+    {
+      "id": "L005-111",
+      "en": "touch",
+      "vi": "sự chạm; sự tiếp xúc; xúc giác",
+      "ipa": "/tʌtʃ/"
+    },
+    {
+      "id": "L005-112",
+      "en": "fish",
+      "vi": "cá; cá (thịt cá); (chiêm tinh) người thuộc cung Song Ngư",
+      "ipa": "/fɪʃ/"
+    },
+    {
+      "id": "L005-113",
+      "en": "glad",
+      "vi": "vui mừng, sung sướng; sẵn lòng, vui lòng; hài lòng, cảm kích",
+      "ipa": "/ɡlæd/"
+    },
+    {
+      "id": "L005-114",
+      "en": "paper",
+      "vi": "giấy; bài luận, bài tiểu luận; báo",
+      "ipa": "/ˈpeɪpɚ/"
+    },
+    {
+      "id": "L005-115",
+      "en": "river",
+      "vi": "sông",
+      "ipa": "/ˈɹɪvɚ/"
+    },
+    {
+      "id": "L005-116",
+      "en": "stage",
+      "vi": "sân khấu; giai đoạn, thời kỳ; bước, mức (trong tiến trình)",
+      "ipa": "/steɪdʒ/"
+    },
+    {
+      "id": "L005-117",
+      "en": "hotel",
+      "vi": "khách sạn",
+      "ipa": "/hoʊˈtɛl/"
+    },
+    {
+      "id": "L005-118",
+      "en": "college",
+      "vi": "trường cao đẳng; đại học; tập thể giảng viên và sinh viên",
+      "ipa": "/ˈkɑlɪdʒ/"
+    },
+    {
+      "id": "L005-119",
+      "en": "spot",
+      "vi": "địa điểm, chỗ, vị trí; đoạn quảng cáo (trên đài, tạp chí); đặc điểm nổi bật",
+      "ipa": "/spɑt/"
+    },
+    {
+      "id": "L005-120",
+      "en": "island",
+      "vi": "hòn đảo; đảo; ốc đảo (khu vực biệt lập)",
+      "ipa": "/ˈaɪlənd/"
+    },
+    {
+      "id": "L005-121",
+      "en": "block",
+      "vi": "khối, tảng; khu phố, dãy phố; hình hộp chữ nhật",
+      "ipa": "/blɑk/"
+    },
+    {
+      "id": "L005-122",
+      "en": "harry",
+      "vi": "quấy rầy; làm phiền; cướp phá",
+      "ipa": "/ˈhɛɹi/"
+    },
+    {
+      "id": "L005-123",
+      "en": "sick",
+      "vi": "ốm, bệnh; buồn nôn; điên, loạn trí",
+      "ipa": "/sɪk/"
+    },
+    {
+      "id": "L005-124",
+      "en": "ground",
+      "vi": "mặt đất; căn cứ, lý do; đất, nền đất",
+      "ipa": "/ɡɹaʊnd/"
+    },
+    {
+      "id": "L005-125",
+      "en": "ordered",
+      "vi": "có trật tự; ngăn nắp; được sắp xếp (theo thứ tự)",
+      "ipa": "/ˈɔɹdɚd/"
+    },
+    {
+      "id": "L005-126",
+      "en": "catch",
+      "vi": "bắt gặp, phát hiện bất ngờ; thoáng thấy, kịp nghe, chợt nhận ra; đánh trúng, đấm trúng (vị trí nào đó)",
+      "ipa": "/kætʃ/"
+    },
+    {
+      "id": "L005-127",
+      "en": "hall",
+      "vi": "phòng",
+      "ipa": "/hɔl/"
+    },
+    {
+      "id": "L005-128",
+      "en": "pop",
+      "vi": "ba, bố; nước ngọt có ga, soda; tiếng nổ bốp, tiếng đoàng",
+      "ipa": "/pɑp/"
+    },
+    {
+      "id": "L005-129",
+      "en": "changing",
+      "vi": "thay đổi, biến đổi liên tục; năng động, có hiệu lực",
+      "ipa": "/ˈtʃeɪndʒɪŋ/"
+    },
+    {
+      "id": "L005-130",
+      "en": "closer",
+      "vi": "gần hơn; người đóng (cửa, thỏa thuận); người ném bóng cứu thua (bóng chày)",
+      "ipa": "/ˈkloʊsɚ/"
+    },
+    {
+      "id": "L005-131",
+      "en": "drop",
+      "vi": "đánh rơi; thả; rơi, rớt",
+      "ipa": "/dɹɑp/"
+    },
+    {
+      "id": "L005-132",
+      "en": "fair",
+      "vi": "công bằng, ngay thẳng; vừa phải, khá; xinh đẹp, ưa nhìn",
+      "ipa": "/fɛɹ/"
+    },
+    {
+      "id": "L005-133",
+      "en": "brown",
+      "vi": "nâu, màu nâu; (da) rám nắng, ngăm đen; màu nâu",
+      "ipa": "/bɹaʊn/"
+    },
+    {
+      "id": "L005-134",
+      "en": "agree",
+      "vi": "đồng ý; tán thành; chấp thuận",
+      "ipa": "/əˈɡɹi/"
+    },
+    {
+      "id": "L005-135",
+      "en": "meeting",
+      "vi": "cuộc họp, buổi gặp mặt chính thức; cuộc gặp gỡ thân mật; sự chạm mặt, gặp gỡ tình cờ",
+      "ipa": "/ˈmitɪŋ/"
+    },
+    {
+      "id": "L005-136",
+      "en": "fat",
+      "vi": "mập; béo; béo phì",
+      "ipa": "/fæt/"
+    },
+    {
+      "id": "L005-137",
+      "en": "glass",
+      "vi": "thuỷ tinh; ly; cốc",
+      "ipa": "/ɡlæs/"
+    },
+    {
+      "id": "L005-138",
+      "en": "action",
+      "vi": "hành động; việc làm; sự hoạt động",
+      "ipa": "/ˈækʃən/"
+    },
+    {
+      "id": "L005-139",
+      "en": "building",
+      "vi": "tòa nhà; công trình; sự xây dựng",
+      "ipa": "/ˈbɪldɪŋ/"
+    },
+    {
+      "id": "L005-140",
+      "en": "reading",
+      "vi": "sự đọc; việc đọc hiểu; chỉ số (đồng hồ, thiết bị đo)",
+      "ipa": "/ˈɹidɪŋ/"
+    },
+    {
+      "id": "L005-141",
+      "en": "joined",
+      "vi": "kết hôn, đã cưới nhau; kết nối, móc nối",
+      "ipa": "/dʒɔɪnd/"
+    },
+    {
+      "id": "L005-142",
+      "en": "feeling",
+      "vi": "cảm giác; cảm xúc; linh cảm",
+      "ipa": "/ˈfilɪŋ/"
+    },
+    {
+      "id": "L005-143",
+      "en": "join",
+      "vi": "tham gia; gia nhập; nối",
+      "ipa": "/dʒɔɪn/"
+    },
+    {
+      "id": "L005-144",
+      "en": "links",
+      "vi": "sân golf ven biển (links)",
+      "ipa": "/lɪŋks/"
+    },
+    {
+      "id": "L005-145",
+      "en": "following",
+      "vi": "sau đây; dưới đây; tiếp theo",
+      "ipa": "/ˈfɑloʊɪŋ/"
+    },
+    {
+      "id": "L005-146",
+      "en": "bar",
+      "vi": "quán rượu, quầy bar; quầy (phục vụ đồ ăn uống); thanh, thỏi (kim loại, gỗ)",
+      "ipa": "/bɑɹ/"
+    },
+    {
+      "id": "L005-147",
+      "en": "floor",
+      "vi": "sàn nhà; tầng, lầu; sàn, mức thấp nhất (giá cả)",
+      "ipa": "/flɔɹ/"
+    },
+    {
+      "id": "L005-148",
+      "en": "dick",
+      "vi": "cặc; buồi",
+      "ipa": "/dɪk/"
+    },
+    {
+      "id": "L005-149",
+      "en": "hurt",
+      "vi": "làm đau; gây đau đớn; làm tổn thương",
+      "ipa": "/hɝt/"
+    },
+    {
+      "id": "L005-150",
+      "en": "quickly",
+      "vi": "nhanh; nhanh chóng; ngay lập tức",
+      "ipa": "/ˈkwɪkli/"
+    },
+    {
+      "id": "L005-151",
+      "en": "rule",
+      "vi": "quy tắc; luật lệ; điều lệ",
+      "ipa": "/ɹul/"
+    },
+    {
+      "id": "L005-152",
+      "en": "present",
+      "vi": "quà; món quà; hiện tại",
+      "ipa": "/ˈpɹɛzənt/"
+    },
+    {
+      "id": "L005-153",
+      "en": "welcome",
+      "vi": "chào đón, đón tiếp; tiếp đón, niềm nở đón tiếp; hoan nghênh, vui lòng đón nhận",
+      "ipa": "/ˈwɛlkəm/"
+    },
+    {
+      "id": "L005-154",
+      "en": "hill",
+      "vi": "đồi; vun thành đống; đắp thành gò",
+      "ipa": "/hɪl/"
+    },
+    {
+      "id": "L005-155",
+      "en": "push",
+      "vi": "xô; đẩy; chuyển giao",
+      "ipa": "/pʊʃ/"
+    },
+    {
+      "id": "L005-156",
+      "en": "seat",
+      "vi": "ghế; mời ngồi; đưa vào chỗ ngồi",
+      "ipa": "/sit/"
+    },
+    {
+      "id": "L005-157",
+      "en": "foreign",
+      "vi": "nước ngoài; ngoại quốc; ngoại lai",
+      "ipa": "/ˈfɔɹən/"
+    },
+    {
+      "id": "L005-158",
+      "en": "judge",
+      "vi": "đánh giá, nhận định; chấm điểm, làm giám khảo (cuộc thi); ước lượng, phỏng đoán",
+      "ipa": "/dʒʌdʒ/"
+    },
+    {
+      "id": "L005-159",
+      "en": "wind",
+      "vi": "gió; sức gió; uốn lượn",
+      "ipa": "/waɪnd/"
+    },
+    {
+      "id": "L005-160",
+      "en": "breaking",
+      "vi": "sự phá vỡ; sự đứt; sự vỡ",
+      "ipa": "/ˈbɹeɪkɪŋ/"
+    },
+    {
+      "id": "L005-161",
+      "en": "brain",
+      "vi": "não, óc; trí óc, trí thông minh; bộ não (tư duy và ý thức)",
+      "ipa": "/bɹeɪn/"
+    },
+    {
+      "id": "L005-162",
+      "en": "dream",
+      "vi": "giấc mơ; ước mơ, hoài bão; mơ mộng, mơ tưởng",
+      "ipa": "/dɹim/"
+    },
+    {
+      "id": "L005-163",
+      "en": "husband",
+      "vi": "chồng; dùng dè sẻn; tiết kiệm",
+      "ipa": "/ˈhʌzbənd/"
+    },
+    {
+      "id": "L005-164",
+      "en": "closed",
+      "vi": "đóng; đóng kín; (toán học) đóng",
+      "ipa": "/kloʊzd/"
+    },
+    {
+      "id": "L005-165",
+      "en": "rich",
+      "vi": "giàu có; giàu; phong phú",
+      "ipa": "/ɹɪtʃ/"
+    },
+    {
+      "id": "L005-166",
+      "en": "knowing",
+      "vi": "biết rõ, thông thạo; tỏ ra hiểu biết; có chủ đích, có ý thức",
+      "ipa": "/ˈnoʊɪŋ/"
+    },
+    {
+      "id": "L005-167",
+      "en": "camp",
+      "vi": "trại quân đội; trại; nhóm cắm trại",
+      "ipa": "/kæmp/"
+    },
+    {
+      "id": "L005-168",
+      "en": "grow",
+      "vi": "lớn lên, phát triển; mọc, sinh trưởng (cây cối, tóc); trở nên, dần trở thành",
+      "ipa": "/ɡɹoʊ/"
+    },
+    {
+      "id": "L005-169",
+      "en": "leader",
+      "vi": "lãnh đạo, người đứng đầu; hàng bán câu khách",
+      "ipa": "/ˈlidɚ/"
+    },
+    {
+      "id": "L005-170",
+      "en": "letter",
+      "vi": "thư, thư từ; chữ cái, ký tự; chủ cho thuê (nhà, đất)",
+      "ipa": "/ˈlɛtɚ/"
+    },
+    {
+      "id": "L005-171",
+      "en": "cat",
+      "vi": "mèo; nôn mửa; đánh bằng roi chín dây",
+      "ipa": "/kæt/"
+    },
+    {
+      "id": "L005-172",
+      "en": "personal",
+      "vi": "cá nhân; riêng tư; riêng (của từng người)",
+      "ipa": "/ˈpɝsɪnəl/"
+    },
+    {
+      "id": "L005-173",
+      "en": "enjoy",
+      "vi": "thưởng thức; thích thú; được hưởng",
+      "ipa": "/ˌɛnˈdʒɔɪ/"
+    },
+    {
+      "id": "L005-174",
+      "en": "ben",
+      "vi": "núi; đồi cao (địa danh Scotland)",
+      "ipa": "/bɛn/"
+    },
+    {
+      "id": "L005-175",
+      "en": "gift",
+      "vi": "quà; quà tặng; quà biếu",
+      "ipa": "/ɡɪft/"
+    },
+    {
+      "id": "L005-176",
+      "en": "review",
+      "vi": "bài phê bình, bài đánh giá; sự xem xét lại, đánh giá lại; khám lại (y tế)",
+      "ipa": "/ˌɹiˈvju/"
+    },
+    {
+      "id": "L005-177",
+      "en": "officer",
+      "vi": "sĩ quan; cảnh sát viên; viên chức, cán bộ",
+      "ipa": "/ˈɔfəsɚ/"
+    },
+    {
+      "id": "L005-178",
+      "en": "machine",
+      "vi": "máy móc, máy; bộ máy, guồng máy (tổ chức); người làm việc như máy",
+      "ipa": "/məˈʃin/"
+    },
+    {
+      "id": "L005-179",
+      "en": "usually",
+      "vi": "thường thường; thường lệ; thường",
+      "ipa": "/ˈjuʒəwəli/"
+    },
+    {
+      "id": "L005-180",
+      "en": "speech",
+      "vi": "lời nói; ngôn từ; chúc từ",
+      "ipa": "/spitʃ/"
+    },
+    {
+      "id": "L005-181",
+      "en": "filled",
+      "vi": "đầy, tràn đầy; đã được thực hiện (đơn hàng); kín (lịch)",
+      "ipa": "/fɪld/"
+    }
+  ]
+}

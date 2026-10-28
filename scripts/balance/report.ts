@@ -296,14 +296,14 @@ export function extraGates(summaries: Readonly<Record<string, BotSummary>>): Gat
     // words and skills together are the 65–80 % share, each area skill capped on its own (D23a, D23b).
     { id: "G8", name: "Phần phe ta: bẫy, nhà, lính (b35)", want: "20–35 %, trần 40 %", got: f1(s.damage.ourSide) + " %", status: status(s.damage.ourSide >= 20 && s.damage.ourSide <= 35) },
     { id: "G8b", name: "Phần Hỏa Long: đòn từ và chiêu (b35)", want: "65–80 % (03 §0)", got: f1(s.damage.word + s.damage.skill) + " % (đòn từ " + f1(s.damage.word) + " %, chiêu " + f1(s.damage.skill) + " %)", status: status(s.damage.word + s.damage.skill >= 65 && s.damage.word + s.damage.skill <= 80) },
-    { id: "D23a", name: "Thiên Hỏa trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(sky) + " %", status: status(sky <= AREA.skillShareMaxPct) },
-    { id: "D23b", name: "Phun Lửa trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(breath) + " %", status: status(breath <= AREA.skillShareMaxPct) },
+    { id: "D23a", name: "Sky Fire trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(sky) + " %", status: status(sky <= AREA.skillShareMaxPct) },
+    { id: "D23b", name: "Fire Breath trong tổng sát thương (b35)", want: "≤ " + AREA.skillShareMaxPct + " % (BALANCE §9.1)", got: f1(breath) + " %", status: status(breath <= AREA.skillShareMaxPct) },
     { id: "G9b", name: "Chữ sống ≤ N_max", want: "≤ " + LETTER_BUDGET.nMaxCap, got: String(max(Object.values(summaries).map((x) => x.live.maxWords))), status: status(max(Object.values(summaries).map((x) => x.live.maxWords)) <= LETTER_BUDGET.nMaxCap) },
     { id: "G10", name: "Tầng 2 chữ đầu (b35)", want: "< 1 lần mỗi phút", got: tier2 === undefined ? "không đếm" : f2(tier2) + " /phút", status: tier2 === undefined ? "bị chặn" : status(tier2 < 1) },
     { id: "G11", name: "Mất khóa vì nguồn khác (b35)", want: "≤ 5 % số khóa", got: f1(s.typing.locksLostPct) + " % của " + f1(s.typing.locks) + " khóa", status: status(s.typing.locksLostPct <= 5) },
     {
       id: "G13",
-      name: "Vàng ải (b35)",
+      name: "Gold ải (b35)",
       want: "±15 % của " + s.gold.formula + "; dư cuối ải ≤ 15 %",
       // Measured at the stage's end (what turns into Vảy); the last chance to spend, wave 10's start, is shown beside it.
       got: f1(earned) + " (" + f1(pct(earned - s.gold.formula, s.gold.formula)) + " %); dư cuối ải " + f1(pct(s.gold.end, earned)) + " % (lúc vào đợt cuối " + f1(pct(s.gold.beforeLast, earned)) + " %)",
@@ -311,9 +311,9 @@ export function extraGates(summaries: Readonly<Record<string, BotSummary>>): Gat
     },
     {
       id: "G13b",
-      name: "Vàng ải phủ được bao nhiêu phần dựng tối đa (mọi ô, món đắt nhất, cấp 3)",
+      name: "Gold ải phủ được bao nhiêu phần dựng tối đa (mọi ô, món đắt nhất, cấp 3)",
       want: "15–35 % (00 §4.9)",
-      got: f1(cover.minPct) + " % của " + cover.maxCost + " Vàng (nếu mọi ô lấy món rẻ nhất: " + f1(cover.maxPct) + " % của " + cover.minCost + ")",
+      got: f1(cover.minPct) + " % của " + cover.maxCost + " Gold (nếu mọi ô lấy món rẻ nhất: " + f1(cover.maxPct) + " % của " + cover.minCost + ")",
       status: status(cover.minPct >= 15 && cover.minPct <= 35),
     },
     { id: "G15", name: "Khống chế cứng mỗi quái (b35)", want: "≤ 35 % thời gian sống", got: "tệ nhất " + f1(s.hard.worstPct) + " %, " + f1(s.hard.over35Pct) + " % quái vượt", status: status(s.hard.worstPct <= 35) },
@@ -406,8 +406,8 @@ export function mapNotes(world: World): string[] {
   if (heroFar.length > 0) {
     const nearest = Math.min(...pads.map((pad) => dist(at(pad), [0, 0])));
     notes.push(
-      "Lều Thuốc Nam (bán kính " + hut + " m): " + heroFar.length + "/" + pads.length + " bệ nhà cách tâm Rồng xa hơn bán kính (gần nhất " + nearest.toFixed(1) +
-        " m). Nếu sim đo tới tâm, nhà không hồi được Hỏa Long; đo tới mép Bệ Rồng (" + dais + " m) thì " +
+      "Herb Hut (bán kính " + hut + " m): " + heroFar.length + "/" + pads.length + " bệ nhà cách tâm Rồng xa hơn bán kính (gần nhất " + nearest.toFixed(1) +
+        " m). Nếu sim đo tới tâm, nhà không hồi được Hỏa Long; đo tới mép Dragon Platform (" + dais + " m) thì " +
         pads.filter((pad) => dist(at(pad), [0, 0]) <= hut + dais).length + " bệ với tới. Bot coi như đo tới mép bệ.",
     );
   }
@@ -418,7 +418,7 @@ export function mapNotes(world: World): string[] {
   const net = TRAPS["net-launcher"].area.radiusMm / 1000;
   const ends = world.lanes.filter((lane) => lane.sky).map((lane): Vec2 => [lane.xs[lane.xs.length - 1]! / U_PER_M, lane.zs[lane.zs.length - 1]! / U_PER_M]);
   const netSlots = world.slots.filter((slot) => slot.def.kind === "trap" && ends.some((end) => dist(at(slot), end) <= net)).map((slot) => slot.def.id);
-  notes.push("Lưới Phóng (tầm " + net + " m) với tới cuối đường trời từ: " + (netSlots.join(", ") || "không ô nào") + ".");
+  notes.push("Net Launcher (tầm " + net + " m) với tới cuối đường trời từ: " + (netSlots.join(", ") || "không ô nào") + ".");
   return notes;
 }
 
@@ -456,7 +456,7 @@ export function readiness(summaries: Readonly<Record<string, BotSummary>>): Read
     { what: "Đòn gõ trúng quái", lane: "sim-battle (combat)", ok: word > 0 },
     { what: "Kỹ năng Rồng gây sát thương", lane: "sim-battle (combat)", ok: skill > 0 },
     { what: "Quái chết", lane: "sim-battle (combat)", ok: kills > 0 },
-    { what: "Vàng chảy (hạ quái, hết đợt)", lane: "sim-ourside (economy)", ok: has("gold") },
+    { what: "Gold chảy (hạ quái, hết đợt)", lane: "sim-ourside (economy)", ok: has("gold") },
     { what: "Đặt món trong cửa hàng", lane: "sim-ourside (shop)", ok: has("built") || (sent.place ?? 0) === 0 },
     { what: "Bẫy, lính, nhà gây sát thương", lane: "sim-ourside (traps, units)", ok: ourSide > 0 },
     { what: "Hết đợt, sang nghỉ", lane: "sim-battle (waves)", ok: has("wave-end") },
@@ -518,7 +518,7 @@ const DIFFICULTY_OF: Readonly<Record<BandMode, string>> = { relax: "mức Dễ",
 /** B1's bots (BALANCE.md §7). */
 const FLOW_BOTS = ["novice", "steady", "standard", "skilled", "sloppy", "fast"];
 
-const SOURCE_VI: Record<string, string> = { word: "gõ", breath: "Phun Lửa", skyfire: "Thiên Hỏa", roar: "Long Hống", inferno: "Viêm Đế", trap: "bẫy", unit: "lính", house: "nhà", status: "hiệu ứng" };
+const SOURCE_VI: Record<string, string> = { word: "gõ", breath: "Fire Breath", skyfire: "Sky Fire", roar: "Dragon Roar", inferno: "Inferno", trap: "bẫy", unit: "lính", house: "nhà", status: "hiệu ứng" };
 void METRIC_LABELS;
 
 const table = (head: readonly string[], rows: readonly (readonly (string | number)[])[]): string =>
@@ -634,16 +634,16 @@ export function markdown(input: ReportInput): string {
     out.push("**" + s.bot + "** — đỉnh 6/8/10 s: " + PEAK_WINDOWS_S.map((w) => f2(s.peaks[w + "s"] ?? 0)).join(" / "));
     out.push(
       table(
-        ["Đợt", "Lượt tới", "W_gõ", "Tải", "Đỉnh", "Bận gõ %", "Từ/phút", "Vàng cuối đợt", "Máu Rồng cuối đợt"],
+        ["Đợt", "Lượt tới", "W_gõ", "Tải", "Đỉnh", "Bận gõ %", "Từ/phút", "Gold cuối đợt", "Máu Rồng cuối đợt"],
         s.waves.filter((w) => w.runs > 0).map((w) => [w.wave, w.runs, f1(w.w), f2(w.load), f2(w.peak), f1(w.busyPct), f1(w.wordsPerMin), f1(w.goldAtEnd), f1(w.heroHpAtEndPct)]),
       ),
     );
   }
   out.push("");
-  out.push("## Sát thương, khống chế, khóa, vàng");
+  out.push("## Sát thương, khống chế, khóa, Gold");
   out.push(
     table(
-      ["Bot", "Gõ %", "Kỹ năng %", "Phe ta %", "Khống chế cứng % (tệ nhất 1 con)", "Bị chặn %", "Mất khóa %", "Gõ: từ/phút (C(E))", "Chính xác %", "Vàng có / công thức", "Tiêu", "Dư vào đợt cuối", "Dư cuối ải"],
+      ["Bot", "Gõ %", "Kỹ năng %", "Phe ta %", "Khống chế cứng % (tệ nhất 1 con)", "Bị chặn %", "Mất khóa %", "Gõ: từ/phút (C(E))", "Chính xác %", "Gold có / công thức", "Tiêu", "Dư vào đợt cuối", "Dư cuối ải"],
       Object.values(summaries).map((s) => [
         s.bot,
         f1(s.damage.word),

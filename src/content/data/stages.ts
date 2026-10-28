@@ -10,7 +10,7 @@ import { M0_WAVES } from "./waves";
 
 export const STAGE_M0: StageDef = {
   id: "m0-l2-cau",
-  nameVi: "Bản thử: Cầu và Suối",
+  nameVi: "Stage 1 · Bridge and Brook",
   chapter: 2,
   index: 0,
   type: "normal",

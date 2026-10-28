@@ -30,7 +30,7 @@ import type { TerrainView } from "./terrain";
 import type { SimEvent } from "../content/types";
 import type { World } from "../sim/world";
 import { HP_BAR, HpBarBatch } from "./hpbars";
-import { createMapStage, type Stage } from "./stage";
+import { createMapStage, type MapStage, type Stage } from "./stage";
 import { strikeSeconds } from "./actors";
 import { MODEL_SPECS, type ModelSpec } from "./model-specs";
 import { loadCrowdModels, type CrowdModels } from "./models";
@@ -90,6 +90,8 @@ export interface BenchResult {
   readonly models: number;
   readonly skinnedLayers: number;
   readonly sceneTriangles?: { scatter: number; props: number };
+  /** Map pilot: the painted stage's load times (layout, masks, scatter, ground bake). */
+  readonly load?: MapStage["loadStats"];
 }
 
 declare global {
@@ -742,10 +744,10 @@ class GpuTimer {
 
 /** The GPU timer's mean, or null with the reason it is not trusted (no extension, ANGLE/Metal, longer than the frame). */
 function gpuReading(gpu: GpuTimer, frameMs: number, renderer: string): { gpuMeanMs: number | null; gpuNote: string | null } {
-  if (!gpu.available || gpu.samples.length === 0) return { gpuMeanMs: null, gpuNote: "không có bộ đếm GPU" };
+  if (!gpu.available || gpu.samples.length === 0) return { gpuMeanMs: null, gpuNote: "GPU timer unavailable" };
   const value = mean(gpu.samples);
-  if (/angle/i.test(renderer) && /metal/i.test(renderer)) return { gpuMeanMs: null, gpuNote: "không tin cậy trên ANGLE/Metal (đo được " + round2(value) + " ms)" };
-  if (value > frameMs * 1.05) return { gpuMeanMs: null, gpuNote: "không tin cậy: dài hơn cả khung (" + round2(value) + " ms)" };
+  if (/angle/i.test(renderer) && /metal/i.test(renderer)) return { gpuMeanMs: null, gpuNote: "unreliable on ANGLE/Metal (measured " + round2(value) + " ms)" };
+  if (value > frameMs * 1.05) return { gpuMeanMs: null, gpuNote: "unreliable: longer than frame (" + round2(value) + " ms)" };
   return { gpuMeanMs: round2(value), gpuNote: null };
 }
 
@@ -766,6 +768,8 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
     painted?.useModels(models);
     await models.ready;
   }
+  // Map pilot (CL-06): measure the baked ground, not the live paint it replaces.
+  if (painted !== null) await painted.groundBaked;
   const random = benchRandom(20_261_023);
   const crowd = new BenchCrowd(stage, options.count, random, MAP_L2_CAU, painted?.heightAt ?? (() => 0), models);
   const fxOn = options.fx !== false;
@@ -852,7 +856,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
         bones: models !== null,
         models: models?.loaded.length ?? 0,
         skinnedLayers: crowd.foes.reduce((set, foe) => (foe.layer !== undefined && crowd.crowd.isSkinned(foe.layer) ? set.add(foe.layer) : set), new Set<string>()).size,
-        ...(painted !== null ? { sceneTriangles: { scatter: painted.scatter.stats().triangles, props: painted.scatter.stats().props } } : {}),
+        ...(painted !== null ? { sceneTriangles: { scatter: painted.scatter.stats().triangles, props: painted.scatter.stats().props }, load: painted.loadStats } : {}),
       };
       window.__dhBench = result;
       resolveDone(result);
