@@ -926,6 +926,8 @@ export class FxCore {
     // On the merged map's light dais (luma 0.72) the orange body darkens the box round the mouth; the hot core and the
     // flash carry the light: bigger and hotter than in the first round-5 capture.
     this.flares.flare(at, 1.3 * s * g, FX_COLORS.flashCore, 3.6 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, lift);
+    // Frame 0 only: a wider white-gold burst than the spent gather's core, so the release frame outshines the frame before.
+    this.flares.flare(at, 2.2 * s * g, FX_COLORS.fireHot, 2.2 * heat * soft, 2 / 60, 1 / 60, 0, 1, lift);
     this.flares.flare(at, 3.6 * s * g, FX_COLORS.ember, 1.55 * heat * soft, WORD_FX.flashS + 1 / 60, WORD_FX.flashHoldS, 0.15, 1, lift);
     // L11: a wide, low gold glow round the mouth for 2 frames, so the release brightens the dais against the gather.
     this.flares.flare(at, 3.6 * s * g, FX_COLORS.fireHot, 0.25 * heat * soft, 4 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
@@ -1779,8 +1781,8 @@ export class FxCore {
       const core = (0.4 + 0.8 * level + 0.15 * pulse) * rk;
       this.flares.draw(at, core * 2.75, FX_COLORS.ember, (0.45 + 0.3 * level + 0.4 * pulse) * flicker * soft, 1, lift);
       // The core reads as a disc, not a dot: a wider mid layer in the core's hue under its hot centre.
-      this.flares.draw(at, core * 1.7, this.chargeTint(), (0.7 + 0.6 * level + 0.3 * pulse) * flicker * soft, 1, lift);
-      this.flares.draw(at, core, this.chargeTint(), (2.2 + 2.0 * level + 0.8 * pulse) * flicker * soft, 1, lift);
+      this.flares.draw(at, core * 1.7, this.chargeTint(), (0.6 + 0.45 * level + 0.3 * pulse) * flicker * soft, 1, lift);
+      this.flares.draw(at, core, this.chargeTint(), (1.8 + 1.4 * level + 0.8 * pulse) * flicker * soft, 1, lift);
       if (this.random() < (12 + 30 * level) * dt) {
         const angle = this.rand(0, TAU);
         this.u.set(Math.cos(angle) * this.rand(0.4, 1.2), this.rand(2.2, 3.8), Math.sin(angle) * this.rand(0.4, 1.2)).multiplyScalar(rk);
