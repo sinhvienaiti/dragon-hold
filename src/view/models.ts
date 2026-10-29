@@ -14,7 +14,8 @@
  * and above) and the roughness map (High and Ultra), so the painted look of
  * the crowd and the scatter lies over real surface detail. Two geometry-only
  * files ride along (manifest fields `far`, `hull`): a scatter prop's far LOD
- * (today's M0b cut, view/scatter.ts draws it past PROP_LOD_M from the camera)
+ * (trees their Medium mesh, the rest today's M0b cut; view/scatter.ts draws it
+ * past PROP_LOD_M from the camera)
  * and, on High and Ultra, a crowd model's hull (the Medium mesh) for the
  * outline and ghost passes. A missing or
  * failed model keeps its primitive and logs one warning. Loaded once per

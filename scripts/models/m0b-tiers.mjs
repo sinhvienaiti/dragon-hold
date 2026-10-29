@@ -44,7 +44,7 @@ const WORK = join(ROOT, "art-src/models-tiers");
 const OUT = join(ROOT, "public/assets/dragon-hold/models");
 const URL_BASE = "/assets/dragon-hold/models";
 const TIERS = ["ultra", "high", "medium"];
-/** The far LOD of a scatter prop (class "far": "m0b"): today's M0b cut as geometry only, drawn with the tier's maps. */
+/** The far LOD of a scatter prop as geometry only, drawn with the tier's maps: class "far": "m0b" (today's M0b cut) or "medium" (the Medium mesh). */
 const FAR = "far";
 /** The hull of a crowd model (class "hull": "medium"): the Medium mesh as geometry only, for the outline and ghost passes on High and Ultra. */
 const HULL = "hull";
@@ -185,6 +185,7 @@ for (const key of keys) {
   const [kind, id] = key.split("/");
   const passes = new Map();
   if (klass.far === "m0b") tierTargets[FAR] = Math.min(sourceTriangles, entry.triangles);
+  if (klass.far === "medium") tierTargets[FAR] = tierTargets.medium;
   // Only models the crowd draws (not the bridge or the jetty, which the map draws once each).
   if (klass.hull === "medium" && !key.startsWith("props/pine-river-")) tierTargets[HULL] = tierTargets.medium;
   for (const tier of Object.keys(tierTargets)) {

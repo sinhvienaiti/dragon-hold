@@ -114,7 +114,8 @@ const WARM_CROWN =
 
 /**
  * Model tiers (MODEL_QUALITY §3 step 2, LOD by distance): a prop farther than this from the camera draws its far
- * LOD (today's M0b cut, same uv atlas, the tier's maps); nearer, the tier's own mesh (High: trees 8,000). The game
+ * LOD (same uv atlas, the tier's maps): trees their Medium mesh (the M0b cut read as faceted crowns at the game
+ * camera), small props and ground cover today's M0b cut; nearer, the tier's own mesh (High: trees 8,000). The game
  * camera stands 78 m and more from every prop (55° pitch, 95 m), so in play the whole scatter is far at Medium and
  * High; zoom, the title orbit and the victory turn bring the near meshes in. Ultra keeps the full originals out to
  * 85 m (the nearer half of the map in play). Measured on 29/10 (changelog 2026-10-29-model-tiers): the tier meshes

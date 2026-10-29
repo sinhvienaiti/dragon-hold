@@ -67,7 +67,7 @@
      "normal": 512
     }
    },
-   "far": "m0b"
+   "far": "medium"
   },
   "small": {
    "note": "bushes, rocks, stumps, logs, fences, lanterns, cliff blocks: §2 floor 2,500 at High",
@@ -148,6 +148,6 @@
   "props/pine-river-wildflower-clump": "cover",
   "props/pine-river-grass-tuft": "cover"
  },
- "farNote": "Scatter classes (tree, small, cover) also ship a far LOD: today's M0b cut (dragon-hold-m0b.json triangles), geometry only, drawn with the tier's maps beyond the LOD distance from the camera (view/scatter.ts; MODEL_QUALITY §3 step 2).",
+ "farNote": "Scatter classes also ship a far LOD, geometry only, drawn with the tier's maps beyond PROP_LOD_M from the camera (view/scatter.ts; MODEL_QUALITY §3 step 2): trees their Medium mesh (the M0b cut read as faceted crowns at the game camera), small props and ground cover today's M0b cut (dragon-hold-m0b.json triangles).",
  "hullNote": "Crowd classes (character, building) also ship a hull: the Medium mesh, geometry only; on High and Ultra the crowd draws its outline and ghost passes with it while the body keeps the tier mesh (view/crowd.ts; MODEL_QUALITY §3 step 2)."
 }
