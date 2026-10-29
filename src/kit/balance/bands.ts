@@ -20,15 +20,15 @@ export const BANDS: { readonly [M in BandMode]: Band } = {
   challenge: { win: { min: 500, max: 750 }, s: { min: 150, max: 450 }, p: { min: 300, max: 500 }, i: { max: 50 }, o: { max: 150 }, n: { min: 1, max: 2 }, q: { min: 600, max: 800 } },
 };
 
-export const MODE_LABELS: { readonly [M in BandMode]: string } = { relax: "Thư giãn", balanced: "Cân bằng", challenge: "Thử thách" };
+export const MODE_LABELS: { readonly [M in BandMode]: string } = { relax: "Relax", balanced: "Balanced", challenge: "Challenge" };
 export const METRIC_LABELS: { readonly [M in BandMetric]: string } = {
-  win: "Thắng",
-  s: "Biên S",
-  p: "Áp lực P",
-  i: "Nhàn I",
-  o: "Ngộp O",
-  n: "Gần thua N",
-  q: "Quãng Q",
+  win: "Win",
+  s: "Safety S",
+  p: "Pressure P",
+  i: "Idle I",
+  o: "Overload O",
+  n: "Near misses N",
+  q: "Distance Q",
 };
 
 /** Band mode for a player: children use Relax unless a parent picked another; Learn plays at Relax. */
@@ -59,9 +59,9 @@ export function scoreBand(values: BandValues, band: Band, metrics: readonly Band
   return { rows, inBand: rows.every((row) => row.verdict === "in") };
 }
 
-/** "15–35 %", "≥ 92 %", "≤ 3 %", "0.3–1" for a report. */
+/** "15–35%", "≥ 92%", "≤ 3%", "0.3–1" for a report. */
 export function rangeText(metric: BandMetric, range: Range): string {
-  const show = (value: number): string => (metric === "n" ? String(value) : Math.round(value / 10) + " %");
+  const show = (value: number): string => (metric === "n" ? String(value) : Math.round(value / 10) + "%");
   if (range.min !== undefined && range.max !== undefined) return metric === "n" ? `${range.min}–${range.max}` : `${Math.round(range.min / 10)}–${show(range.max)}`;
   if (range.min !== undefined) return "≥ " + show(range.min);
   if (range.max !== undefined) return "≤ " + show(range.max);

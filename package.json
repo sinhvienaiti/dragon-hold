@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 3005 --strictPort",
     "build": "tsc --noEmit && vite build",
+    "deploy:pack": "pnpm build && node src/kit/tools/deploy/check-pack.mjs dist --game dragon-hold",
+    "deploy:pack:local": "pnpm build && node src/kit/tools/deploy/check-pack.mjs dist --game dragon-hold --allow-local-host",
     "preview": "vite preview --host 127.0.0.1 --port 3005 --strictPort",
     "test": "vitest run",
     "check": "node src/kit/verify-kit.mjs && pnpm test && pnpm build",

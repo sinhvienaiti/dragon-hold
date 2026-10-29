@@ -83,15 +83,15 @@ export type BotSpec = {
 
 /** BALANCE.md §6 "Bộ bot chuẩn". "Không gõ" has no a or CV: it never types (1 and 0 are placeholders). */
 export const STANDARD_BOTS: readonly BotSpec[] = [
-  { id: "child", label: "Trẻ em", represents: "Hồ sơ trẻ em", wpm: 15, accuracy: 0.88, cv: 0.4, tactics: "poor", backspace: 0.7, abandon: 0.05, crowdDrop: 0.4, lookAway: [2.5, 5], fatigue: 0.08 },
-  { id: "novice", label: "Mới", represents: "Người mới tập gõ", wpm: 25, accuracy: 0.92, cv: 0.35, tactics: "fair", backspace: 0.85, abandon: 0.04, crowdDrop: 0.3, lookAway: [2, 4], fatigue: 0.05 },
-  { id: "steady", label: "Chậm chắc", represents: "Gõ chậm nhưng chuẩn", wpm: 25, accuracy: 0.99, cv: 0.2, tactics: "fair", backspace: 0.95, abandon: 0.01, crowdDrop: 0.25, lookAway: [1.5, 3], fatigue: 0.03 },
-  { id: "standard", label: "Chuẩn", represents: "Người chơi tham chiếu", wpm: 35, accuracy: 0.95, cv: 0.25, tactics: "fair", backspace: 0.9, abandon: 0.02, crowdDrop: 0.2, lookAway: [1.2, 2.5], fatigue: 0.03 },
-  { id: "skilled", label: "Khá", represents: "", wpm: 50, accuracy: 0.96, cv: 0.2, tactics: "good", backspace: 0.9, abandon: 0.02, crowdDrop: 0.15, lookAway: [1, 2], fatigue: 0.02 },
-  { id: "sloppy", label: "Ẩu", represents: "Gõ nhanh nhưng ẩu", wpm: 50, accuracy: 0.85, cv: 0.35, tactics: "fair", backspace: 0.6, abandon: 0.06, crowdDrop: 0.25, lookAway: [0.8, 1.6], fatigue: 0.04 },
-  { id: "fast", label: "Nhanh", represents: "Người gõ giỏi", wpm: 70, accuracy: 0.97, cv: 0.15, tactics: "good", backspace: 0.9, abandon: 0.01, crowdDrop: 0.1, lookAway: [0.6, 1.2], fatigue: 0.02 },
-  { id: "no-type", label: "Không gõ", represents: "Kiểm \"gõ là sức chính\"", wpm: 0, accuracy: 1, cv: 0, tactics: "good", backspace: 0, abandon: 0, crowdDrop: 0, lookAway: [1, 2], fatigue: 0 },
-  { id: "type-only", label: "Chỉ gõ", represents: "Kiểm \"hỗ trợ cần thiết\"", wpm: 35, accuracy: 0.95, cv: 0.25, tactics: "none", backspace: 0.9, abandon: 0.02, crowdDrop: 0.2, lookAway: [1.2, 2.5], fatigue: 0.03 },
+  { id: "child", label: "Child", represents: "Child profile", wpm: 15, accuracy: 0.88, cv: 0.4, tactics: "poor", backspace: 0.7, abandon: 0.05, crowdDrop: 0.4, lookAway: [2.5, 5], fatigue: 0.08 },
+  { id: "novice", label: "Novice", represents: "Beginner typist", wpm: 25, accuracy: 0.92, cv: 0.35, tactics: "fair", backspace: 0.85, abandon: 0.04, crowdDrop: 0.3, lookAway: [2, 4], fatigue: 0.05 },
+  { id: "steady", label: "Steady", represents: "Slow, accurate typing", wpm: 25, accuracy: 0.99, cv: 0.2, tactics: "fair", backspace: 0.95, abandon: 0.01, crowdDrop: 0.25, lookAway: [1.5, 3], fatigue: 0.03 },
+  { id: "standard", label: "Standard", represents: "Reference player", wpm: 35, accuracy: 0.95, cv: 0.25, tactics: "fair", backspace: 0.9, abandon: 0.02, crowdDrop: 0.2, lookAway: [1.2, 2.5], fatigue: 0.03 },
+  { id: "skilled", label: "Skilled", represents: "", wpm: 50, accuracy: 0.96, cv: 0.2, tactics: "good", backspace: 0.9, abandon: 0.02, crowdDrop: 0.15, lookAway: [1, 2], fatigue: 0.02 },
+  { id: "sloppy", label: "Sloppy", represents: "Fast, error-prone typing", wpm: 50, accuracy: 0.85, cv: 0.35, tactics: "fair", backspace: 0.6, abandon: 0.06, crowdDrop: 0.25, lookAway: [0.8, 1.6], fatigue: 0.04 },
+  { id: "fast", label: "Fast", represents: "Experienced typist", wpm: 70, accuracy: 0.97, cv: 0.15, tactics: "good", backspace: 0.9, abandon: 0.01, crowdDrop: 0.1, lookAway: [0.6, 1.2], fatigue: 0.02 },
+  { id: "no-type", label: "No typing", represents: "Tests \"typing drives combat\"", wpm: 0, accuracy: 1, cv: 0, tactics: "good", backspace: 0, abandon: 0, crowdDrop: 0, lookAway: [1, 2], fatigue: 0 },
+  { id: "type-only", label: "Typing only", represents: "Tests \"support is needed\"", wpm: 35, accuracy: 0.95, cv: 0.25, tactics: "none", backspace: 0.9, abandon: 0.02, crowdDrop: 0.2, lookAway: [1.2, 2.5], fatigue: 0.03 },
 ];
 
 export function botSpec(id: BotId): BotSpec {

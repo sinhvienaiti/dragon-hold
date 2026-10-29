@@ -66,8 +66,8 @@ export const MATERIAL_COLORS: Readonly<Record<Material, readonly [string, string
   crystal: ["#c8d24a", "#e8f0a0"],
 };
 
-/** The kit's dragon profile with the Perfect label in English (the kit copy still carries the Vietnamese one). */
-export const NUMBER_FEEL: FeedbackProfile = { ...DRAGON, numbers: { ...DRAGON.numbers, label: "PERFECT" } };
+/** The kit's dragon profile already labels Perfect hits in English. */
+export const NUMBER_FEEL: FeedbackProfile = DRAGON;
 
 /** Budgets per quality (05 §8): combat particles, numbers, debris. */
 export const FX_BUDGET: Readonly<Record<Quality, { particles: number; numbers: number; debris: number }>> = {
