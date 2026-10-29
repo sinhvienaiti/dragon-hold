@@ -3,7 +3,9 @@
 // the map's default view, every picture at the window size given to cdp-run.
 // Env: TAG (sub-folder), Q (quality), PITCHES, YAWS, ZOOM, DEFAULT=0 skips the
 // default view, ONLY=default takes the default view only, EXTRA="warm=0" adds page-URL
-// switches (view/paint.ts mapSwitch). Pictures in tmp/map-pilot/<TAG>/ (OUT_DIR overrides).
+// switches (view/paint.ts mapSwitch). TITLE="20,200" adds the title camera (A3, low orbit,
+// held) at those headings, TITLE_PITCH (default 15) degrees up; ONLY=title takes those only.
+// Pictures in tmp/map-pilot/<TAG>/ (OUT_DIR overrides).
 // Owner: map pilot (renamed from the spike's dh-mapspike).
 import { join } from "node:path";
 import { BASE, badResources, outDir } from "./lib/dh.mjs";
@@ -13,7 +15,9 @@ const TAG = process.env.TAG ?? "now";
 const PITCHES = (process.env.PITCHES ?? "40,55,75").split(",").map(Number);
 const YAWS = (process.env.YAWS ?? "0,90,180,270").split(",").map(Number);
 const ZOOM = Number(process.env.ZOOM ?? "1");
-const ONLY_DEFAULT = process.env.ONLY === "default";
+const ONLY_DEFAULT = process.env.ONLY === "default" || process.env.ONLY === "title";
+const TITLE = process.env.TITLE ? process.env.TITLE.split(",").map(Number) : [];
+const TITLE_PITCH = Number(process.env.TITLE_PITCH ?? "15");
 const EXTRA = process.env.EXTRA ? "&" + process.env.EXTRA : "";
 
 export default async function (page) {
@@ -37,7 +41,13 @@ export default async function (page) {
       }
     }
   }
-  if (process.env.DEFAULT !== "0") {
+  for (const yaw of TITLE) {
+    await page.eval(`window.__dhTerrain.title({ yawDeg: ${yaw}, pitchDeg: ${TITLE_PITCH} })`);
+    await page.sleep(500);
+    shots.push(await page.shot(join(out, size + "-title-y" + yaw + ".png")));
+  }
+  if (TITLE.length > 0) await page.eval("window.__dhTerrain.title(null)");
+  if (process.env.DEFAULT !== "0" && process.env.ONLY !== "title") {
     // The game's home view (map.camera: yaw 0, 55°, look 4 m north of the dais). Reset from
     // another view: pressed at the home view, the reset toggles to the 75° overview.
     await page.eval("window.__dhTerrain.setView({ yawDeg: 30, pitchDeg: 50, zoom: 1, targetX: 0, targetZ: 0 }, true)");

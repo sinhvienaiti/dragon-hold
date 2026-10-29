@@ -163,7 +163,9 @@ void main() {
   float chevron = fract(vUv.y * 0.28 + across * 0.35 - uFlow * 0.45);
   float mark = smoothstep(0.0, 0.08, chevron) * (1.0 - smoothstep(0.18, 0.3, chevron));
   float ends = smoothstep(0.0, 4.0, vUv.y) * (1.0 - smoothstep(uLength - 3.0, uLength, vUv.y));
-  float alpha = (body * 0.32 + mark * (1.0 - across) * 0.75) * ends * uOpacity;
+  // A3 (FB-14): a quiet lane shows only its faint body; the chevrons come with an active wave.
+  float dhActive = smoothstep(0.14, 0.5, uOpacity);
+  float alpha = (body * 0.32 + mark * (1.0 - across) * 0.75 * dhActive) * ends * uOpacity;
   vec3 col = dhMist(uTint, vDhWorld);
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>
@@ -306,7 +308,7 @@ function skyMesh(map: MapDef, terrain: PaintedTerrain, look: PaintedTerrain["loo
     const material = new THREE.ShaderMaterial({
       vertexShader: SKY_VERTEX,
       fragmentShader: SKY_FRAGMENT,
-      uniforms: { ...look.uniforms, uTint: { value: new THREE.Color("#f4efff") }, uLength: { value: line.length }, uOpacity: { value: SKY_ACTIVE }, uFlow: { value: 0 } },
+      uniforms: { ...look.uniforms, uTint: { value: new THREE.Color("#f4efff") }, uLength: { value: line.length }, uOpacity: { value: SKY_QUIET }, uFlow: { value: 0 } },
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -320,7 +322,7 @@ function skyMesh(map: MapDef, terrain: PaintedTerrain, look: PaintedTerrain["loo
 
 /** Sky ribbon opacity: a wave on the way uses the lane / it stays quiet ("Yên" on the wave card). */
 const SKY_ACTIVE = 0.55;
-const SKY_QUIET = 0.2;
+const SKY_QUIET = 0.12;
 /** Lit lanes fade in and out over this long, seconds. */
 const CUE_FADE_S = 0.25;
 
@@ -404,9 +406,10 @@ export function buildPaths(map: MapDef, terrain: PaintedTerrain): PathsView {
     disposables.push(mesh.geometry, mesh.material as THREE.Material);
   }
   // Targets of the lit lanes (0–1) and of the sky lanes (active or not); `update` eases toward them.
-  // Sky lanes start active: a page that never cues (terrain preview, bench) looks as before.
+  // Sky lanes start quiet (map pilot A3, FB-14: the idle ribbon read as a white arrow on the meadow in every
+  // preview view); the wave on the way turns its lane active (cueLanes).
   const cueTarget = new Float32Array(cues.length);
-  const skyActive = new Uint8Array(skies.length).fill(1);
+  const skyActive = new Uint8Array(skies.length).fill(0);
 
   // Slot ghosts: one instanced flat quad per slot, lying on the ground.
   const slots = map.slots;

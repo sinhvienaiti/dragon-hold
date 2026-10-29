@@ -13,13 +13,17 @@
  * the ground shader then reads that one texture inside the square, paints
  * only the cliff stone live (steep faces stretch in a top-down bake), and
  * keeps the live paint outside the square. `?bake=0` keeps the live paint.
- * Tiles and decals load from /art-src in dev only (interim until
- * prepare-ground and prepare-decals, Codex MF-C24); until a texture loads it
- * is a 1 × 1 texel of its own mean colour, so the palette alone shows.
+ * A3 (DH-12): tiles and decals load, in dev and in a build alike, from the
+ * game's public assets: `pnpm prepare-ground` / `prepare-decals` (Codex 080,
+ * MF-C24) write the WebP files and manifests the pick list
+ * (`ground-pick.json`) names under /assets/dragon-hold/{ground,decals}/. Until
+ * a texture loads it is a 1 × 1 texel of its own mean colour, so the palette
+ * alone shows; a missing one is an error (`dh-ground-tiles` fails on it).
  * Owner: map pilot.
  */
 import * as THREE from "three";
 import type { Quality } from "../app/contracts";
+import { loadGroundManifest, type GroundKind, type GroundManifest } from "./ground-manifest";
 import { LAYOUT_RULES, type MapLayout, type PaintDisc } from "./layout";
 import { DH_GLSL, fbm, GROUND_PARS, PINE_RIVER_GROUND, type HeightField, type PaintLook } from "./terrain";
 
@@ -29,47 +33,68 @@ export const PAINT_MASK = { halfM: 52, cellM: 0.25 } as const;
 /** The baked ground colour target: texels a side (2048 over 104 m is about 5 cm a texel; Low takes half). */
 export const GROUND_BAKE_SIZE = 2048;
 
-/** Ground tiles: file, metres per repeat, linear mean colour (measured once with ImageMagick, -colorspace RGB). */
+/** Ground tiles: manifest key (ground-pick.json), linear mean colour (measured once with ImageMagick, -colorspace RGB). */
 const TILES = {
-  uTGrassA: { file: "ground/pine-river/grass-a.png", mean: [0.1346, 0.2216, 0.0679] },
-  uTGrassB: { file: "ground/pine-river/grass-b.1024.png", mean: [0.093, 0.1827, 0.078] },
-  uTMoss: { file: "ground/pine-river/moss.fix.png", mean: [0.1065, 0.1878, 0.0832] },
-  uTPath: { file: "ground/pine-river/path.png", mean: [0.4155, 0.2689, 0.135] },
-  uTEarth: { file: "ground/pine-river/earth.png", mean: [0.1101, 0.0646, 0.0318] },
-  uTSand: { file: "ground/pine-river/river-sand.png", mean: [0.5685, 0.4972, 0.4149] },
-  uTRock: { file: "ground/pine-river/rock.1024.png", mean: [0.1235, 0.1392, 0.1465] },
-  uTLitter: { file: "ground/pine-river/pine-litter.png", mean: [0.1205, 0.0649, 0.0331] },
+  uTGrassA: { key: "pine-river/grass-a", mean: [0.1346, 0.2216, 0.0679] },
+  uTGrassB: { key: "pine-river/grass-b", mean: [0.093, 0.1827, 0.078] },
+  uTMoss: { key: "pine-river/moss", mean: [0.1065, 0.1878, 0.0832] },
+  uTPath: { key: "pine-river/path", mean: [0.4155, 0.2689, 0.135] },
+  uTEarth: { key: "pine-river/earth", mean: [0.1101, 0.0646, 0.0318] },
+  uTSand: { key: "pine-river/river-sand", mean: [0.5685, 0.4972, 0.4149] },
+  uTRock: { key: "pine-river/rock", mean: [0.1235, 0.1392, 0.1465] },
+  uTLitter: { key: "pine-river/pine-litter", mean: [0.1205, 0.0649, 0.0331] },
 } as const;
 
-/** Decal sheets (2 × 2 each): the accepted files of art request 015 / Codex 017. */
+/** Decal sheets (2 × 2 each, the accepted files of art request 015 / Codex 017): manifest keys. */
 const DECALS = {
-  uDDirt: "decals/pine-river/dirt-patches.alpha.png",
-  uDFlowers: "decals/pine-river/flower-clusters.015.1024.png",
-  uDLitter: "decals/pine-river/forest-litter.alpha.png",
-  uDMoss: "decals/pine-river/moss-puddles.v1.alpha.png",
+  uDDirt: "pine-river/dirt-patches",
+  uDFlowers: "pine-river/flower-clusters",
+  uDLitter: "pine-river/forest-litter",
+  uDMoss: "pine-river/moss-puddles",
 } as const;
+
+/** Every key the paint loads, per kind (tests check them against ground-pick.json). */
+export const GROUND_KEYS: Readonly<Record<GroundKind, readonly string[]>> = {
+  ground: Object.values(TILES).map((tile) => tile.key),
+  decals: Object.values(DECALS),
+};
+
+/** What the last buildGroundPaint loaded (the `dh-ground-tiles` check reads it): per kind, keys loaded and keys missing. */
+export const groundTextureStatus: { loaded: string[]; missing: string[]; manifests: Partial<Record<GroundKind, boolean>> } = { loaded: [], missing: [], manifests: {} };
+
+// One fetch per manifest a page (Vite inlines the pick list; the manifest carries the cache-busting URLs).
+const manifests = new Map<GroundKind, Promise<GroundManifest | null>>();
+function manifestOf(kind: GroundKind): Promise<GroundManifest | null> {
+  let job = manifests.get(kind);
+  if (!job) {
+    job = loadGroundManifest(kind).catch((error: unknown) => {
+      console.error("paint: the " + kind + " manifest did not load (run pnpm prepare-" + kind + "); the palette stays", error);
+      return null;
+    });
+    manifests.set(kind, job);
+  }
+  return job;
+}
 
 /**
- * Map pilot palette over PINE_RIVER_GROUND (MAP_PLAN V2, V13, 2.5): one calm
- * bright meadow green (hue about 95°), a moss forest floor instead of teal,
- * cool blue-grey shade instead of violet, pale warm cliff stone and scree.
+ * Map pilot palette over PINE_RIVER_GROUND (MAP_PLAN V2, V13, 2.5). A3
+ * (ART_DIRECTION_2026-10-28 §3.3): no football-pitch green; the meadow leans
+ * pine and olive with golden sun patches, a pine-dark forest floor, cool
+ * blue-grey shade instead of violet, cream granite and scree.
  */
 export const PILOT_GROUND = {
-  uGrassDeep: "#4f7a40",
-  // V2 (A2): a step less saturated, toward the reference's soft light green.
-  uGrassMid: "#6b9e49",
-  uGrassLight: "#81b258",
-  uForestFloor: "#4d6a3f",
+  uGrassDeep: "#3c5634",
+  uGrassMid: "#66803f",
+  uGrassLight: "#8f9a4c",
+  uForestFloor: "#3a4a30",
   uVioletShade: "#b4c0d8",
-  uDirt: "#c9a77c",
-  uDirtLight: "#dcc59c",
-  uDirtDark: "#8a6c4e",
-  uRimStone: "#7d7a72",
-  uStone: "#bdb9b1",
-  uScree: "#b3b1aa",
+  uDirt: "#b89c74",
+  uDirtLight: "#cfb98f",
+  uDirtDark: "#7b6247",
+  uRimStone: "#76726a",
+  uStone: "#cfc6b2",
+  uScree: "#bdb5a3",
 } as const;
-
-const ART_BASE = "/art-src/";
 
 export interface GroundPaint {
   readonly uniforms: Record<string, { value: unknown }>;
@@ -369,10 +394,8 @@ export function buildGroundPaint(field: HeightField, layout: MapLayout, quality:
   const t0 = performance.now();
   const mask = bakePaintMask(field, layout);
   const bakeMs = performance.now() - t0;
-  // Interim (MF-C24 not done): the tiles and decals come from /art-src in dev only; a build shows the palette.
-  const artOn = import.meta.env.DEV;
-  const tilesOn = artOn && quality !== "low" && mapSwitch("tiles") !== "0";
-  const decalsOn = artOn && quality !== "low";
+  const tilesOn = quality !== "low" && mapSwitch("tiles") !== "0";
+  const decalsOn = quality !== "low";
   const uniforms: Record<string, { value: unknown }> = {
     uPaintMask: { value: mask.texture },
     uPaintMask2: { value: mask.texture2 },
@@ -387,43 +410,53 @@ export function buildGroundPaint(field: HeightField, layout: MapLayout, quality:
   const loader = new THREE.TextureLoader();
   const anisotropy = quality === "ultra" ? 8 : quality === "high" ? 4 : 1;
   const jobs: Promise<void>[] = [];
+  groundTextureStatus.loaded = [];
+  groundTextureStatus.missing = [];
+  /** Loads one manifest key into `name`; a missing manifest, key or file leaves the stand-in and is logged as an error. */
+  const load = (kind: GroundKind, key: string, name: string, setup: (texture: THREE.Texture) => void): void => {
+    const id = kind + ":" + key;
+    jobs.push(
+      manifestOf(kind)
+        .then((manifest) => {
+          groundTextureStatus.manifests[kind] = manifest !== null;
+          const entry = manifest?.textures[key];
+          if (!entry) throw new Error("not in the " + kind + " manifest");
+          return loader.loadAsync(entry.url);
+        })
+        .then((texture) => {
+          setup(texture);
+          texture.anisotropy = anisotropy;
+          texture.needsUpdate = true;
+          uniforms[name]!.value = texture;
+          disposables.push(texture);
+          groundTextureStatus.loaded.push(id);
+        })
+        .catch((error: unknown) => {
+          groundTextureStatus.missing.push(id);
+          console.error("paint: " + id + " did not load; the palette stays", error instanceof Error ? error.message : error);
+        }),
+    );
+  };
   for (const [name, tile] of Object.entries(TILES)) {
     const fallback = meanTexel(tile.mean);
     uniforms[name] = { value: fallback };
     uniforms[name.replace("uT", "uM")] = { value: new THREE.Vector3(tile.mean[0], tile.mean[1], tile.mean[2]) };
     disposables.push(fallback);
     if (!tilesOn) continue;
-    jobs.push(
-      loader
-        .loadAsync(ART_BASE + tile.file)
-        .then((texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-          texture.anisotropy = anisotropy;
-          uniforms[name]!.value = texture;
-          disposables.push(texture);
-        })
-        .catch(() => console.warn("paint: " + tile.file + " did not load; the palette stays")),
-    );
+    load("ground", tile.key, name, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    });
   }
-  for (const [name, file] of Object.entries(DECALS)) {
+  for (const [name, key] of Object.entries(DECALS)) {
     const fallback = emptyDecal();
     uniforms[name] = { value: fallback };
     disposables.push(fallback);
     if (!decalsOn) continue;
-    jobs.push(
-      loader
-        .loadAsync(ART_BASE + file)
-        .then((texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.premultiplyAlpha = true;
-          texture.anisotropy = anisotropy;
-          texture.needsUpdate = true;
-          uniforms[name]!.value = texture;
-          disposables.push(texture);
-        })
-        .catch(() => console.warn("paint: " + file + " did not load; no decals of it")),
-    );
+    load("decals", key, name, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.premultiplyAlpha = true;
+    });
   }
 
   let target: THREE.WebGLRenderTarget | null = null;
@@ -636,7 +669,10 @@ vec3 dhStone(vec3 world, vec3 nW, vec2 p, vec2 dpx, vec2 dpy, float edge, float 
   vec3 dRock = dhDetail(tRock, uMRock);
   float streak = dhNoise(vec2((world.x - world.z) * 1.6, world.y * 0.28)) * 0.6 + dhNoise(vec2((world.x + world.z) * 3.1, world.y * 0.5) + 7.0) * 0.4;
   // Faces a step darker than the ledges above them, so the three tiers read.
-  return uStone * mix(vec3(1.0), dRock, 0.9) * (0.8 + 0.3 * streak) * mix(0.62, 1.08, smoothstep(0.25, 0.85, nW.y));
+  // A3: granite rather than pale sand: a cooler grey between rim stone and cream, dark joints between blocks.
+  float joint = smoothstep(0.62, 0.8, dhNoise(world.xz * 0.9 + world.y * 0.35) * 0.65 + dhNoise(vec2(world.x + world.z, world.y) * 1.7) * 0.35);
+  vec3 granite = mix(uRimStone, uStone, 0.68) * vec3(0.98, 1.0, 1.03);
+  return granite * mix(vec3(1.0), dRock, 0.9) * (0.8 + 0.3 * streak) * (1.0 - 0.38 * joint) * mix(0.62, 1.08, smoothstep(0.25, 0.85, nW.y));
 }
 `;
 
@@ -691,8 +727,12 @@ if (edge0 < 0.6 || pm2.g > 0.05) dRock = dhDetail(textureGrad(uTRock, p / 4.5, d
 float calm = broad * 0.75 + mid * 0.17 + stroke * 0.08;
 vec3 c = mix(uGrassMid, uGrassLight, clamp(0.4 + (calm - 0.5) * 1.1, 0.0, 1.0));
 c *= dGrass;
-// V2 (A2): soft 20–30 m patches drift the meadow ±4 % between a cooler fresh green and a warmer sunlit one.
-c *= mix(vec3(0.955, 0.975, 1.03), vec3(1.04, 1.025, 0.95), smoothstep(0.3, 0.7, dhFbm(p * 0.041 + 41.0)));
+// A3 (ART_DIRECTION 3.3): soft 25–35 m patches, cooler pine green in the low ones, golden sun on the high ones.
+{
+  float sunPatch = dhFbm(p * 0.034 + 41.0);
+  c *= mix(vec3(0.92, 0.97, 0.98), vec3(1.0), smoothstep(0.22, 0.5, sunPatch));
+  c = mix(c, c * vec3(1.2, 1.1, 0.74), smoothstep(0.5, 0.72, sunPatch) * 0.85);
+}
 // Meadow tufts (the reference's speckle): small dabs a step darker and deeper green, lit on the sun side; baked, so free per frame.
 {
   vec2 tc = floor(p / 0.75);
@@ -720,8 +760,12 @@ float level = 1.0 - smoothstep(0.22, 0.38, slope);
 float cliffG = smoothstep(0.25, 0.6, pm2.g + (mid - 0.5) * 0.3);
 if (cliffG > 0.0) {
   float crack = smoothstep(0.58, 0.72, dhNoise(p * vec2(0.7, 1.3) + 2.0) * 0.6 + dhNoise(p * 2.1 + 5.0) * 0.4);
-  vec3 rockTop = uScree * dRock * (0.9 + 0.18 * stroke + 0.12 * (big - 0.5));
-  rockTop = mix(rockTop, rockTop * vec3(0.66, 0.68, 0.72), crack * 0.7);
+  // A3: granite, not sand, from the low title views too: cool grey between rim stone and cream, speckle,
+  // deep cracks, a little moss and lichen.
+  vec3 rockTop = mix(uRimStone, uStone, 0.5 + 0.3 * (big - 0.5)) * vec3(0.97, 0.99, 1.03) * dRock * (0.86 + 0.2 * stroke);
+  rockTop *= 0.9 + 0.16 * dhNoise(p * 3.7 + 1.3);
+  rockTop = mix(rockTop, rockTop * vec3(0.5, 0.53, 0.58), crack * 0.9);
+  rockTop = mix(rockTop, uGrassDeep * 0.85, smoothstep(0.6, 0.82, dhNoise(p * 0.45 + 9.0)) * 0.4);
   float pocket = smoothstep(0.6, 0.74, mid + (big - 0.5) * 0.35);
   c = mix(c, mix(rockTop, c, pocket * 0.85), cliffG);
 }
@@ -769,6 +813,13 @@ vec3 laneC = mix(uDirt, uDirtLight, smoothstep(0.42, 0.72, stroke + mid * 0.2)) 
 laneC = mix(laneC, uDirtDark * dPath, worn * 0.45 + rut * 0.3);
 float shoulder = (1.0 - smoothstep(1.0, 1.9, lane + wob)) * (1.0 - dirt);
 c = mix(c, mix(c, uGrassLight * dGrass, 0.45), shoulder * 0.7);
+// A3 follow-up (FB-17, dh-foe-contrast): a wider band along each lane leans grey-olive and a step lighter, so
+// moss-green foes (and their shadows) part from the meadow; the lane dirt itself keeps the A3 tan.
+{
+  float laneBand = (1.0 - smoothstep(1.4, 4.5, lane + wob)) * (1.0 - dirt);
+  float bandL = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  c = mix(c, mix(vec3(bandL), c, 0.55) * 1.1, laneBand * 0.55);
+}
 c = mix(c, laneC, dirt);
 // Decals (D1–D4), bombed; their density lives in the mask, so lanes and water never get one.
 // Decals lie flat: none on slopes (they would stretch down a face).

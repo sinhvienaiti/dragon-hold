@@ -32,7 +32,8 @@ describe("view-terrain height field", () => {
         const a = (k / 16) * Math.PI * 2;
         const h = field.heightAt(Math.cos(a) * r, Math.sin(a) * r);
         expect(h).toBeGreaterThan(-3);
-        expect(h).toBeLessThan(15);
+        // A3 (ART_DIRECTION 3.1, 3.5): valley slopes climb past the rim (≤ ~26 m) and the cliffs stand twice as tall.
+        expect(h).toBeLessThan(40);
       }
     }
   });

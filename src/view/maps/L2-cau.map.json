@@ -5,22 +5,28 @@
   "unit": "cm",
   "gameplay": { "adapter": "dragon-hold@1", "commit": "02fe9c787886aecd668248fe00b5f2a97a6e45f4", "note": "simHash and viewHash come with the dragon-hold@2 reader (MAP_PLAN 2.1); the sim never reads this file" },
   "brief": "MAP_PLAN 3.2: sun from the east; the high side is west, a pale three-tier cliff framing the left edge with a gorge where Đường Suối and the stream leave; a bright open meadow east and south-east with the pond at its far edge; footpaths with destinations (pond landing, cliff scree, a south-east forest bay; no fishing path: the north bridgehead has a trap slot within 4 m); anchor grove in the north-west wedge across the river; forest bays every 60–90° and a gap at every gate.",
-  "lighting": { "sunBearingDeg": 95, "sunElevationDeg": 50, "hemiSky": "#d6e4ff", "hemiGround": "#6d7a5a", "hemiIntensityPermille": 2700, "fogNearCm": 4700, "fogFarCm": 11000 },
+  "lighting": { "sunBearingDeg": 70, "sunElevationDeg": 30, "keyColor": "#ffd6a0", "keyIntensityPermille": 4600, "hemiSky": "#b9c9e4", "hemiGround": "#5f6a42", "hemiIntensityPermille": 2350, "fogNearCm": 4700, "fogFarCm": 11000, "heightFog": { "baseCm": -150, "falloffCm": 220, "densityPermille": 32 }, "note": "A3 (ART_DIRECTION 3.3): dawn sun 30 deg up from the east-north-east, slanting down the valley so trees and cliffs throw long shadows west; slate-blue sky fill, olive ground bounce; fog by height pools in the river bed and the skirt valleys" },
   "scene": {
     "cliffs": [
-      { "id": "west-bluff", "site": "pinned", "tiers": 3, "heightCm": 900,
-        "lineCm": [[-3845, 201], [-3733, -591], [-3501, -1344], [-3153, -2048], [-2701, -2701], [-2266, -3236]],
-        "note": "bearings 267–325°, r 37.5–39.5 m (in the default frame's left edge); face normal · sun 0.41–0.64" },
-      { "id": "south-west-bluff", "site": "pinned", "tiers": 3, "heightCm": 780,
-        "lineCm": [[-2120, 3390], [-2510, 2990], [-2900, 2610], [-3190, 2410]],
-        "note": "bearings 212–233°, r 39–40 m, south-east of the stream; normal · sun ≥ 0.33" }
+      { "id": "west-bluff", "site": "pinned", "tiers": 4, "heightCm": 1800,
+        "lineCm": [[-3595, 188], [-3486, -552], [-3268, -1254], [-2943, -1912], [-2524, -2524], [-2123, -3031]],
+        "note": "bearings 267–325°, r 35–37 m (A3, FB-07: 2.5 m nearer, so the 90° views hold its top tier; the default frame's left edge); A3 (ART_DIRECTION 3.5): twice as tall, 18 m in four tiers of 4.5 m" },
+      { "id": "south-west-bluff", "site": "pinned", "tiers": 4, "heightCm": 1560,
+        "lineCm": [[-1987, 3178], [-2349, 2799], [-2714, 2443], [-2991, 2259]],
+        "note": "bearings 212–233°, r 36.5–37.5 m (A3: 2.5 m nearer), south-east of the stream; A3 (ART_DIRECTION 3.5): twice as tall, 15.6 m in four tiers" }
     ],
-    "ponds": [{ "id": "pond", "site": "pinned", "atCm": [1900, 700], "radiusCm": 460, "note": "r 20.2 m, bearing 110°, at the open meadow's far edge" }],
+    "landmarks": [
+      { "id": "pass-gate", "model": "Codex 124 / owner Tripo", "site": "proposed", "atCm": [-5600, 2000], "yawDeg": 70, "note": "A3 (ART_DIRECTION 3.5): the Hold's gate across the gorge mouth where Duong Suoi and the stream leave, past the lane trail (r 59 m), facing the dais; slot only, nothing is drawn until the GLB exists (no stand-in)" },
+      { "id": "pass-wall", "model": "Codex 124 / owner Tripo", "site": "proposed", "lineCm": [[-5000, -400], [-5600, 2000], [-4400, 4300]], "note": "ramparts from the west bluff's top over the gate to the south-west bluff; slot only" },
+      { "id": "watchtower", "model": "Codex 124 / owner Tripo", "site": "proposed", "atCm": [-4300, -2300], "yawDeg": 120, "note": "on the west bluff's plateau, seen from the default frame's top-left and the title orbit; slot only" },
+      { "id": "dragon-statue", "model": "Codex 124 / owner Tripo", "site": "proposed", "atCm": [-3500, -1600], "yawDeg": 115, "heightCm": 1600, "note": "carved into the west bluff's face, turned to the dais; slot only" }
+    ],
+    "ponds": [{ "id": "pond", "site": "pinned", "atCm": [1720, 620], "radiusCm": 460, "note": "r 18.3 m, bearing 110°, at the open meadow's far edge; A3 (FB-07): 2 m nearer the dais (was (19; 7)) so the 90° views keep it inside the frame; slot 6.9 m, sky lane 6.3 m" }],
     "open": { "fromDeg": 95, "toDeg": 200, "ringCm": [900, 2800] },
     "footpaths": [
       { "id": "fp-jetty", "tier": "main", "from": { "dais": 100 }, "to": { "pond": true }, "bendPermille": 60, "note": "dais plaza → pond landing (jetty when the kit has one)" },
       { "id": "fp-scree", "tier": "main", "from": { "dais": 188 }, "to": { "cliff": 222 }, "bendPermille": -120, "note": "dais plaza → scree at the south-west cliff foot" },
-      { "id": "fp-camp", "tier": "branch", "from": { "pond": 165 }, "to": { "edge": 158 }, "bendPermille": 140, "note": "pond → campfire in the south-east forest bay" }
+      { "id": "fp-camp", "tier": "branch", "from": { "pond": 165 }, "to": { "pointCm": [1850, 1350] }, "bendPermille": 140, "note": "pond → rest spot (bench, lantern; Campfire Ring when the kit has one) inside the home view, A3 (FB-18): the forest-bay end lay outside every frame" }
     ],
     "groves": [
       { "id": "grove:nw-anchor", "atCm": [-900, -2450], "radiusCm": 700, "dominant": "pine-round", "warm": true, "note": "anchor across the river, merges into the forest edge (V4)" },
@@ -33,11 +39,11 @@
       { "bearingDeg": 85, "halfWidthDeg": 10, "depthCm": -300 },
       { "bearingDeg": 120, "halfWidthDeg": 16, "depthCm": 800 },
       { "bearingDeg": 160, "halfWidthDeg": 14, "depthCm": 900 },
-      { "bearingDeg": 192, "halfWidthDeg": 10, "depthCm": -300 },
+      { "bearingDeg": 196, "halfWidthDeg": 14, "depthCm": 700, "note": "A3 (FB-03): was a headland; the south side read as a wall from the 90° and 270° views" },
       { "bearingDeg": 222, "halfWidthDeg": 15, "depthCm": 700 },
       { "bearingDeg": 283, "halfWidthDeg": 18, "depthCm": 800 },
       { "bearingDeg": 330, "halfWidthDeg": 12, "depthCm": 600 },
-      { "bearingDeg": 352, "halfWidthDeg": 9, "depthCm": -300 }
+      { "bearingDeg": 350, "halfWidthDeg": 12, "depthCm": 500, "note": "A3 (FB-03): was a headland; the north band read as a wall from the 0° and 270° views" }
     ]
   }
 }

@@ -1,0 +1,19 @@
+{
+  "note": "Runtime ground tiles and decal sheets the game loads (view/paint.ts TILES, DECALS): manifest key -> source under art-src/<kind>/. pnpm prepare-ground and prepare-decals read this list and write public/assets/dragon-hold/<kind>/<key>.webp plus manifest.json.",
+  "ground": {
+    "pine-river/grass-a": "pine-river/grass-a.png",
+    "pine-river/grass-b": "pine-river/grass-b.1024.png",
+    "pine-river/moss": "pine-river/moss.fix.png",
+    "pine-river/path": "pine-river/path.png",
+    "pine-river/earth": "pine-river/earth.png",
+    "pine-river/river-sand": "pine-river/river-sand.png",
+    "pine-river/rock": "pine-river/rock.1024.png",
+    "pine-river/pine-litter": "pine-river/pine-litter.png"
+  },
+  "decals": {
+    "pine-river/dirt-patches": "pine-river/dirt-patches.alpha.png",
+    "pine-river/flower-clusters": "pine-river/flower-clusters.015.1024.png",
+    "pine-river/forest-litter": "pine-river/forest-litter.alpha.png",
+    "pine-river/moss-puddles": "pine-river/moss-puddles.v1.alpha.png"
+  }
+}

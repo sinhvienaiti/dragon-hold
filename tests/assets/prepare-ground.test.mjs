@@ -114,6 +114,25 @@ test('explicit size/quality and JPEG/WebP input; decal wrapper keeps its kind', 
   for (const entry of Object.values(decals.textures)) assert.deepEqual([entry.width, entry.height], [16, 8]);
 });
 
+test('a pick list takes exactly its files, dotted review names included, under its own keys', async () => {
+  const input = join(temporary, 'pick input');
+  await image(join(input, 'pine-river', 'grass-b.png'), 12, 12);
+  await image(join(input, 'pine-river', 'grass-b.1024.png'), 24, 24);
+  await image(join(input, 'pine-river', 'moss.fix.png'), 8, 8, true);
+  const out = join(temporary, 'pick output');
+  const manifest = await prepareTextures({ input, out, pick: { 'pine-river/grass-b': 'pine-river/grass-b.1024.png', 'pine-river/moss': 'pine-river/moss.fix.png' } });
+  assert.deepEqual(Object.keys(manifest.textures), ['pine-river/grass-b', 'pine-river/moss']);
+  assert.equal(manifest.textures['pine-river/grass-b'].width, 24);
+  assert.deepEqual(Object.keys(await filesUnder(out)).sort(), ['manifest.json', 'pine-river/grass-b.webp', 'pine-river/moss.webp']);
+  await assert.rejects(prepareTextures({ input, out, pick: { 'pine-river/x': '../escape.png' } }), /outside the input/);
+  await assert.rejects(prepareTextures({ input, out, pick: { 'bad/key/deep': 'pine-river/moss.fix.png' } }), /Bad pick key/);
+  await assert.rejects(prepareTextures({ input, out, pick: {} }), /Empty pick list/);
+  // The game's own list names every key view/paint.ts loads (two kinds, kit pine-river).
+  const game = JSON.parse(await readFile(join(ROOT, 'src/view/ground-pick.json'), 'utf8'));
+  assert.equal(Object.keys(game.ground).length, 8);
+  assert.equal(Object.keys(game.decals).length, 4);
+});
+
 test('bad input and duplicate names fail before replacing published files', async () => {
   const input = join(temporary, 'bad-input');
   const out = join(temporary, 'preserved-output');

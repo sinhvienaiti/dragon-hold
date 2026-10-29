@@ -22,13 +22,13 @@ import type { Projector, Quality, ScreenPoint } from "../app/contracts";
 import { MAP_L2_CAU } from "../content/data/maps";
 import { KEYS } from "../content/rules";
 import type { MapDef } from "../content/types";
-import { CAMERA_ACTIONS, createCameraRig, type CameraRig } from "./camera";
+import { CAMERA_ACTIONS, createCameraRig, createTitleOrbit, TITLE_ORBIT, type CameraRig, type TitleOrbit } from "./camera";
 import { sceneFor } from "./maps/scene";
 import { BRIDGE_MODEL, PROP_SPECS } from "./model-specs";
 import { loadCrowdModels, type CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
 import { buildScatter, type ScatterView } from "./scatter";
-import { mapSwitch } from "./paint";
+import { groundTextureStatus, mapSwitch } from "./paint";
 import { buildTerrain, SUN_DIRECTION, sunDirection, type PaintedTerrain } from "./terrain";
 import { buildWater, type WaterView } from "./water";
 
@@ -387,6 +387,8 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   if (lighting?.hemiSky) stage.lights.sky.color.set(lighting.hemiSky);
   if (lighting?.hemiGround) stage.lights.sky.groundColor.set(lighting.hemiGround);
   if (lighting?.hemiIntensity) stage.lights.sky.intensity = lighting.hemiIntensity;
+  if (lighting?.keyColor) stage.lights.key.color.set(lighting.keyColor);
+  if (lighting?.keyIntensity) stage.lights.key.intensity = lighting.keyIntensity;
   stage.scene.background = terrain.look.mist.clone();
   stage.renderer.setClearColor(terrain.look.mist, 1);
   (stage.scene.fog as THREE.Fog).color.copy(terrain.look.mist);
@@ -457,6 +459,8 @@ export interface TerrainPreviewInfo {
   readonly pitchDeg: number;
   readonly zoom: number;
   readonly load?: MapStage["loadStats"];
+  /** DH-12: ground tiles and decals loaded and missing ("ground:pine-river/grass-a", …). */
+  readonly ground?: { readonly loaded: readonly string[]; readonly missing: readonly string[] };
 }
 
 declare global {
@@ -467,6 +471,8 @@ declare global {
       setView(view: { yawDeg?: number; pitchDeg?: number; zoom?: number; targetX?: number; targetZ?: number }, snap?: boolean): void;
       action(name: string): boolean;
       showSlots(visible: boolean, highlight?: readonly number[]): void;
+      /** A3: the title camera (low orbit); a view holds it there, null hands the camera back to the free rig. */
+      title(view: { yawDeg?: number; pitchDeg?: number; hold?: boolean } | null): void;
       project(x: number, y: number, z: number): ScreenPoint;
       heightAt(x: number, z: number): number;
     };
@@ -477,7 +483,8 @@ const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
 
 /**
  * The view-only page: the L2-cau diorama with the free camera and no game.
- * URL: `?view=terrain[&q=low|medium|high|ultra][&hud=0]`. Camera keys follow
+ * URL: `?view=terrain[&q=low|medium|high|ultra][&hud=0][&cam=title]` (`cam=title`:
+ * the title screen's low orbit). Camera keys follow
  * rules.ts KEYS (arrows, Alt + ↑/↓, Alt + 0); letters do nothing here.
  */
 export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_L2_CAU): { dispose(): void } {
@@ -517,6 +524,16 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
   };
   view.addEventListener("keydown", onKey);
 
+  let title: TitleOrbit | null = null;
+  /** The title orbit owns the camera; the mist then reads distance from it (near trees clear, far ridges in haze). */
+  const useTitle = (on: boolean): TitleOrbit | null => {
+    title = on ? (title ?? createTitleOrbit(world.camera, map)) : null;
+    world.terrain.look.uniforms.uMistCam.value.set(on ? 1 : 0, TITLE_ORBIT.mist.offsetM, TITLE_ORBIT.mist.scale);
+    world.scatter.setLowView(on);
+    return title;
+  };
+  if (params.get("cam") === "title") useTitle(true);
+
   let frames = 0;
   let last = view.performance.now();
   let windowStart = last;
@@ -527,6 +544,8 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
     const dt = Math.min(0.05, Math.max(0, (time - last) / 1000));
     last = time;
     world.update(dt);
+    // The title orbit places the camera after the rig (the rig still eases, unseen).
+    title?.update(dt);
     world.render();
     frames += 1;
     windowFrames += 1;
@@ -543,16 +562,21 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
     info: () => ({
       ready: frames > 2 && propsSettled && (world.loadStats.baked || mapSwitch("bake") === "0"),
       load: world.loadStats,
+      ground: { loaded: [...groundTextureStatus.loaded], missing: [...groundTextureStatus.missing] },
       frames,
       frameMs,
       ...world.stage.stats(),
-      yawDeg: world.rig.yawDeg,
-      pitchDeg: world.rig.pitchDeg,
-      zoom: world.rig.zoom,
+      yawDeg: title ? title.yawDeg : world.rig.yawDeg,
+      pitchDeg: title ? title.pitchDeg : world.rig.pitchDeg,
+      zoom: title ? 1 : world.rig.zoom,
     }),
     setView: (next, snap = true) => world.rig.setView(next, snap),
     action: (name) => world.rig.handleAction(name),
     showSlots: (visible, highlight) => world.paths.showSlots(visible, highlight),
+    title: (next) => {
+      if (next === null) useTitle(false);
+      else useTitle(true)!.set(next);
+    },
     project: (x, y, z) => world.worldToScreen(x, y, z),
     heightAt: (x, z) => world.heightAt(x, z),
   };
