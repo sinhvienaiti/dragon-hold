@@ -519,7 +519,7 @@ export class SkyFire {
     const blast = host.flip.pick("impact-big", "fire-burst", "impact-burst");
     if (blast !== null) {
       const fill = 1.25;
-      const clip = blast.id === "impact-big" ? { frame: 15, until: 23, rate: 1.1 } : { frame: 9, until: 23, rate: 1.6 };
+      const clip = blast.id === "impact-big" ? { frame: 16, until: 23, rate: 1.0 } : { frame: 9, until: 23, rate: 1.6 };
       blast.spawn(this.u.set(at.x, ground + r * 0.42, at.z), r * 2.0 * s * big * fill, { ...clip, rot: this.rand(-0.25, 0.25), grow: 0.2, intensity: 1.2, occlude: 0.85, ground, vy: 1.0, cool: 0.5, fadeOut: 0.08 });
       for (let i = 0; i < 2; i += 1) {
         const angle = host.random() * TAU;

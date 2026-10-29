@@ -1503,7 +1503,7 @@ export class FxCore {
     if (book !== null) {
       const big2 = book.id === "impact-big";
       const fill = FLIP_FILL[book.id];
-      const clip = big2 ? { frame: 15, until: 23, rate: 1.7 } : { frame: 9, until: 23, rate: 2.6 };
+      const clip = big2 ? { frame: 17, until: 23, rate: 1.5 } : { frame: 9, until: 23, rate: 2.6 };
       book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (big2 ? 1.05 : 0.95), { ...clip, rot: this.rand(-0.3, 0.3), grow: 0.25, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.9, cool: 0.45, fadeOut: 0.06 });
       book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.5, { ...clip, rate: clip.rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.6, delay: 2 / 60, cool: 0.4, fadeOut: 0.06 });
     } else {
