@@ -389,7 +389,7 @@ export class SkyFire {
     this.s.copy(at).addScaledVector(dir, 2.0 * k);
     host.puffs.spawn(this.s.x, this.s.y - 0.05, this.s.z, 2.1 * k * big, 8 / 60, FX_COLORS.releaseBall, 0.97, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.25, rot: host.random() * TAU, shape: PUFF_FIRE });
     const muzzle = host.flip.pick("muzzle-flash");
-    if (muzzle !== null) muzzle.spawn(this.s.copy(at).addScaledVector(dir, 0.1 * k), 2.0 * k * big, { dir, life: 10 / 60, intensity: 1.3, occlude: 0.85, fadeOut: 0.08 });
+    if (muzzle !== null) muzzle.spawn(this.s.copy(at).addScaledVector(dir, 0.1 * k), 2.0 * k * big, { dir, life: 10 / 60, frame: 6, intensity: 1.3, occlude: 0.6, fadeOut: 0.08 });
     const lift = 1.1 * k;
     // The white core sits at the mouth for 1 frame only.
     // Round 5 lesson: a hot additive mouth flash over the fire (white core ≤ 30 %, an ember flare round it), 2 frames,
@@ -513,7 +513,7 @@ export class SkyFire {
       const fill = 1.25;
       // Check capture 29/10: at 2.2× the blast still burned big at f100; ≈ 1 s now, and bigger, to the rule's radius.
       const rate = blast.id === "impact-big" ? 2.8 : 3.2;
-      blast.spawn(this.u.set(at.x, ground + r * 0.42, at.z), r * 1.7 * s * big * fill, { rate, frame: 4, rot: this.rand(-0.25, 0.25), grow: 0.12, intensity: 1.2, occlude: 0.85, ground, vy: 0.8, fadeOut: 0.25 });
+      blast.spawn(this.u.set(at.x, ground + r * 0.42, at.z), r * 1.7 * s * big * fill, { rate, frame: blast.id === "impact-big" ? 10 : 0, rot: this.rand(-0.25, 0.25), grow: 0.12, intensity: 1.2, occlude: 0.85, ground, vy: 0.8, fadeOut: 0.25 });
       for (let i = 0; i < 2; i += 1) {
         const angle = host.random() * TAU;
         blast.spawn(this.u.set(at.x + Math.cos(angle) * r * 0.45, ground + r * 0.3, at.z + Math.sin(angle) * r * 0.45), r * 0.8 * s * big * fill, { rate: rate * 1.2, rot: this.rand(0, TAU), intensity: 1.05, occlude: 0.8, ground, vy: 1.2, delay: (2 + 2 * i) / 60, fadeOut: 0.2 });

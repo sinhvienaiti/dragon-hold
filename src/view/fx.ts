@@ -125,8 +125,9 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
   "charge-orb": 1.2,
   // muzzle-flash v2: a 2:1 cell, the star at 0.26 of its width, the jet ~0.7 of the width (1.4 × the cell height).
   "muzzle-flash": 1.5,
-  // fireball-head v1: the ball is ~0.4 of the cell, its flames trail behind it.
-  "fireball-head": 2.4,
+  // fireball-head v1: the ball is ~0.45 of the cell, its flames trail behind it (2.4 made the head bigger than the
+  // mouth flash: §3.5 rule 6 wants the flash ≥ 1.5× the head).
+  "fireball-head": 1.6,
   "flame-trail": 1,
   // impact-burst v1 grows from ~35 % to ~80 % of its cell; impact-big v1 from ~45 % to ~90 %.
   "impact-burst": 1.4,
@@ -140,7 +141,9 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
 const HEAD_TINT = new THREE.Color(1, 0.86, 0.72);
 /** Playback speed of the one-shot clips at a word hit (Firefly cuts run 1.5–3 s; a hit's fire burns ≈ 0.8 s). */
 // Check capture 29/10: at 3.2–3.5× the burst was still big and bright at f030; ≈ 0.55–0.6 s now.
-const FLIP_RATE: Readonly<Partial<Record<FlipbookId, number>>> = { "impact-burst": 4.5, "fire-burst": 4.5, "impact-big": 5.0, embers: 2.6 };
+// Final check: at 4.5× from frame 0 the burst peaked at f020–f036, late for the eye; from frame 5 at 5.5× it is big
+// on the hit frames and gone by about f040 into the smoke.
+const FLIP_RATE: Readonly<Partial<Record<FlipbookId, number>>> = { "impact-burst": 5.5, "fire-burst": 5.5, "impact-big": 5.0, embers: 2.6 };
 
 // ── Quads: soft billboards and flat ground marks ────────────────────────────
 
@@ -1177,7 +1180,7 @@ export class FxCore {
     // fire's material; the code cone stays under it for volume, lighter.
     const muzzle = this.flip.pick("muzzle-flash");
     if (muzzle !== null) {
-      muzzle.spawn(this.u.copy(at).addScaledVector(this.w, 0.05 * s), FLIP_FILL["muzzle-flash"] * 1.25 * s * g, { dir: this.w, life: (strong ? 8 : 6) / 60, intensity: strong ? 1.25 : 1.1, occlude: 0.85, fadeOut: 0.06 });
+      muzzle.spawn(this.u.copy(at).addScaledVector(this.w, 0.05 * s), FLIP_FILL["muzzle-flash"] * 1.25 * s * g, { dir: this.w, life: (strong ? 5 : 4) / 60, frame: 6, intensity: strong ? 1.25 : 1.1, occlude: 0.6, fadeOut: 0.04 });
     }
     this.cones.cone(this.u.copy(at).addScaledVector(this.w, 0.15 * s), this.w, 2.6 * s * g, 0.85 * s * g, WORD_FX.jetS, WORD_FX.flashHoldS, soft * (muzzle !== null ? 0.6 : 1));
     const near = 1.05 * s * g;
@@ -1199,7 +1202,8 @@ export class FxCore {
     // core on ≤ 30 % of it, seven rays, a red-orange rim; full for 2 frames.
     // A plain word's star as big as a strong one's (its jet, head, teal and ring tell it apart): on the light dais the
     // star's red rim is darker than the stone, so a smaller one left the release frame dimmer than the bare stone after.
-    this.puffs.spawn(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s, 1.55 * s * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
+    // Round 8: 1.55 → 1.85 m × k, so the mouth flash stays ≥ 1.5× the Firefly fireball head (§3.5 rule 6).
+    this.puffs.spawn(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s, 1.85 * s * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
     const burnX = at.x + ux * 0.4 * s;
     const burnZ = at.z + uz * 0.4 * s;
     if (!this.wetOf(burnX, burnZ)) this.marks.spawn(burnX, this.markY(burnX, burnZ, 1.6 * s * g) + 0.05, burnZ, 1.6 * s * g, 0.55, FX_COLORS.scorch, 0.8 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
@@ -1208,9 +1212,11 @@ export class FxCore {
     const star = this.flashAt.set(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s);
     // Round 8 (judge A: a strong word's f000 was a soft peach glow, its star only on f001): the additive core and the
     // frame-0 burst are the same size for both grades and smaller than the star, so the star reads on its first frame.
-    this.flares.flare(star, 0.45 * s * big, FX_COLORS.flashCore, 3.4 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, 0);
+    // Final check: the stronger head kick uncovers bare beige stone in the flash cell by f006, brighter than the cell
+    // before the release; the white core on the release point outshines it on frame 0.
+    this.flares.flare(star, 0.8 * s * big, FX_COLORS.flashCore, 4.6 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, 0);
     // Frame 0 only: a white-gold burst, so the release frame outshines the spent gather (§5.6 first frame ≥ 95 %).
-    this.flares.flare(star, 0.7 * s * big, FX_COLORS.fireHot, 3.0 * soft, 2 / 60, 1 / 60, 0, 1, 0);
+    this.flares.flare(star, 1.1 * s * big, FX_COLORS.fireHot, 4.2 * soft, 2 / 60, 1 / 60, 0, 1, 0);
     this.flares.flare(this.u.copy(at).addScaledVector(this.w, 0.75 * s), 0.6 * s * g, hot, (strong ? 1.0 : 0.85) * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, 0);
     // Dark soot at the jet's root and edges, in from frame 2, gone by frame 8 (§3.5 rule 4: dark under the bright).
     const sideX = -uz;
@@ -1479,7 +1485,10 @@ export class FxCore {
     const ground = this.heightOf(hit.x, hit.z);
     // And a dark oval on the ground round the foe from the hit frame (judge 6 kept it; earlier and charcoal now).
     if (!this.wetOf(hit.x, hit.z)) this.marks.spawn(hit.x, this.markY(hit.x, hit.z, mass * 1.6) + 0.04, hit.z, mass * 1.6, 0.7, FX_COLORS.char, 0.5 * soft, { kind: 2, fadeIn: 0.001, hold: 0.25, drag: 0, rot: this.random() * TAU });
-    const book = strong ? this.flip.pick("impact-big", "impact-burst", "fire-burst") : this.flip.pick("impact-burst", "fire-burst", "impact-big");
+    // Final check 29/10 (720 play-light): impact-big v3 is a small star for its first 15 frames, so a strong word lost
+    // its mass at f012–f016; both grades take impact-burst v3 (it opens on its own flash at half its cell), a strong
+    // word's bigger, with its teal ring and flares.
+    const book = this.flip.pick("impact-burst", "fire-burst", "impact-big");
     if (book !== null) {
       // The Firefly burst: real rolling fire with inner shadows and a smoke tail. A second, smaller clip to one side
       // on screen, turned and two frames later, gives the blast depth; the code balls are not drawn.
@@ -1489,8 +1498,8 @@ export class FxCore {
       // radial embers clip read as a firework flower over a word hit, so the comet sparks below carry the sparks.
       // Most cuts grow from ~35 % of their peak (FXV): impact-big a few frames in, so the hit has its mass at f012;
       // impact-burst v3 opens on its own flash (0.95 of its peak). The code flash and light stay the frame-0 element.
-      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * 0.68, { rate, frame: book.id === "impact-big" ? 4 : 0, rot: this.rand(-0.3, 0.3), grow: 0.2, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.7, fadeOut: 0.14 });
-      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.38, { rate: rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.4, delay: 2 / 60, fadeOut: 0.12 });
+      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (strong ? 1.0 : 0.85), { rate, frame: book.id === "impact-big" ? 12 : 5, rot: this.rand(-0.3, 0.3), grow: 0.2, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.7, fadeOut: 0.14 });
+      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.45, { rate: rate * 1.15, frame: 3, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.4, delay: 2 / 60, fadeOut: 0.12 });
     } else {
       // Code-drawn: one main mass that swells (0.7 → 1.15 of it over its life), two smaller ones to either side on
       // screen born 2 and 3 frames later, each its own size and turn, cooling to deep red and charcoal (PUFF_FIRE).
@@ -1546,7 +1555,7 @@ export class FxCore {
     // Round 8: a Firefly smoke roll (dark smoke filmed on white) when its atlas is in, and fewer code puffs.
     const roll = this.flip.pick("smoke-roll");
     // About a second (check capture: at 0.9× a near-black cloud the size of the burst hung over the grass for 2 s).
-    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.2 * s, hit.z), mass * 0.95, { rate: 2.6, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeCool, alpha: 0.8 * soft, ground: this.heightOf(hit.x, hit.z), vy: 1.2, delay: 5 / 60, fadeIn: 0.15, fadeOut: 0.4 });
+    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.2 * s, hit.z), mass * 0.7, { rate: 3.2, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeCool, alpha: 0.8 * soft, ground: this.heightOf(hit.x, hit.z), vy: 1.2, delay: 5 / 60, fadeIn: 0.15, fadeOut: 0.4 });
     for (let k = 0; k < (roll !== null ? 1 : 3); k += 1) {
       this.puffs.spawn(hit.x + this.rand(-0.35, 0.35) * s, hit.y + (0.25 + k * 0.15) * s, hit.z + this.rand(-0.35, 0.35) * s, (0.85 + k * 0.12) * s * big, this.rand(0.7, 0.95), FX_COLORS.char, 0.6 * (this.reduced ? 0.7 : 1), { vy: 1.1, vx: ux * 0.5, vz: uz * 0.5, grow: 1.3, fadeIn: k / 60 + 0.001, spin: this.rand(-1, 1), rot: this.random() * TAU });
     }
@@ -2049,7 +2058,9 @@ export class FxCore {
       const span = Math.min(bolt.t, BOLT_TRAIL_SPAN);
       for (let i = 0; i < n; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (n - 1), bolt.trail.points[i]!);
       // Round 5 (judge 4): the head is there at the mouth from frame 0, inside the mouth flash (the ribbon too).
-      const born = 1;
+      // Round 8: its hot core comes up over 3 frames (⅓, ⅔, full, as Sky Fire's): at full it outshone the release
+      // flash's own cell on frame 1.
+      const born = Math.min(1, (bolt.t * bolt.duration * 60 + 1) / 3);
       this.trailTexture(bolt.trail, time);
       bolt.trail.update(cameraPos, width, bolt.t < 1 ? born : Math.max(0, 1 - bolt.waited * 6), time);
       this.smokeStrand(bolt, bolt.t, cameraPos, time, bolt.t < 1 ? born : 1);
@@ -2060,7 +2071,10 @@ export class FxCore {
         const ball = this.flip.pick("fireball-head");
         if (ball !== null) {
           const ahead = this.bezier(bolt, bolt.arc, Math.min(1, bolt.t + 0.03), this.w).sub(head);
-          ball.spawn(head, (bolt.strong ? 1.35 : 0.98) * this.k * FLIP_FILL["fireball-head"], { life: ONE_FRAME, frame: time * (ball.meta?.fps ?? 24) + bolt.from.x, dir: ahead.lengthSq() > 1e-8 ? ahead : null, tint: HEAD_TINT, intensity: 1.05 * born, occlude: 0.85 });
+          // It comes out of the release flash: none on frame 0, half on frame 1 (its flames trail back over the mouth;
+          // at full they made frame 1 brighter than the flash's own frame 0, §5.6).
+          const out = Math.min(1, Math.max(0, (bolt.t * bolt.duration * 60 - 1) / 2));
+          if (out > 0) ball.spawn(head, (bolt.strong ? 1.35 : 0.98) * this.k * FLIP_FILL["fireball-head"], { life: ONE_FRAME, frame: time * (ball.meta?.fps ?? 24) + bolt.from.x, dir: ahead.lengthSq() > 1e-8 ? ahead : null, tint: HEAD_TINT, intensity: 1.05, alpha: out, occlude: 0.85 });
         } else this.puffs.spawn(head.x, head.y, head.z, (bolt.strong ? 1.35 : 0.98) * this.k, 1 / 30, FX_COLORS.releaseBall, 0.97 * born, { fadeIn: 0.001, hold: 1 / 30, spin: 5, rot: this.random() * TAU, shape: PUFF_FIRE });
         // Near the end the head is drawn on the camera's side of the foe, so it does not vanish into the body (f011).
         const headLift = bolt.t > 0.75 ? 1.2 * this.k : 0;
@@ -2161,7 +2175,7 @@ export class FxCore {
       // the plain charge as big as the strong one); its rim a little see-through.
       const orb = (0.4 + 1.6 * level + 0.15 * pulse) * s * flicker * (this.chargeClean ? 1 : 0.8);
       const book = this.flip.pick("charge-orb");
-      if (book !== null) book.spawn(at, orb * FLIP_FILL["charge-orb"], { life: ONE_FRAME, frame: this.time * (book.meta?.fps ?? 24), intensity: 1.0 + 0.35 * level + 0.3 * pulse, occlude: 0.85 });
+      if (book !== null) book.spawn(at, orb * FLIP_FILL["charge-orb"], { life: ONE_FRAME, frame: this.time * (book.meta?.fps ?? 24), intensity: 1.0 + 0.35 * level + 0.3 * pulse, occlude: 0.7 });
       else this.puffs.spawn(at.x, at.y, at.z, orb, 1 / 30, FX_COLORS.ember, 0.9, { fadeIn: 0.001, hold: 1 / 30, rot: this.random() * TAU, shape: PUFF_FIRE });
       // The last letters: a heat ring on the dais under the mouth. Round 8 (both judges: a flat salmon arc that sank into
       // the beige stone): licks of fire on a band (normal blend, the fire ramp) over its own charcoal backing, growing
@@ -2315,7 +2329,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   // Round 8 (judge B: the fissure and rocks lay on the ford): the water's drawn edge (terrain riverEdge, negative in the
   // river, the shallow ford included) as well as the water level.
   const edgeOf = field?.riverEdge ? (x: number, z: number) => field.riverEdge!(x, z) : null;
-  const wetAt = waterLevel === undefined ? undefined : (x: number, z: number) => heightAt(x, z) < waterLevel + 0.04 || (edgeOf !== null && edgeOf(x, z) < 0.5);
+  const wetAt = waterLevel === undefined ? undefined : (x: number, z: number) => heightAt(x, z) < waterLevel + 0.04 || (edgeOf !== null && edgeOf(x, z) < 0);
   // Continuous: 0 at the water's edge, 1 a little way up the bank (decals fade along the bank's own contour).
   const dryAt = waterLevel === undefined ? undefined : (x: number, z: number) => Math.min((heightAt(x, z) - waterLevel - 0.04) / 0.3, edgeOf === null ? 1 : (edgeOf(x, z) - 0.5) / 1.2);
   const core = new FxCore(stage.quality, { heightAt, wetAt, dryAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });

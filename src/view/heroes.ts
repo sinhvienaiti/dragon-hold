@@ -81,7 +81,7 @@ export const FIRE_STRIKE = { attackL: FIRE_CLIPS.attackL + "_Strike", attackR: F
  */
 const COIL = { neck: 0.2, head: 0.13, chest: -0.08 } as const;
 // Round 8 (judge A: no head kick seen at the release, L18): a firmer kick, the chest giving with it.
-const HEAD_KICK = { rad: 0.22, peakS: 0.06 } as const;
+const HEAD_KICK = { rad: 0.19, peakS: 0.06 } as const;
 /** Sky Fire (VFX_STANDARD §5.3 part 2): the head jerks up at the release, 12 frames into the Cast clip (skyfire.ts SKY_FX.releaseS), harder than a word's. */
 const SKYFIRE_KICK = { delayS: 12 / 60, gain: 1.6 } as const;
 /**

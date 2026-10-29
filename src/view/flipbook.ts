@@ -286,8 +286,10 @@ void main() {
     gl_FragColor = vec4(vTint * (0.75 + 0.5 * lum), a * soft);
     return;
   }
-  // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude.
-  gl_FragColor = vec4(t.rgb * vTint * soft, clamp(lum * 1.4, 0.0, 1.0) * vOcclude * soft);
+  // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude. The
+  // curve is steep (final check on light ground: the burst's dim flames stayed see-through and pale): a dim red flame
+  // already hides most of the stone under it, so it reads deep red, the dark under-layer of the bright core.
+  gl_FragColor = vec4(t.rgb * vTint * soft, smoothstep(0.02, 0.45, lum) * vOcclude * soft);
 }`;
 
 export interface FlipOptions {
@@ -557,8 +559,10 @@ export class FlipbookSet {
       "fire-burst": 5.3,
       embers: 5.9,
       "charge-orb": 5.8,
-      "muzzle-flash": 5.75,
-      "fireball-head": 5.8,
+      // Under the puffs (5): the release star and its white core are the frame-0 element (§5.6) and must not be
+      // darkened by a clip's blend (final check: the flash cell's first frame fell to 0.61–0.94 of its peak).
+      "muzzle-flash": 4.96,
+      "fireball-head": 4.97,
       "flame-trail": 5.1,
     };
     const pools = {} as Record<FlipbookId, FlipbookPool>;
