@@ -1047,15 +1047,18 @@ export class FxCore {
     this.puffs.spawn(at.x + ux * 0.45 * s, at.y, at.z + uz * 0.45 * s, 1.3 * s * g, 7 / 60, FX_COLORS.ember, 0.97, { vx: ux * 2, vz: uz * 2, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.3, rot: this.random() * TAU, shape: PUFF_FIRE });
     // Round 7 (judge 6: a soft peach blob over the head for 2 frames): a compact star in front of the snout, a white
     // core on ≤ 30 % of it, seven rays, a red-orange rim; full for 2 frames.
-    // A plain word's star is 0.85 of a strong one's (not 0.65 like its jet): the flash still beats its head ≥ 1.5×.
-    this.puffs.spawn(at.x + ux * 0.5 * s, at.y + 0.05, at.z + uz * 0.5 * s, 1.55 * s * (strong ? 1 : 0.85) * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
+    // A plain word's star as big as a strong one's (its jet, head, teal and ring tell it apart): on the light dais the
+    // star's red rim is darker than the stone, so a smaller one left the release frame dimmer than the bare stone after.
+    this.puffs.spawn(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s, 1.55 * s * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
     const burnX = at.x + ux * 0.4 * s;
     const burnZ = at.z + uz * 0.4 * s;
     if (!this.wetOf(burnX, burnZ)) this.marks.spawn(burnX, this.markY(burnX, burnZ, 1.6 * s * g) + 0.05, burnZ, 1.6 * s * g, 0.55, FX_COLORS.scorch, 0.8 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
-    const star = this.flashAt.set(at.x + ux * 0.5 * s, at.y + 0.05, at.z + uz * 0.5 * s);
+    // Its white heart on the release point (the flash's own cell): the gather orb, as big as the judge asked, lit
+    // that cell before; the release frame must still be the brightest there (§5.6, first frame ≥ 95 % of the peak).
+    const star = this.flashAt.set(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s);
     this.flares.flare(star, 0.6 * s * g, FX_COLORS.flashCore, 3.4 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, 0);
     // Frame 0 only: a white-gold burst, so the release frame outshines the spent gather (§5.6 first frame ≥ 95 %).
-    this.flares.flare(star, 0.95 * s * g, FX_COLORS.fireHot, 3.4 * heat * soft, 2 / 60, 1 / 60, 0, 1, 0);
+    this.flares.flare(star, 0.95 * s * big, FX_COLORS.fireHot, 3.4 * soft, 2 / 60, 1 / 60, 0, 1, 0);
     this.flares.flare(this.u.copy(at).addScaledVector(this.w, 0.6 * s), 0.8 * s * g, hot, (strong ? 1.0 : 0.85) * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, 0);
     // Dark soot at the jet's root and edges, in from frame 2, gone by frame 8 (§3.5 rule 4: dark under the bright).
     const sideX = -uz;
