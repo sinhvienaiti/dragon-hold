@@ -16,6 +16,9 @@ describe("parseFlipbookManifest", () => {
     expect(meta.aspect).toBe(1);
     expect(meta.start).toBe(0);
     expect(meta.heading).toBe(0);
+    expect(meta.halfUrl).toBeNull();
+    const big = parseFlipbookManifest({ version: 1, kind: "firefly", flipbooks: { "impact-big": { ...entry, file: "impact-big.webp", half: { file: "impact-big.half.webp", md5: "fedcba9876543210fedcba9876543210" } } } }, "/x/").get("impact-big")!;
+    expect(big.halfUrl).toBe("/x/impact-big.half.webp?v=fedcba9876543210fedcba9876543210");
   });
 
   it("reads a 2:1 cell, a pivot in pixels, a start frame and a heading", () => {
@@ -47,7 +50,7 @@ describe("cellRect", () => {
 });
 
 describe("FlipbookPool", () => {
-  const meta: FlipbookMeta = { id: "impact-burst", url: "/x", cols: 8, rows: 4, frames: 30, fps: 12, loop: false, blend: "additive", aspect: 1, pivot: [0.5, 0.5], start: 0, heading: 0 };
+  const meta: FlipbookMeta = { id: "impact-burst", url: "/x", cols: 8, rows: 4, frames: 30, fps: 12, loop: false, blend: "additive", aspect: 1, pivot: [0.5, 0.5], start: 0, heading: 0, alpha: false };
 
   it("draws nothing before its atlas, then a sprite at full alpha on its first frame", () => {
     const pool = new FlipbookPool("impact-burst", 4, 5, blankTexture());
@@ -88,7 +91,7 @@ describe("FlipbookSet", () => {
   it("attaches an atlas that arrives after it was built, and picks a fallback id", () => {
     const set = new FlipbookSet(blankTexture());
     expect(set.pick("impact-big", "fire-burst")).toBeNull();
-    flipbooks.add({ id: "fire-burst", url: "/x", cols: 8, rows: 4, frames: 30, fps: 12, loop: false, blend: "additive", aspect: 1, pivot: [0.5, 0.5], start: 0, heading: 0 }, new THREE.Texture());
+    flipbooks.add({ id: "fire-burst", url: "/x", cols: 8, rows: 4, frames: 30, fps: 12, loop: false, blend: "additive", aspect: 1, pivot: [0.5, 0.5], start: 0, heading: 0, alpha: false }, new THREE.Texture());
     expect(set.pick("impact-big", "fire-burst")?.id).toBe("fire-burst");
     set.dispose();
   });

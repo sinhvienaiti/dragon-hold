@@ -139,7 +139,8 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
 /** The Firefly fireball's white core runs over 30 % of its ball (FXV flag 0.32): a warm tint keeps it cream-orange. */
 const HEAD_TINT = new THREE.Color(1, 0.86, 0.72);
 /** Playback speed of the one-shot clips at a word hit (Firefly cuts run 1.5–3 s; a hit's fire burns ≈ 0.8 s). */
-const FLIP_RATE: Readonly<Partial<Record<FlipbookId, number>>> = { "impact-burst": 3.2, "fire-burst": 3.2, "impact-big": 3.5, embers: 2.6 };
+// Check capture 29/10: at 3.2–3.5× the burst was still big and bright at f030; ≈ 0.55–0.6 s now.
+const FLIP_RATE: Readonly<Partial<Record<FlipbookId, number>>> = { "impact-burst": 4.5, "fire-burst": 4.5, "impact-big": 5.0, embers: 2.6 };
 
 // ── Quads: soft billboards and flat ground marks ────────────────────────────
 
@@ -947,7 +948,7 @@ export class FxCore {
     this.reduced = options.reduced ?? false;
     this.group.add(this.marks.mesh, this.rings.mesh, this.puffs.mesh, this.debris.mesh, this.glows.points, this.sparks.points, this.flares.mesh);
     // Round 8 (judge B: on the light dais the release washed the stone pale orange): a more saturated light.
-    this.light = (options.mouthLight ?? FX_MOUTH_LIGHT[quality]) ? new THREE.PointLight("#ff8436", 0, 14, 2) : null;
+    this.light = (options.mouthLight ?? FX_MOUTH_LIGHT[quality]) ? new THREE.PointLight("#ff7428", 0, 14, 2) : null;
     if (this.light !== null) {
       this.light.name = "fx-mouth-light";
       this.light.castShadow = false;
@@ -1176,7 +1177,7 @@ export class FxCore {
     // fire's material; the code cone stays under it for volume, lighter.
     const muzzle = this.flip.pick("muzzle-flash");
     if (muzzle !== null) {
-      muzzle.spawn(this.u.copy(at).addScaledVector(this.w, 0.05 * s), FLIP_FILL["muzzle-flash"] * 1.25 * s * g, { dir: this.w, life: (strong ? 15 : 12) / 60, intensity: strong ? 1.25 : 1.1, occlude: 0.85, fadeOut: 0.1 });
+      muzzle.spawn(this.u.copy(at).addScaledVector(this.w, 0.05 * s), FLIP_FILL["muzzle-flash"] * 1.25 * s * g, { dir: this.w, life: (strong ? 8 : 6) / 60, intensity: strong ? 1.25 : 1.1, occlude: 0.85, fadeOut: 0.06 });
     }
     this.cones.cone(this.u.copy(at).addScaledVector(this.w, 0.15 * s), this.w, 2.6 * s * g, 0.85 * s * g, WORD_FX.jetS, WORD_FX.flashHoldS, soft * (muzzle !== null ? 0.6 : 1));
     const near = 1.05 * s * g;
@@ -1484,10 +1485,12 @@ export class FxCore {
       // on screen, turned and two frames later, gives the blast depth; the code balls are not drawn.
       const fill = FLIP_FILL[book.id];
       const rate = FLIP_RATE[book.id] ?? 3;
-      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill, { rate, rot: this.rand(-0.3, 0.3), grow: 0.15, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.7, fadeOut: 0.15 });
-      book.spawn(this.v.set(rear.x + sideX * 0.42 * mass, rear.y + 0.55 * mass, rear.z + sideZ * 0.42 * mass), size * fill * 0.55, { rate: rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.4, delay: 2 / 60, fadeOut: 0.12 });
-      const sparkBook = this.flip.pick("embers");
-      if (sparkBook !== null) sparkBook.spawn(this.v.set(front.x, front.y, front.z), size * (strong ? 1.5 : 1.2), { rate: FLIP_RATE.embers, rot: this.rand(0, TAU), intensity: 1.2, occlude: 0.35, ground, delay: 1 / 60, fadeOut: 0.2 });
+      // Sized like the code mass it replaces (check capture: at the full burst size it hid the foe from f016 on); the
+      // radial embers clip read as a firework flower over a word hit, so the comet sparks below carry the sparks.
+      // Most cuts grow from ~35 % of their peak (FXV): impact-big a few frames in, so the hit has its mass at f012;
+      // impact-burst v3 opens on its own flash (0.95 of its peak). The code flash and light stay the frame-0 element.
+      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * 0.68, { rate, frame: book.id === "impact-big" ? 4 : 0, rot: this.rand(-0.3, 0.3), grow: 0.2, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.7, fadeOut: 0.14 });
+      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.38, { rate: rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.4, delay: 2 / 60, fadeOut: 0.12 });
     } else {
       // Code-drawn: one main mass that swells (0.7 → 1.15 of it over its life), two smaller ones to either side on
       // screen born 2 and 3 frames later, each its own size and turn, cooling to deep red and charcoal (PUFF_FIRE).
@@ -1542,7 +1545,8 @@ export class FxCore {
     // Smoke (§3.5 rule 4): charcoal from the hit frame on (dark on sunlit grass), grey above it from frame 6 (dusk grass).
     // Round 8: a Firefly smoke roll (dark smoke filmed on white) when its atlas is in, and fewer code puffs.
     const roll = this.flip.pick("smoke-roll");
-    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.5 * s, hit.z), mass * 1.5, { rate: 0.9, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.char, alpha: 0.85 * soft, ground: this.heightOf(hit.x, hit.z), vy: 1.0, delay: 4 / 60, fadeIn: 0.08, fadeOut: 0.35 });
+    // About a second (check capture: at 0.9× a near-black cloud the size of the burst hung over the grass for 2 s).
+    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.2 * s, hit.z), mass * 0.95, { rate: 2.6, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeCool, alpha: 0.8 * soft, ground: this.heightOf(hit.x, hit.z), vy: 1.2, delay: 5 / 60, fadeIn: 0.15, fadeOut: 0.4 });
     for (let k = 0; k < (roll !== null ? 1 : 3); k += 1) {
       this.puffs.spawn(hit.x + this.rand(-0.35, 0.35) * s, hit.y + (0.25 + k * 0.15) * s, hit.z + this.rand(-0.35, 0.35) * s, (0.85 + k * 0.12) * s * big, this.rand(0.7, 0.95), FX_COLORS.char, 0.6 * (this.reduced ? 0.7 : 1), { vy: 1.1, vx: ux * 0.5, vz: uz * 0.5, grow: 1.3, fadeIn: k / 60 + 0.001, spin: this.rand(-1, 1), rot: this.random() * TAU });
     }
@@ -2196,7 +2200,8 @@ export class FxCore {
       this.light.position.copy(this.sky.lightAt);
     } else {
       this.light.intensity = word;
-      this.light.distance = 12;
+      // A small saturated glow under the mouth, not a wash over the whole light dais (judge B, round 7).
+      this.light.distance = 9;
       this.light.position.set(this.mouthAt.x + this.facing.x * 0.6, this.mouthAt.y, this.mouthAt.z + this.facing.z * 0.6);
     }
   }
@@ -2305,14 +2310,17 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const heightAt = options.terrain ? (x: number, z: number) => options.terrain!.heightAt(x, z) : () => 0;
   const reduced = options.reduced ?? (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
   // Water: the painted terrain's river level (read only); the ground under the river is lower than its surface.
-  const field = options.terrain && "field" in options.terrain ? (options.terrain as { field?: { waterLevel?: number } }).field : undefined;
+  const field = options.terrain && "field" in options.terrain ? (options.terrain as { field?: { waterLevel?: number; riverEdge?: (x: number, z: number) => number } }).field : undefined;
   const waterLevel = field?.waterLevel;
-  const wetAt = waterLevel === undefined ? undefined : (x: number, z: number) => heightAt(x, z) < waterLevel + 0.04;
-  // Continuous: 0 at the water's edge, 1 a hand (0.3 m) above it (decals fade along the bank's own contour).
-  const dryAt = waterLevel === undefined ? undefined : (x: number, z: number) => (heightAt(x, z) - waterLevel - 0.04) / 0.3;
+  // Round 8 (judge B: the fissure and rocks lay on the ford): the water's drawn edge (terrain riverEdge, negative in the
+  // river, the shallow ford included) as well as the water level.
+  const edgeOf = field?.riverEdge ? (x: number, z: number) => field.riverEdge!(x, z) : null;
+  const wetAt = waterLevel === undefined ? undefined : (x: number, z: number) => heightAt(x, z) < waterLevel + 0.04 || (edgeOf !== null && edgeOf(x, z) < 0.5);
+  // Continuous: 0 at the water's edge, 1 a little way up the bank (decals fade along the bank's own contour).
+  const dryAt = waterLevel === undefined ? undefined : (x: number, z: number) => Math.min((heightAt(x, z) - waterLevel - 0.04) / 0.3, edgeOf === null ? 1 : (edgeOf(x, z) - 0.5) / 1.2);
   const core = new FxCore(stage.quality, { heightAt, wetAt, dryAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });
   // The Firefly atlases (round 8): loaded once a page; each pool takes its atlas when it arrives.
-  void flipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1);
+  void flipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, stage.quality === "ultra");
   const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
   const kickTo: ScreenPoint = { x: 0, y: 0, visible: false };
   let lastRelease: { at: number } | null = null;

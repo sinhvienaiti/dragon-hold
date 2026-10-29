@@ -42,6 +42,8 @@ export const FIREFLY_BASE = "/assets/dragon-hold/vfx/firefly/";
 export interface FlipbookMeta {
   readonly id: FlipbookId;
   readonly url: string;
+  /** A half-size copy for High and below (atlases over 2048 px), or null. */
+  readonly halfUrl?: string | null;
   readonly cols: number;
   readonly rows: number;
   /** Frames used (≤ cols × rows, row-major from the top-left cell). */
@@ -57,6 +59,8 @@ export interface FlipbookMeta {
   readonly start: number;
   /** Which way the effect travels in its cell (radians, 0 = to the right): a sprite turned along a direction undoes it. */
   readonly heading: number;
+  /** The atlas carries its own alpha (smoke-roll: a luma matte from white); else alpha comes from luminance. */
+  readonly alpha: boolean;
 }
 
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -86,9 +90,12 @@ export function parseFlipbookManifest(value: unknown, base = FIREFLY_BASE): Map<
     const px = pivot[0]! > 1 || pivot[1]! > 1 ? [pivot[0]! / cw, pivot[1]! / ch] : pivot;
     const start = typeof entry.start === "number" && Number.isInteger(entry.start) && entry.start >= 0 && entry.start < frames ? entry.start : 0;
     const md5 = typeof entry.md5 === "string" && /^[0-9a-f]{32}$/.test(entry.md5) ? "?v=" + entry.md5 : "";
+    const half = record(entry.half) && typeof entry.half.file === "string" && /^[a-z0-9][a-z0-9.-]*\.(png|webp)$/.test(entry.half.file) ? entry.half : null;
+    const halfUrl = half === null ? null : base + (half.file as string) + (typeof half.md5 === "string" && /^[0-9a-f]{32}$/.test(half.md5) ? "?v=" + half.md5 : "");
     out.set(id, {
       id,
       url: base + entry.file + md5,
+      halfUrl,
       cols: entry.cols,
       rows: entry.rows,
       frames,
@@ -99,6 +106,7 @@ export function parseFlipbookManifest(value: unknown, base = FIREFLY_BASE): Map<
       pivot: [Math.min(1, Math.max(0, px[0]!)), Math.min(1, Math.max(0, px[1]!))],
       start,
       heading: typeof entry.heading === "number" && Number.isFinite(entry.heading) ? (entry.heading * Math.PI) / 180 : 0,
+      alpha: entry.alpha === true,
     });
   }
   return out;
@@ -131,8 +139,11 @@ class FlipbookLibrary {
     return () => this.listeners.delete(listener);
   }
 
-  /** Fetches the manifest and every atlas in it (once a page). No manifest: no flipbooks, the code-drawn layers stay. */
-  load(base = FIREFLY_BASE, anisotropy = 4): Promise<void> {
+  /**
+   * Fetches the manifest and every atlas in it (once a page). No manifest: no flipbooks, the code-drawn layers stay.
+   * `full`: the full-size atlases (Ultra); else an atlas's half-size copy where it has one (VFX_STANDARD §3.7 memory).
+   */
+  load(base = FIREFLY_BASE, anisotropy = 4, full = false): Promise<void> {
     if (this.loading !== null) return this.loading;
     if (typeof fetch !== "function" || typeof location === "undefined" || !/^https?:$/.test(location.protocol)) return (this.loading = Promise.resolve());
     this.loading = (async () => {
@@ -149,7 +160,7 @@ class FlipbookLibrary {
       await Promise.all(
         [...metas.values()].map(async (meta) => {
           try {
-            const texture = await loader.loadAsync(meta.url);
+            const texture = await loader.loadAsync(!full && meta.halfUrl ? meta.halfUrl : meta.url);
             texture.colorSpace = THREE.SRGBColorSpace;
             texture.anisotropy = anisotropy;
             texture.generateMipmaps = true;
@@ -237,6 +248,7 @@ uniform vec2 uGrid;
 uniform float uFrames;
 uniform float uLoop;
 uniform float uSmoke;
+uniform float uHasAlpha;
 uniform float uSoftM;
 uniform float uVignette;
 varying vec2 vUv;
@@ -268,8 +280,10 @@ void main() {
   float lum = max(t.r, max(t.g, t.b));
   if (uSmoke > 0.5) {
     // Dark smoke filmed on white: its darkness is its alpha; the tint is the smoke's colour, the clip's grain on it.
-    float a = t.a < 0.99 ? t.a : clamp((1.0 - lum) * 1.25, 0.0, 1.0);
-    gl_FragColor = vec4(vTint * (0.7 + 0.6 * lum), a * soft);
+    // A dense body (round 8 check: thin dark smoke over green grass read olive): the matte's soft half is lifted.
+    float a = uHasAlpha > 0.5 ? t.a : clamp((1.0 - lum) * 1.25, 0.0, 1.0);
+    a = smoothstep(0.02, 0.6, a);
+    gl_FragColor = vec4(vTint * (0.75 + 0.5 * lum), a * soft);
     return;
   }
   // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude.
@@ -356,6 +370,7 @@ export class FlipbookPool {
         uFrames: { value: 1 },
         uLoop: { value: 0 },
         uSmoke: { value: smoke ? 1 : 0 },
+        uHasAlpha: { value: 0 },
         uSoftM: { value: 0.8 },
         uVignette: { value: id === "impact-burst" || id === "impact-big" || id === "fire-burst" || id === "smoke-roll" || id === "embers" ? 1 : 0 },
         uPivot: { value: new THREE.Vector2(0.5, 0.5) },
@@ -396,6 +411,7 @@ export class FlipbookPool {
     (u.uPivot!.value as THREE.Vector2).set(meta.pivot[0], 1 - meta.pivot[1]);
     u.uAspect!.value = meta.aspect;
     u.uHeading!.value = meta.heading;
+    u.uHasAlpha!.value = meta.alpha ? 1 : 0;
   }
 
   /** Soft fade distance against the ground (m). */
@@ -572,7 +588,8 @@ export class FlipbookSet {
   }
 
   set softM(value: number) {
-    for (const id of FLIPBOOK_IDS) this.pools[id].softM = value;
+    // Ground fire stands on the ground: a short fade, or its flames' base would be eaten.
+    for (const id of FLIPBOOK_IDS) this.pools[id].softM = id === "ground-fire" ? value * 0.2 : value;
   }
 
   warm(at: THREE.Vector3): void {

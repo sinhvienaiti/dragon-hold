@@ -20,10 +20,14 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const IDS = ['charge-orb', 'muzzle-flash', 'fireball-head', 'flame-trail', 'impact-burst', 'impact-big', 'smoke-roll', 'embers', 'ground-fire', 'fire-burst'];
 /** What a cut's JSON may leave out, per id (the coordinator's quick fire-burst cut opens on five frames of a dot). */
 const DEFAULTS = { 'fire-burst': { start: 5 }, 'muzzle-flash': { pivot: [0.06, 0.5] } };
-/** This lane's picks from FXV's sheets (29/10, round 8), used when FXV has not named one. */
-const PICKS = { 'impact-burst': 'v1', 'impact-big': 'v1', 'muzzle-flash': 'v2', 'fireball-head': 'v1', 'charge-orb': 'v1', embers: 'v1', 'flame-trail': 'v2', 'fire-burst': 'v1' };
-/** Which way the effect travels in its cell (degrees, 0 = to the right), when the cut's JSON does not say. */
-const HEADINGS = { 'fireball-head/v1': 180 };
+/**
+ * This lane's picks from FXV's sheets (29/10, round 8, its second cut: every clip turned to travel to the right), used
+ * when FXV has not named one: muzzle-flash v4 (ragged tongues, the diagonal source turned level), smoke-roll v1 (rises
+ * from a small base), ground-fire v1 (flames standing on a line: a camera-facing sprite), flame-trail v1 (v2 flagged).
+ */
+// Coordinator's picks (29/10, after FXV's sheets) replace them: charge-orb v2, flame-trail v2, impact-burst v3 (the one
+// with a real flash), impact-big v3, smoke-roll v2; muzzle-flash v4, fireball-head v1, embers v1, ground-fire v1 as here.
+const PICKS = { 'impact-burst': 'v3', 'impact-big': 'v3', 'muzzle-flash': 'v4', 'fireball-head': 'v1', 'charge-orb': 'v2', embers: 'v1', 'flame-trail': 'v2', 'smoke-roll': 'v2', 'ground-fire': 'v1', 'fire-burst': 'v1' };
 const md5 = (bytes) => createHash('md5').update(bytes).digest('hex');
 
 function arg(name, fallback) {
@@ -75,6 +79,8 @@ async function main() {
   });
   for (const id of IDS) {
     const dir = join(from, id);
+    // fire-burst is the stand-in for the impacts: not loaded (8 MB of GPU memory) once a real impact cut exists.
+    if (id === 'fire-burst' && (flipbooks['impact-burst'] !== undefined || flipbooks['impact-big'] !== undefined)) continue;
     const cut = await pickCut(dir, id, summary, forced[id]);
     if (cut === null) {
       missing.push(id);
@@ -106,7 +112,8 @@ async function main() {
       cell: [Math.round(cellW * scale), Math.round(cellH * scale)],
       pivot: Array.isArray(json.pivot) ? json.pivot : cut.version === 'v0' ? extra.pivot ?? [0.5, 0.5] : [0.5, 0.5],
       start: Number.isInteger(json.start) ? json.start : cut.version === 'v0' ? extra.start ?? 0 : 0,
-      heading: typeof json.heading === 'number' ? json.heading : json.flies === 'left' ? 180 : HEADINGS[id + '/' + cut.version] ?? 0,
+      // FXV turns every cut to travel to the right; a cut that says otherwise is turned back at run time.
+      heading: typeof json.heading === 'number' ? json.heading : json.flies === 'left' ? 180 : 0,
       version: cut.version,
       source: typeof json.source === 'string' ? json.source : 'Adobe Firefly Video',
       alpha: /a/.test(channels ?? ''),
@@ -134,6 +141,15 @@ async function main() {
     entry.bytes = bytes.length;
     entry.width = Math.round(Number(width) * scale);
     entry.height = Math.round(Number(height) * scale);
+    // Over 2048 px: a half-size copy for High and below (impact-big: 4096×2048 is 43 MB with mips; Ultra loads the full).
+    if (entry.width > 2048) {
+      const half = id + '.half.webp';
+      const halfTemp = join(out, half + '.tmp.webp');
+      magick([target, '-resize', '50%', '-quality', '92', '-define', 'webp:alpha-quality=100', halfTemp]);
+      await rename(halfTemp, join(out, half));
+      const halfBytes = await readFile(join(out, half));
+      entry.half = { file: half, md5: md5(halfBytes), bytes: halfBytes.length, width: entry.width / 2, height: entry.height / 2 };
+    }
     flipbooks[id] = entry;
     console.log(id + ' ' + cut.version + ': ' + entry.width + '×' + entry.height + ', ' + cols + '×' + rows + ' (' + entry.frames + ' frames, ' + entry.fps + ' fps' + (entry.loop ? ', loop' : '') + '), ' + Math.round(entry.bytes / 1024) + ' KB');
   }

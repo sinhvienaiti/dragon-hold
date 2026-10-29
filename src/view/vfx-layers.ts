@@ -1290,14 +1290,14 @@ void main() {
   float shadow = 0.0;
   for (int i = 0; i < 8; i++) {
     float a = float(i) * 0.7854;
-    vec2 o = vec2(cos(a), sin(a)) * 0.022;
+    vec2 o = vec2(cos(a), sin(a)) * 0.03;
     shadow = max(shadow, texture2D(uMap, ro * (p + o) + 0.5).a * isOuter);
     shadow = max(shadow, texture2D(uMap, ri * (p + o) * 1.7 + 0.5).a * (1.0 - isOuter) * 0.9);
   }
   float fill = 0.3 * (1.0 - smoothstep(0.2, 1.0, r)) * (0.6 + 0.4 * uHot);
-  float dark = max(shadow * 0.85, fill);
-  vec3 color = mix(vec3(1.0, 0.36, 0.04), vec3(1.0, 0.86, 0.52), uHot) * (1.35 + 0.9 * uHot);
-  float stroke = clamp(m * 1.5, 0.0, 1.0);
+  float dark = max(shadow * 0.92, fill);
+  vec3 color = mix(vec3(1.0, 0.3, 0.02), vec3(1.0, 0.82, 0.46), uHot) * (1.5 + 0.9 * uHot);
+  float stroke = clamp(m * 1.8, 0.0, 1.0);
   vec3 under = vec3(0.035, 0.03, 0.03);
   gl_FragColor = vec4(mix(under, color, stroke), clamp(max(stroke, dark), 0.0, 1.0) * uAlpha);
 }`;

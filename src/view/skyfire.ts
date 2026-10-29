@@ -389,7 +389,7 @@ export class SkyFire {
     this.s.copy(at).addScaledVector(dir, 2.0 * k);
     host.puffs.spawn(this.s.x, this.s.y - 0.05, this.s.z, 2.1 * k * big, 8 / 60, FX_COLORS.releaseBall, 0.97, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.25, rot: host.random() * TAU, shape: PUFF_FIRE });
     const muzzle = host.flip.pick("muzzle-flash");
-    if (muzzle !== null) muzzle.spawn(this.s.copy(at).addScaledVector(dir, 0.1 * k), 2.0 * k * big, { dir, life: 18 / 60, intensity: 1.3, occlude: 0.85, fadeOut: 0.12 });
+    if (muzzle !== null) muzzle.spawn(this.s.copy(at).addScaledVector(dir, 0.1 * k), 2.0 * k * big, { dir, life: 10 / 60, intensity: 1.3, occlude: 0.85, fadeOut: 0.08 });
     const lift = 1.1 * k;
     // The white core sits at the mouth for 1 frame only.
     // Round 5 lesson: a hot additive mouth flash over the fire (white core ≤ 30 %, an ember flare round it), 2 frames,
@@ -511,15 +511,16 @@ export class SkyFire {
     const blast = host.flip.pick("impact-big", "fire-burst", "impact-burst");
     if (blast !== null) {
       const fill = 1.25;
-      const rate = blast.id === "impact-big" ? 2.2 : 2.6;
-      blast.spawn(this.u.set(at.x, ground + r * 0.42, at.z), r * 1.55 * s * big * fill, { rate, rot: this.rand(-0.25, 0.25), grow: 0.12, intensity: 1.2, occlude: 0.85, ground, vy: 0.8, fadeOut: 0.25 });
+      // Check capture 29/10: at 2.2× the blast still burned big at f100; ≈ 1 s now, and bigger, to the rule's radius.
+      const rate = blast.id === "impact-big" ? 2.8 : 3.2;
+      blast.spawn(this.u.set(at.x, ground + r * 0.42, at.z), r * 1.7 * s * big * fill, { rate, frame: 4, rot: this.rand(-0.25, 0.25), grow: 0.12, intensity: 1.2, occlude: 0.85, ground, vy: 0.8, fadeOut: 0.25 });
       for (let i = 0; i < 2; i += 1) {
         const angle = host.random() * TAU;
         blast.spawn(this.u.set(at.x + Math.cos(angle) * r * 0.45, ground + r * 0.3, at.z + Math.sin(angle) * r * 0.45), r * 0.8 * s * big * fill, { rate: rate * 1.2, rot: this.rand(0, TAU), intensity: 1.05, occlude: 0.8, ground, vy: 1.2, delay: (2 + 2 * i) / 60, fadeOut: 0.2 });
       }
     }
     const sparks = host.flip.pick("embers");
-    if (sparks !== null) sparks.spawn(this.u.set(at.x, ground + r * 0.35, at.z), r * 1.9 * s, { rate: 2.0, intensity: 1.3, occlude: 0.35, ground, delay: 1 / 60, fadeOut: 0.25 });
+    if (sparks !== null) sparks.spawn(this.u.set(at.x, ground + r * 0.35, at.z), r * 1.2 * s, { rate: 2.4, rot: this.rand(0, TAU), intensity: 0.9, occlude: 0.25, ground, delay: 2 / 60, fadeOut: 0.25 });
     // The fireball: saturated puffs that rise and swell (normal blend), dark smoke rolls up from them later.
     for (let i = 0; i < (blast !== null ? 4 : 10); i += 1) {
       const angle = (i / 10) * TAU + host.random() * 0.5;
@@ -567,7 +568,7 @@ export class SkyFire {
     if (roll !== null) {
       for (let i = 0; i < 2; i += 1) {
         const angle = host.random() * TAU;
-        roll.spawn(this.u.set(at.x + Math.cos(angle) * r * 0.25, ground + r * 0.45 + i * 0.6, at.z + Math.sin(angle) * r * 0.25), r * 1.3 * s, { rate: 0.8, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.char, alpha: 0.9 * soft, ground, vy: 1.0, delay: (5 + 3 * i) / 60, fadeIn: 0.1, fadeOut: 0.4 });
+        roll.spawn(this.u.set(at.x + Math.cos(angle) * r * 0.25, ground + r * 0.2 + i * 0.6, at.z + Math.sin(angle) * r * 0.25), r * 1.1 * s, { rate: 1.6, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeCool, alpha: 0.85 * soft, ground, vy: 1.2, delay: (6 + 4 * i) / 60, fadeIn: 0.18, fadeOut: 0.5 });
       }
     }
     for (let i = 0; i < (roll !== null ? 2 : 4); i += 1) {
@@ -581,14 +582,18 @@ export class SkyFire {
     // F (round 8): patches of fire burning on in the scorch for 2–3 s (ground-fire, a loop), never on the water.
     const burn = host.flip.pick("ground-fire");
     if (burn !== null) {
-      for (let i = 0; i < (host.reduced ? 3 : 5); i += 1) {
-        const angle = (i / 5) * TAU + this.rand(-0.4, 0.4);
-        const d = r * this.rand(0.2, 0.65);
+      // Up to five dry spots in the scorch's ring, out of twelve tries (at a ford most of it is water).
+      let placed = 0;
+      for (let i = 0; i < 12 && placed < (host.reduced ? 3 : 5); i += 1) {
+        const angle = (i / 12) * TAU * 2.4 + this.rand(-0.3, 0.3);
+        const d = r * this.rand(0.3, 0.8);
         const x = at.x + Math.cos(angle) * d;
         const z = at.z + Math.sin(angle) * d;
-        if (host.dryAt(x, z) < 0.7) continue;
+        if (host.dryAt(x, z) < 0.35) continue;
+        placed += 1;
         const g = host.heightAt(x, z);
-        burn.spawn(this.u.set(x, g + 0.45 * s, z), this.rand(1.3, 2.0) * s, { life: this.rand(2.0, 3.2), frame: this.rand(0, 30), intensity: 1.05, occlude: 0.5, ground: g, delay: this.rand(6, 14) / 60, fadeIn: 0.25, fadeOut: 0.9 });
+        // ground-fire v1: flames standing on a line, its pivot at their base: set on the ground.
+        burn.spawn(this.u.set(x, g + 0.05, z), this.rand(2.0, 3.0) * s, { life: this.rand(2.0, 3.2), frame: this.rand(0, 30), intensity: 1.05, occlude: 0.5, ground: g, delay: this.rand(6, 14) / 60, fadeIn: 0.25, fadeOut: 0.9 });
       }
     }
     host.stunStars(at.x, at.y + 1.6, at.z, HERO_SKILLS.skyfire.stunMs / 1000, r * 0.6);

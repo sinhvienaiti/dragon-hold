@@ -31,6 +31,8 @@ export const FX_COLORS = {
   soot: new THREE.Color("#2e2723"),
   /** Round 7 (judge 6: the dark round a word hit read olive brown on grass): a neutral, slightly cool charcoal. */
   char: new THREE.Color("#222326"),
+  /** Round 8: the Firefly smoke roll's colour, a cool mid charcoal (near black read as a hole; see-through it went olive on grass). */
+  smokeCool: new THREE.Color("#4a4b50"),
   dust: new THREE.Color("#a89272"),
   scorch: new THREE.Color("#2a2018"),
   wood: new THREE.Color("#8a6a45"),
