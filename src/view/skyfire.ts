@@ -408,9 +408,10 @@ export class SkyFire {
     // L9: the head: a deep-orange body and a hot heart (normal blend, reads on light ground) under an HDR core
     // (fireHot × 3: the white is only its middle, ≤ 30 % of the radius, §3.5 rule 3) in an ember halo.
     // Round 3: the body is a fire ball with a dark-red rim (it boils: a new noise seed each frame), drawn for one frame (a quad dies on its second update).
-    host.puffs.spawn(head.x, head.y, head.z, 2.5 * k, 1 / 30, FX_COLORS.releaseBall, 0.97 * born, { fadeIn: 0.001, hold: 1 / 30, spin: 4, rot: host.random() * TAU, shape: PUFF_FIRE });
+    // Round 6: a saturated ember ball (a light-orange one burnt peach-white, the colour of the dais, round its heart).
+    host.puffs.spawn(head.x, head.y, head.z, 2.5 * k, 1 / 30, FX_COLORS.ember, 0.97 * born, { fadeIn: 0.001, hold: 1 / 30, rot: host.random() * TAU, shape: PUFF_FIRE });
     host.flares.draw(head, 1.8 * k, FX_COLORS.ember, 0.5 * born);
-    host.flares.draw(head, 1.3 * k, FX_COLORS.fireHot, 2.6 * born);
+    host.flares.draw(head, 1.0 * k, FX_COLORS.fireHot, 2.2 * born);
     // A white-hot heart (≤ 30 % of the ball's radius): the head glows, it is not a flat orange disc.
     host.flares.draw(head, 0.7 * k, FX_COLORS.flashCore, 3.2 * born);
     // L8: embers falling from it.

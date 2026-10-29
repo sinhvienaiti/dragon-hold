@@ -138,16 +138,29 @@ export function headSize(img, base, center, dir, { delta = 0.18, reach = 90 } = 
   const uy = dir.y / length;
   const cx = Math.round(center.x);
   const cy = Math.round(center.y);
-  const changed = (x, y) => {
+  const change = (x, y) => {
     const i = (y * img.w + x) * 3;
     const dr = img.data[i] - base.data[i];
     const dg = img.data[i + 1] - base.data[i + 1];
     const db = img.data[i + 2] - base.data[i + 2];
-    return Math.sqrt(dr * dr + dg * dg + db * db) / (255 * Math.sqrt(3)) > delta;
+    return Math.sqrt(dr * dr + dg * dg + db * db) / (255 * Math.sqrt(3));
   };
-  // Start from the most changed pixel within 4 px of the projected head.
+  const changed = (x, y) => change(x, y) > delta;
+  // Start from the most changed pixel within 4 px of the projected head (until 29/10 the first changed one in scan
+  // order: over the light dais a peach-white core is close to the stone's colour, and the fill began in a few-pixel
+  // fragment beside it instead of the ball).
   let start = null;
-  for (let y = cy - 4; y <= cy + 4; y += 1) for (let x = cx - 4; x <= cx + 4; x += 1) if (x >= 0 && y >= 0 && x < img.w && y < img.h && changed(x, y)) start ??= [x, y];
+  let most = delta;
+  for (let y = cy - 4; y <= cy + 4; y += 1) {
+    for (let x = cx - 4; x <= cx + 4; x += 1) {
+      if (x < 0 || y < 0 || x >= img.w || y >= img.h) continue;
+      const c = change(x, y);
+      if (c > most) {
+        most = c;
+        start = [x, y];
+      }
+    }
+  }
   if (start === null) return null;
   const seen = new Uint8Array(img.w * img.h);
   const stack = [start];
