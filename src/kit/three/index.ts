@@ -17,11 +17,14 @@ export {
 export {
   ModelLibrary,
   SPACE_MODEL_MANIFEST_URL,
+  enableKtx2,
+  ktx2Enabled,
   loadModel,
   parseModelManifest,
   pickModelTier,
   resolveModelUrl,
   type ManifestFetch,
+  type Ktx2Renderer,
   type ModelLibraryOptions,
   type VisualQuality,
 } from "./model-loader";
