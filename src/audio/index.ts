@@ -15,7 +15,7 @@ import { PRONUNCIATION_EVENT } from "../kit/speech";
 import { uToM } from "../sim/fixed";
 import type { World } from "../sim/world";
 import { FileBank, LayeredBank, SynthBank, type SoundBank } from "./bank";
-import { CHILD_BUSES, CLASS_SETS, foeVoice, type SoundClass } from "./catalog";
+import { CHILD_BUSES, CLASS_SETS, foeSfx, foeVoice, type SoundClass } from "./catalog";
 import { AudioEngine } from "./engine";
 import { VOICE_CAP } from "./limiter";
 import { EventMapper, LowHpAlarm, panFor, type Listener } from "./map-events";
@@ -127,7 +127,7 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
     window.removeEventListener("keydown", gesture, { capture: true });
   };
 
-  const counts = new Map<SoundClass, { n: number; x: number; z: number }>();
+  const counts = new Map<SoundClass, { n: number; x: number; z: number; lead: string; kinds: Map<string, number> }>();
 
   /** Crowd loops by class and the forest beds, from the world (05 §7.1). */
   function beds(world: World): void {
@@ -139,14 +139,19 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
       if (!voice) continue;
       let entry = counts.get(voice.cls);
       if (!entry) {
-        entry = { n: 0, x: 0, z: 0 };
+        entry = { n: 0, x: 0, z: 0, lead: "", kinds: new Map() };
         counts.set(voice.cls, entry);
       }
       if (entry.n === 0) {
         entry.x = 0;
         entry.z = 0;
+        entry.lead = "";
+        entry.kinds.clear();
       }
       entry.n += 1;
+      const kind = (entry.kinds.get(enemy.foe) ?? 0) + 1;
+      entry.kinds.set(enemy.foe, kind);
+      if (entry.lead === "" || kind > (entry.kinds.get(entry.lead) ?? 0)) entry.lead = enemy.foe;
       entry.x += uToM(enemy.x);
       entry.z += uToM(enemy.z);
     }
@@ -155,7 +160,7 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
       const n = entry?.n ?? 0;
       const level = n === 0 ? 0 : Math.min(1, 0.3 + 0.7 * Math.sqrt(n / 40));
       const pan = entry && n > 0 ? panFor(entry.x / n, entry.z / n, listener) * 0.6 : 0;
-      engine.bed(CLASS_SETS[cls].march, level, pan);
+      engine.bed(CLASS_SETS[cls].march, level, pan, 0.4, entry && n > 0 ? (foeSfx(entry.lead)?.move ?? null) : null);
     }
     const battle = world.phase === "wave";
     engine.bed("amb.forest", battle ? 0.65 : 1);

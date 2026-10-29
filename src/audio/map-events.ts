@@ -8,7 +8,7 @@
  * Owner: audio (LANES.md).
  */
 import type { EntityRef, FoeId, Grade, HouseId, Material, PlaceableId, SimEvent, TrapId, WordGroup } from "../content/types";
-import { CLASS_SETS, GENERAL_SETS, foeVoice, type SoundClass, type SoundId } from "./catalog";
+import { CLASS_SETS, GENERAL_SETS, foeSfx, foeVoice, type SoundClass, type SoundId } from "./catalog";
 
 export interface Cue {
   id: SoundId;
@@ -27,6 +27,10 @@ export interface Cue {
   material: Material | null;
   /** Start this much later, seconds. */
   delayS: number;
+  /** The foe's own sound id (catalog foeSfx) played instead of `id` when its file is loaded; null: none. */
+  file: string | null;
+  /** True: play only the foe's own file; nothing when it is not loaded (a moment the class sets had no sound for). */
+  fileOnly: boolean;
 }
 
 /** Where the ears are: the camera's ground focus (metres) and heading (0 looks north, −z). */
@@ -90,6 +94,8 @@ interface DeathFold {
   z: number;
   rate: number;
   material: Material;
+  /** The first foe folded in (its own death id stands for the fold). */
+  foe: FoeId;
 }
 
 /** Hỏa Long's low-HP alarm (05 §7 P1): one alarm on crossing 35 %, then a soft heartbeat while below. */
@@ -218,7 +224,7 @@ export class EventMapper {
           if (set) this.at(set.horn, event.x, event.z, listener);
           return;
         }
-        this.at(CLASS_SETS[voice.cls].spawn, event.x, event.z, listener, { rate: voice.rate });
+        this.at(CLASS_SETS[voice.cls].spawn, event.x, event.z, listener, { rate: voice.rate, file: foeSfx(event.foe)?.spawn ?? null });
         return;
       }
       case "attack": {
@@ -234,7 +240,7 @@ export class EventMapper {
         const general = voice.general ? GENERAL_SETS[this.foes.get(event.source.serial) ?? ""] : undefined;
         const set = CLASS_SETS[voice.cls];
         const id = general ? general.attack : voice.attack === "ranged" ? set.shoot : voice.attack === "charge" ? set.charge : set.attack;
-        this.at(id, event.x, event.z, listener, { rate: voice.rate });
+        this.at(id, event.x, event.z, listener, { rate: voice.rate, file: foeSfx(this.foes.get(event.source.serial) ?? "")?.attack ?? null });
         return;
       }
       case "telegraph": {
@@ -381,11 +387,15 @@ export class EventMapper {
       const variant = big ? 2 : this.impactTurn++ % 2;
       const id: SoundId = variant === 2 ? "fire.impact.c" : variant === 1 ? "fire.impact.b" : "fire.impact.a";
       this.at(id, event.x, event.z, listener, { variant, gain: big ? 1 : 0.85 });
+      // The foe's own hit voice, once its file exists (the class sets had none under a word's fire impact).
+      const voice = this.voiceOf(target);
+      const own = foeSfx(this.foes.get(target.serial) ?? "")?.hit ?? null;
+      if (voice && own) this.at(CLASS_SETS[voice.cls].hit, event.x, event.z, listener, { rate: voice.rate, material: voice.material, gain: 0.6, file: own, fileOnly: true });
       return;
     }
     if (event.source.kind === "unit") {
       const voice = this.voiceOf(target);
-      if (voice) this.at(CLASS_SETS[voice.cls].hit, event.x, event.z, listener, { rate: voice.rate, material: voice.material, gain: 0.6 });
+      if (voice) this.at(CLASS_SETS[voice.cls].hit, event.x, event.z, listener, { rate: voice.rate, material: voice.material, gain: 0.6, file: foeSfx(this.foes.get(target.serial) ?? "")?.hit ?? null });
     }
   }
 
@@ -402,7 +412,7 @@ export class EventMapper {
     if (!voice) return;
     const fold = this.deaths.get(voice.cls);
     if (fold) fold.count += 1;
-    else this.deaths.set(voice.cls, { count: 1, x: event.x, z: event.z, rate: voice.rate, material: event.material });
+    else this.deaths.set(voice.cls, { count: 1, x: event.x, z: event.z, rate: voice.rate, material: event.material, foe: event.foe });
   }
 
   /** One death sound per class per frame, louder as √N (05 §5 "một vụ nổ cỡ √N"), and one chime. */
@@ -410,6 +420,7 @@ export class EventMapper {
     if (this.deaths.size === 0) return;
     for (const [cls, fold] of this.deaths) {
       this.at(CLASS_SETS[cls].death, fold.x, fold.z, listener, {
+        file: foeSfx(fold.foe)?.death ?? null,
         rate: fold.rate,
         material: fold.material,
         count: fold.count,
@@ -456,7 +467,7 @@ export class EventMapper {
     const index = this.out.length;
     let cue = this.pool[index];
     if (!cue) {
-      cue = { id, gain: 1, rate: 1, pan: 0, step: 0, count: 1, variant: 0, material: null, delayS: 0 };
+      cue = { id, gain: 1, rate: 1, pan: 0, step: 0, count: 1, variant: 0, material: null, delayS: 0, file: null, fileOnly: false };
       this.pool.push(cue);
     }
     cue.id = id;
@@ -468,6 +479,8 @@ export class EventMapper {
     cue.variant = opts.variant ?? 0;
     cue.material = opts.material ?? null;
     cue.delayS = opts.delayS ?? 0;
+    cue.file = opts.file ?? null;
+    cue.fileOnly = opts.fileOnly ?? false;
     this.out.push(cue);
   }
 }

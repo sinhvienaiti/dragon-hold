@@ -3,8 +3,9 @@ import { EventMapper, GATHER_S, LowHpAlarm, panFor, type Cue, type Listener } fr
 import type { EnemyRef, FoeId, SimEvent } from "../../src/content/types";
 
 const L: Listener = { x: 0, z: 0, yaw: 0 };
-const ids = (cues: readonly Cue[]) => cues.map((cue) => cue.id);
-const snapshot = (cues: readonly Cue[]) => cues.map((cue) => ({ ...cue }));
+// A foe's own sound with no class sound behind it (fileOnly, VFX step 3) is silent until its file exists: left out here.
+const ids = (cues: readonly Cue[]) => cues.filter((cue) => !cue.fileOnly).map((cue) => cue.id);
+const snapshot = (cues: readonly Cue[]) => cues.filter((cue) => !cue.fileOnly).map((cue) => ({ ...cue }));
 let serial = 0;
 const ref = (): EnemyRef => ({ slot: serial % 50, serial: ++serial });
 const spawn = (foe: FoeId, enemy = ref(), x = 0, z = -20): SimEvent => ({ tick: 0, type: "spawn", enemy, foe, lane: "a", x, z, elite: false, cluster: -1 });
