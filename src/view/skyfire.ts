@@ -287,8 +287,12 @@ export class SkyFire {
     // Round 3 (word attack lesson): a fire ball with a dark-red rim, drawn for one frame (a quad dies on its second update)., so the gathering reads on the
     // sunlit dais; the halo stays low (an additive ember wash turns the dais cream).
     host.puffs.spawn(at.x, at.y, at.z, (0.5 + 1.0 * f) * rk, 1 / 30, FX_COLORS.chargeBall, 0.9, { fadeIn: 0.001, hold: 1 / 30, spin: 4, rot: host.random() * TAU, shape: PUFF_FIRE });
-    host.flares.draw(at, (0.8 + 1.3 * f) * rk, FX_COLORS.ember, (0.35 + 0.4 * f) * flicker * soft);
-    host.flares.draw(at, (0.25 + 0.5 * f) * rk, FX_COLORS.fireHot, (1 + 2 * f) * flicker * soft);
+    // Round 5 lesson (word attack judge 4): a glowing core (HDR, additive) growing in a dim halo 2.75× it, lifted over the head.
+    const core = (0.5 + 1.1 * f) * rk;
+    const lift = 0.6 * rk;
+    host.flares.draw(at, core * 2.75, FX_COLORS.ember, (0.45 + 0.35 * f) * flicker * soft, 1, lift);
+    host.flares.draw(at, core * 1.7, FX_COLORS.fireHot, (0.6 + 0.5 * f) * flicker * soft, 1, lift);
+    host.flares.draw(at, core, FX_COLORS.fireHot, (1.8 + 1.8 * f) * flicker * soft, 1, lift);
     // L8: 12 embers pulled into the mouth over f0–f8, from round the head and up from the rune circle.
     const due = Math.min(SKY_FX.embers, Math.ceil(((age * 60 + 1) / SKY_FX.emberFrames) * SKY_FX.embers));
     const count = host.reduced ? Math.ceil(due * 0.6) : due;
@@ -355,8 +359,16 @@ export class SkyFire {
     host.puffs.spawn(this.s.x, this.s.y - 0.05, this.s.z, 3.0 * k * big, 8 / 60, FX_COLORS.releaseBall, 0.97, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.25, rot: host.random() * TAU, shape: PUFF_FIRE });
     const lift = 1.1 * k;
     // The white core sits at the mouth for 1 frame only.
-    host.flares.flare(at, 1.0 * k * big, FX_COLORS.flashCore, 2.4 * soft, SKY_FX.flashS, 1 / 60, 0.2, 1, lift);
-    host.flares.flare(at, 2.0 * k * big, FX_COLORS.fireHot, 1.0 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.25, 1, lift);
+    // Round 5 lesson: a hot additive mouth flash over the fire (white core ≤ 30 %, an ember flare round it), 2 frames,
+    // a frame-0 burst, and dark soot at the root of the cone from frame 2 (dark under the bright).
+    host.flares.flare(at, 1.5 * k * big, FX_COLORS.flashCore, 3.6 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.1, 1, lift);
+    host.flares.flare(at, 4.2 * k * big, FX_COLORS.ember, 1.5 * soft, SKY_FX.flashS + 1 / 60, SKY_FX.flashHoldS, 0.15, 1, lift);
+    host.flares.flare(at, 2.6 * k * big, FX_COLORS.fireHot, 2.2 * soft, 2 / 60, 1 / 60, 0, 1, lift);
+    for (let i = 0; i < 3; i += 1) {
+      const along = (i === 0 ? 0.6 : 2.0) * k;
+      const off = (i === 0 ? 0 : i === 1 ? 0.9 : -0.9) * k;
+      host.puffs.spawn(at.x + dir.x * along - dir.z * off, at.y - 0.1, at.z + dir.z * along + dir.x * off, (i === 0 ? 1.3 : 1.1) * k * big, 0.35, FX_COLORS.soot, 0.55 * soft, { vy: 0.6, grow: 0.6, fadeIn: 2 / 60, hold: 2 / 60, rot: host.random() * TAU });
+    }
     // L13: a short cone of fire at the mouth along the flight (8–12 frames).
     this.cones.cone(at, dir, 2.9 * k * big, 1.05 * k * big, SKY_FX.coneS, SKY_FX.flashHoldS, host.reduced ? 0.6 : 1);
     // Sparks thrown along the launch; grey smoke from the mouth from frame 3.
@@ -394,8 +406,10 @@ export class SkyFire {
     // (fireHot × 3: the white is only its middle, ≤ 30 % of the radius, §3.5 rule 3) in an ember halo.
     // Round 3: the body is a fire ball with a dark-red rim (it boils: a new noise seed each frame), drawn for one frame (a quad dies on its second update).
     host.puffs.spawn(head.x, head.y, head.z, 2.5 * k, 1 / 30, FX_COLORS.releaseBall, 0.97 * born, { fadeIn: 0.001, hold: 1 / 30, spin: 4, rot: host.random() * TAU, shape: PUFF_FIRE });
-    host.flares.draw(head, 2.8 * k, FX_COLORS.ember, 0.55 * born);
-    host.flares.draw(head, 1.1 * k, FX_COLORS.fireHot, 2.8 * born);
+    host.flares.draw(head, 2.8 * k, FX_COLORS.ember, 0.7 * born);
+    host.flares.draw(head, 1.3 * k, FX_COLORS.fireHot, 2.6 * born);
+    // A white-hot heart (≤ 30 % of the ball's radius): the head glows, it is not a flat orange disc.
+    host.flares.draw(head, 0.7 * k, FX_COLORS.flashCore, 3.2 * born);
     // L8: embers falling from it.
     const rate = host.reduced ? 28 : 48;
     if (host.random() < rate / 60) host.sparks.spawn(head, this.s.set(this.rand(-1.5, 1.5), this.rand(-0.5, 1.5), this.rand(-1.5, 1.5)), host.random() < 0.5 ? FX_COLORS.ember : FX_COLORS.fireHot, 0.36 * k, this.rand(0.35, 0.6), { drag: 1.2, gravity: 7 });
@@ -434,10 +448,15 @@ export class SkyFire {
     // L10: a white flash 2–3 frames, over a dark-red body (dark under the bright) and an ember body.
     // Round 3: a normal-blended blast ball carries the colour (gold, red-orange, a dark-red rim); the white flash is a
     // small core (≤ 30 % of the blast's radius, §3.5 rule 3) in a gold flare.
-    host.puffs.spawn(at.x, ground + 0.8, at.z, 5.8 * s * big, 9 / 60, FX_COLORS.releaseBall, 0.97, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.3, rot: host.random() * TAU, shape: PUFF_FIRE });
-    host.flares.flare(up, 2.0 * s * big, FX_COLORS.flashCore, 2.6 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.2, 1, 0.8 * s);
-    host.flares.flare(up, 3.8 * s * big, FX_COLORS.fireHot, 1.1 * soft, 5 / 60, SKY_FX.flashHoldS, 0.3, 1, 0.8 * s);
-    host.flares.flare(up, 7.0 * s * big, FX_COLORS.ember, 0.35 * soft, 9 / 60, SKY_FX.flashHoldS, 0.4, 1, 0.8 * s);
+    // Round 5 lesson (word attack judge 4): a thinner opaque mass, the light from an additive HDR core over it, soot behind.
+    host.puffs.spawn(at.x, ground + 0.8, at.z, 4.4 * s * big, 9 / 60, FX_COLORS.releaseBall, 0.85, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.35, rot: host.random() * TAU, shape: PUFF_FIRE });
+    for (let i = 0; i < 3; i += 1) {
+      const angle = (i / 3) * TAU + host.random();
+      host.puffs.spawn(at.x + Math.cos(angle) * r * 0.25, ground + 1.0 + i * 0.3, at.z + Math.sin(angle) * r * 0.25, 3.0 * s * big, 0.9, FX_COLORS.soot, 0.6 * soft, { vy: 1.2, grow: 0.9, fadeIn: 2 / 60, hold: 0.1, rot: host.random() * TAU });
+    }
+    host.flares.flare(up, 1.8 * s * big, FX_COLORS.flashCore, 3.6 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.2, 1, 0.8 * s);
+    host.flares.flare(up, 3.8 * s * big, FX_COLORS.fireHot, 1.4 * soft, 5 / 60, SKY_FX.flashHoldS, 0.3, 1, 0.8 * s);
+    host.flares.flare(up, 6.5 * s * big, FX_COLORS.ember, 1.3 * soft, 9 / 60, SKY_FX.flashHoldS, 0.4, 1, 0.8 * s);
     // The fireball: saturated puffs that rise and swell (normal blend), dark smoke rolls up from them later.
     for (let i = 0; i < 10; i += 1) {
       const angle = (i / 10) * TAU + host.random() * 0.5;

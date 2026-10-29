@@ -1108,8 +1108,9 @@ void main() {
   float inner = texture2D(uMap, vxRot(-uTime * 1.6) * p * 1.7 + 0.5).a * (1.0 - step(0.56, r));
   float m = max(outer, inner * 0.9);
   float fill = 0.22 * (1.0 - smoothstep(0.1, 1.0, r));
-  vec3 color = mix(vec3(1.0, 0.4, 0.05), vec3(1.0, 0.86, 0.52), uHot) * (1.0 + 0.9 * uHot);
-  gl_FragColor = vec4(color, clamp(m + fill * (0.5 + uHot), 0.0, 1.0) * uAlpha);
+  // Round 4 capture: the circle was faint on the dais; stronger strokes, a brighter orange.
+  vec3 color = mix(vec3(1.0, 0.36, 0.04), vec3(1.0, 0.86, 0.52), uHot) * (1.35 + 0.9 * uHot);
+  gl_FragColor = vec4(color, clamp(m * 1.4 + fill * (0.5 + uHot), 0.0, 1.0) * uAlpha);
 }`;
 
 /** A rune circle laid on the ground (kit textures().runes), normal blend: saturated orange strokes that read on light and dark ground. */
