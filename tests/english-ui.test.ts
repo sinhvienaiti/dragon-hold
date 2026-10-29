@@ -3,6 +3,7 @@ import { join, relative, resolve } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { NUMBER_FEEL } from "../src/view/fx";
+import { DRAGON } from "../src/kit/feedback";
 
 const ROOT = resolve(__dirname, "..");
 // Vietnamese letters only: the requested broad range also contains × and IPA.
@@ -99,8 +100,13 @@ describe("English player text", () => {
     expect(violations("src/ui/probe.ts", 'const word = { vi: "cây cầu" };')).toHaveLength(1);
   });
 
-  it("labels Perfect hits in English (the kit profile says HOÀN HẢO)", () => {
+  it("labels Perfect hits in English", () => {
     expect(NUMBER_FEEL.numbers.label).toBe("PERFECT");
+  });
+
+  it("inherits the kit's dragon numbers without a redundant override", () => {
+    expect(NUMBER_FEEL).toBe(DRAGON);
+    expect(NUMBER_FEEL.numbers).toBe(DRAGON.numbers);
   });
 
   it("names Dragonhold and declares English in the entry page", () => {

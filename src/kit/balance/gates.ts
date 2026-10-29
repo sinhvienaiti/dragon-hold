@@ -84,15 +84,15 @@ export const GATE_IDS = ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9"] a
 export type GateId = (typeof GATE_IDS)[number];
 
 export const GATE_NAMES: { readonly [G in GateId]: string } = {
-  B1: "Cùng vùng cuốn",
-  B2: "Không quá dễ",
-  B3: "Không quá khó",
-  B4: "Chuẩn thắng ẩu",
-  B5: "Gõ là sức chính",
-  B6: "Chiến thuật có nghĩa",
-  B7: "Bộ điều nhịp nhẹ tay",
-  B8: "Học không bị lấn",
-  B9: "Khớp người thật",
+  B1: "Shared flow band",
+  B2: "Not too easy",
+  B3: "Not too hard",
+  B4: "Accuracy beats speed",
+  B5: "Typing drives combat",
+  B6: "Tactics matter",
+  B7: "Gentle pace director",
+  B8: "Learning stays clear",
+  B9: "Matches human play",
 };
 
 export type GateStatus = "pass" | "fail" | "skip";
@@ -125,8 +125,8 @@ export type GateInput = { readonly summaries: readonly BotModeSummary[]; readonl
 const FLOW_BOTS = ["novice", "steady", "standard", "skilled", "sloppy", "fast"];
 const B1_METRICS: readonly BandMetric[] = ["win", "s", "p", "i", "o"];
 
-/** ‰ as "75 %" (one decimal below 10 %). */
-export const pct = (milli: number | null): string => (milli === null ? "—" : milli < 100 && milli % 10 !== 0 ? (milli / 10).toFixed(1) + " %" : Math.round(milli / 10) + " %");
+/** ‰ as "75%" (one decimal below 10%). */
+export const pct = (milli: number | null): string => (milli === null ? "—" : milli < 100 && milli % 10 !== 0 ? (milli / 10).toFixed(1) + "%" : Math.round(milli / 10) + "%");
 
 function find(summaries: readonly BotModeSummary[], bot: string, mode: BandMode, director = true): BotModeSummary | undefined {
   return summaries.find((row) => row.bot === bot && row.mode === mode && row.director === director);
@@ -143,7 +143,7 @@ function inBandChecks(row: BotModeSummary, band: Band, label: string): GateCheck
   return {
     label,
     measured: B1_METRICS.map((metric) => METRIC_LABELS[metric] + " " + pct(row[metric] as number)).join(", "),
-    threshold: off.length === 0 ? "trong dải" : "lệch: " + off.map((entry) => METRIC_LABELS[entry.metric] + " " + (entry.verdict === "below" ? "thấp" : entry.verdict === "above" ? "cao" : "thiếu")).join(", "),
+    threshold: off.length === 0 ? "within band" : "deviation: " + off.map((entry) => METRIC_LABELS[entry.metric] + " " + (entry.verdict === "below" ? "low" : entry.verdict === "above" ? "high" : "missing")).join(", "),
     pass: score.inBand,
   };
 }
@@ -156,7 +156,7 @@ export function gate(id: GateId, input: GateInput): GateResult {
   const missing: string[] = [];
   const need = (bot: string, mode: BandMode, director = true): BotModeSummary | undefined => {
     const row = find(all, bot, mode, director);
-    if (row === undefined) missing.push(`${bot} · ${MODE_LABELS[mode]}${director ? "" : " · tắt nhịp"}`);
+    if (row === undefined) missing.push(`${bot} · ${MODE_LABELS[mode]}${director ? "" : " · director off"}`);
     return row;
   };
 
@@ -169,27 +169,27 @@ export function gate(id: GateId, input: GateInput): GateResult {
       break;
     case "B2":
       for (const row of all.filter((entry) => entry.mode === "balanced" && entry.director)) {
-        checks.push({ label: row.bot, measured: `S ${pct(row.s)}, I ${pct(row.i)}`, threshold: "không đồng thời S ≥ 90 % và I ≥ 20 %", pass: !(row.s >= 900 && row.i >= 200) });
+        checks.push({ label: row.bot, measured: `S ${pct(row.s)}, I ${pct(row.i)}`, threshold: "not both S ≥ 90% and I ≥ 20%", pass: !(row.s >= 900 && row.i >= 200) });
       }
       break;
     case "B3": {
       const novice = need("novice", "balanced");
       const child = need("child", "relax");
-      if (novice !== undefined) checks.push({ label: "novice · Cân bằng", measured: "thắng " + pct(novice.win), threshold: "≥ 70 %", pass: novice.win >= 700 });
-      if (child !== undefined) checks.push({ label: "child · Thư giãn", measured: "thắng " + pct(child.win), threshold: "≥ 85 %", pass: child.win >= 850 });
+      if (novice !== undefined) checks.push({ label: "novice · Balanced", measured: "win " + pct(novice.win), threshold: "≥ 70%", pass: novice.win >= 700 });
+      if (child !== undefined) checks.push({ label: "child · Relax", measured: "win " + pct(child.win), threshold: "≥ 85%", pass: child.win >= 850 });
       break;
     }
     case "B4": {
       const steady = need("steady", "balanced");
       const sloppy = need("sloppy", "balanced");
       const standard = need("standard", "balanced");
-      if (steady !== undefined && sloppy !== undefined) checks.push({ label: "steady vs sloppy", measured: `S ${pct(steady.s)} vs ${pct(sloppy.s)}`, threshold: "S chậm chắc > S ẩu", pass: steady.s > sloppy.s });
+      if (steady !== undefined && sloppy !== undefined) checks.push({ label: "steady vs sloppy", measured: `S ${pct(steady.s)} vs ${pct(sloppy.s)}`, threshold: "S steady > S sloppy", pass: steady.s > sloppy.s });
       if (standard !== undefined && sloppy !== undefined) {
         if (standard.killSeconds !== null && sloppy.killSeconds !== null) {
-          checks.push({ label: "standard vs sloppy", measured: `hạ quái ${standard.killSeconds.toFixed(2)} s vs ${sloppy.killSeconds.toFixed(2)} s`, threshold: "chuẩn nhanh hơn", pass: standard.killSeconds < sloppy.killSeconds });
+          checks.push({ label: "standard vs sloppy", measured: `kill time ${standard.killSeconds.toFixed(2)} s vs ${sloppy.killSeconds.toFixed(2)} s`, threshold: "standard is faster", pass: standard.killSeconds < sloppy.killSeconds });
         } else if (standard.q !== null && sloppy.q !== null) {
-          checks.push({ label: "standard vs sloppy", measured: `Q ${pct(standard.q)} vs ${pct(sloppy.q)}`, threshold: "chuẩn hạ sớm hơn (Q thấp hơn)", pass: standard.q < sloppy.q });
-        } else missing.push("standard/sloppy · thời gian hạ quái hoặc Q");
+          checks.push({ label: "standard vs sloppy", measured: `Q ${pct(standard.q)} vs ${pct(sloppy.q)}`, threshold: "standard kills earlier (lower Q)", pass: standard.q < sloppy.q });
+        } else missing.push("standard/sloppy · kill time or Q");
       }
       break;
     }
@@ -199,7 +199,7 @@ export function gate(id: GateId, input: GateInput): GateResult {
       for (const mode of ["relax", "balanced", "challenge"] as const) {
         if (exempt.includes(mode)) continue;
         const row = need("no-type", mode);
-        if (row !== undefined) checks.push({ label: "no-type · " + MODE_LABELS[mode], measured: "thắng " + pct(row.win), threshold: "≤ " + pct(maxWin), pass: row.win <= maxWin });
+        if (row !== undefined) checks.push({ label: "no-type · " + MODE_LABELS[mode], measured: "win " + pct(row.win), threshold: "≤ " + pct(maxWin), pass: row.win <= maxWin });
       }
       break;
     }
@@ -209,7 +209,7 @@ export function gate(id: GateId, input: GateInput): GateResult {
         const high = need(good, mode);
         const low = need(poor, mode);
         if (high !== undefined && low !== undefined) {
-          checks.push({ label: MODE_LABELS[mode], measured: `thắng ${pct(high.win)} vs ${pct(low.win)}`, threshold: "Tốt hơn Kém ≥ 10 điểm %", pass: high.win - low.win >= 100 });
+          checks.push({ label: MODE_LABELS[mode], measured: `win ${pct(high.win)} vs ${pct(low.win)}`, threshold: "good beats poor by ≥ 10 percentage points", pass: high.win - low.win >= 100 });
         }
       }
       break;
@@ -220,16 +220,16 @@ export function gate(id: GateId, input: GateInput): GateResult {
       for (const row of all.filter((entry) => entry.director)) {
         if (row.stepsPerWave === null || row.spawnMin === null || row.spawnMax === null) continue;
         const label = `${row.bot} · ${MODE_LABELS[row.mode]}`;
-        checks.push({ label, measured: `${row.stepsPerWave.toFixed(2)} bậc/đợt, khoảng sinh ${pct(row.spawnMin)}–${pct(row.spawnMax)}`, threshold: `≤ ${maxSteps} bậc/đợt, trong ±${pct(cap)}`, pass: row.stepsPerWave <= maxSteps && row.spawnMin >= 1000 - cap && row.spawnMax <= 1000 + cap });
+        checks.push({ label, measured: `${row.stepsPerWave.toFixed(2)} steps/wave, spawn scale ${pct(row.spawnMin)}–${pct(row.spawnMax)}`, threshold: `≤ ${maxSteps} steps/wave, within ±${pct(cap)}`, pass: row.stepsPerWave <= maxSteps && row.spawnMin >= 1000 - cap && row.spawnMax <= 1000 + cap });
       }
-      if (checks.length === 0) missing.push("nhật ký bộ điều nhịp");
+      if (checks.length === 0) missing.push("pace director log");
       const off = need("standard", "balanced", false);
-      if (off !== undefined) checks.push(inBandChecks(off, bands.balanced, "standard · tắt nhịp"));
+      if (off !== undefined) checks.push(inBandChecks(off, bands.balanced, "standard · director off"));
       break;
     }
     case "B8":
-      for (const row of all.filter((entry) => entry.learnOk !== null)) checks.push({ label: `${row.bot} · ${MODE_LABELS[row.mode]}`, measured: row.learnOk ? "đạt" : "trượt", threshold: "cổng học của game", pass: row.learnOk === true });
-      if (checks.length === 0) missing.push("cổng học của game");
+      for (const row of all.filter((entry) => entry.learnOk !== null)) checks.push({ label: `${row.bot} · ${MODE_LABELS[row.mode]}`, measured: row.learnOk ? "pass" : "fail", threshold: "game learning gate", pass: row.learnOk === true });
+      if (checks.length === 0) missing.push("game learning gate");
       break;
     case "B9": {
       const tolerance = options.humanTolerance ?? 0.15;
@@ -244,9 +244,9 @@ export function gate(id: GateId, input: GateInput): GateResult {
           measured.push(`${METRIC_LABELS[metric]} ${metric === "n" ? human.toFixed(1) : pct(human)}/${metric === "n" ? bot.toFixed(1) : pct(bot)}`);
           if (Math.abs(bot - human) > allowed) off.push(METRIC_LABELS[metric]);
         }
-        checks.push({ label: match.label, measured: measured.join(", "), threshold: off.length === 0 ? `lệch ≤ ${Math.round(tolerance * 100)} %` : "lệch: " + off.join(", "), pass: off.length === 0 });
+        checks.push({ label: match.label, measured: measured.join(", "), threshold: off.length === 0 ? `deviation ≤ ${Math.round(tolerance * 100)}%` : "deviation: " + off.join(", "), pass: off.length === 0 });
       }
-      if (checks.length === 0) missing.push("buổi chơi thử của người thật");
+      if (checks.length === 0) missing.push("human playtest");
       break;
     }
   }
@@ -257,15 +257,15 @@ export function runGates(input: GateInput): GateResult[] {
   return GATE_IDS.map((id) => gate(id, input));
 }
 
-const STATUS_TEXT: { readonly [S in GateStatus]: string } = { pass: "ĐẠT", fail: "TRƯỢT", skip: "THIẾU SỐ" };
+const STATUS_TEXT: { readonly [S in GateStatus]: string } = { pass: "PASS", fail: "FAIL", skip: "MISSING DATA" };
 
 /** The shared Markdown table for a game's balance report. */
 export function formatGates(results: readonly GateResult[]): string {
   const cell = (text: string): string => text.replace(/\|/g, "\\|");
-  const lines = ["| # | Cổng | Kết quả | Số đo |", "|---|---|---|---|"];
+  const lines = ["| # | Gate | Result | Measurements |", "|---|---|---|---|"];
   for (const row of results) {
     const parts = row.checks.map((check) => `${check.pass ? "✓" : "✗"} ${check.label}: ${check.measured} (${check.threshold})`);
-    if (row.missing.length > 0) parts.push("thiếu: " + row.missing.join(", "));
+    if (row.missing.length > 0) parts.push("missing: " + row.missing.join(", "));
     lines.push(`| ${row.id} | ${row.name} | ${STATUS_TEXT[row.status]} | ${cell(parts.join("; ")) || "—"} |`);
   }
   return lines.join("\n");

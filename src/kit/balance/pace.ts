@@ -106,15 +106,18 @@ export function suggestDifficulty(trend: Pick<SkillTrend, "easyWins" | "streak">
 export type AdviceId = "rest" | "slow-down" | "accuracy" | "steady" | "new-words" | "crowd" | "keep-going";
 
 /** Short lines for the end-of-stage screen and the typing profile (games may use their own). */
-export const ADVICE_VI: Readonly<Record<AdviceId, string>> = {
-  rest: "Tay bạn đang chậm dần: nghỉ vài phút rồi chơi tiếp nhé.",
-  "slow-down": "Bạn gõ nhanh nhưng hay sai: chậm lại một nhịp sẽ được Hoàn hảo nhiều hơn.",
-  accuracy: "Gõ chắc từng chữ trước, tốc độ sẽ tự lên.",
-  steady: "Nhịp gõ chưa đều: giữ một tốc độ vừa phải cho mọi từ.",
-  "new-words": "Từ mới còn lạ: đọc nghĩa và nghe phát âm trước khi gõ.",
-  crowd: "Khi đông quái, chọn một từ và gõ dứt điểm rồi mới sang từ khác.",
-  "keep-going": "Bạn đang tiến bộ đều. Giữ phong độ!",
+export const ADVICE_EN: Readonly<Record<AdviceId, string>> = {
+  rest: "Your typing is slowing down. Take a short break before playing again.",
+  "slow-down": "Slow down a little to make fewer mistakes and earn more Perfects.",
+  accuracy: "Focus on accuracy first. Speed will follow.",
+  steady: "Keep a steady, comfortable pace for every word.",
+  "new-words": "For new words, read the meaning and listen before typing.",
+  crowd: "When enemies crowd in, finish one word before switching targets.",
+  "keep-going": "You're making steady progress. Keep it up!",
 };
+
+/** @deprecated Use ADVICE_EN. This compatibility alias also returns English. */
+export const ADVICE_VI = ADVICE_EN;
 
 /** The one most useful piece of advice for this profile. */
 export function skillAdvice(view: Pick<SkillValues, "e" | "a" | "cv" | "recognize" | "crowdDrop" | "fatigue">): AdviceId {

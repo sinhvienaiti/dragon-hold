@@ -48,7 +48,7 @@ export const SHIP: FeedbackProfile = {
   holdMaxMs: 70,
   trauma: { maxPx: 14, decay: 1.8, kickRate: 38, kickPx: 6 },
   debris: { restS: 8, fadeS: 0.7 },
-  numbers: { mergeS: 0.15, tickMergeS: 0.3, crowdMergeS: 0.3, colors: ["#fff4e2", "#ffc93a", "#d9fffb", "#ffd9a8"], label: "HOÀN HẢO", labelColor: "#5ff5e6" },
+  numbers: { mergeS: 0.15, tickMergeS: 0.3, crowdMergeS: 0.3, colors: ["#fff4e2", "#ffc93a", "#d9fffb", "#ffd9a8"], label: "PERFECT", labelColor: "#5ff5e6" },
   audio: { keys: "click", keySteps: 0, pronunciationEvent: PRONUNCIATION_EVENT, duckDb: 6 },
 };
 

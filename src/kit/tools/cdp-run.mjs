@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Source: games/space-typing/scripts/visual/cdp-run.mjs (kit copy, unchanged; log fixes in shared/game-kit/DRIFT.md)
+// Source: games/space-typing/scripts/visual/cdp-run.mjs (kit copy; log fixes in shared/game-kit/DRIFT.md)
 /**
  * Multi-step Chrome driver for visual checks (hover, press, scroll, frame
  * sequences, several screenshots per run). scripts/visual/shot.mjs takes one
@@ -22,6 +22,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { portArg, readActivePort } from "./cdp-port.mjs";
 
 const flag = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith("--" + name + "="));
@@ -43,11 +44,11 @@ const DEFAULT_CHROME = {
 };
 const chrome = process.env.CHROME_PATH ?? DEFAULT_CHROME[process.platform];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const port = 9300 + Math.floor(Math.random() * 600);
+const { arg: portFlag, fixed } = portArg(process.env);
 const profile = mkdtempSync(join(tmpdir(), "st-cdp-"));
 const browser = spawn(chrome, [
   ...(headful ? [] : ["--headless=new"]),
-  "--remote-debugging-port=" + port,
+  portFlag,
   "--window-size=" + width + "," + height,
   "--hide-scrollbars",
   // Real GPU (WebGL2 backgrounds, 3D models).
@@ -164,6 +165,7 @@ const page = {
 };
 
 async function main() {
+  const port = fixed ?? await readActivePort(profile);
   let pages = [];
   for (let a = 0; a < 120 && pages.length === 0; a += 1) {
     try { pages = (await (await fetch("http://127.0.0.1:" + port + "/json/list")).json()).filter((p) => p.type === "page"); } catch {}
