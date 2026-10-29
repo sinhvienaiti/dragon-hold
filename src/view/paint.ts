@@ -64,7 +64,7 @@ export const groundTextureStatus: { loaded: string[]; missing: string[]; manifes
 
 // One fetch per manifest a page (Vite inlines the pick list; the manifest carries the cache-busting URLs).
 const manifests = new Map<GroundKind, Promise<GroundManifest | null>>();
-function manifestOf(kind: GroundKind): Promise<GroundManifest | null> {
+export function manifestOf(kind: GroundKind): Promise<GroundManifest | null> {
   let job = manifests.get(kind);
   if (!job) {
     job = loadGroundManifest(kind).catch((error: unknown) => {
@@ -806,7 +806,9 @@ c = mix(c, mix(pathC, c, crown), pathA);
 // Dirt lanes: worn edge, two ruts, one step brighter than the ground.
 float lane = vDhMask.x / max(vDhMask.y, 0.1);
 float wob = (mid - 0.5) * 0.36 + (stroke - 0.5) * 0.26;
-float dirt = 1.0 - smoothstep(0.9, 1.06, lane + wob);
+// PATH_QUALITY (roads.ts): the road ribbon draws core, verge and edges; the paint keeps only a narrow dirt
+// bed under the core (seen on Low before the ribbon and under its noisy edge, never past it).
+float dirt = 1.0 - smoothstep(0.55, 0.7, lane + wob * 0.3);
 float worn = smoothstep(0.62, 0.96, lane + wob) * dirt;
 float rut = (1.0 - smoothstep(0.06, 0.17, abs(lane - 0.46 + wob * 0.25))) * dirt;
 vec3 laneC = mix(uDirt, uDirtLight, smoothstep(0.42, 0.72, stroke + mid * 0.2)) * dPath;

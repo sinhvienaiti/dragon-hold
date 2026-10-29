@@ -27,6 +27,7 @@ import { sceneFor } from "./maps/scene";
 import { BRIDGE_MODEL, PROP_SPECS } from "./model-specs";
 import { loadCrowdModels, type CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
+import { buildRoads, type RoadsView } from "./roads";
 import { buildScatter, type ScatterView } from "./scatter";
 import { groundTextureStatus, mapSwitch } from "./paint";
 import { buildTerrain, SUN_DIRECTION, sunDirection, type PaintedTerrain } from "./terrain";
@@ -332,6 +333,8 @@ export interface MapStage {
   readonly terrain: PaintedTerrain;
   readonly water: WaterView;
   readonly paths: PathsView;
+  /** PATH_QUALITY: the lane roads (ribbon mesh, one draw call). */
+  readonly roads: RoadsView;
   readonly scatter: ScatterView;
   readonly rig: CameraRig;
   /** Ground height actors stand on (dais tiers and bridge decks included). */
@@ -366,6 +369,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   const t1 = performance.now();
   const water = buildWater(map, terrain);
   const paths = buildPaths(map, terrain);
+  const roads = buildRoads(map, terrain);
   const t2 = performance.now();
   const scatter = buildScatter(map, terrain, quality);
   const loadStats = {
@@ -377,7 +381,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
     bakeSplit: null as { prepMs: number; compileMs: number; renderMs: number } | null,
     baked: false,
   };
-  stage.layers.ground.add(terrain.group, water.group, paths.group, scatter.group);
+  stage.layers.ground.add(terrain.group, roads.group, water.group, paths.group, scatter.group);
   // The map's light (scene spec): the key sun moves to the map's bearing and elevation; the cool fill
   // comes from the other side; the sky light's ground bounce takes the map's colour.
   const sun = sunDirection(map);
@@ -414,6 +418,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
     terrain,
     water,
     paths,
+    roads,
     scatter,
     rig,
     heightAt: terrain.heightAt,
@@ -438,6 +443,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
       disposed = true;
       rig.dispose();
       scatter.dispose();
+      roads.dispose();
       paths.dispose();
       water.dispose();
       terrain.dispose();

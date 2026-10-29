@@ -15,6 +15,7 @@
  */
 import type { MapDef, Vec2 } from "../content/types";
 import { sceneFor, type SceneAnchor, type SceneCliff, type SceneFootpath, type ScenePond, type SceneSpec } from "./maps/scene";
+import { bridgeGapAt, curvatureAt, roadCoreHalf, roadVerge } from "./road-profile";
 import { catmullRom, extendLine, hash2, Polyline, valueNoise, type Nearest } from "./terrain";
 
 // ── Rules and their parameters (metres, degrees: bearing 0 = north (−z), 90 = east) ──
@@ -37,6 +38,8 @@ export const LAYOUT_RULES = {
     /** Water this far under the dry ground at the centre. */
     levelBelowM: 0.3,
   },
+  /** PATH_QUALITY 2.5: road edge dressing (see the lane road loop in buildLayout). */
+  roadDress: { stepM: [2, 6] as const, stoneShare: 0.62, stoneK: [1.0, 1.6] as const, tuftK: [0.9, 1.3] as const, bendCurvature: 0.09, junctionR: 11, bridgeEndM: 3, bigShare: 0.7, bigK: [0.9, 1.35] as const },
   /** L2: cliff marks in the outer skirt that frame one side (line and height pinned in the map's scene spec, profile by rule). */
   cliff: {
     /**
@@ -1340,6 +1343,43 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
         }
       }
       back += placed ? lerp(L.laneStepM[0], L.laneStepM[1], h(RULE.dress, 820 + li * 50 + n, 3, seed)) : 1.5;
+    }
+  });
+  // PATH_QUALITY 2.5: road edge dressing on each lane's verge crest (view/road-profile.ts, the ribbon's own width),
+  // seeded, every 2–6 m a side: low curb stones (Cliff Rock (wide), sunk) and grass tufts over the edge; at bends,
+  // the dais junction and the bridge ends a big edge stone (Cliff Rock). Kit3 models, instanced with the rest.
+  const RD = LAYOUT_RULES.roadDress;
+  f.lanes.forEach((lane, li) => {
+    for (const side of [-1, 1]) {
+      let n = 0;
+      for (let s = 1.2 + h(RULE.dress, 900 + li * 10 + side, 1, seed) * 2; s < lane.line.length - 0.5; n += 1) {
+        const key = 9000 + li * 1000 + (side + 1) * 300 + n;
+        s += lerp(RD.stepM[0], RD.stepM[1], h(RULE.dress, key, 2, seed));
+        if (s >= lane.line.length) break;
+        lane.line.pointAt(s, tangent);
+        const r = f.r(tangent.x, tangent.z);
+        const gap = bridgeGapAt(lane.spans, s);
+        if (lane.spans.some((span) => s > span.fromM - 0.5 && s < span.toM + 0.5)) continue;
+        const sample = { s, laneIndex: li, half: lane.half, curvature: curvatureAt(lane.line, s), rDais: r, bridgeGap: gap };
+        const big = sample.curvature > RD.bendCurvature || r < RD.junctionR || gap < RD.bridgeEndM;
+        const off = roadCoreHalf(sample) + roadVerge(sample, side) * (big ? 0.85 : 0.5);
+        const x = tangent.x - tangent.dz * off * side;
+        const z = tangent.z + tangent.dx * off * side;
+        if (!dressOk(x, z, 0, 0.35, 0.5) || pathGap(x, z) < 0.5 || jettyGap(x, z) < 1.5) continue;
+        if (f.map.slots.some((slot) => Math.hypot(slot.pos[0] - x, slot.pos[1] - z) < (slot.kind === "house" ? 3.4 : 2.0))) continue;
+        if (dress.some((d) => Math.hypot(d.x - x, d.z - z) < 1.2)) continue;
+        const roll = h(RULE.dress, key, 3, seed);
+        const yaw = Math.atan2(tangent.dx, tangent.dz) + (roll - 0.5) * 0.8;
+        if (big && h(RULE.dress, key, 4, seed) < RD.bigShare) {
+          const k = lerp(RD.bigK[0], RD.bigK[1], roll);
+          rocks.push({ id: "road:big:" + li + ":" + side + ":" + n, proto: CLIFF_A, x, z, k, yaw, tint: [1, 1, 1], radius: k * 0.4, stone: true, sinkShare: 0.32 });
+        } else if (roll < RD.stoneShare) {
+          const k = lerp(RD.stoneK[0], RD.stoneK[1], h(RULE.dress, key, 5, seed));
+          rocks.push({ id: "road:stone:" + li + ":" + side + ":" + n, proto: CLIFF_B, x, z, k, yaw, tint: [1, 1, 1], radius: k * 0.45, stone: true, sinkShare: 0.4 });
+        } else {
+          dress.push({ id: "road:tuft:" + li + ":" + side + ":" + n, proto: TUFT, x, z, k: lerp(RD.tuftK[0], RD.tuftK[1], roll), yaw, tint: [1, 1, 1], radius: 0.3 });
+        }
+      }
     }
   });
   // Rail Fence: both bridgeheads, each side of the lane, along the bank.
