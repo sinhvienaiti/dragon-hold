@@ -1060,7 +1060,8 @@ export class FxCore {
     // Dark soot at the jet's root and edges, in from frame 2, gone by frame 8 (§3.5 rule 4: dark under the bright).
     const sideX = -uz;
     const sideZ = ux;
-    for (let k = 0; k < 3; k += 1) {
+    // Round 7: the two side puffs only, in from frame 0 (a root puff sat in the flash's own cell and dimmed frame 0).
+    for (let k = 1; k < 3; k += 1) {
       const along = (k === 0 ? 0.5 : 1.8) * s * g;
       const off = (k === 0 ? 0 : k === 1 ? 0.75 : -0.75) * s * g;
       this.puffs.spawn(at.x + ux * along + sideX * off, at.y - 0.1, at.z + uz * along + sideZ * off, (k === 0 ? 1.0 : 0.85) * s * g, 0.35, FX_COLORS.soot, 0.6 * soft, { vy: 0.6, vx: ux * 1.5, vz: uz * 1.5, grow: 0.6, fadeIn: 0.001, hold: 3 / 60, rot: this.random() * TAU });
