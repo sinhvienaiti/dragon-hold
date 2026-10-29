@@ -48,7 +48,8 @@ vec3 vxFire(float h) {
  *   across: 0 on the axis … 1 at the edge; along: 0 at the root … 1 at the tip; q: the scrolled noise coordinate.
  */
 export const VFX_FLAME_GLSL = /* glsl */ `
-vec4 vxFlame(float across, float along, vec2 q, float age, float hot) {
+// The shared shape: heat, alpha and char (the colour ramp is the caller's: the Fire Dragon's, or the foes' crimson).
+vec3 vxBurn(float across, float along, vec2 q, float age, float hot) {
   float n1 = vxNoise(q);
   float n2 = vxNoise(q * 2.17 + vec2(5.3, 1.7));
   float n = n1 * 0.62 + n2 * 0.38;
@@ -57,15 +58,33 @@ vec4 vxFlame(float across, float along, vec2 q, float age, float hot) {
   // Round 6 check: a see-through red edge over the light dais read pink; the rim that fades out is soot-dark instead.
   float body = 1.0 - smoothstep(0.78, 1.05, edge);
   float heat = (1.0 - smoothstep(0.0, 0.85, edge)) * (1.0 - along * 0.6) * (0.5 + n) * hot - age * 0.55;
+  // The tip and an ageing flame burn away into the noise, never a straight cut; the holes have charred rims.
+  float d = n + 0.3 - (along * 0.85 + age * 0.7);
+  return vec3(heat, body * smoothstep(-0.12, 0.12, d), mix(0.3, 1.0, smoothstep(0.0, 0.22, d)));
+}
+vec3 vxFireRamp(float heat) {
   vec3 c = vec3(0.07, 0.03, 0.018);
   c = mix(c, vec3(0.5, 0.05, 0.01), smoothstep(0.03, 0.14, heat));
   c = mix(c, vec3(1.0, 0.28, 0.025), smoothstep(0.18, 0.38, heat));
   c = mix(c, vec3(1.5, 0.72, 0.12), smoothstep(0.46, 0.66, heat));
-  c = mix(c, vec3(2.6, 2.2, 1.4), smoothstep(0.74, 0.92, heat));
-  // The tip and an ageing flame burn away into the noise, never a straight cut; the holes have charred rims.
-  float d = n + 0.3 - (along * 0.85 + age * 0.7);
-  c *= mix(0.3, 1.0, smoothstep(0.0, 0.22, d));
-  return vec4(c, body * smoothstep(-0.12, 0.12, d));
+  return mix(c, vec3(2.6, 2.2, 1.4), smoothstep(0.74, 0.92, heat));
+}
+// The foes' side (VFX_STANDARD §3.3, the enemy's colour; never the Fire Dragon's orange): wine-black, crimson, rose,
+// a pale pink-white core.
+vec3 vxFoeRamp(float heat) {
+  vec3 c = vec3(0.05, 0.015, 0.03);
+  c = mix(c, vec3(0.36, 0.02, 0.09), smoothstep(0.03, 0.14, heat));
+  c = mix(c, vec3(0.9, 0.06, 0.2), smoothstep(0.18, 0.38, heat));
+  c = mix(c, vec3(1.5, 0.42, 0.62), smoothstep(0.46, 0.66, heat));
+  return mix(c, vec3(2.3, 1.95, 2.1), smoothstep(0.74, 0.92, heat));
+}
+vec4 vxFlame(float across, float along, vec2 q, float age, float hot) {
+  vec3 b = vxBurn(across, along, q, age, hot);
+  return vec4(vxFireRamp(b.x) * b.z, b.y);
+}
+vec4 vxFoeFlame(float across, float along, vec2 q, float age, float hot) {
+  vec3 b = vxBurn(across, along, q, age, hot);
+  return vec4(vxFoeRamp(b.x) * b.z, b.y);
 }`;
 
 // ── L1 / L4: ribbons ────────────────────────────────────────────────────────

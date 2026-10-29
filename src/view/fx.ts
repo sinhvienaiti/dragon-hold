@@ -32,6 +32,7 @@ import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
 import { SkyFire } from "./skyfire";
+import { FoeFx, type FoeVictim } from "./foe-fx";
 import { ShellPool, Streak, StreakSparks, VFX_FLAME_GLSL, VFX_NOISE_GLSL } from "./vfx-layers";
 
 export { FX_COLORS, FX_RIBBON_ORDER };
@@ -165,18 +166,34 @@ void main() {
     gl_FragColor = vec4(vColor.rgb, a * vColor.a);
     return;
   }
+  float r = length(p);
+  if (shape > 2.5) {
+    // A foe's slash (PUFF_SLASH): a crescent swept round the quad's +x side (rot turns it), crimson with a pale edge
+    // where the blade passed, torn by noise, thinning to points at both ends; the fading alpha burns it away.
+    float ang = atan(p.y, p.x);
+    float sweep = 1.0 - smoothstep(0.55, 1.25, abs(ang));
+    float band = 1.0 - smoothstep(0.0, 0.12 + 0.1 * sweep, abs(r - 0.78));
+    vec2 sq = vec2(ang * 2.2 + seed * 9.0, r * 5.0) + vec2(uTime * 3.0, 0.0);
+    vec4 f = vxFoeFlame(1.0 - band * sweep, (1.0 - sweep) * 0.7, sq, (1.0 - vColor.a) * 0.8, 1.15);
+    gl_FragColor = vec4(f.rgb, f.a * min(1.0, vColor.a * 1.5));
+    return;
+  }
   // A fire ball in the shared flame material (vxFlame, 29/10): radial, its noise boiling outward; the instance
   // colour sets how hot it burns (gold: a white core; ember: orange; deep: red), its fading alpha ages it.
-  float r = length(p);
   // The noise rises through the ball (screen up); a radial scroll × the running clock tore it into spikes.
   vec2 q = p * 3.0 + vec2(seed * 17.0, seed * 31.0) + vec2(0.35, -1.0) * uTime * 2.2;
   float hot = clamp(dot(vColor.rgb, vec3(0.3, 0.6, 0.1)) * 2.0, 0.3, 1.15);
-  vec4 f = vxFlame(r, r * 0.45, q, (1.0 - vColor.a) * 0.6, hot);
+  // PUFF_FOE: the same ball in the foes' crimson ramp.
+  vec4 f = shape > 1.5 ? vxFoeFlame(r, r * 0.45, q, (1.0 - vColor.a) * 0.6, hot) : vxFlame(r, r * 0.45, q, (1.0 - vColor.a) * 0.6, hot);
   gl_FragColor = vec4(f.rgb, f.a * min(1.0, vColor.a * 1.4));
 }`;
 
 /** Puff shape (QuadPool.spawn option `shape`): a fire ball with a red-orange ramp and a dark-red rim. */
 export const PUFF_FIRE = 1;
+/** Puff shape: the same ball in the foes' crimson ramp (their blows, never Hỏa Long's orange). */
+export const PUFF_FOE = 2;
+/** Puff shape: a foe's slash, a crescent round the quad's +x side (`rot` aims it). */
+export const PUFF_SLASH = 3;
 
 const MARK_FRAGMENT = /* glsl */ `
 varying vec2 vUv;
@@ -221,6 +238,16 @@ void main() {
     rgb = mix(vec3(0.012, 0.009, 0.007), vec3(0.06, 0.03, 0.014), clamp(smoothstep(0.3, 0.95, d) + (n - 0.5) * 0.3, 0.0, 1.0));
     // Round 5 (judge 4: lost on dusk grass): a grey ash rim round the char, lighter than dark grass, darker than sunlit.
     rgb = mix(rgb, vec3(0.13, 0.12, 0.11), smoothstep(0.68, 0.9, d + (torn - 0.5) * 0.15) * 0.85);
+  } else if (kind > 6.5) {
+    // Claw scratches (kind 7; thickness carries a seed): three torn dark grooves across the quad's x axis with a pale
+    // rim, where a foe's blow struck stone or ground.
+    float seed = thick * 23.0;
+    float rows = abs(fract((p.y + 0.3 * p.x * p.x) * 1.6 + 0.5) - 0.5);
+    float inside = step(abs(p.y), 0.95) * (1.0 - smoothstep(0.55, 0.95, abs(p.x) + vxNoise(p * 4.0 + seed) * 0.25));
+    float groove = (1.0 - smoothstep(0.03, 0.09, rows)) * inside;
+    float rim = (smoothstep(0.06, 0.1, rows) - smoothstep(0.1, 0.16, rows)) * inside;
+    a = max(groove, rim * 0.6);
+    rgb = mix(vec3(0.16, 0.14, 0.12), vec3(0.03, 0.02, 0.02), groove);
   } else {
     // Embers in a fresh scorch (additive pool): glowing specks and cracks, densest in the middle; they cool as the
     // quad fades (red after orange: two of them, the orange one short).
@@ -704,6 +731,8 @@ export class FxCore {
   readonly marks: QuadPool;
   /** Thiên Hỏa in five phases (VFX_STANDARD §5.3 part 2). */
   readonly sky: SkyFire;
+  /** The foes' blows and spawns (VFX step 3). */
+  readonly foes: FoeFx;
   /** Where Hỏa Long's mouth is this frame (setMouth) and the flat way it faces (from the dais out). */
   private readonly mouthAt = new THREE.Vector3(0, 4.2, -0.8);
   private readonly facing = new THREE.Vector3(0, 0, -1);
@@ -802,6 +831,7 @@ export class FxCore {
     this.group.add(this.embers.mesh);
     this.sky = new SkyFire(this, 3, quality);
     this.group.add(this.sky.group);
+    this.foes = new FoeFx(this);
     for (let k = 0; k < MAX_EMITTERS; k += 1) {
       this.emitters.push({ active: false, kind: "burn", left: 0, total: 0, target: null, x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: 0, radius: 0, mark: -1 });
     }
@@ -872,6 +902,7 @@ export class FxCore {
     bolt.trail.hide();
     bolt.smoke.hide();
     this.sky.clear();
+    this.foes.clear();
     this.update(0, 0, eye, 600);
   }
 
@@ -1425,6 +1456,16 @@ export class FxCore {
 
   // ── What Sky Fire draws with (skyfire.ts SkyFireHost) ───────────────
 
+  /** FoeFxHost: bright streaks (Sky Fire's additive pool). */
+  get glints(): StreakSparks {
+    return this.sky.streaks;
+  }
+
+  /** FoeFxHost: a foe's drawn point. */
+  locate(slot: number, serial: number, at: "center" | "top" | "base", out: THREE.Vector3): boolean {
+    return this.locator !== null && serial >= 0 && this.locator.locate(slot, serial, at, out);
+  }
+
   heightAt(x: number, z: number): number {
     return this.heightOf(x, z);
   }
@@ -1820,6 +1861,8 @@ export class FxCore {
         bolt.smoke.hide();
       }
     }
+    // The foes' blows draw into the pools before they update (their streaks and puffs show this frame).
+    this.foes.update(dt);
     this.cones.update(dt);
     this.embers.update(dt);
     this.updateTongues(dt, cameraPos, time);
@@ -2069,6 +2112,38 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     return out.set(x, heightAt(x, z) + (anchor === "base" ? 0 : 0.8), z);
   };
   const numberAt = new THREE.Vector3();
+  const telegraphMs = new Map<number, number>();
+  /** Foe ids by serial from spawns (the bench and tests have no world list). */
+  const foeIds = new Map<number, string>();
+  const struck = new THREE.Vector3();
+  const edge = new THREE.Vector3();
+  /** A foe's strike: where it lands (the Dragon's body for the Dragons, with the dais edge nearest the foe). */
+  const strikeFoe = (world: World, slot: number, serial: number, foe: string, kind: string, x: number, z: number, tx: number, tz: number): void => {
+    const victim: FoeVictim = kind === "hero" ? "dragon" : kind === "guide" ? "guide" : kind === "unit" ? "unit" : kind === "house" ? "house" : kind === "trap" ? "trap" : "enemy";
+    let rim: THREE.Vector3 | null = null;
+    if (victim === "dragon" || victim === "guide") {
+      const dais = world.map?.dais;
+      const cx = dais?.center[0] ?? 0;
+      const cz = dais?.center[1] ?? 0;
+      const radius = dais?.radiusM ?? 4;
+      const dx = x - cx;
+      const dz = z - cz;
+      const d = Math.hypot(dx, dz) || 1;
+      if (victim === "dragon") {
+        // The body: under the mouth, a little toward the foe.
+        mouthOf(struck);
+        struck.set(struck.x + (dx / d) * 0.5, struck.y - 0.9, struck.z + (dz / d) * 0.5);
+      } else {
+        const gx = dais?.guideAt[0] ?? 0;
+        const gz = dais?.guideAt[1] ?? 0;
+        struck.set(gx, heightAt(gx, gz) + 1.0, gz);
+      }
+      const ex = cx + (dx / d) * radius * 0.94;
+      const ez = cz + (dz / d) * radius * 0.94;
+      rim = edge.set(ex, heightAt(ex, ez) + 0.02, ez);
+    } else struck.set(tx, heightAt(tx, tz) + 0.9, tz);
+    core.foes.strike({ slot, serial, foe, x, z, tx, tz, victim, hit: struck, edge: rim });
+  };
   const number = (key: number, point: THREE.Vector3, amount: number, tierId: number, style: number): void => {
     const row = tierRow(tierId, DRAGON.tiers);
     if (row.number === null || amount <= 0) return;
@@ -2113,8 +2188,30 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
       const now = nowMs;
       lastDeath = null;
       beamsDrawn.clear();
+      // A foe's wind-up comes just before its telegraph in the same tick: the telegraph says how long it lasts.
+      telegraphMs.clear();
+      for (const event of events) if (event.type === "telegraph" && event.owner === "enemy" && event.source.kind === "enemy") telegraphMs.set(event.source.serial, event.durationMs);
       for (const event of events) {
         switch (event.type) {
+          case "spawn": {
+            foeIds.set(event.enemy.serial, event.foe);
+            const base = foePoint(event.enemy.slot, event.enemy.serial, event.x, event.z, at, "base");
+            core.foes.spawn(event.foe, event.x, base.y, event.z);
+            break;
+          }
+          case "attack": {
+            const source = event.source;
+            if (source.kind !== "enemy") break;
+            const listed = world.enemies?.list[source.slot];
+            const foe = listed && listed.serial === source.serial ? listed.foe : foeIds.get(source.serial);
+            if (foe === undefined) break;
+            if (event.stage === "windup") {
+              core.foes.windup(source.slot, source.serial, foe, event.x, event.z, event.tx, event.tz, telegraphMs.get(source.serial));
+              break;
+            }
+            strikeFoe(world, source.slot, source.serial, foe, event.target.kind, event.x, event.z, event.tx, event.tz);
+            break;
+          }
           case "word-progress": {
             // The bench and tests drive this with partial worlds.
             const word = world.words?.live[event.word];
@@ -2178,7 +2275,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             } else if (target.kind === "hero" || target.kind === "guide") {
               addTrauma(0.12);
               if (!options.shake) trauma.kick(0, 1, 4);
-            } else {
+            } else if (event.source.kind !== "enemy") {
+              // A foe's blow on our side is drawn by its strike (foe-fx.ts, in the foes' crimson), not here in fire.
               at.set(event.x, heightAt(event.x, event.z) + 1, event.z);
               core.impact(at, 1, 0, 1, false);
             }
@@ -2187,6 +2285,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             break;
           }
           case "death": {
+            core.foes.cancel(event.enemy.serial);
+            foeIds.delete(event.enemy.serial);
             const point = foePoint(event.enemy.slot, event.enemy.serial, event.x, event.z, at, "base");
             const length = Math.hypot(event.x, event.z) || 1;
             core.death(point, event.material, event.tier, event.x / length, event.z / length);

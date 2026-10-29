@@ -357,6 +357,8 @@ export class BenchCrowd implements FoeLocator {
   private readonly instance: CrowdInstance = { x: 0, y: 0, z: 0, yaw: 0, flash: 0, squash: 1 };
   /** Hits this frame, for the effects: [x, y, z, tier]. */
   readonly hits: number[][] = [];
+  /** Foes that wound up (stage 0) or struck (stage 1) this frame, for the effects: [index, stage]. */
+  readonly swings: number[][] = [];
   readonly deaths: number[][] = [];
 
   constructor(readonly stage: Stage, count: number, readonly random: () => number, map: MapDef = MAP_L2_CAU, readonly heightAt: (x: number, z: number) => number = () => 0, readonly models: CrowdModels | null = null) {
@@ -489,6 +491,7 @@ export class BenchCrowd implements FoeLocator {
   update(dt: number, now: number): void {
     this.hits.length = 0;
     this.deaths.length = 0;
+    this.swings.length = 0;
     const foes = this.foes;
     // Random hits at a steady rate (tiers 1–3), 1 in 4 a kill.
     const hits = Math.floor(this.hitsPerSecond * dt) + (this.random() < (this.hitsPerSecond * dt) % 1 ? 1 : 0);
@@ -563,7 +566,11 @@ export class BenchCrowd implements FoeLocator {
             if (foe.attackIn <= 0) {
               foe.attackIn = 1.6 + this.random() * 1.6;
               foe.motion.attack("windup");
-            } else if (foe.attackIn < 1.0 && foe.attackIn + dt >= 1.0) foe.motion.attack("strike");
+              this.swings.push([index, 0]);
+            } else if (foe.attackIn < 1.0 && foe.attackIn + dt >= 1.0) {
+              foe.motion.attack("strike");
+              this.swings.push([index, 1]);
+            }
           }
           foe.motion.update(dt, dt > 0 ? Math.hypot(foe.x - px, foe.z - pz) / dt : 0);
           foe.motion.write(inst);
@@ -614,6 +621,8 @@ export class BenchEffects {
   readonly core: FxCore;
   private readonly mouth = new THREE.Vector3(0, 4.6, -0.6);
   private readonly at = new THREE.Vector3();
+  private readonly hit = new THREE.Vector3();
+  private readonly edge = new THREE.Vector3();
   private readonly camPos = new THREE.Vector3();
   private readonly size = new THREE.Vector2();
   private boltClock = 0;
@@ -644,6 +653,20 @@ export class BenchEffects {
     for (const [x, y, z, tier] of crowd.deaths) {
       const length = Math.hypot(x!, z!) || 1;
       core.death(this.at.set(x!, y!, z!), "leaf", tier!, x! / length, z! / length);
+    }
+    // The foes' blows at the ring (VFX step 3): the wind-up 0.6 s before the strike, aimed at the Dragon.
+    for (const [index, stage] of crowd.swings) {
+      const foe = crowd.foes[index!];
+      if (foe === undefined) continue;
+      if (stage === 0) core.foes.windup(index!, foe.serial, foe.id, foe.x, foe.z, 0, 0, 600);
+      else {
+        const d = Math.hypot(foe.x, foe.z) || 1;
+        this.hit.set(this.mouth.x + (foe.x / d) * 0.5, this.mouth.y - 0.9, this.mouth.z + (foe.z / d) * 0.5);
+        const ex = (foe.x / d) * MAP_L2_CAU.dais.radiusM * 0.94;
+        const ez = (foe.z / d) * MAP_L2_CAU.dais.radiusM * 0.94;
+        this.edge.set(ex, crowd.heightAt(ex, ez) + 0.02, ez);
+        core.foes.strike({ slot: index!, serial: foe.serial, foe: foe.id, x: foe.x, z: foe.z, tx: 0, tz: 0, victim: "dragon", hit: this.hit, edge: this.edge });
+      }
     }
     this.boltClock += dt;
     while (this.boltClock > 0.25) {

@@ -46,6 +46,29 @@ export const FX_COLORS = {
 } as const;
 
 /**
+ * The foes' side (VFX step 3; VFX_STANDARD §3.6 rule 3: red is theirs): crimson and wine, a pale pink-white core,
+ * never Hỏa Long's orange. Their flame shapes ramp through vxFoeRamp (vfx-layers.ts).
+ */
+export const FOE_COLORS = {
+  /** A foe flame ball or slash (PUFF_FOE, PUFF_SLASH): its luma sets how hot it burns. */
+  ball: new THREE.Color("#ff7c9c"),
+  /** Additive glints, trails and motes (HDR through the flare intensity). */
+  glint: new THREE.Color("#ff3d6a"),
+  /** The pale core of a strike or impact flash. */
+  core: new THREE.Color("#ffe6ee"),
+  /** The dark layer under a foe's bright one. */
+  soot: new THREE.Color("#2a1418"),
+  /** An arrow's or sting's shaft (normal blend). */
+  shaft: new THREE.Color("#3a2a22"),
+  /** Stone chips off the dais. */
+  chip: new THREE.Color("#b8ad96"),
+  /** Claw scratches on the stone (the mark shader draws its own groove colours; this tints nothing). */
+  scratch: new THREE.Color("#ffffff"),
+  /** The ring a foe comes in through. */
+  portal: new THREE.Color("#3a1430"),
+} as const;
+
+/**
  * Render order of the fire ribbons (bolts, Hỏa Long's wings): above the river surface (view/water.ts, 2), which
  * is transparent and writes no depth, so at an equal order it could be sorted after the fire and cover it.
  */
