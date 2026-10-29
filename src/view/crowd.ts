@@ -117,6 +117,11 @@ export interface CrowdLayerSource {
   /** Base material properties (the crowd patches its own copy). */
   readonly roughness?: number;
   readonly map?: THREE.Texture | null;
+  /** The model's normal map (Medium and above, MODEL_QUALITY §2b) and its scale as the loader set it. */
+  readonly normalMap?: THREE.Texture | null;
+  readonly normalScale?: THREE.Vector2;
+  /** The model's roughness map (High and Ultra; grey, read from .g). */
+  readonly roughnessMap?: THREE.Texture | null;
   /**
    * How the geometry meets the placeholder size: "stretch" each axis (primitives, default), or one
    * uniform scale from the placeholder's "height" (characters) or its "footprint" (placed things).
@@ -126,6 +131,11 @@ export interface CrowdLayerSource {
   readonly model?: boolean;
   /** The geometry carries aHullN (smoothed normals): the outline hull is pushed along them. */
   readonly hullNormals?: boolean;
+  /**
+   * A lighter mesh for the outline and the ghost (model tiers, High and Ultra: the Medium mesh), in the body's
+   * frame with the same attributes (aHullN, and aSkinI/aSkinW for bones); default the body's geometry.
+   */
+  readonly hull?: THREE.BufferGeometry;
 }
 
 export interface Crowd {
@@ -313,6 +323,8 @@ if (vState.y > 0.02 || vLook.x < 0.01) discard;
 /** Outline colour (near-black umber) and its width in CSS px at 1080p. */
 const OUTLINE_COLOR = "#120c08";
 const OUTLINE_PX = 2.1;
+/** A hidden instance (zero scale). */
+const ZERO_MATRIX = new THREE.Matrix4().makeScale(0, 0, 0);
 
 /**
  * Ghost (round 2 readability): a foe hidden behind our blocker, a house, a
@@ -415,11 +427,13 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vTint * 1.25, vState
 
 const CROWD_EMISSIVE = /* glsl */ `
 #include <emissivemap_fragment>
-float crowdRim = pow(1.0 - abs(vViewN.z), 2.2);
+// max(…, 0): with MSAA (Ultra) an edge pixel shades outside its triangle and the interpolated vViewN.z passes ±1;
+// pow of a negative base is NaN, and Ultra's bloom spread one NaN pixel into a black box over the field (29/10).
+float crowdRim = pow(max(1.0 - abs(vViewN.z), 0.0), 2.2);
 #ifdef DH_MODEL
 // A modelled body turns its normals away from the camera far more often than a primitive: a thinner, softer rim,
 // or the whole body washes toward cream (G01 at rim 0.95 read pale in the 27/10 sheets).
-crowdRim = pow(1.0 - abs(vViewN.z), 3.4) * 0.55;
+crowdRim = pow(max(1.0 - abs(vViewN.z), 0.0), 3.4) * 0.55;
 #endif
 // A bright rim in the body's own colour lifted toward cream (aLook.y), so every body reads against the ground
 // even on its shaded side; an aura rim is withered yellow.
@@ -556,6 +570,8 @@ interface Layer {
   readonly clips: readonly CrowdClip[] | null;
   count: number;
   dirty: boolean;
+  /** Not drawn yet: its first flushed frame draws one hidden instance (see flush). */
+  cold: boolean;
 }
 
 interface HandleRec {
@@ -700,11 +716,15 @@ class InstancedCrowd implements Crowd {
     const anim = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
     const look = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
     const clip = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4).setUsage(THREE.DynamicDrawUsage);
-    geometry.setAttribute("aColor", color);
-    geometry.setAttribute("aState", state);
-    geometry.setAttribute("aAnim", anim);
-    geometry.setAttribute("aLook", look);
-    geometry.setAttribute("aClip", clip);
+    // The hull geometry (outline, ghost) shares the body's instance attributes.
+    const hull = source.hull ?? geometry;
+    for (const target of hull === geometry ? [geometry] : [geometry, hull]) {
+      target.setAttribute("aColor", color);
+      target.setAttribute("aState", state);
+      target.setAttribute("aAnim", anim);
+      target.setAttribute("aLook", look);
+      target.setAttribute("aClip", clip);
+    }
     // Our side (units, traps, houses) draws with the world; foes after their ghosts.
     const foe = !key.startsWith(OUR_LAYER);
     const bones = source.animation.kind === "bones" ? source.animation : null;
@@ -714,7 +734,15 @@ class InstancedCrowd implements Crowd {
     if (source.hullNormals) defines.DH_HULLN = "";
     const variant = Object.keys(defines).join("-") || "plain";
     const boneUniform = { value: bones?.boneTexture ?? null };
-    const material = new THREE.MeshStandardMaterial({ roughness: source.roughness ?? 0.85, metalness: 0, map: source.map ?? null, emissive: "#000000" });
+    const material = new THREE.MeshStandardMaterial({
+      roughness: source.roughness ?? 0.85,
+      metalness: 0,
+      map: source.map ?? null,
+      normalMap: source.normalMap ?? null,
+      roughnessMap: source.roughnessMap ?? null,
+      emissive: "#000000",
+    });
+    if (source.normalScale) material.normalScale.copy(source.normalScale);
     material.defines = { ...defines };
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = this.time;
@@ -760,7 +788,7 @@ class InstancedCrowd implements Crowd {
       shader.fragmentShader = "varying vec4 vState;\nvarying vec4 vLook;\n" + shader.fragmentShader.replace("#include <clipping_planes_fragment>", OUTLINE_CLIP);
     };
     outlineMaterial.customProgramCacheKey = () => "dh-crowd-outline-v2-" + variant;
-    const outline = new THREE.InstancedMesh(geometry, outlineMaterial, capacity);
+    const outline = new THREE.InstancedMesh(hull, outlineMaterial, capacity);
     outline.instanceMatrix = mesh.instanceMatrix;
     outline.count = 0;
     outline.frustumCulled = false;
@@ -794,7 +822,7 @@ class InstancedCrowd implements Crowd {
         blendDst: THREE.OneMinusSrcAlphaFactor,
         transparent: false,
       });
-      ghost = new THREE.InstancedMesh(geometry, ghostMaterial, capacity);
+      ghost = new THREE.InstancedMesh(hull, ghostMaterial, capacity);
       ghost.instanceMatrix = mesh.instanceMatrix;
       ghost.count = 0;
       ghost.frustumCulled = false;
@@ -818,6 +846,7 @@ class InstancedCrowd implements Crowd {
       clips: bones?.clips ?? null,
       count: 0,
       dirty: true,
+      cold: true,
     };
   }
 
@@ -826,6 +855,7 @@ class InstancedCrowd implements Crowd {
     layer.outline.removeFromParent();
     layer.ghost?.removeFromParent();
     layer.mesh.geometry.dispose();
+    if (layer.outline.geometry !== layer.mesh.geometry) layer.outline.geometry.dispose();
     (layer.mesh.material as THREE.Material).dispose();
     (layer.outline.material as THREE.Material).dispose();
     (layer.ghost?.material as THREE.Material | undefined)?.dispose();
@@ -1004,9 +1034,19 @@ class InstancedCrowd implements Crowd {
   flush(timeS?: number): void {
     if (timeS !== undefined) this.time.value = timeS;
     for (const layer of this.layers.values()) {
-      layer.mesh.count = layer.count;
-      layer.outline.count = layer.count;
-      if (layer.ghost !== null) layer.ghost.count = layer.count;
+      // A new layer draws one hidden (zero-scale) instance in its first frame: ANGLE over Metal builds a
+      // material's pipeline on its first real draw, so the first foe of a kind would stall a frame mid-wave
+      // (the VFX lane measured 240-250 ms on 29/10); now that cost lands when the layer is made, at load.
+      const warm = layer.cold && layer.count === 0;
+      if (warm) {
+        layer.mesh.setMatrixAt(0, ZERO_MATRIX);
+        layer.dirty = true;
+      }
+      layer.cold = false;
+      const drawn = warm ? 1 : layer.count;
+      layer.mesh.count = drawn;
+      layer.outline.count = drawn;
+      if (layer.ghost !== null) layer.ghost.count = drawn;
       if (!layer.dirty) continue;
       layer.dirty = false;
       layer.mesh.instanceMatrix.needsUpdate = true;

@@ -42,6 +42,10 @@ export interface StudioHandle {
   camera(preset: "default" | "row" | "actor" | "dragons", index?: number): void;
   /** Free camera on a point (props, the bridge): distance m, yaw and pitch in degrees; hides the actors' row. */
   look(x: number, z: number, distance: number, yawDeg?: number, pitchDeg?: number): void;
+  /** Turns the stage's HDR bloom on or off (Ultra has it on); false when the tier has none. */
+  bloom(on: boolean): boolean;
+  /** Free camera on a point `height` m above the ground (model-tier crops); `clear` hides the Dragons and the scatter. */
+  lookAt(x: number, z: number, height: number, distance: number, yawDeg?: number, pitchDeg?: number, clear?: boolean): void;
   /** Screen boxes (CSS px) of every actor this frame: feet and head anchors. */
   boxes(): { content: string; x: number; yTop: number; yBase: number; visible: boolean }[];
   stop(): void;
@@ -211,6 +215,16 @@ export async function runModelStudio(
       if (dragons) dragons.visible = true;
       map.scatter.group.visible = true;
       placeCamera(map.stage.camera, MAP_L2_CAU, yawDeg, pitchDeg, distance, new THREE.Vector3(x, map.heightAt(x, z) + distance * 0.06, z));
+    },
+    bloom(on: boolean): boolean {
+      return map.stage.setBloom(on);
+    },
+    lookAt(x: number, z: number, height: number, distance: number, yawDeg = 20, pitchDeg = 20, clear = false): void {
+      manual = true;
+      const dragons = map.stage.layers.actors.getObjectByName("heroes");
+      if (dragons) dragons.visible = !clear;
+      map.scatter.group.visible = !clear;
+      placeCamera(map.stage.camera, MAP_L2_CAU, yawDeg, pitchDeg, distance, new THREE.Vector3(x, map.heightAt(x, z) + height, z));
     },
     boxes() {
       return placed.map((actor) => {

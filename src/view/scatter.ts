@@ -19,7 +19,7 @@ import * as THREE from "three";
 import type { Quality } from "../app/contracts";
 import type { MapDef } from "../content/types";
 import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
-import type { PropModel } from "./models";
+import { PROP_GLOSS, surfaceParams, type PropModel } from "./models";
 import { homeViewUv, LAYOUT_RULES, onAnyFrameEdge, type LayoutItem } from "./layout";
 import { bakeImpostors, farRing, IMPOSTOR_LOW, type FarItem, type ImpostorAtlas } from "./impostor";
 import { mapSwitch } from "./paint";
@@ -111,6 +111,58 @@ const WARM_CROWN =
   "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhOrange = smoothstep(0.38, 0.62, dhNoise(vDhWorld.xz * 0.05 + 3.0)); vec3 dhDark = mix(vec3(0.19, 0.045, 0.024), vec3(0.22, 0.06, 0.022), dhOrange); vec3 dhLight = mix(vec3(0.39, 0.095, 0.045), vec3(0.42, 0.115, 0.04), dhOrange); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.3, dhL)), dhLeaf);";
 
 
+
+/**
+ * Model tiers (MODEL_QUALITY §3 step 2, LOD by distance): a prop farther than this from the camera draws its far
+ * LOD (today's M0b cut, same uv atlas, the tier's maps); nearer, the tier's own mesh (High: trees 8,000). The game
+ * camera stands 78 m and more from every prop (55° pitch, 95 m), so in play the whole scatter is far at Medium and
+ * High; zoom, the title orbit and the victory turn bring the near meshes in. Ultra keeps the full originals out to
+ * 85 m (the nearer half of the map in play). Measured on 29/10 (changelog 2026-10-29-model-tiers): the tier meshes
+ * everywhere put High over its frame gate (mean 8.5–9.2 ms, p95 12.5–12.9 against 8 and 12).
+ */
+export const PROP_LOD_M: Readonly<Record<Quality, number>> = { low: 0, medium: 55, high: 70, ultra: 85 };
+/** Hysteresis of the LOD switch (m) and how far the camera moves before the props are binned again (m). */
+const PROP_LOD_BAND_M = 4;
+const PROP_LOD_STEP_M = 1;
+
+/** One prop group drawn at two LODs: every item's matrix, colour and centre, and the side it is on now. */
+export interface LodGroup {
+  readonly near: THREE.InstancedMesh;
+  readonly far: THREE.InstancedMesh;
+  readonly matrices: Float32Array;
+  readonly colors: Float32Array;
+  readonly centers: Float32Array;
+  readonly side: Int8Array;
+}
+
+/** Puts each item in the near or the far mesh by its distance to `eye` (hysteresis PROP_LOD_BAND_M). */
+export function binLod(lod: LodGroup, eye: THREE.Vector3, distanceM: number): void {
+  const nearIn = distanceM * distanceM;
+  const farOut = (distanceM + PROP_LOD_BAND_M) * (distanceM + PROP_LOD_BAND_M);
+  const nearMatrix = lod.near.instanceMatrix.array as Float32Array;
+  const farMatrix = lod.far.instanceMatrix.array as Float32Array;
+  const nearColor = lod.near.instanceColor!.array as Float32Array;
+  const farColor = lod.far.instanceColor!.array as Float32Array;
+  let n = 0;
+  let f = 0;
+  for (let i = 0; i < lod.side.length; i += 1) {
+    const dx = lod.centers[i * 3]! - eye.x;
+    const dy = lod.centers[i * 3 + 1]! - eye.y;
+    const dz = lod.centers[i * 3 + 2]! - eye.z;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    const far = lod.side[i] === 0 ? d2 > farOut : d2 > nearIn;
+    lod.side[i] = far ? 1 : 0;
+    const k = far ? f++ : n++;
+    (far ? farMatrix : nearMatrix).set(lod.matrices.subarray(i * 16, i * 16 + 16), k * 16);
+    (far ? farColor : nearColor).set(lod.colors.subarray(i * 3, i * 3 + 3), k * 3);
+  }
+  lod.near.count = n;
+  lod.far.count = f;
+  for (const mesh of [lod.near, lod.far]) {
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor!.needsUpdate = true;
+  }
+}
 
 /** Mip bias of foliage colour maps (map pilot; A2: a step softer, leaf masses over leaf noise). */
 const FOLIAGE_MAP_BIAS = 3.1;
@@ -504,6 +556,12 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
   const meshes = [cones, trunks, rounds, shrubs, stones];
   /** GLB prop meshes (their geometry belongs to view/models.ts). */
   const propMeshes: THREE.InstancedMesh[] = [];
+  /** Prop groups with a far LOD, the switch distance for this quality, and the render hook that bins them. */
+  const lods: LodGroup[] = [];
+  // ?lod=<m> overrides the switch distance (perf split and tuning; 0 draws the tier mesh everywhere).
+  const lodSwitch = mapSwitch("lod");
+  const lodM = lodSwitch !== null && Number.isFinite(Number(lodSwitch)) ? Number(lodSwitch) : PROP_LOD_M[quality];
+  let unhook: (() => void) | null = null;
   let used = false;
   const field = terrain.field;
   const near = map.terrain.playRadiusM + PROP_NEAR_SKIRT_M;
@@ -590,8 +648,11 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       const foliage = spec.kind !== "rock" && spec.kind !== "dress";
       const base = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
       const paint = foliage ? (base ?? "") + FOLIAGE_BREAKUP : base;
-      const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
+      // Model tiers (MODEL_QUALITY §2b): the normal map from Medium up, the roughness glint on High and Ultra.
+      const gloss = model.roughnessMap ? { map: model.roughnessMap, ...(foliage ? PROP_GLOSS.foliage : PROP_GLOSS.solid) } : null;
+      const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", ...surfaceParams(model) }), look, {
         key: "prop-" + name + (band === "mid" ? "-mid" : ""),
+        ...(gloss ? { gloss } : {}),
         ...(paint ? { paint } : {}),
         rim: spec.kind === "rock" ? 0.06 : spec.kind === "dress" ? 0.08 : 0.12,
         ...(spec.wind > 0 ? { wind: spec.wind } : {}),
@@ -604,6 +665,17 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       const casts = shadows && band === "near" && !SMALL_PROPS.has(spec.manifest);
       const mesh = instanced(geometry, material, items.length, "dh-prop-" + name + (band === "mid" ? "-mid" : ""), casts);
       mesh.receiveShadow = shadows && band === "near";
+      // LOD by distance: the far mesh shares the material; both start empty until the first bin (camera known).
+      const farMesh = model.far !== null && lodM > 0 ? instanced(model.far, material, items.length, "dh-prop-" + name + (band === "mid" ? "-mid" : "") + "-far", casts) : null;
+      const lod: LodGroup | null =
+        farMesh === null
+          ? null
+          : { near: mesh, far: farMesh, matrices: new Float32Array(items.length * 16), colors: new Float32Array(items.length * 3), centers: new Float32Array(items.length * 3), side: new Int8Array(items.length) };
+      if (farMesh !== null) {
+        farMesh.receiveShadow = mesh.receiveShadow;
+        // Empty until the first bin; without a render hook (no scene yet) the tier mesh draws every item.
+        farMesh.count = 0;
+      }
       items.forEach((item, index) => {
         const k = item.size * spec.perSize;
         // Rocks and logs sink a little; trees stand on their roots.
@@ -619,12 +691,45 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         if (item.tint) tint.setRGB(item.tint[0], item.tint[1], item.tint[2]);
         else tint.setScalar(spread);
         mesh.setColorAt(index, tint);
+        if (lod !== null) {
+          matrix.toArray(lod.matrices, index * 16);
+          tint.toArray(lod.colors, index * 3);
+          lod.centers[index * 3] = item.x;
+          lod.centers[index * 3 + 1] = item.y + k * model.size.y * 0.5;
+          lod.centers[index * 3 + 2] = item.z;
+          farMesh!.setColorAt(index, tint);
+        }
       });
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       group.add(mesh);
       propMeshes.push(mesh);
       materials.push(material);
+      if (lod !== null) {
+        group.add(lod.far);
+        propMeshes.push(lod.far);
+        lods.push(lod);
+      }
+    }
+    // Bins the LOD groups each frame the camera has moved PROP_LOD_STEP_M (scene.onBeforeRender, before the shadow
+    // and colour passes read the instance buffers), so the same frame draws the new split.
+    let root: THREE.Object3D = group;
+    while (root.parent !== null) root = root.parent;
+    if (lods.length > 0 && (root as THREE.Scene).isScene) {
+      const scene = root as THREE.Scene;
+      const previous = scene.onBeforeRender;
+      const eye = new THREE.Vector3();
+      const binnedAt = new THREE.Vector3(Infinity, 0, 0);
+      scene.onBeforeRender = function (this: THREE.Scene, ...args: Parameters<THREE.Scene["onBeforeRender"]>) {
+        previous.apply(this, args);
+        eye.setFromMatrixPosition(args[2].matrixWorld);
+        if (eye.distanceToSquared(binnedAt) < PROP_LOD_STEP_M * PROP_LOD_STEP_M) return;
+        binnedAt.copy(eye);
+        for (const lod of lods) binLod(lod, eye, lodM);
+      };
+      unhook = () => {
+        scene.onBeforeRender = previous;
+      };
     }
     if (renderer && farItems.length > 0) {
       const used = [...new Set(farItems.map((item) => item.manifest))];
@@ -667,6 +772,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       return { triangles, props, primitives };
     },
     dispose(): void {
+      unhook?.();
       group.removeFromParent();
       for (const item of [...geometries, ...materials, ...meshes, ...propMeshes]) item.dispose();
       atlas?.dispose();

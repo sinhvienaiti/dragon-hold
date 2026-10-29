@@ -68,6 +68,8 @@ export interface BenchResult {
   readonly gpuMeanMs: number | null;
   readonly gpuNote: string | null;
   readonly maxMs: number;
+  /** Frames over 50 ms (seconds since the bench started, and ms), warm-up included: first-use stalls show here. */
+  readonly longFrames?: readonly (readonly [number, number])[];
   readonly fps: number;
   readonly count: number;
   readonly quality: Quality;
@@ -785,6 +787,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   const warmup = options.warmup ?? 1.5;
   const intervals: number[] = [];
   const cpu: number[] = [];
+  const longFrames: [number, number][] = [];
   let calls = 0;
   let triangles = 0;
   let last = performance.now();
@@ -809,6 +812,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
     crowd.update(dt, now / 1000);
     fx?.update(dt, now / 1000, crowd);
     const elapsed = (now - start) / 1000;
+    if (interval > 50 && longFrames.length < 40) longFrames.push([round2(elapsed), round2(interval)]);
     const measuring = !finished && elapsed > warmup;
     const query = gpu.begin();
     stage.render();
@@ -835,6 +839,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
         cpuP95Ms: round2(percentile(cpu, 0.95)),
         ...gpuReading(gpu, mean(intervals), rendererName(stage.renderer)),
         maxMs: round2(Math.max(...intervals)),
+        longFrames,
         fps: round2(1000 / Math.max(0.001, mean(intervals))),
         count: options.count,
         quality: options.quality,

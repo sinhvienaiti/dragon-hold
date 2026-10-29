@@ -227,6 +227,47 @@ describe("view crowd", () => {
     expect(() => crowd.defineLayer("x", { geometry: new THREE.BoxGeometry(), sizeM: [1, 1, 1], animation: { kind: "vat", texture, frames: 1, clips: [] } })).toThrow(/vat/);
     crowd.dispose();
   });
+
+  it("gives a model layer the tier's maps (MODEL_QUALITY 2b) and draws a new empty layer once, hidden, to warm its pipeline", () => {
+    const crowd = createCrowd(8);
+    const map = new THREE.Texture();
+    const normalMap = new THREE.Texture();
+    const roughnessMap = new THREE.Texture();
+    crowd.defineLayer("enemy/moss-grunt", {
+      geometry: new THREE.BoxGeometry(1, 2, 1).translate(0, 1, 0),
+      sizeM: [1, 2, 1],
+      animation: { kind: "procedural" },
+      model: true,
+      roughness: 1,
+      map,
+      normalMap,
+      normalScale: new THREE.Vector2(1, -1),
+      roughnessMap,
+    });
+    const meshes = layers(crowd.group);
+    const body = meshes.get("crowd-enemy/moss-grunt")!;
+    const material = body.material as THREE.MeshStandardMaterial;
+    expect(material.map).toBe(map);
+    expect(material.normalMap).toBe(normalMap);
+    expect(material.normalScale.y).toBe(-1);
+    expect(material.roughnessMap).toBe(roughnessMap);
+    expect(material.metalness).toBe(0);
+    // First frame: one zero-scale instance in the body, hull and ghost; then nothing until a foe comes.
+    crowd.flush();
+    expect(body.count).toBe(1);
+    expect(meshes.get("crowd-outline-enemy/moss-grunt")!.count).toBe(1);
+    expect(meshes.get("crowd-ghost-enemy/moss-grunt")!.count).toBe(1);
+    const m = new THREE.Matrix4();
+    body.getMatrixAt(0, m);
+    expect(new THREE.Vector3().setFromMatrixScale(m).length()).toBe(0);
+    expect(crowd.drawCalls()).toBe(0);
+    crowd.flush();
+    expect(body.count).toBe(0);
+    crowd.set(crowd.add(grunt, "biped", "enemy/moss-grunt"), inst(1, 0));
+    crowd.flush();
+    expect(body.count).toBe(1);
+    crowd.dispose();
+  });
 });
 
 describe("view hp bars", () => {

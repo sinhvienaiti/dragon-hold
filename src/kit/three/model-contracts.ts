@@ -14,7 +14,15 @@
  */
 export const MODEL_KINDS = ["ships", "enemies", "bosses", "skills", "items", "heroes", "guides", "units", "props"] as const;
 export type ModelKind = (typeof MODEL_KINDS)[number];
-export type ModelTier = "high" | "medium";
+/**
+ * Runtime file tiers a manifest may list. "ultra" is the whole original with every map (parent
+ * docs/games/MODEL_QUALITY.md §2b, owner 29/10); "high" and "medium" are what the shared packager
+ * (scripts/models/prepare-models.mjs) writes. A game's own tool may write all three.
+ */
+export const MODEL_TIERS = ["ultra", "high", "medium"] as const;
+export type ModelTier = (typeof MODEL_TIERS)[number];
+/** Tiers the shared packager writes, with a texture limit per kind. */
+export type PackagedTier = "high" | "medium";
 
 export const isModelKind = (value: unknown): value is ModelKind => typeof value === "string" && (MODEL_KINDS as readonly string[]).includes(value);
 
@@ -28,8 +36,8 @@ export type ModelContract = {
   requiredClips: readonly string[];
   optionalClips: readonly string[];
   triangles: { min: number; max: number };
-  /** Longest texture edge per tier. */
-  textureMax: Readonly<Record<ModelTier, number>>;
+  /** Longest texture edge per packaged tier. */
+  textureMax: Readonly<Record<PackagedTier, number>>;
 };
 
 export const MODEL_CONTRACTS: Readonly<Record<ModelKind, ModelContract>> = {
@@ -121,7 +129,7 @@ export const MODEL_CONTRACTS: Readonly<Record<ModelKind, ModelContract>> = {
 };
 
 export type ModelManifestEntry = {
-  kind: ModelKind;
+  kind: string;
   id: string;
   /** URLs per tier (made absolute against the manifest's URL when parsed). */
   tiers: Partial<Record<ModelTier, { url: string; bytes: number }>>;
@@ -138,7 +146,7 @@ export type ModelManifest = {
   models: Record<string, ModelManifestEntry>;
 };
 
-export function modelKey(kind: ModelKind, id: string): string {
+export function modelKey(kind: string, id: string): string {
   return kind + "/" + id;
 }
 

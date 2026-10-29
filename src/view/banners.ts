@@ -69,7 +69,8 @@ uniform float uTime;
 varying float vH;
 varying vec3 vNormalV;
 void main() {
-  float rim = pow(1.0 - abs(vNormalV.z), 1.5);
+  // max(…, 0): MSAA (Ultra) shades edge pixels outside the triangle, where |vNormalV.z| can pass 1 (pow → NaN).
+  float rim = pow(max(1.0 - abs(vNormalV.z), 0.0), 1.5);
   float fade = (1.0 - vH) * (1.0 - vH);
   float shimmer = 0.8 + 0.2 * sin(vH * 18.0 - uTime * 5.0);
   float a = fade * (0.35 + 0.65 * (1.0 - rim)) * shimmer * uAlpha;

@@ -2,6 +2,7 @@
 export {
   MODEL_CONTRACTS,
   MODEL_KINDS,
+  MODEL_TIERS,
   isModelKind,
   missingClips,
   missingSockets,
@@ -11,6 +12,7 @@ export {
   type ModelManifest,
   type ModelManifestEntry,
   type ModelTier,
+  type PackagedTier,
 } from "./model-contracts";
 export {
   ModelLibrary,
