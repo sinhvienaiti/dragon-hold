@@ -2161,6 +2161,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     return out.set(x, heightAt(x, z) + (anchor === "base" ? 0 : 0.8), z);
   };
   const numberAt = new THREE.Vector3();
+  const keepBox = { x: 0, y: 0, w: 0, h: 0 };
   const telegraphMs = new Map<number, number>();
   /** Foe ids by serial from spawns (the bench and tests have no world list). */
   const foeIds = new Map<number, string>();
@@ -2202,23 +2203,25 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     stage.project(point.x, point.y + 0.15, point.z, screen);
     if (!screen.visible) return;
     const up = numbers.fontPx * row.number.size * 0.8;
-    let x = screen.x;
     const y = screen.y - up;
-    // Round 7 (judge 6: a Sky Fire victim's number was born 80–90 px up, over its still-live word card): a number
-    // never covers a card (the kit lifts it over one), so when a card stands right over the head the number is born
-    // beside it at head height instead.
-    const px = numbers.fontPx * row.number.size * (row.number.pop ?? 1);
-    // Generous: the kit's own box (italic ink, outline, a PERFECT label wider than the digits) is wider than advances.
-    const halfW = Math.max(String(Math.round(amount)).length * 0.75 * px, style === STYLE.perfect ? 2.6 * px : 0) / 2 + 14;
-    const top = y - px * (style === STYLE.perfect ? 1.3 : 0.65);
-    const bottom = y + px * 0.75;
-    for (const rect of numbers.protected) {
-      if (x + halfW < rect.x || x - halfW > rect.x + rect.w || bottom < rect.y || top > rect.y + rect.h) continue;
-      const right = rect.x + rect.w + halfW + 6;
-      x = right + halfW < stage.renderer.domElement.clientWidth ? right : rect.x - halfW - 6;
-      break;
+    const i = numbers.spawn(key, screen.x, y, amount, style, tierId, row.number.size, row.number.life, 0, -1, nowMs / 1000);
+    // Round 7 (judge 6: a Sky Fire victim's number was born 80–90 px up, over its still-live word card): the kit
+    // lifts a number over any card it would cover (FEEL §2.5). When it did, try beside the card at head height
+    // instead, with the kit's own box (its ink, outline and label), and keep the lift only if no side is clear.
+    if (i < 0 || numbers.y[i]! >= y - 17) return;
+    const liftedX = numbers.x[i]!;
+    const liftedY = numbers.y[i]!;
+    numbers.y[i] = y - 16;
+    const width = stage.renderer.domElement.clientWidth;
+    for (let tries = 0; tries < 4; tries += 1) {
+      numbers.box(i, keepBox);
+      const card = numbers.protected.find((r) => keepBox.x < r.x + r.w && keepBox.x + keepBox.w > r.x && keepBox.y < r.y + r.h && keepBox.y + keepBox.h > r.y);
+      if (card === undefined) return;
+      const right = card.x + card.w + keepBox.w / 2 + 6;
+      numbers.x[i] = right + keepBox.w / 2 < width ? right : card.x - keepBox.w / 2 - 6;
     }
-    numbers.spawn(key, x, y, amount, style, tierId, row.number.size, row.number.life, 0, -1, nowMs / 1000);
+    numbers.x[i] = liftedX;
+    numbers.y[i] = liftedY;
   };
   const addTrauma = (amount: number): void => {
     if (amount <= 0) return;
