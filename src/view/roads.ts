@@ -28,7 +28,7 @@ export interface RoadsView {
   readonly group: THREE.Group;
   /** Which image each slot uses ("road/road-flagstone" or the stand-in uniform name). */
   readonly sources: Record<keyof typeof ROAD_TEXTURES, string>;
-  stats(): { triangles: number; lanes: number };
+  stats(): { triangles: number; lanes: number; footpaths: number };
   dispose(): void;
 }
 
@@ -55,6 +55,7 @@ uniform vec3 uDirtLight;
 uniform vec3 uDirtDark;
 uniform vec3 uGrassMid;
 uniform float uRoadTile;
+uniform vec3 uDaisRing;
 `;
 
 // vDhMask: x signed metres across (− left), y core half, z verge width (this side), w arc length of this column.
@@ -72,6 +73,8 @@ float core = 1.0 - smoothstep(coreEdge - band * 0.5, coreEdge + band * 0.5, ad);
 float outer = C + V * (0.75 + 0.55 * dhFbm(vec2(al * 0.32, side * 7.0 + 4.0)));
 float grassBand = 0.3 + 0.5 * dhNoise(vec2(al * 0.9, side * 9.0 + 6.0));
 float road = 1.0 - smoothstep(outer - grassBand, outer, ad);
+// Roads end in the dais plaza's trodden ring, faded over 1.8 m (no cut end).
+road *= smoothstep(uDaisRing.z, uDaisRing.z + 1.8, length(vDhWorld.xz - uDaisRing.xy));
 vec2 guv = (vDhWorld.xz - uMaskRect.xy) / uMaskRect.zw;
 vec3 ground = uBakeOn > 0.5 && all(greaterThan(guv, vec2(0.0))) && all(lessThan(guv, vec2(1.0))) ? texture2D(uBaked, guv).rgb : uGrassMid;
 vec3 tC = texture2D(uRCore, ruv).rgb;
@@ -107,16 +110,16 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
   const point = { x: 0, z: 0, dx: 0, dz: 1 };
   const around = { x: 0, z: 0, dx: 0, dz: 1 };
 
-  field.lanes.forEach((lane, li) => {
-    // Trail far end → gate → … → dais end, as one line; s = 0 at the gate.
-    const trailLength = lane.trail.length;
-    const line = new Polyline([[lane.trail.xs[0]!, lane.trail.zs[0]!], ...Array.from(lane.line.xs, (x, k) => [x, lane.line.zs[k]!] as [number, number])]);
-    const spans = lane.bridges.map((span) => ({ fromM: span.fromM, toM: span.toM }));
-    const daisStop = map.dais.radiusM + 0.6;
+  /**
+   * One road along `line` (arc length `at` from its start; s = at − sOffset is the profile's arc parameter).
+   * halfAt: the walking half width at `at`; vergeScale: footpaths keep a narrower verge.
+   */
+  const addRoad = (line: Polyline, index: number, sOffset: number, spans: readonly { fromM: number; toM: number }[], halfAt: (at: number) => number, vergeScale: number, taperIn: number, taperOut: number, lift0: number): void => {
     let strip: { ring: number; columnLength: number[] } | null = null;
     let last: number[] | null = null;
+    const daisStop = map.dais.radiusM + 0.6;
     for (let at = 0; at <= line.length + 1e-6; at += STEP_M) {
-      const s = at - trailLength;
+      const s = at - sOffset;
       line.pointAt(at, point);
       const r = Math.hypot(point.x - cx, point.z - cz);
       const onBridge = spans.some((span) => s > span.fromM - 0.15 && s < span.toM + 0.15);
@@ -134,10 +137,9 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
       const tl = Math.hypot(tx, tz) || 1;
       tx /= tl;
       tz /= tl;
-      const sample = { s, laneIndex: li, half: lane.halfWidth, curvature: curvatureAt(line, at), rDais: r, bridgeGap: bridgeGapAt(spans, s) };
-      // The trail narrows toward the forest (the height field's trail taper) and ends in a point.
-      const trail = s < 0 ? Math.max(0, Math.min(1, (trailLength + s) / trailLength)) : 1;
-      const taper = Math.min(1, 0.55 + 0.45 * trail) * Math.min(1, at / 3);
+      const sample = { s, laneIndex: index, half: halfAt(at), curvature: curvatureAt(line, at), rDais: r, bridgeGap: bridgeGapAt(spans, s) };
+      // Ends narrow over taperIn / taperOut metres (a lane's trail into the forest, a footpath's destination).
+      const taper = Math.min(1, taperIn > 0 ? 0.15 + (0.85 * at) / taperIn : 1, taperOut > 0 ? 0.15 + (0.85 * (line.length - at)) / taperOut : 1);
       const C = roadCoreHalf(sample) * taper;
       const ring = positions.length / 3;
       const row: number[] = [];
@@ -145,12 +147,12 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
         const k = c - (COLUMNS.length - 1);
         const sideSign = k < 0 ? -1 : 1;
         const [coreShare, vergeShare] = COLUMNS[Math.abs(k)]!;
-        const V = roadVerge(sample, sideSign) * taper;
+        const V = roadVerge(sample, sideSign) * vergeScale * taper;
         const d = (C * coreShare + V * vergeShare) * (k === 0 ? 0 : sideSign);
         const x = point.x - tz * d;
         const z = point.z + tx * d;
-        // Core 3 cm over the ground, verge crest 8 cm (5 cm over the core), the grass edge 2.5 cm; lanes stack by 4 mm.
-        const lift = (vergeShare === 0 ? 0.03 : vergeShare <= 0.5 ? 0.03 + ROAD.coreDropM : 0.025) + li * 0.004;
+        // Core 3 cm over the ground, verge crest 8 cm (5 cm over the core), the grass edge 2.5 cm; roads stack by 4 mm.
+        const lift = (vergeShare === 0 ? 0.03 : vergeShare <= 0.5 ? 0.03 + ROAD.coreDropM : 0.025) + lift0;
         positions.push(x, field.ground(x, z) + lift, z);
         row.push(x, z);
         masks.push(d, C, V, 0);
@@ -174,6 +176,24 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
       }
       last = row;
     }
+  };
+
+  // Lanes: trail far end → gate → … → dais end, as one line; s = 0 at the gate (the sim polyline's start).
+  field.lanes.forEach((lane, li) => {
+    const trailLength = lane.trail.length;
+    const line = new Polyline([[lane.trail.xs[0]!, lane.trail.zs[0]!], ...Array.from(lane.line.xs, (x, k) => [x, lane.line.zs[k]!] as [number, number])]);
+    const spans = lane.bridges.map((span) => ({ fromM: span.fromM, toM: span.toM }));
+    // The trail narrows toward the forest (the height field's trail taper): 0.55 of the lane at its far end.
+    addRoad(line, li, trailLength, spans, (at) => lane.halfWidth * (at < trailLength ? 0.55 + (0.45 * at) / trailLength : 1), 1, 3, 0, li * 0.004);
+  });
+  // PATH_QUALITY: every trodden footpath is a road too (main: the lantern routes; branch: narrower verge).
+  field.layout.footpaths.forEach((path, pi) => {
+    const halfAt = (at: number): number => {
+      let k = 0;
+      while (k < path.line.count - 1 && path.line.cum[k + 1]! < at) k += 1;
+      return path.halves[k]!;
+    };
+    addRoad(path.line, 10 + pi, 0, [], halfAt, path.tier === "main" ? 0.65 : 0.45, 0, 2.5, 0.012 + pi * 0.003);
   });
 
   const geometry = new THREE.BufferGeometry();
@@ -200,6 +220,7 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
     uDirtDark: paint.uDirtDark!,
     uGrassMid: paint.uGrassMid!,
     uRoadTile: { value: ROAD.tileM },
+    uDaisRing: { value: new THREE.Vector3(cx, cz, map.dais.radiusM + 0.6) },
   };
   emptyEdges.needsUpdate = true;
   const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), terrain.look, {
@@ -239,7 +260,7 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
   return {
     group,
     sources,
-    stats: () => ({ triangles: indices.length / 3, lanes: field.lanes.length }),
+    stats: () => ({ triangles: indices.length / 3, lanes: field.lanes.length, footpaths: field.layout.footpaths.length }),
     dispose(): void {
       group.removeFromParent();
       geometry.dispose();

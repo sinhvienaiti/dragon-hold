@@ -95,3 +95,82 @@ Trong `tmp/map-pilot-r2/`:
 - **Đo lại `dh-bench`** khi hàng `--perf` rảnh.
 - **Model ven đường dưới 2.000 tam giác** (bảng ở mục 2): chờ chủ dự án quyết có xử lý lại từ bản gốc Tripo không.
 - Ảnh tham chiếu là sa mạc, nhìn ngang; đường của ta nhìn từ trên xuống 55°. Tờ so chỉ để chấm mức hoàn thiện, không so bố cục.
+
+---
+
+# Vòng 2 của đường (điều phối 29/10)
+
+## 7. Đã làm
+
+- **Mọi lối mòn vào hệ đường.** Lối chính ra cầu tàu (`fp-jetty`), lối chính ra chân vách (`fp-scree`) và lối nhánh ra chỗ nghỉ (`fp-camp`) giờ đều là ribbon, cùng bộ dựng với làn.
+  - `roads.ts` có hàm `addRoad` dùng chung cho làn và lối mòn.
+  - Bề rộng lấy từ nửa bề rộng của từng mẫu lối mòn (`Footpath.halves`).
+  - Vai: lối chính 0,65 lần vai làn, lối nhánh 0,45.
+  - Đầu lối thu nhỏ dần trong 2,5 m ở chỗ đến.
+  - Lớp sơn của lối mòn (`mainA`, `pathA` trong `paint.ts`) thu lại nằm dưới lõi.
+  - Không còn lối nào chỉ là sơn.
+- **Đầu đường ở bệ** mờ dần trong 1,8 m vào vòng đất của sân bệ, không còn vết cắt thẳng.
+- **Đồ ven đường dày, to, gom cụm** (`layout.ts` `dressRoad`, dùng cho cả làn và lối mòn):
+  - mỗi bên cứ 2–4,5 m một cụm 1–3 món, lệch dọc trong 1,4 m và lệch ra ngoài trong 0,7 m;
+  - mỗi món xoay ngẫu nhiên, đá nghiêng nhẹ;
+  - đá bờ k 0,8–1,8 (lệch về cỡ nhỏ), búi cỏ k 0,8–1,4;
+  - ở khúc cua, ngã ba và đầu cầu: một cụm 3 món với một Cliff Rock lớn (k 1,3–2,0);
+  - đá giữ 0,6 m với dải quái đi, như luật rải cây.
+  - Búi cỏ (xanh rêu như Moss Grunt) giữ 1,7 m với dải quái đi, để không nằm trong vòng nền quanh quái.
+  - Tổng: 56 món (31 Cliff Rock (wide), 10 Cliff Rock, 15 Grass Tuft). Nhiều chỗ bị loại vì đứng trong ô đặt, gần nước, hay dưới làn trời.
+- **Model ven đường để làn M-dh làm bậc mới** (gọi theo id manifest, không xử lý lại):
+  - `props/pine-river-cliff-rock-a`, `props/pine-river-cliff-rock-b`, `props/pine-river-grass-tuft`;
+  - cùng `props/pine-river-lantern-post`, `props/pine-river-rail-fence` đã đứng dọc làn và ở đầu cầu.
+- **Khung khựng khoảng 300 ms:** thêm `MapStage.warm()`. Nó vẽ một khung thật với frustum culling tắt, nên mọi program và pipeline GPU (cả pha bóng) được tạo trước khi chơi; Metal chỉ tạo pipeline ở lần vẽ đầu.
+  - Gọi sau khi nướng đất xong, sau khi thay prop thật, và trong `bench.ts` trước khi bắt đầu đo.
+  - Bộ impostor góc thấp không có trong lần đo bench (bench không bật màn tựa), nên khung khựng của bench không phải từ đó.
+
+## 8. Kiểm vòng 2
+
+- **`pnpm check`:** đạt, 56/56 file, 485/485 test, build đạt. Sim và golden không đổi.
+- **`dh-bench`** (High, 1080p, không khóa nhịp, `--perf`, chạy xen kẽ hai cặp; main `4f61c6e` ở cổng 4146, chỉ đọc, đã tắt):
+
+| Lượt | Trung bình | p95 | Khung chậm nhất | Draw call | Tam giác |
+|---|---:|---:|---:|---:|---:|
+| Map-pilot 1 | 5,70 ms | 8,4 ms | 12,8 ms | 79 | 2,44 M |
+| Main 1 | 5,44 ms | 8,3 ms | 12,9 ms | 80 | 2,45 M |
+| Map-pilot 2 | 5,80 ms | 8,5 ms | 13,2 ms | 79 | 2,44 M |
+| Main 2 | 5,46 ms | 8,6 ms | 16,2 ms | 80 | 2,45 M |
+
+  - Chênh so với main: trung bình **+0,30 ms**, p95 **±0**. Cổng +2 ms: **đạt**.
+  - **Khung khựng khoảng 300 ms không còn**: chậm nhất 12,8 và 13,2 ms ở cả hai lượt map-pilot. Sửa bằng khung làm nóng `warm()`. Chưa tách được thủ phạm cụ thể; nhiều khả năng là pipeline Metal tạo ở lần vẽ đầu của một vật lúc trước bị frustum cull, giống điều làn VFX tìm thấy.
+- **Độ tương phản quái** (`dh-foe-contrast`):
+
+| Cỡ | Trước đường | Đường vòng 1 | **Đường vòng 2** |
+|---|---|---|---|
+| 1280, ΔL trung vị / quái yếu | 0,166 / 8,8 % | 0,167 / 1,8 % | **0,178 / 5,2 %** |
+| 1280, Moss Grunt ΔL / yếu | 0,141 / 4,8 % | 0,117 / 4,8 % | 0,108 / 4,5 % |
+| 1920, ΔL trung vị / quái yếu | 0,095 / 25,9 % | 0,097 / 14,6 % | **0,109 / 14,5 %** (đo trước khi dời búi cỏ) |
+
+  - Lượt đo vòng 2 đầu tiên ở 1280 ra quái yếu 10,5 %: búi cỏ xanh nằm trong vòng nền quanh quái. Đã dời búi cỏ ra 1,7 m; đo lại còn 5,2 %, tốt hơn lúc trước khi có đường.
+  - ΔL trung vị của riêng Moss Grunt thấp hơn trước, nhưng số Moss Grunt yếu không tăng.
+- **`dh-crowd`** (seed 5, đo trước khi dời búi cỏ): **1280 `ok`** (quái xa che lớn nhất 35 %, gần 21 %, cảnh báo 29 %); **1920 `ok`** (34 / 25 / 29 %); 0 bật lại, 0 exception.
+
+## 9. Ảnh vòng 2 (dev cổng 4145, cùng media với bản build)
+
+Trong `tmp/map-pilot-r2/`:
+- Tờ ghép: `sheets/road2-1920x1080-contact-sheet.jpg`, `sheets/road2-1280x720-contact-sheet.jpg`.
+- Từng khung cạnh ảnh mẫu: `compare-road2/<cỡ>-<khung>-vs-ref.jpg`.
+- Khung cắt sát, cạnh ảnh mẫu: `compare-road2/crop-{bend,junction,bridge-end,footpath}-vs-ref.jpg`.
+
+## 10. Tự chấm vòng 2 (không phải cổng)
+
+- **M riêng cho đường: 6,0** (vòng 1: 5,5).
+  - Mọi lối giờ là đường có mép, vai, lún, có đá bờ và búi cỏ gom cụm.
+  - Đầu đường hòa vào sân bệ.
+  - Bề rộng đổi đọc được ở khúc cua và đầu cầu.
+- **"Đường có trông như vệt quệt không?" Trả lời thật: ít hơn, nhưng vẫn còn một chút.** Không còn lối nào là dải sơn trơn. Nhưng lõi vẫn là ô đất `pine-river/path` mềm, không có chất liệu xếp theo hướng đi; ở camera chơi nó vẫn đọc ra đất nện mịn. Đá bờ còn nhỏ ở 95 m.
+- Muốn tới M ≥ 8 vẫn cần:
+  1. ảnh đá lát của phiếu 155 (đổi bằng danh sách chọn, không sửa mã);
+  2. model ven đường bậc mới của làn M-dh.
+
+## 11. Còn mở
+
+- Đổi sang ảnh phiếu 155 khi điều phối nhận ảnh.
+- Khi `dh-models` gộp, xem lại cỡ đá bờ (k) với model mới.
+- Đo lại `dh-foe-contrast` 1920 và `dh-crowd` sau khi dời búi cỏ. Đổi này chỉ bớt vật gần làn, nên dự kiến không xấu đi.

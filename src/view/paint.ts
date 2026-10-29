@@ -795,11 +795,12 @@ c = mix(c, dirtC, dirtA * (1.0 - plaza * smoothstep(0.6, 0.9, dhNoise(p * 1.7 + 
 float ring = smoothstep(4.75, 4.95, r) * (1.0 - smoothstep(5.55, 5.8, r + (stroke - 0.5) * 0.25));
 c = mix(c, uRimStone * dPath * (0.85 + 0.3 * dhNoise(p * 6.0)), ring * 0.85);
 // V8 main footpaths: wide, about 95 % trodden, no grass crown.
-float mainA = smoothstep(0.47, 0.55, pm2.r + (mid - 0.5) * 0.16 + (stroke - 0.5) * 0.1) * level * 0.95;
+// PATH_QUALITY (roads.ts): the footpaths are road ribbons now; the paint keeps a narrow bed under their core.
+float mainA = smoothstep(0.7, 0.78, pm2.r + (mid - 0.5) * 0.06) * level * 0.95;
 vec3 mainC = mix(uDirtLight, uDirt, 0.3) * dPath * (0.97 + 0.08 * stroke);
 c = mix(c, mainC, mainA);
 // V8 branch footpaths: narrower, weaker (0.78 cover), a grass crown down the middle.
-float pathA = smoothstep(0.47, 0.55, pm.g + (mid - 0.5) * 0.24 + (stroke - 0.5) * 0.16) * level * 0.78;
+float pathA = smoothstep(0.7, 0.78, pm.g + (mid - 0.5) * 0.06) * level * 0.78;
 float crown = smoothstep(0.66, 0.9, pm.g) * smoothstep(0.4, 0.65, dhNoise(p * vec2(1.1, 2.3) + 5.0)) * 0.8;
 vec3 pathC = mix(mix(uDirtLight, uDirt, 0.25), uGrassLight, 0.22) * dPath * (0.96 + 0.1 * stroke);
 c = mix(c, mix(pathC, c, crown), pathA);

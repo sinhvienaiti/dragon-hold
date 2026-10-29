@@ -39,7 +39,7 @@ export const LAYOUT_RULES = {
     levelBelowM: 0.3,
   },
   /** PATH_QUALITY 2.5: road edge dressing (see the lane road loop in buildLayout). */
-  roadDress: { stepM: [2, 6] as const, stoneShare: 0.62, stoneK: [1.0, 1.6] as const, tuftK: [0.9, 1.3] as const, bendCurvature: 0.09, junctionR: 11, bridgeEndM: 3, bigShare: 0.7, bigK: [0.9, 1.35] as const },
+  roadDress: { stepM: [2, 4.5] as const, clusterMax: 3, clusterM: 1.4, clusterOutM: 0.7, stoneShare: 0.6, stoneK: [0.8, 1.8] as const, tuftK: [0.8, 1.4] as const, bendCurvature: 0.09, junctionR: 11, bridgeEndM: 3, bigK: [1.3, 2.0] as const },
   /** L2: cliff marks in the outer skirt that frame one side (line and height pinned in the map's scene spec, profile by rule). */
   cliff: {
     /**
@@ -1349,38 +1349,56 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
   // seeded, every 2–6 m a side: low curb stones (Cliff Rock (wide), sunk) and grass tufts over the edge; at bends,
   // the dais junction and the bridge ends a big edge stone (Cliff Rock). Kit3 models, instanced with the rest.
   const RD = LAYOUT_RULES.roadDress;
-  f.lanes.forEach((lane, li) => {
+  /** Dresses one road's verge crests: clusters of 1–3 pieces every 2–4.5 m a side, bigger ones at bends, junctions, bridge ends. */
+  const dressRoad = (line: Polyline, index: number, spans: readonly { fromM: number; toM: number }[], halfAt: (s: number) => number, vergeScale: number, footpath: boolean): void => {
     for (const side of [-1, 1]) {
       let n = 0;
-      for (let s = 1.2 + h(RULE.dress, 900 + li * 10 + side, 1, seed) * 2; s < lane.line.length - 0.5; n += 1) {
-        const key = 9000 + li * 1000 + (side + 1) * 300 + n;
+      for (let s = 0.8 + h(RULE.dress, 900 + index * 10 + side, 1, seed) * 2; s < line.length - 0.6; n += 1) {
+        const key = 9000 + index * 1000 + (side + 1) * 300 + n;
         s += lerp(RD.stepM[0], RD.stepM[1], h(RULE.dress, key, 2, seed));
-        if (s >= lane.line.length) break;
-        lane.line.pointAt(s, tangent);
+        if (s >= line.length - 0.6) break;
+        line.pointAt(s, tangent);
         const r = f.r(tangent.x, tangent.z);
-        const gap = bridgeGapAt(lane.spans, s);
-        if (lane.spans.some((span) => s > span.fromM - 0.5 && s < span.toM + 0.5)) continue;
-        const sample = { s, laneIndex: li, half: lane.half, curvature: curvatureAt(lane.line, s), rDais: r, bridgeGap: gap };
+        const gap = bridgeGapAt(spans, s);
+        if (spans.some((span) => s > span.fromM - 0.5 && s < span.toM + 0.5)) continue;
+        const sample = { s, laneIndex: index, half: halfAt(s), curvature: curvatureAt(line, s), rDais: r, bridgeGap: gap };
         const big = sample.curvature > RD.bendCurvature || r < RD.junctionR || gap < RD.bridgeEndM;
-        const off = roadCoreHalf(sample) + roadVerge(sample, side) * (big ? 0.85 : 0.5);
-        const x = tangent.x - tangent.dz * off * side;
-        const z = tangent.z + tangent.dx * off * side;
-        if (!dressOk(x, z, 0, 0.35, 0.5) || pathGap(x, z) < 0.5 || jettyGap(x, z) < 1.5) continue;
-        if (f.map.slots.some((slot) => Math.hypot(slot.pos[0] - x, slot.pos[1] - z) < (slot.kind === "house" ? 3.4 : 2.0))) continue;
-        if (dress.some((d) => Math.hypot(d.x - x, d.z - z) < 1.2)) continue;
-        const roll = h(RULE.dress, key, 3, seed);
-        const yaw = Math.atan2(tangent.dx, tangent.dz) + (roll - 0.5) * 0.8;
-        if (big && h(RULE.dress, key, 4, seed) < RD.bigShare) {
-          const k = lerp(RD.bigK[0], RD.bigK[1], roll);
-          rocks.push({ id: "road:big:" + li + ":" + side + ":" + n, proto: CLIFF_A, x, z, k, yaw, tint: [1, 1, 1], radius: k * 0.4, stone: true, sinkShare: 0.32 });
-        } else if (roll < RD.stoneShare) {
-          const k = lerp(RD.stoneK[0], RD.stoneK[1], h(RULE.dress, key, 5, seed));
-          rocks.push({ id: "road:stone:" + li + ":" + side + ":" + n, proto: CLIFF_B, x, z, k, yaw, tint: [1, 1, 1], radius: k * 0.45, stone: true, sinkShare: 0.4 });
-        } else {
-          dress.push({ id: "road:tuft:" + li + ":" + side + ":" + n, proto: TUFT, x, z, k: lerp(RD.tuftK[0], RD.tuftK[1], roll), yaw, tint: [1, 1, 1], radius: 0.3 });
+        const crest = roadCoreHalf(sample) + roadVerge(sample, side) * vergeScale * 0.55;
+        const count = big ? 3 : 1 + Math.floor(h(RULE.dress, key, 6, seed) * RD.clusterMax);
+        for (let m = 0; m < count; m += 1) {
+          const along = (h(RULE.dress, key, 10 + m, seed) - 0.5) * RD.clusterM;
+          const out = crest + (h(RULE.dress, key, 20 + m, seed) - 0.3) * RD.clusterOutM;
+          const px = tangent.x + tangent.dx * along - tangent.dz * out * side;
+          const pz = tangent.z + tangent.dz * along + tangent.dx * out * side;
+          if (!dressOk(px, pz, 0, 0.65, 0.55) || jettyGap(px, pz) < 1.5 || (!footpath && pathGap(px, pz) < 0.5)) continue;
+          if (f.map.slots.some((slot) => Math.hypot(slot.pos[0] - px, slot.pos[1] - pz) < (slot.kind === "house" ? 3.4 : 2.0))) continue;
+          if (dress.some((d) => (d.proto === LANTERN || d.proto === FENCE || d.proto === JETTY) && Math.hypot(d.x - px, d.z - pz) < 1.0)) continue;
+          const roll = h(RULE.dress, key, 30 + m, seed);
+          const yaw = roll * 6.283;
+          const id = "road:" + index + ":" + side + ":" + n + ":" + m;
+          if (big && m === 0) {
+            const k = lerp(RD.bigK[0], RD.bigK[1], h(RULE.dress, key, 40, seed));
+            rocks.push({ id: id + ":big", proto: CLIFF_A, x: px, z: pz, k, yaw, tint: [1, 1, 1], radius: k * 0.4, stone: true, sinkShare: 0.34, tilt: [(roll - 0.5) * 0.2, (h(RULE.dress, key, 41, seed) - 0.5) * 0.2] });
+          } else if (h(RULE.dress, key, 50 + m, seed) < RD.stoneShare) {
+            const k = lerp(RD.stoneK[0], RD.stoneK[1], h(RULE.dress, key, 60 + m, seed) ** 1.5);
+            rocks.push({ id: id + ":stone", proto: CLIFF_B, x: px, z: pz, k, yaw, tint: [1, 1, 1], radius: k * 0.45, stone: true, sinkShare: 0.4, tilt: [(roll - 0.5) * 0.3, (h(RULE.dress, key, 61 + m, seed) - 0.5) * 0.3] });
+          } else if (f.laneGap(px, pz) >= 1.7) {
+            // Tufts (moss green, like the Moss Grunts) keep 1.7 m from the walking band (scatter's bush rule 1.1 m),
+            // so they never sit in the ring a foe reads against (dh-foe-contrast); stones 0.6 m.
+            dress.push({ id: id + ":tuft", proto: TUFT, x: px, z: pz, k: lerp(RD.tuftK[0], RD.tuftK[1], h(RULE.dress, key, 70 + m, seed)), yaw, tint: [1, 1, 1], radius: 0.3 });
+          }
         }
       }
     }
+  };
+  f.lanes.forEach((lane, li) => dressRoad(lane.line, li, lane.spans, () => lane.half, 1, false));
+  footpaths.forEach((path, pi) => {
+    const halfAt = (s: number): number => {
+      let k = 0;
+      while (k < path.line.count - 1 && path.line.cum[k + 1]! < s) k += 1;
+      return path.halves[k]!;
+    };
+    dressRoad(path.line, 10 + pi, [], halfAt, path.tier === "main" ? 0.65 : 0.45, true);
   });
   // Rail Fence: both bridgeheads, each side of the lane, along the bank.
   const FN = DR.fence;

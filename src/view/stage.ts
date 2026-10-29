@@ -356,8 +356,13 @@ export interface MapStage {
     bakeSplit: { prepMs: number; compileMs: number; renderMs: number } | null;
     baked: boolean;
   };
-  /** Settles once the ground bake has run (or was skipped or failed). */
+  /** Settles once the ground bake has run (or was skipped or failed); the stage is warmed then. */
   readonly groundBaked: Promise<void>;
+  /**
+   * Draws one real frame with frustum culling off, so every material's program and GPU pipeline (shadow pass
+   * included) exists before play: Metal creates pipelines at first draw (a ~300 ms hitch mid-run otherwise).
+   */
+  warm(): void;
   dispose(): void;
 }
 
@@ -399,6 +404,18 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   const rig = createCameraRig(stage.camera, map, host);
   rig.update(0);
   let disposed = false;
+  const warm = (): void => {
+    if (disposed) return;
+    const culled: THREE.Object3D[] = [];
+    stage.scene.traverse((object) => {
+      if (object.frustumCulled) {
+        culled.push(object);
+        object.frustumCulled = false;
+      }
+    });
+    stage.render();
+    for (const object of culled) object.frustumCulled = true;
+  };
   // A3: bake the ground paint once its tiles and decals are in (the live paint shows until then).
   const groundBaked = terrain.paint.ready
     .then(() => (disposed ? null : terrain.paint.bake(stage.renderer, terrain.look)))
@@ -406,11 +423,13 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
       loadStats.bakeMs = ms;
       loadStats.baked = ms !== null;
       loadStats.bakeSplit = terrain.paint.bakeSplit;
+      warm();
     })
     .catch((error: unknown) => console.warn("paint: the ground bake failed; the live paint stays", error));
   return {
     loadStats,
     groundBaked,
+    warm,
     stage,
     scene: stage.scene,
     camera: stage.camera,
@@ -437,6 +456,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
         if (disposed) return;
         scatter.useProps((key) => models.prop(key), stage.renderer);
         paths.useBridge(models.prop(BRIDGE_MODEL.manifest));
+        warm();
       });
     },
     dispose(): void {
