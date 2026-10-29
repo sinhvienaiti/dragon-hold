@@ -6,7 +6,7 @@ export {
   type SkillRejection, type SkillRules, type SkillSample, type SkillTrend, type SkillUpdate, type SkillValues, type SkillView,
 } from "./profile";
 export {
-  ADVICE_VI, DRAGON_C_REF, MAX_FATIGUE, NEW_WORD_RULES, PACE_RANGE,
+  ADVICE_EN, ADVICE_VI, DRAGON_C_REF, MAX_FATIGUE, NEW_WORD_RULES, PACE_RANGE,
   capacity, effectiveE, familiarityMix, newWordShare, paceK, peakLanes, scaleTicks, skillAdvice, suggestDifficulty, telegraphScale, telegraphTicks,
   type AdviceId, type DifficultySuggestion, type EffectiveInput, type NewWordRules, type PaceGame, type PaceRange,
 } from "./pace";

@@ -71,7 +71,7 @@ describe("bot runs", () => {
     const text = markdown({ seeds: 2, summaries: { b35: summary }, byMode: { balanced: { b35: summary } }, sets: [], plan: planRows(), notes: [], wallS: 0 });
     expect(text).toContain("Cổng M0");
     expect(text).toContain("b35");
-    expect(text).toContain("Vùng cuốn: Cân bằng");
+    expect(text).toContain("Vùng cuốn: Balanced");
     expect(text).toContain("B1–B9");
     // B1 and B7 are printed against the shared band (BALANCE.md §3, I ≤ 10 %) and D27's proposed one, never D27 alone.
     expect(text).toContain("≤ 10 % (D27 đề xuất: ≤ 20 %)");

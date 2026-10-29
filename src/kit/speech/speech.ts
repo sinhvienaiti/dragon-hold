@@ -125,7 +125,7 @@ export function prepareEnglishVoice(notifyMissing = false): Promise<SpeechSynthe
         safeLocalStorage.setItem(SPEECH_VOICE_KEY, voice.voiceURI);
       } else if (notify && shouldNotify && !unavailableNoticed.has(synth)) {
         unavailableNoticed.add(synth);
-        speechNotice("Thiết bị không có giọng đọc tiếng Anh");
+        speechNotice("No English voice is available on this device.");
       }
       resolve(voice);
     };

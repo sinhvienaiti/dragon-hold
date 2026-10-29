@@ -49,10 +49,9 @@ export const MATERIAL_COLORS: Readonly<Record<Material, readonly [string, string
   crystal: ["#c8d24a", "#e8f0a0"],
 };
 
-/** The kit's dragon profile with the Perfect label in English (the kit copy still carries the Vietnamese one). */
+/** The kit's dragon profile (it already labels Perfect hits in English), with a stronger number pop. */
 export const NUMBER_FEEL: FeedbackProfile = {
   ...DRAGON,
-  numbers: { ...DRAGON.numbers, label: "PERFECT" },
   // Judge 1a round 5 (TYPING_BREAK_STUDY T10): a number lands 2.5× and shrinks to 1× in about 150 ms (the kit's pop
   // decays at 7/s), then drifts up.
   tiers: DRAGON.tiers.map((row) => (row.number === null ? row : { ...row, number: { ...row.number, pop: 2.5 } })),
