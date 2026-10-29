@@ -52,9 +52,9 @@ export const MATERIAL_COLORS: Readonly<Record<Material, readonly [string, string
 export const NUMBER_FEEL: FeedbackProfile = {
   ...DRAGON,
   numbers: { ...DRAGON.numbers, label: "PERFECT" },
-  // Judge 1a round 5 (TYPING_BREAK_STUDY T10): a number lands 2.75× and shrinks to 1× in about 150 ms (the kit's pop
+  // Judge 1a round 5 (TYPING_BREAK_STUDY T10): a number lands 2.5× and shrinks to 1× in about 150 ms (the kit's pop
   // decays at 7/s), then drifts up.
-  tiers: DRAGON.tiers.map((row) => (row.number === null ? row : { ...row, number: { ...row.number, pop: 2.75 } })),
+  tiers: DRAGON.tiers.map((row) => (row.number === null ? row : { ...row, number: { ...row.number, pop: 2.5 } })),
 };
 
 /** Budgets per quality (05 §8): combat particles, numbers, debris. */
@@ -1236,7 +1236,7 @@ export class FxCore {
     // The burst's full size (the strong one the biggest). Round 5 (judge 4: two opaque masses hid the foe's flash and
     // recoil): the opaque bodies are 0.75 of it and thin out after frame 1; the light comes from an additive hot core.
     const size = (1.8 + 0.6 * tierId + (strong ? 0.4 : 0)) * s * big;
-    const mass = size * 0.68;
+    const mass = size * 0.78;
     // Soot behind the fire, in from frame 2 (§3.5 rule 4: a dark layer under the bright).
     const back = this.hitBack.subVectors(hit, this.eye).normalize().multiplyScalar(0.6 * rk).add(hit);
     for (let k = 0; k < 2; k += 1) {
@@ -1251,23 +1251,24 @@ export class FxCore {
     this.puffs.spawn(front.x, front.y + 0.32 * mass, front.z, mass * 0.8, 8 / 60, FX_COLORS.releaseBall, 0.95, { vy: 1.2, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.35, rot: this.random() * TAU, shape: PUFF_FIRE });
     // The side balls behind the body (it is drawn in front of them), lifted off the ground.
     const rear = this.hitRear.subVectors(hit, this.eye).normalize().multiplyScalar(0.35 * rk).add(hit);
-    this.puffs.spawn(rear.x + sideX * 0.38 * mass, rear.y + 0.15 * mass, rear.z + sideZ * 0.38 * mass, mass * 0.8, 10 / 60, FX_COLORS.ember, 0.97, { vx: sideX * 3 + ux * 2, vy: 1.4, vz: sideZ * 3 + uz * 2, fadeIn: 0.001, hold: 1 / 60, grow: 0.4, rot: this.random() * TAU, shape: PUFF_FIRE });
-    this.puffs.spawn(rear.x - sideX * 0.38 * mass, rear.y + 0.15 * mass, rear.z - sideZ * 0.38 * mass, mass * 0.75, 11 / 60, FX_COLORS.fireDeep, 0.97, { vx: -sideX * 3 + ux * 2, vy: 1.4, vz: -sideZ * 3 + uz * 2, fadeIn: 0.001, hold: 1 / 60, grow: 0.45, rot: this.random() * TAU, shape: PUFF_FIRE });
+    this.puffs.spawn(rear.x + sideX * 0.48 * mass, rear.y + 0.15 * mass, rear.z + sideZ * 0.48 * mass, mass * 0.85, 10 / 60, FX_COLORS.ember, 0.97, { vx: sideX * 3 + ux * 2, vy: 1.4, vz: sideZ * 3 + uz * 2, fadeIn: 0.001, hold: 1 / 60, grow: 0.4, rot: this.random() * TAU, shape: PUFF_FIRE });
+    this.puffs.spawn(rear.x, rear.y + 0.6 * mass, rear.z, mass * 0.75, 12 / 60, FX_COLORS.ember, 0.97, { vy: 2.2, fadeIn: 0.001, hold: 1 / 60, grow: 0.5, rot: this.random() * TAU, shape: PUFF_FIRE });
+    this.puffs.spawn(rear.x - sideX * 0.48 * mass, rear.y + 0.15 * mass, rear.z - sideZ * 0.48 * mass, mass * 0.8, 11 / 60, FX_COLORS.fireDeep, 0.97, { vx: -sideX * 3 + ux * 2, vy: 1.4, vz: -sideZ * 3 + uz * 2, fadeIn: 0.001, hold: 1 / 60, grow: 0.45, rot: this.random() * TAU, shape: PUFF_FIRE });
     // L10/L9: the hot core, additive and HDR (white ≤ 30 % of the burst's radius), in an orange glow 0.6 of it; full on
     // frames 0–1, lifted toward the eye over the body.
     const lift = 1.0 * rk;
     // Round 6 (judge 5: keep the foe's white flash readable through the fire): the hot core is small and short over
     // the body; the orange glow sits behind it (not lifted), so the body reads dark-on-fire with its own flash.
     this.flares.flare(front, size * 0.2, FX_COLORS.flashCore, (strong ? 3.2 : 2.5) * soft, 3 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
-    this.flares.flare(rear, size * 0.75, FX_COLORS.ember, (strong ? 1.2 : 1.0) * soft, 7 / 60, WORD_FX.flashHoldS, 0.25, 1, 0);
+    this.flares.flare(rear, size * 0.95, FX_COLORS.ember, (strong ? 1.3 : 1.05) * soft, 7 / 60, WORD_FX.flashHoldS, 0.25, 1, 0);
     this.flares.flare(front, size * 0.38, strong ? FX_COLORS.teal : FX_COLORS.fireHot, (strong ? 0.9 : 1.0) * soft, 4 / 60, WORD_FX.flashHoldS, 0.2, 1, lift);
     // Tongues of fire thrown off the blow: a fan away from the dais and up (fire ribbons, 2 full frames, out by f9).
-    // Round 6: short and up from behind the body (round 5's long fan from its front hid it and filled the frame).
+    // Round 6: up and out from behind the body (round 5's fan from its front hid it).
     const tongues = (this.reduced ? 3 : 4) + (strong ? 1 : 0);
     for (let k = 0; k < tongues; k += 1) {
       const yaw = (k / Math.max(1, tongues - 1) - 0.5) * 2.2 + this.rand(-0.2, 0.2);
-      const len = (size / s) * this.rand(0.32, 0.5);
-      this.tongue(rear, ux, this.rand(0.9, 1.6), uz, yaw, len, 0.3 * (size / s / 3), k % 2 === 0 ? 1 : -1, 0.1, WORD_FX.hitTongueS);
+      const len = (size / s) * this.rand(0.45, 0.7);
+      this.tongue(rear, ux, this.rand(0.6, 1.3), uz, yaw, len, 0.36 * (size / s / 3), k % 2 === 0 ? 1 : -1, 0.1, WORD_FX.hitTongueS);
     }
     // L8: embers flying off the blow, stretched (teal-tipped on a strong word), and a few round ones falling.
     const streaks = this.sky.streaks;
@@ -2071,11 +2072,13 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const number = (key: number, point: THREE.Vector3, amount: number, tierId: number, style: number): void => {
     const row = tierRow(tierId, DRAGON.tiers);
     if (row.number === null || amount <= 0) return;
-    // At the top of the head, over the burst (judge 4: +0.7 m put it a body above it; judge 5: born there 2.75×, see
-    // NUMBER_FEEL); the kit pops it, then it rises.
-    stage.project(point.x, point.y + 0.3, point.z, screen);
+    // Born on the top of the head (judge 4: +0.7 m put it a body above it; judge 5: there, 2.5×, see NUMBER_FEEL), its
+    // middle a little over the head so the popped digits cover the head, not the burst's heart; the kit shrinks it to
+    // 1× in about 150 ms, then it rises.
+    stage.project(point.x, point.y + 0.15, point.z, screen);
     if (!screen.visible) return;
-    numbers.spawn(key, screen.x, screen.y, amount, style, tierId, row.number.size, row.number.life, 0, -1, nowMs / 1000);
+    const up = numbers.fontPx * row.number.size * 0.8;
+    numbers.spawn(key, screen.x, screen.y - up, amount, style, tierId, row.number.size, row.number.life, 0, -1, nowMs / 1000);
   };
   const addTrauma = (amount: number): void => {
     if (amount <= 0) return;
