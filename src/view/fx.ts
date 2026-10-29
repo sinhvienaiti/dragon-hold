@@ -53,9 +53,9 @@ export const MATERIAL_COLORS: Readonly<Record<Material, readonly [string, string
 /** The kit's dragon profile (it already labels Perfect hits in English), with a stronger number pop. */
 export const NUMBER_FEEL: FeedbackProfile = {
   ...DRAGON,
-  // Judge 1a round 5 (TYPING_BREAK_STUDY T10): a number lands 2.5× and shrinks to 1× in about 150 ms (the kit's pop
-  // decays at 7/s), then drifts up.
-  tiers: DRAGON.tiers.map((row) => (row.number === null ? row : { ...row, number: { ...row.number, pop: 2.5 } })),
+  // Judge 1a round 5 (TYPING_BREAK_STUDY T10): a number lands big and shrinks to 1× in about 150 ms (the kit's pop
+  // decays at 7/s), then drifts up. Round 9 (judge A: "PERFECT 128" hid the top of the blast): 25 % smaller, pop 2.0.
+  tiers: DRAGON.tiers.map((row) => (row.number === null ? row : { ...row, number: { ...row.number, size: row.number.size * 0.75, pop: 2.0 } })),
 };
 
 /** Budgets per quality (05 §8): combat particles, numbers, debris. */
@@ -141,9 +141,6 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
 const HEAD_TINT = new THREE.Color(1, 0.86, 0.72);
 /** Playback speed of the one-shot clips at a word hit (Firefly cuts run 1.5–3 s; a hit's fire burns ≈ 0.8 s). */
 // Check capture 29/10: at 3.2–3.5× the burst was still big and bright at f030; ≈ 0.55–0.6 s now.
-// Final check: at 4.5× from frame 0 the burst peaked at f020–f036, late for the eye; from frame 5 at 5.5× it is big
-// on the hit frames and gone by about f040 into the smoke.
-const FLIP_RATE: Readonly<Partial<Record<FlipbookId, number>>> = { "impact-burst": 5.5, "fire-burst": 5.5, "impact-big": 5.0, embers: 2.6 };
 
 // ── Quads: soft billboards and flat ground marks ────────────────────────────
 
@@ -851,13 +848,13 @@ const WORD_FX = {
    * Light peak (candela, decay 2, reach 14 m) on a release and the share of it the charge holds while typing (kept
    * low so the release frame jumps against the frame before it: judge 1a, +0.12 luma at the flash over the charge).
    */
-  lightPeak: 85,
+  lightPeak: 70,
   lightCharge: 0.08,
   /** An abandoned charge holds this long after the last letter, then fades (s). */
   chargeHoldS: 1.4,
   /** Scorch of a bolt's impact (I, F, §3.4 decal 2–3 s): its life and how long it stays at full alpha first (s). */
-  scorchS: 2.6,
-  scorchHoldS: 1.5,
+  scorchS: 3.2,
+  scorchHoldS: 2.2,
 } as const;
 
 /** The effects themselves, without a World: the bench, the showcase and createFx drive it. */
@@ -951,7 +948,8 @@ export class FxCore {
     this.reduced = options.reduced ?? false;
     this.group.add(this.marks.mesh, this.rings.mesh, this.puffs.mesh, this.debris.mesh, this.glows.points, this.sparks.points, this.flares.mesh);
     // Round 8 (judge B: on the light dais the release washed the stone pale orange): a more saturated light.
-    this.light = (options.mouthLight ?? FX_MOUTH_LIGHT[quality]) ? new THREE.PointLight("#ff7428", 0, 14, 2) : null;
+    // Round 9 (both judges: still salmon-pink on the light dais): amber, a tight pool at the mouth.
+    this.light = (options.mouthLight ?? FX_MOUTH_LIGHT[quality]) ? new THREE.PointLight(FX_COLORS.amber, 0, 14, 2) : null;
     if (this.light !== null) {
       this.light.name = "fx-mouth-light";
       this.light.castShadow = false;
@@ -1171,7 +1169,8 @@ export class FxCore {
     // head rule): three layers, a hot additive core, the eroded orange body, dark soot at its root and edges; and a
     // mouth flash of about 75 px (50 px plain) at the 1080p play camera, held 2 frames.
     // Round 8 (judge B: on the light dais the plain jet melted into the stone): a plain jet 0.8 of a strong one's.
-    const g = (strong ? 1 : 0.8) * big;
+    // Round 9 (judge A: plain R a copy of strong R): 0.7, and the strong one gets a bigger fire body and a teal ring.
+    const g = (strong ? 1 : 0.7) * big;
     const heat = strong ? 1 : 0.9;
     this.w.set(ux, 0.04, uz).normalize();
     // Body: the cone of fire from the snout, torn by noise, held 2 frames, eaten by frame 8 (normal blend).
@@ -1184,7 +1183,7 @@ export class FxCore {
     }
     this.cones.cone(this.u.copy(at).addScaledVector(this.w, 0.15 * s), this.w, 2.6 * s * g, 0.85 * s * g, WORD_FX.jetS, WORD_FX.flashHoldS, soft * (muzzle !== null ? 0.6 : 1));
     const near = 1.05 * s * g;
-    this.puffs.spawn(at.x + ux * near, at.y - 0.05, at.z + uz * near, 1.3 * s * g, 6 / 60, FX_COLORS.releaseBall, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.25, rot: this.random() * TAU, shape: PUFF_FIRE });
+    this.puffs.spawn(at.x + ux * near, at.y - 0.05, at.z + uz * near, (strong ? 1.6 : 1.25) * s * g, 6 / 60, FX_COLORS.releaseBall, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.25, rot: this.random() * TAU, shape: PUFF_FIRE });
     // Hot core (additive, HDR): a flame core down the jet's axis, ≤ 30 % of its width, and two thinner licks.
     this.tongue(at, ux, 0.05, uz, 0, 3.0 * g, 0.42 * g, 0.5, 0.1, WORD_FX.tongueS, true);
     this.tongue(at, ux, 0.1, uz, this.rand(0.12, 0.22), 2.1 * g, 0.22 * g, -1, 0.3, WORD_FX.tongueS, true);
@@ -1197,7 +1196,7 @@ export class FxCore {
     // Round 6 (judge 5: on the light dais the wide additive layers wash it peach-pink and the flash has no edge): the
     // white core sits in a saturated red-orange flame ball (normal blend) with a deep-red rim, and a short dark burn
     // on the stone under the mouth; the additive light stays round the core only.
-    this.puffs.spawn(at.x + ux * 0.45 * s, at.y, at.z + uz * 0.45 * s, 1.3 * s * g, 7 / 60, FX_COLORS.ember, 0.97, { vx: ux * 2, vz: uz * 2, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.3, rot: this.random() * TAU, shape: PUFF_FIRE });
+    this.puffs.spawn(at.x + ux * 0.45 * s, at.y, at.z + uz * 0.45 * s, (strong ? 1.7 : 1.3) * s * g, 7 / 60, FX_COLORS.ember, 0.97, { vx: ux * 2, vz: uz * 2, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.3, rot: this.random() * TAU, shape: PUFF_FIRE });
     // Round 7 (judge 6: a soft peach blob over the head for 2 frames): a compact star in front of the snout, a white
     // core on ≤ 30 % of it, seven rays, a red-orange rim; full for 2 frames.
     // A plain word's star as big as a strong one's (its jet, head, teal and ring tell it apart): on the light dais the
@@ -1206,7 +1205,14 @@ export class FxCore {
     this.puffs.spawn(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s, 1.85 * s * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
     const burnX = at.x + ux * 0.4 * s;
     const burnZ = at.z + uz * 0.4 * s;
-    if (!this.wetOf(burnX, burnZ)) this.marks.spawn(burnX, this.markY(burnX, burnZ, 1.6 * s * g) + 0.05, burnZ, 1.6 * s * g, 0.55, FX_COLORS.scorch, 0.8 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
+    if (!this.wetOf(burnX, burnZ)) {
+      const floor = this.markY(burnX, burnZ, 1.6 * s * g) + 0.05;
+      this.marks.spawn(burnX, floor, burnZ, 1.6 * s * g, 0.55, FX_COLORS.scorch, 0.5 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
+      // Round 9 (judge B, round 7 fix 1): a soft soot ring under the jet keeps it apart from the light stone.
+      this.marks.spawn(burnX, floor + 0.01, burnZ, 3.0 * s * g, 0.4, FX_COLORS.char, 0.32 * soft, { kind: 1, thickness: 0.4, fadeIn: 0.001, hold: 0.1, grow: 0.25, drag: 0 });
+      // A strong word's own mark at the caster: a teal ring under the mouth (judge A: strong R no different from plain).
+      if (strong) this.rings.spawn(burnX, floor + 0.02, burnZ, 1.4 * s, 0.3, FX_COLORS.teal, 0.9 * soft, { kind: 1, thickness: 0.16, fadeIn: 0.001, grow: 1.3, drag: 0 });
+    }
     // Its white heart on the release point (the flash's own cell): the gather orb, as big as the judge asked, lit
     // that cell before; the release frame must still be the brightest there (§5.6, first frame ≥ 95 % of the peak).
     const star = this.flashAt.set(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s);
@@ -1222,10 +1228,12 @@ export class FxCore {
     const sideX = -uz;
     const sideZ = ux;
     // Round 7: the two side puffs only, in from frame 0 (a root puff sat in the flash's own cell and dimmed frame 0).
+    // Round 9 (judge B: an opaque black-brown splat with hard edges at c052–c054, like a burnt hole): soft warm grey
+    // puffs that rise and spread.
     for (let k = 1; k < 3; k += 1) {
-      const along = (k === 0 ? 0.5 : 1.8) * s * g;
-      const off = (k === 0 ? 0 : k === 1 ? 0.75 : -0.75) * s * g;
-      this.puffs.spawn(at.x + ux * along + sideX * off, at.y - 0.1, at.z + uz * along + sideZ * off, (k === 0 ? 1.0 : 0.85) * s * g, 0.35, FX_COLORS.soot, 0.6 * soft, { vy: 0.6, vx: ux * 1.5, vz: uz * 1.5, grow: 0.6, fadeIn: 0.001, hold: 3 / 60, rot: this.random() * TAU });
+      const along = 1.8 * s * g;
+      const off = (k === 1 ? 0.75 : -0.75) * s * g;
+      this.puffs.spawn(at.x + ux * along + sideX * off, at.y - 0.05, at.z + uz * along + sideZ * off, 0.8 * s * g, 0.5, FX_COLORS.smokeWarm, 0.32 * soft, { vy: 1.8, vx: ux * 1.2, vz: uz * 1.2, grow: 1.2, fadeIn: 2 / 60, rot: this.random() * TAU });
     }
     // Stretched sparks along the shot (L8), hot gold (teal on a strong word), full on frame 0: 9 strong, 5 plain.
     const streaks = this.sky.streaks;
@@ -1242,7 +1250,8 @@ export class FxCore {
       this.puffs.spawn(from.x + this.rand(-0.2, 0.2) * s, from.y + 0.2 * s, from.z + this.rand(-0.2, 0.2) * s, 0.75 * s, this.rand(0.55, 0.7), FX_COLORS.smoke, 0.42 * soft, { vy: 0.9, vx: -ux * 0.6, vz: -uz * 0.6, grow: 1.3, fadeIn: 0.06, spin: this.rand(-1, 1), rot: this.random() * TAU });
     }
     this.lightAge = 0;
-    this.lightGain = (strong ? 1.25 : 1) * soft;
+    // A plain word's light smaller than a strong one's (round 9).
+    this.lightGain = (strong ? 1.0 : 0.6) * soft;
     this.chargeTarget = 0;
     this.chargeLevel = 0;
     this.chargePulse = 0;
@@ -1472,7 +1481,8 @@ export class FxCore {
     const back = this.hitBack.subVectors(hit, this.eye).normalize().multiplyScalar(0.6 * rk).add(hit);
     for (let k = 0; k < 2; k += 1) {
       // With the bright layer, not after it (judge 5: the dark only came at f018–f024).
-      this.puffs.spawn(back.x + this.rand(-0.3, 0.3) * s, back.y + (0.2 + k * 0.25) * s, back.z + this.rand(-0.3, 0.3) * s, mass * (1.0 + 0.15 * k), 0.8, FX_COLORS.char, 0.65 * soft, { vy: 1.0, grow: 0.8, fadeIn: 0.001, hold: 0.12, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
+      // Round 9: warm soot (never cool navy), rising.
+      this.puffs.spawn(back.x + this.rand(-0.3, 0.3) * s, back.y + (0.3 + k * 0.25) * s, back.z + this.rand(-0.3, 0.3) * s, mass * (0.9 + 0.15 * k), 0.7, FX_COLORS.soot, 0.55 * soft, { vy: 1.8, grow: 0.9, fadeIn: 0.001, hold: 0.1, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
     }
     // The fire bodies, behind and over the struck body (it is drawn in front of them, so its white flash and recoil
     // show). Round 8 (both judges, round 7: 2–3 alike flat "stamps" full-size at f012 and still until f016, then a
@@ -1485,60 +1495,57 @@ export class FxCore {
     const ground = this.heightOf(hit.x, hit.z);
     // And a dark oval on the ground round the foe from the hit frame (judge 6 kept it; earlier and charcoal now).
     if (!this.wetOf(hit.x, hit.z)) this.marks.spawn(hit.x, this.markY(hit.x, hit.z, mass * 1.6) + 0.04, hit.z, mass * 1.6, 0.7, FX_COLORS.char, 0.5 * soft, { kind: 2, fadeIn: 0.001, hold: 0.25, drag: 0, rot: this.random() * TAU });
-    // Final check 29/10 (720 play-light): impact-big v3 is a small star for its first 15 frames, so a strong word lost
-    // its mass at f012–f016; both grades take impact-burst v3 (it opens on its own flash at half its cell), a strong
-    // word's bigger, with its teal ring and flares.
-    const book = this.flip.pick("impact-burst", "fire-burst", "impact-big");
+    // Round 9 (both judges: a hard 8-point "sticker" star at f061–f064, thin red "noodles" at c072–c078, then a mustard
+    // fade with the cell's square edge at f079): the organic rolling parts of two cuts only, impact-big v3 frames
+    // 15–23 for a strong word (before its square artefact) and impact-burst v2 frames 9–23 for a plain one, each
+    // cooling through deep red to charcoal and eroding from half its life (flipbook `cool`), never a see-through veil.
+    const book = strong ? this.flip.pick("impact-big", "impact-burst", "fire-burst") : this.flip.pick("impact-burst", "fire-burst", "impact-big");
     if (book !== null) {
-      // The Firefly burst: real rolling fire with inner shadows and a smoke tail. A second, smaller clip to one side
-      // on screen, turned and two frames later, gives the blast depth; the code balls are not drawn.
+      const big2 = book.id === "impact-big";
       const fill = FLIP_FILL[book.id];
-      const rate = FLIP_RATE[book.id] ?? 3;
-      // Sized like the code mass it replaces (check capture: at the full burst size it hid the foe from f016 on); the
-      // radial embers clip read as a firework flower over a word hit, so the comet sparks below carry the sparks.
-      // Most cuts grow from ~35 % of their peak (FXV): impact-big a few frames in, so the hit has its mass at f012;
-      // impact-burst v3 opens on its own flash (0.95 of its peak). The code flash and light stay the frame-0 element.
-      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (strong ? 1.0 : 0.85), { rate, frame: book.id === "impact-big" ? 12 : 5, rot: this.rand(-0.3, 0.3), grow: 0.2, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.7, fadeOut: 0.14 });
-      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.45, { rate: rate * 1.15, frame: 3, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.4, delay: 2 / 60, fadeOut: 0.12 });
+      const clip = big2 ? { frame: 15, until: 23, rate: 1.7 } : { frame: 9, until: 23, rate: 2.6 };
+      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (big2 ? 1.05 : 0.95), { ...clip, rot: this.rand(-0.3, 0.3), grow: 0.25, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.9, cool: 0.45, fadeOut: 0.06 });
+      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.5, { ...clip, rate: clip.rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.6, delay: 2 / 60, cool: 0.4, fadeOut: 0.06 });
     } else {
       // Code-drawn: one main mass that swells (0.7 → 1.15 of it over its life), two smaller ones to either side on
       // screen born 2 and 3 frames later, each its own size and turn, cooling to deep red and charcoal (PUFF_FIRE).
       this.puffs.spawn(rear.x, rear.y + 0.38 * mass, rear.z, mass * 0.72, 13 / 60, FX_COLORS.releaseBall, 0.95, { vy: 1.4, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.6, rot: this.random() * TAU, shape: PUFF_FIRE });
       this.puffs.spawn(rear.x + sideX * 0.5 * mass, rear.y + 0.32 * mass, rear.z + sideZ * 0.5 * mass, mass * 0.5, 12 / 60, FX_COLORS.ember, 0.95, { vx: sideX * 2.5 + ux * 1.5, vy: 1.6, vz: sideZ * 2.5 + uz * 1.5, fadeIn: 0.001, grow: 0.8, rot: this.random() * TAU, shape: PUFF_FIRE, delay: 2 / 60 });
-      this.puffs.spawn(rear.x - sideX * 0.45 * mass, rear.y + 0.58 * mass, rear.z - sideZ * 0.45 * mass, mass * 0.42, 11 / 60, FX_COLORS.fireDeep, 0.95, { vx: -sideX * 2.5 + ux * 1.5, vy: 2.2, vz: -sideZ * 2.5 + uz * 1.5, fadeIn: 0.001, grow: 0.9, rot: this.random() * TAU, shape: PUFF_FIRE, delay: 3 / 60 });
-      this.puffs.spawn(rear.x, rear.y + 0.85 * mass, rear.z, mass * 0.4, 14 / 60, FX_COLORS.ember, 0.9, { vy: 2.6, fadeIn: 0.001, grow: 1.0, rot: this.random() * TAU, shape: PUFF_FIRE, delay: 4 / 60 });
+    }
+    // Volume flame tongues rising off the blow (round 9: they replace the thin ribbon tongues that read as noodles):
+    // fire balls (PUFF_FIRE) thrown up and out from behind the body, 1–4 frames late, each its own size.
+    for (let k = 0; k < (this.reduced ? 2 : 3); k += 1) {
+      const side = k === 0 ? 0 : k === 1 ? 0.55 : -0.55;
+      this.puffs.spawn(rear.x + sideX * side * mass, rear.y + (0.55 + 0.2 * k) * mass, rear.z + sideZ * side * mass, mass * this.rand(0.32, 0.46), this.rand(12, 17) / 60, k === 0 ? FX_COLORS.releaseBall : FX_COLORS.ember, 0.95, { vx: sideX * side * 3 + ux * 1.2, vy: this.rand(3, 4.5) * rk, vz: sideZ * side * 3 + uz * 1.2, fadeIn: 0.001, grow: 0.9, rot: this.random() * TAU, shape: PUFF_FIRE, delay: (1 + k) / 60 });
     }
     // L10/L9: the hot core, additive and HDR (white ≤ 30 % of the burst's radius), in an orange glow 0.6 of it; full on
-    // frames 0–1, lifted toward the eye over the body.
+    // frames 0–1, lifted toward the eye over the body. Round 9 (judge B: plain I had no crisp "pop"): a bigger, hotter
+    // core for both grades, 3 frames.
     const lift = 1.0 * rk;
-    // Round 6 (judge 5: keep the foe's white flash readable through the fire): the hot core is small and short over
-    // the body; the orange glow sits behind it (not lifted), so the body reads dark-on-fire with its own flash.
-    this.flares.flare(front, size * 0.2, FX_COLORS.flashCore, (strong ? 3.2 : 2.5) * soft, 3 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
-    this.flares.flare(rear, size * 0.95, FX_COLORS.ember, (strong ? 1.3 : 1.05) * soft, 7 / 60, WORD_FX.flashHoldS, 0.25, 1, 0);
+    this.flares.flare(front, size * 0.3, FX_COLORS.flashCore, (strong ? 3.8 : 3.4) * soft, 3 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
+    this.flares.flare(rear, size * 0.8, FX_COLORS.ember, (strong ? 1.1 : 0.9) * soft, 6 / 60, WORD_FX.flashHoldS, 0.25, 1, 0);
     this.flares.flare(front, size * 0.38, strong ? FX_COLORS.teal : FX_COLORS.fireHot, (strong ? 0.9 : 1.0) * soft, 4 / 60, WORD_FX.flashHoldS, 0.2, 1, lift);
-    // Tongues of fire thrown off the blow: a fan away from the dais and up (fire ribbons, 2 full frames, out by f9).
-    // Round 6: up and out from behind the body (round 5's fan from its front hid it).
-    const tongues = (this.reduced ? 3 : 4) + (strong ? 1 : 0) - (book !== null ? 2 : 0);
-    for (let k = 0; k < tongues; k += 1) {
-      const yaw = (k / Math.max(1, tongues - 1) - 0.5) * 2.2 + this.rand(-0.2, 0.2);
-      const len = (size / s) * this.rand(0.45, 0.7);
-      this.tongue(rear, ux, this.rand(0.6, 1.3), uz, yaw, len, 0.36 * (size / s / 3), k % 2 === 0 ? 1 : -1, 0.1, WORD_FX.hitTongueS);
+    // Without a flipbook the ribbon tongues still lick off the blow.
+    if (book === null) {
+      const tongues = (this.reduced ? 3 : 4) + (strong ? 1 : 0);
+      for (let k = 0; k < tongues; k += 1) {
+        const yaw = (k / Math.max(1, tongues - 1) - 0.5) * 2.2 + this.rand(-0.2, 0.2);
+        this.tongue(rear, ux, this.rand(0.6, 1.3), uz, yaw, (size / s) * this.rand(0.45, 0.7), 0.36 * (size / s / 3), k % 2 === 0 ? 1 : -1, 0.1, WORD_FX.hitTongueS);
+      }
     }
-    // L8: embers flying off the blow, stretched (teal-tipped on a strong word), and a few round ones falling.
+    // L8: sparks as comets (round 9, both judges: too few): 10–19, uneven, on arcs under gravity, hot heads; teal only
+    // on a strong word, 1 in 4.
     const streaks = this.sky.streaks;
-    // Round 6 (judge 5: "short pink sticks"): fewer, and orange rather than HDR pink-white.
-    // Round 8 (both judges: blunt pink, orange and teal sticks like confetti): comets (vfx-layers STREAK_FRAGMENT) of
-    // uneven length on arcs under gravity, a hot head, an orange body, a red tail; teal only on a strong word, 1 in 4.
-    const n = (this.reduced ? 4 : 6) + tierId * 2;
+    const n = (this.reduced ? 5 : 10) + tierId * 3;
     for (let k = 0; k < n; k += 1) {
-      const yaw = this.rand(-1.3, 1.3);
+      const yaw = this.rand(-1.4, 1.4);
       const cs = Math.cos(yaw);
       const sn = Math.sin(yaw);
-      const speed = this.rand(8, 17) * rk;
-      this.w.set((ux * cs - uz * sn) * speed, this.rand(3, 9) * rk, (uz * cs + ux * sn) * speed);
-      streaks.spawn(front, this.w, strong && k % 4 === 0 ? FX_COLORS.teal : FX_COLORS.ember, 1.9 * soft, 0.12 * s, this.rand(0.04, 0.09), this.rand(12, 22) / 60, 1.2, 16);
+      const speed = this.rand(8, 18) * rk;
+      this.w.set((ux * cs - uz * sn) * speed, this.rand(3, 10) * rk, (uz * cs + ux * sn) * speed);
+      streaks.spawn(front, this.w, strong && k % 4 === 0 ? FX_COLORS.teal : FX_COLORS.ember, 2.1 * soft, 0.14 * s, this.rand(0.05, 0.12), this.rand(12, 24) / 60, 1.1, 16);
     }
-    // 10–16 embers thrown up and falling under gravity, dark-tailed (judge 5).
+    // Embers thrown up and falling under gravity, dark-tailed (judge 5).
     for (let k = 0; k < (this.reduced ? 8 : 10 + tierId * 2); k += 1) {
       const yaw = this.rand(-1.6, 1.6);
       const cs = Math.cos(yaw);
@@ -1547,20 +1554,24 @@ export class FxCore {
       this.w.set((ux * cs - uz * sn) * speed, this.rand(4, 8) * rk, (uz * cs + ux * sn) * speed);
       this.embers.spawn(front, this.w, k % 2 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 2.2 * soft, 0.18 * s, 0.08, this.rand(0.45, 0.8), 0.6, 16);
     }
-    // The T3 ring on the ground (teal on a strong word), by √k only; a plain word gets its own thin orange ring
-    // (L12, 10 frames, about 0.6 of the strong one's reach; judge 4: a mark of its own besides size).
-    if (row.ring) this.rings.spawn(hit.x, this.heightOf(hit.x, hit.z) + 0.12, hit.z, 1.2 * rk, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.6, { grow: (2.2 + tierId * 0.4) * rk, kind: 1, thickness: 0.18, drag: 0 });
-    else this.rings.spawn(hit.x, this.heightOf(hit.x, hit.z) + 0.12, hit.z, 0.9 * rk, 10 / 60, FX_COLORS.ember, 0.8, { grow: 1.5 * rk, kind: 1, thickness: 0.1, drag: 0 });
-    // Smoke (§3.5 rule 4): charcoal from the hit frame on (dark on sunlit grass), grey above it from frame 6 (dusk grass).
-    // Round 8: a Firefly smoke roll (dark smoke filmed on white) when its atlas is in, and fewer code puffs.
+    // The ring on the ground. Round 9 (judge B: a thin pink line): a thick fire-coloured band (normal blend, it reads on
+    // light ground) with a dark edge, both grades; a strong word's teal ring over it (T3).
+    const gy = this.heightOf(hit.x, hit.z) + 0.12;
+    if (!this.wetOf(hit.x, hit.z)) {
+      this.marks.spawn(hit.x, gy - 0.02, hit.z, 1.0 * rk, 14 / 60, FX_COLORS.char, 0.45 * soft, { grow: 1.8 * rk, kind: 1, thickness: 0.42, fadeIn: 0.001, drag: 0 });
+      this.marks.spawn(hit.x, gy, hit.z, 0.9 * rk, 12 / 60, FX_COLORS.fireDeep, 0.95 * soft, { grow: 1.7 * rk, kind: 1, thickness: 0.3, fadeIn: 0.001, drag: 0 });
+    }
+    if (row.ring) this.rings.spawn(hit.x, gy, hit.z, 1.2 * rk, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.6, { grow: (2.2 + tierId * 0.4) * rk, kind: 1, thickness: 0.18, drag: 0 });
+    // Smoke (§3.5 rule 4). Round 9 (both judges: smoke that appears ready-made at c081 and then lies flat like a ground
+    // shadow): warm brown-grey smoke in from frame 3, from inside the fire, rising and drifting, eroding over about
+    // 70 frames, alpha ≤ 0.6; the dark puffs behind the fire are warm soot that rises too.
     const roll = this.flip.pick("smoke-roll");
-    // About a second (check capture: at 0.9× a near-black cloud the size of the burst hung over the grass for 2 s).
-    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.2 * s, hit.z), mass * 0.7, { rate: 3.2, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeCool, alpha: 0.8 * soft, ground: this.heightOf(hit.x, hit.z), vy: 1.2, delay: 5 / 60, fadeIn: 0.15, fadeOut: 0.4 });
+    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.5 * s, hit.z), mass * 0.8, { rate: 3.0, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: 0.58 * soft, ground: this.heightOf(hit.x, hit.z), vx: ux * 0.8, vy: 2.2 * rk, vz: uz * 0.8, grow: 0.7, delay: 3 / 60, fadeIn: 0.12, cool: 0.35, fadeOut: 0.2 });
     for (let k = 0; k < (roll !== null ? 1 : 3); k += 1) {
-      this.puffs.spawn(hit.x + this.rand(-0.35, 0.35) * s, hit.y + (0.25 + k * 0.15) * s, hit.z + this.rand(-0.35, 0.35) * s, (0.85 + k * 0.12) * s * big, this.rand(0.7, 0.95), FX_COLORS.char, 0.6 * (this.reduced ? 0.7 : 1), { vy: 1.1, vx: ux * 0.5, vz: uz * 0.5, grow: 1.3, fadeIn: k / 60 + 0.001, spin: this.rand(-1, 1), rot: this.random() * TAU });
+      this.puffs.spawn(hit.x + this.rand(-0.35, 0.35) * s, hit.y + (0.4 + k * 0.15) * s, hit.z + this.rand(-0.35, 0.35) * s, (0.8 + k * 0.12) * s * big, this.rand(0.8, 1.1), FX_COLORS.smokeWarm, 0.45 * (this.reduced ? 0.7 : 1), { vy: 1.8, vx: ux * 0.5, vz: uz * 0.5, grow: 1.4, fadeIn: (3 + k) / 60, spin: this.rand(-1, 1), rot: this.random() * TAU });
     }
     for (let k = 0; k < 2; k += 1) {
-      this.puffs.spawn(hit.x + this.rand(-0.3, 0.3) * s, hit.y + (0.7 + k * 0.25) * s, hit.z + this.rand(-0.3, 0.3) * s, (1.0 + k * 0.2) * s * big, this.rand(1.0, 1.3), FX_COLORS.ash, 0.5 * (this.reduced ? 0.7 : 1), { vy: 1.4, grow: 1.5, fadeIn: (6 + k * 2) / 60, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
+      this.puffs.spawn(hit.x + this.rand(-0.3, 0.3) * s, hit.y + (0.8 + k * 0.25) * s, hit.z + this.rand(-0.3, 0.3) * s, (1.0 + k * 0.2) * s * big, this.rand(1.0, 1.3), FX_COLORS.ash, 0.4 * (this.reduced ? 0.7 : 1), { vy: 2.0, grow: 1.6, fadeIn: (6 + k * 2) / 60, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
     }
   }
 
@@ -1581,7 +1592,8 @@ export class FxCore {
     // front of the foe on the shot's line, and the body falls back off it; a blast mark (kind 5), solid in its middle.
     // Never on the river (judge 2: half the mark lay on the ford and the water): the first dry spot on the shot's line,
     // from just in front of the foe, under it, then past it; on water, a puff of steam instead.
-    const size = (1.55 + tierId * 0.3) * rk;
+    // Round 9 (judge B: the scorch was near invisible on light ground at f126): 1.35× bigger, held 2.2 s.
+    const size = (1.55 + tierId * 0.3) * rk * 1.35;
     let found = false;
     let x = 0;
     let z = 0;
@@ -2214,8 +2226,8 @@ export class FxCore {
       this.light.position.copy(this.sky.lightAt);
     } else {
       this.light.intensity = word;
-      // A small saturated glow under the mouth, not a wash over the whole light dais (judge B, round 7).
-      this.light.distance = 9;
+      // A small saturated glow under the mouth, not a wash over the whole light dais (judge B, rounds 7 and 8).
+      this.light.distance = 5.5;
       this.light.position.set(this.mouthAt.x + this.facing.x * 0.6, this.mouthAt.y, this.mouthAt.z + this.facing.z * 0.6);
     }
   }
@@ -2285,18 +2297,24 @@ export interface FxOptions {
 
 /** The camera kick of a strong word's release (VFX_STANDARD §5.3 part 1: 1–2 px, T3 only). */
 const STRONG_KICK_PX = 1.6;
-/** Sky Fire's release (§5.3 part 2): a 2–4 px kick along the launch, the FOV pushed +1° for 8 frames (full on 2). */
-const SKY_KICK_PX = 3;
-const SKY_FOV_DEG = 1;
+/**
+ * Sky Fire's camera (§5.3 part 2). Round 9 (judge B: the release push, MAE 4958, dwarfed the impact's, 890; the climax
+ * must be the hit): a 2 px kick and a +0.35° FOV push at the release, a 6 px kick down and +1.2° at the impact (8
+ * frames, full on 2).
+ */
+const SKY_KICK_PX = 2;
+const SKY_FOV_DEG = 0.35;
+const SKY_IMPACT_KICK_PX = 6;
+const SKY_IMPACT_FOV_DEG = 1.2;
 const SKY_FOV_HOLD_S = 2 / 60;
 const SKY_FOV_S = 8 / 60;
 
-/** The FOV push (deg) `age` s after it began: full for its hold, then easing back to 0 by SKY_FOV_S. */
-export function fovPush(age: number): number {
+/** The FOV push (deg) `age` s after it began: `deg` for its hold, then easing back to 0 by SKY_FOV_S. */
+export function fovPush(age: number, deg = SKY_FOV_DEG): number {
   if (age < 0 || age >= SKY_FOV_S) return 0;
-  if (age < SKY_FOV_HOLD_S) return SKY_FOV_DEG;
+  if (age < SKY_FOV_HOLD_S) return deg;
   const k = (age - SKY_FOV_HOLD_S) / (SKY_FOV_S - SKY_FOV_HOLD_S);
-  return SKY_FOV_DEG * (1 - k) * (1 - k);
+  return deg * (1 - k) * (1 - k);
 }
 
 export interface FxPresenter extends Presenter {
@@ -2343,12 +2361,13 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   // The FOV push lives only while the 3D scene renders (scene hooks): the DOM tags, projected through the clean
   // camera between frames, stay still, as with the shake (camera.ts puts the shake where projectToScreen ignores it).
   let fovAge = Number.POSITIVE_INFINITY;
+  let fovDeg = SKY_FOV_DEG;
   let fovSaved: [number, number] | null = null;
   const previousBefore = stage.scene.onBeforeRender;
   const previousAfter = stage.scene.onAfterRender;
   stage.scene.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
     previousBefore.call(stage.scene, renderer, scene, camera, geometry, material, group);
-    const push = fovPush(fovAge);
+    const push = fovPush(fovAge, fovDeg);
     if (push <= 0 || camera !== stage.camera) return;
     const lens = camera as THREE.PerspectiveCamera;
     const e = lens.projectionMatrix.elements;
@@ -2431,15 +2450,36 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     } else struck.set(tx, heightAt(tx, tz) + 0.9, tz);
     core.foes.strike({ slot, serial, foe, x, z, tx, tz, victim, hit: struck, edge: rim });
   };
-  const number = (key: number, point: THREE.Vector3, amount: number, tierId: number, style: number, leaving = false): void => {
+  /**
+   * Round 9 (both judges: "PERFECT 128" / "92" covered the top of the blast's core for its first ~4 frames): a word
+   * hit's number comes 3 frames after the hit, up and to the side away from the Dragon; Sky Fire's too, on the head.
+   */
+  const pending: { key: number; x: number; y: number; z: number; amount: number; tierId: number; style: number; leaving: boolean; side: number; due: number }[] = [];
+  const NUMBER_DELAY_MS = 50;
+  const later = (key: number, point: THREE.Vector3, amount: number, tierId: number, style: number, leaving: boolean, side: number): void => {
+    pending.push({ key, x: point.x, y: point.y, z: point.z, amount, tierId, style, leaving, side, due: nowMs + NUMBER_DELAY_MS });
+  };
+  const pendingAt = new THREE.Vector3();
+  const flushNumbers = (): void => {
+    for (let i = pending.length - 1; i >= 0; i -= 1) {
+      const item = pending[i]!;
+      if (item.due > nowMs) continue;
+      pending.splice(i, 1);
+      number(item.key, pendingAt.set(item.x, item.y, item.z), item.amount, item.tierId, item.style, item.leaving, item.side);
+    }
+  };
+  const number = (key: number, point: THREE.Vector3, amount: number, tierId: number, style: number, leaving = false, side = 0): void => {
     const row = tierRow(tierId, DRAGON.tiers);
     if (row.number === null || amount <= 0) return;
     // Born on the top of the head (judge 4: +0.7 m put it a body above it; judge 5: there, 2.5×, see NUMBER_FEEL), its
     // middle a little over the head so the popped digits cover the head, not the burst's heart; the kit shrinks it to
-    // 1× in about 150 ms, then it rises.
+    // 1× in about 150 ms, then it rises. `side` (−1, 0, 1): a word hit's number sits ~40 px (1080p) to that side and
+    // ~26 px higher (round 9).
     stage.project(point.x, point.y + 0.15, point.z, screen);
     if (!screen.visible) return;
-    const up = numbers.fontPx * row.number.size * 0.8;
+    const px = canvas.clientHeight / 1080;
+    screen.x += side * 40 * px;
+    const up = numbers.fontPx * row.number.size * 0.8 + (side !== 0 ? 26 * px : 0);
     const y = screen.y - up;
     if (leaving) {
       // Round 8 (judge A, Sky Fire fix 1: the number floated 100–170 px beside its victim): a victim that dies takes its
@@ -2585,7 +2625,21 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
               const style = strongGrade(event.grade) ? STYLE.perfect : event.source.kind === "trap" || event.source.kind === "unit" ? STYLE.tick : event.tier >= 3 ? STYLE.crit : STYLE.normal;
               // A finishing word shows its strength: lock protection or a trap may have left the foe at 1 HP (test pass 27/10: "HOÀN HẢO 1").
               // Above the head (judge 3: "92" sat over the struck foe's head), not at its middle.
-              number(target.serial, foePoint(target.slot, target.serial, event.x, event.z, numberAt, "top"), event.damageType === "word" && event.source.kind === "hero" && event.power !== undefined ? event.power : event.amount, event.tier, style, event.by === "skyfire" && dying.has(target.serial));
+              const head = foePoint(target.slot, target.serial, event.x, event.z, numberAt, "top");
+              const value = event.damageType === "word" && event.source.kind === "hero" && event.power !== undefined ? event.power : event.amount;
+              const sky = event.by === "skyfire";
+              const wordHit = event.source.kind === "hero" && event.damageType === "word";
+              if (sky || wordHit) {
+                // Away from the Dragon on screen (the bolt and its trail come from that side).
+                let side = 0;
+                if (wordHit) {
+                  stage.project(head.x, head.y, head.z, kickTo);
+                  mouthOf(mouth);
+                  stage.project(mouth.x, mouth.y, mouth.z, kickFrom);
+                  side = kickTo.x < kickFrom.x ? -1 : 1;
+                }
+                later(target.serial, head, value, event.tier, style, sky && dying.has(target.serial), side);
+              } else number(target.serial, head, value, event.tier, style);
             } else if (target.kind === "hero" || target.kind === "guide") {
               addTrauma(0.12);
               if (!options.shake) trauma.kick(0, 1, 4);
@@ -2685,6 +2739,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
 
     frame(_world: World, info: FrameInfo): void {
       nowMs = info.now;
+      flushNumbers();
       const worldDt = hitStop.worldDt(info.dt, info.now);
       worldTime += worldDt;
       stage.camera.getWorldPosition(camPos);
@@ -2712,6 +2767,16 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             options.kick(kickTo.x - kickFrom.x, kickTo.y - kickFrom.y, SKY_KICK_PX);
           }
           fovAge = 0;
+          fovDeg = SKY_FOV_DEG;
+        }
+      }
+      if (core.sky.impacts > 0) {
+        core.sky.impacts = 0;
+        // I: the hit is the climax (round 9): a kick down the screen and the bigger FOV push.
+        if (!core.reduced) {
+          options.kick?.(0, 1, SKY_IMPACT_KICK_PX);
+          fovAge = 0;
+          fovDeg = SKY_IMPACT_FOV_DEG;
         }
       }
       stage.renderer.getSize(size);

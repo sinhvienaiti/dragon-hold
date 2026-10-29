@@ -221,9 +221,9 @@ describe("view fx", () => {
       core.update(1 / 60, k / 60, eye, 600);
       levels.push(core.mouthLightLevel);
     }
-    // Frames 0–1 at the peak, out by frame 5 (4–6 frames).
-    expect(levels[0]).toBeCloseTo(1, 5);
-    expect(levels[1]).toBeCloseTo(1, 5);
+    // Frames 0–1 at the peak, out by frame 5 (4–6 frames). Round 9: a plain word's light is 0.6 of a strong one's.
+    expect(levels[0]).toBeCloseTo(0.6, 5);
+    expect(levels[1]).toBeCloseTo(0.6, 5);
     expect(levels[2]!).toBeLessThan(1);
     expect(levels[5]).toBe(0);
     expect(core.light).not.toBeNull();
@@ -253,7 +253,7 @@ describe("view fx", () => {
     expect(track.times[2]! - track.times[1]!).toBeCloseTo(1 / 60, 5);
   });
 
-  it("lands a word bolt with fire and soot, and a scorch held dark 1.5 s, gone by 2.6 s (VFX_STANDARD §3.4, judge 1a)", () => {
+  it("lands a word bolt with fire and soot, and a scorch held dark 2.2 s, gone by 3.2 s (VFX_STANDARD §3.4, judge 1a)", () => {
     const core = new FxCore("high", { locator: fixed(0, 1, -15) });
     const eye = new THREE.Vector3(0, 60, 60);
     core.launchBolt(new THREE.Vector3(0, 4, -1), { slot: 0, serial: 5, x: 0, y: 1, z: -15 }, false);
@@ -261,13 +261,14 @@ describe("view fx", () => {
     let frames = 0;
     let puffs = 0;
     // Round 6: the release leaves a short burn under the mouth (0.55 s); round 7: the hit a dark oval round the foe
-    // (0.7 s). The bolt's scorch is the last live mark.
+    // (0.7 s); round 9: a soot ring under the jet, and the hit's fire ring over its dark edge. The bolt's scorch is the
+    // last live mark.
     while (core.scorchPoint.lengthSq() === 0 && frames < 60) {
       puffs = core.stats().puffs;
       core.update(1 / 60, frames / 60, eye, 600);
       frames += 1;
     }
-    expect(core.stats().marks).toBe(3);
+    expect(core.stats().marks).toBe(6);
     // The impact's fire bodies and soot puffs come on top of what the flight left.
     // (7 born on the landing frame: 3 fire, 3 soot, 1 grey; the flight's last head bodies run out meanwhile.)
     expect(core.stats().puffs).toBeGreaterThanOrEqual(puffs + 5);
@@ -277,9 +278,9 @@ describe("view fx", () => {
       for (let k = 0; k < Math.round(seconds * 60); k += 1) core.update(1 / 60, 1, eye, 600);
       return alpha();
     };
-    // Round 4: the black-brown char is near opaque (0.96).
+    // Round 4: the black-brown char is near opaque (0.96); round 9 (judge B: gone on light ground by f126): held 2.2 s.
     expect(at(0.2)).toBeCloseTo(0.96, 3);
-    expect(at(1.2)).toBeCloseTo(0.96, 3);
+    expect(at(1.8)).toBeCloseTo(0.96, 3);
     const late = at(0.6);
     expect(late).toBeGreaterThan(0.2);
     expect(late).toBeLessThan(0.8);

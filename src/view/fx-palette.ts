@@ -33,6 +33,10 @@ export const FX_COLORS = {
   char: new THREE.Color("#222326"),
   /** Round 8: the Firefly smoke roll's colour, a cool mid charcoal (near black read as a hole; see-through it went olive on grass). */
   smokeCool: new THREE.Color("#4a4b50"),
+  /** Round 9 (both judges: the smoke read as a navy-black hole or a ground shadow): a warm brown-grey charcoal. */
+  smokeWarm: new THREE.Color("#7a7067"),
+  /** Round 9 (both judges: the release light washed the light dais salmon-pink): a saturated amber. */
+  amber: new THREE.Color("#ffab4a"),
   dust: new THREE.Color("#a89272"),
   scorch: new THREE.Color("#2a2018"),
   wood: new THREE.Color("#8a6a45"),

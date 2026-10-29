@@ -1288,18 +1288,26 @@ void main() {
   // shadow (the mask dilated by eight taps), and a scorched fill darkens the circle, so orange-on-charcoal reads on
   // light stone as on dark grass.
   float shadow = 0.0;
+  float near = 0.0;
   for (int i = 0; i < 8; i++) {
     float a = float(i) * 0.7854;
     vec2 o = vec2(cos(a), sin(a)) * 0.03;
     shadow = max(shadow, texture2D(uMap, ro * (p + o) + 0.5).a * isOuter);
     shadow = max(shadow, texture2D(uMap, ri * (p + o) * 1.7 + 0.5).a * (1.0 - isOuter) * 0.9);
+    vec2 o2 = o * 0.4;
+    near = max(near, texture2D(uMap, ro * (p + o2) + 0.5).a * isOuter);
+    near = max(near, texture2D(uMap, ri * (p + o2) * 1.7 + 0.5).a * (1.0 - isOuter) * 0.9);
   }
-  float fill = 0.3 * (1.0 - smoothstep(0.2, 1.0, r)) * (0.6 + 0.4 * uHot);
+  // Round 9 (judge A: still near invisible on the cream dais at 720 play-light): a darker underlay disc, the soot
+  // shadow, then an emissive orange glow hugging each stroke, then the stroke; all rising with the charge (uHot).
+  float fill = 0.42 * (1.0 - smoothstep(0.25, 1.0, r)) * (0.7 + 0.3 * uHot);
   float dark = max(shadow * 0.92, fill);
   vec3 color = mix(vec3(1.0, 0.3, 0.02), vec3(1.0, 0.82, 0.46), uHot) * (1.5 + 0.9 * uHot);
   float stroke = clamp(m * 1.8, 0.0, 1.0);
-  vec3 under = vec3(0.035, 0.03, 0.03);
-  gl_FragColor = vec4(mix(under, color, stroke), clamp(max(stroke, dark), 0.0, 1.0) * uAlpha);
+  float glow = clamp(near * 1.4, 0.0, 1.0) * (1.0 - stroke) * (0.55 + 0.45 * uHot);
+  vec3 rgb = mix(vec3(0.035, 0.03, 0.03), vec3(1.0, 0.36, 0.05) * (1.2 + 0.8 * uHot), glow);
+  rgb = mix(rgb, color, stroke);
+  gl_FragColor = vec4(rgb, clamp(max(max(stroke, glow * 0.85), dark), 0.0, 1.0) * uAlpha);
 }`;
 
 /** A rune circle laid on the ground (kit textures().runes), normal blend: saturated orange strokes that read on light and dark ground. */

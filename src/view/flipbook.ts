@@ -17,7 +17,7 @@
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
-import { VFX_SOFT_GLSL } from "./vfx-layers";
+import { VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
 
 /** The Firefly ids (FIREFLY_VFX_LIST §3) and the first quick cut the coordinator made. */
 export const FLIPBOOK_IDS = ["charge-orb", "muzzle-flash", "fireball-head", "flame-trail", "impact-burst", "impact-big", "smoke-roll", "embers", "ground-fire", "fire-burst"] as const;
@@ -207,6 +207,7 @@ attribute vec3 iPos;
 attribute vec4 iData;
 attribute vec4 iColor;
 attribute vec4 iDir;
+attribute vec3 iAge;
 uniform vec2 uPivot;
 uniform float uAspect;
 uniform float uHeading;
@@ -217,8 +218,10 @@ varying vec3 vTint;
 varying vec3 vWorld;
 varying float vGround;
 varying float vOcclude;
+varying vec3 vAge;
 void main() {
   vUv = uv;
+  vAge = iAge;
   vFrame = iData.z;
   vAlpha = iData.w;
   vTint = iColor.rgb;
@@ -258,6 +261,8 @@ varying vec3 vTint;
 varying vec3 vWorld;
 varying float vGround;
 varying float vOcclude;
+varying vec3 vAge;
+${VFX_NOISE_GLSL}
 ${VFX_SOFT_GLSL}
 vec2 vxCell(float f, vec2 uv) {
   float col = mod(f, uGrid.x);
@@ -278,18 +283,32 @@ void main() {
   border *= 1.0 - uVignette * smoothstep(0.72, 1.0, length(vUv - 0.5) * 2.0);
   float soft = vxSoftGround(vWorld, vGround, uSoftM) * border * vAlpha;
   float lum = max(t.r, max(t.g, t.b));
+  // Round 9 (both judges: the fire faded through see-through mustard and olive over grass, c079–c081): from vAge.y of
+  // its life (vAge.x) a sprite cools, through deep red to charcoal, and the noise eats it from its thin parts in;
+  // it never thins as a gold veil. Smoke erodes the same way as it rises.
+  float cool = vAge.y > 0.0 ? clamp((vAge.x - vAge.y) / max(0.05, 1.0 - vAge.y), 0.0, 1.0) : 0.0;
+  float n = vxNoise(vUv * 6.0 + vec2(vAge.z * 13.1, vAge.z * 7.3)) * 0.65 + vxNoise(vUv * 15.0 - vec2(vAge.z * 5.7, 0.0)) * 0.35;
   if (uSmoke > 0.5) {
-    // Dark smoke filmed on white: its darkness is its alpha; the tint is the smoke's colour, the clip's grain on it.
-    // A dense body (round 8 check: thin dark smoke over green grass read olive): the matte's soft half is lifted.
+    // Smoke filmed on white: its darkness is its alpha (or the atlas's own); the tint is its colour.
     float a = uHasAlpha > 0.5 ? t.a : clamp((1.0 - lum) * 1.25, 0.0, 1.0);
-    a = smoothstep(0.02, 0.6, a);
-    gl_FragColor = vec4(vTint * (0.75 + 0.5 * lum), a * soft);
+    a = smoothstep(0.02, 0.6, a) * smoothstep(cool * 1.1 - 0.12, cool * 1.1 + 0.08, n * 0.7 + a * 0.45);
+    gl_FragColor = vec4(vTint * (0.8 + 0.4 * lum), a * soft);
     return;
+  }
+  vec3 rgb = t.rgb * vTint;
+  float body = smoothstep(0.02, 0.45, lum);
+  if (cool > 0.0) {
+    rgb = mix(rgb, vec3(0.5, 0.07, 0.018) * (0.4 + lum), smoothstep(0.0, 0.45, cool));
+    rgb = mix(rgb, vec3(0.04, 0.036, 0.034), smoothstep(0.4, 0.95, cool));
+    float erode = smoothstep(cool * 1.05 - 0.12, cool * 1.05 + 0.06, n * 0.75 + lum * 0.4);
+    rgb *= erode;
+    body *= erode;
   }
   // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude. The
   // curve is steep (final check on light ground: the burst's dim flames stayed see-through and pale): a dim red flame
   // already hides most of the stone under it, so it reads deep red, the dark under-layer of the bright core.
-  gl_FragColor = vec4(t.rgb * vTint * soft, smoothstep(0.02, 0.45, lum) * vOcclude * soft);
+  // A cooled sprite keeps hiding the ground (charcoal), so nothing see-through is left when it goes.
+  gl_FragColor = vec4(rgb * soft, body * max(vOcclude, cool * 0.9) * soft);
 }`;
 
 export interface FlipOptions {
@@ -324,6 +343,10 @@ export interface FlipOptions {
   fadeOut?: number;
   /** Seconds before it is drawn at all (then at its first frame). */
   delay?: number;
+  /** From this share of its life (0–1) it cools to deep red and charcoal and erodes (round 9); 0: never. */
+  cool?: number;
+  /** Last frame a one-shot plays to (it stops there, even if the clip goes on; e.g. before an artefact). */
+  until?: number;
 }
 
 const WHITE = new THREE.Color(1, 1, 1);
@@ -342,9 +365,10 @@ export class FlipbookPool {
   private readonly iData: Float32Array;
   private readonly iColor: Float32Array;
   private readonly iDir: Float32Array;
-  /** x y z, vx vy vz, size, grow, rot, spin, age, life, frame, fps, alpha, drag, gravity, fadeIn, fadeOut, ground, occlude, r g b, dx dy dz, delay */
+  private readonly iAge: Float32Array;
+  /** x y z, vx vy vz, size, grow, rot, spin, age, life, frame, fps, alpha, drag, gravity, fadeIn, fadeOut, ground, occlude, r g b, dx dy dz, delay, cool, seed */
   private readonly state: Float32Array;
-  private static readonly STRIDE = 28;
+  private static readonly STRIDE = 30;
   private cursor = 0;
   live = 0;
 
@@ -354,6 +378,7 @@ export class FlipbookPool {
     this.iData = new Float32Array(capacity * 4);
     this.iColor = new Float32Array(capacity * 4);
     this.iDir = new Float32Array(capacity * 4);
+    this.iAge = new Float32Array(capacity * 3);
     this.state = new Float32Array(capacity * FlipbookPool.STRIDE);
     const base = new THREE.PlaneGeometry(1, 1);
     const geometry = new THREE.InstancedBufferGeometry();
@@ -364,6 +389,7 @@ export class FlipbookPool {
     geometry.setAttribute("iData", new THREE.InstancedBufferAttribute(this.iData, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.iColor, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iDir", new THREE.InstancedBufferAttribute(this.iDir, 4).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("iAge", new THREE.InstancedBufferAttribute(this.iAge, 3).setUsage(THREE.DynamicDrawUsage));
     geometry.instanceCount = 0;
     const material = new THREE.ShaderMaterial({
       uniforms: {
@@ -435,7 +461,8 @@ export class FlipbookPool {
     const rate = options.rate ?? 1;
     const fps = meta.fps * rate;
     const first = options.frame ?? (meta.loop ? 0 : meta.start);
-    const life = options.life ?? (meta.loop || rate <= 0 ? 1 : (meta.frames - first) / Math.max(1e-3, fps));
+    const last = Math.min(meta.frames, options.until !== undefined ? options.until + 1 : meta.frames);
+    const life = options.life ?? (meta.loop || rate <= 0 ? 1 : Math.max(1 / 60, (last - first) / Math.max(1e-3, fps)));
     const tint = options.tint ?? WHITE;
     const k = options.intensity ?? 1;
     const dir = options.dir ?? null;
@@ -450,6 +477,7 @@ export class FlipbookPool {
         tint.r * k, tint.g * k, tint.b * k,
         dir?.x ?? 0, dir?.y ?? 0, dir?.z ?? 0,
         Math.max(0, options.delay ?? 0),
+        options.cool ?? 0, (i * 0.618034) % 1,
       ],
       i * FlipbookPool.STRIDE,
     );
@@ -492,6 +520,9 @@ export class FlipbookPool {
       this.iDir[n * 4 + 1] = st[o + 25]!;
       this.iDir[n * 4 + 2] = st[o + 26]!;
       this.iDir[n * 4 + 3] = st[o + 20]!;
+      this.iAge[n * 3] = k;
+      this.iAge[n * 3 + 1] = st[o + 28]!;
+      this.iAge[n * 3 + 2] = st[o + 29]!;
       n += 1;
       // Then advance.
       const keep = Math.exp(-st[o + 15]! * dt);
@@ -513,6 +544,7 @@ export class FlipbookPool {
     geometry.getAttribute("iData").needsUpdate = true;
     geometry.getAttribute("iColor").needsUpdate = true;
     geometry.getAttribute("iDir").needsUpdate = true;
+    geometry.getAttribute("iAge").needsUpdate = true;
   }
 
   /** Warm-up: one sprite of the blank atlas for the load-time frame (cleared after). */
@@ -524,7 +556,8 @@ export class FlipbookPool {
     const geometry = this.mesh.geometry;
     geometry.instanceCount = 1;
     this.mesh.visible = true;
-    for (const name of ["iPos", "iData", "iColor", "iDir"]) geometry.getAttribute(name).needsUpdate = true;
+    this.iAge.set([0, 0, 0], 0);
+    for (const name of ["iPos", "iData", "iColor", "iDir", "iAge"]) geometry.getAttribute(name).needsUpdate = true;
   }
 
   clear(): void {

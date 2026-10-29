@@ -27,7 +27,9 @@ const DEFAULTS = { 'fire-burst': { start: 5 }, 'muzzle-flash': { pivot: [0.06, 0
  */
 // Coordinator's picks (29/10, after FXV's sheets) replace them: charge-orb v2, flame-trail v2, impact-burst v3 (the one
 // with a real flash), impact-big v3, smoke-roll v2; muzzle-flash v4, fireball-head v1, embers v1, ground-fire v1 as here.
-const PICKS = { 'impact-burst': 'v3', 'impact-big': 'v3', 'muzzle-flash': 'v4', 'fireball-head': 'v1', 'charge-orb': 'v2', embers: 'v1', 'flame-trail': 'v2', 'smoke-roll': 'v2', 'ground-fire': 'v1', 'fire-burst': 'v1' };
+// Round 9 (both judges: impact-burst v3's 8-point star and rim ring read as a sticker and red noodles): impact-burst
+// v2, the organic burst (fx.ts plays its frames 9–23).
+const PICKS = { 'impact-burst': 'v2', 'impact-big': 'v3', 'muzzle-flash': 'v4', 'fireball-head': 'v1', 'charge-orb': 'v2', embers: 'v1', 'flame-trail': 'v2', 'smoke-roll': 'v2', 'ground-fire': 'v1', 'fire-burst': 'v1' };
 const md5 = (bytes) => createHash('md5').update(bytes).digest('hex');
 
 function arg(name, fallback) {
