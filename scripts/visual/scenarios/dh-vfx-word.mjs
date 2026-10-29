@@ -16,7 +16,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { badResources, BASE, press } from "./lib/dh.mjs";
-import { beside, boxColor, brightBlob, brightestGain, changedBlob, clip, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
+import { beside, boxColor, brightBlob, brightestGain, changedBlob, clip, fireRegion, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
 
 const LABEL = process.env.LABEL ?? "after";
 const OUT = resolve(process.env.OUT_DIR ?? join("tmp/vfx", LABEL));
@@ -270,6 +270,17 @@ export function measure(run, h, { scorchAt = null } = {}) {
   };
   // The release's colour in the dais box (judge 2: cream, (231, 196, 153), no dark-red edge), before and on f0–f1.
   const color = { pre: boxColor(preImg, box), f0: boxColor(f0, box), f1: boxColor(readRgb(dense[1].png), box) };
+  // The fire-colour region (coordinator 29/10) in the judge's boxes (1080p sizes, scaled): round the mouth and cone
+  // at f0 against pre, round the foe at f12–f13 against f10.
+  const k = h / 1080;
+  const byName = new Map(frames.map((f) => [f.name, f]));
+  const mouthBox = spot ? { x: spot.x - 220 * k, y: spot.y - 90 * k, w: 300 * k, h: 180 * k } : null;
+  const foeBox = run.crop.foe ? { x: run.crop.foe.x - 130 * k, y: run.crop.foe.y - 120 * k, w: 260 * k, h: 200 * k } : null;
+  const f10 = byName.get("f010");
+  const fire = {
+    mouth: mouthBox ? fireRegion(f0, preImg, mouthBox) : null,
+    foe: foeBox && f10 ? Object.fromEntries(["f012", "f013", "f016"].filter((n) => byName.has(n)).map((n) => [n, fireRegion(readRgb(byName.get(n).png), readRgb(f10.png), foeBox)])) : null,
+  };
   // F: the scorch's darkening of the ground (a-00 minus the frame, a 14 px cell at 720p) frame by frame from f20.
   const scorchPx = scorchAt ?? frames.at(-1)?.scorch ?? null;
   let scorch = null;
@@ -306,6 +317,7 @@ export function measure(run, h, { scorchAt = null } = {}) {
     .map((f) => ({ frame: f.name, ...(headSize(readRgb(f.png), preImg, f.heads[0], shot, { reach: Math.round(90 * s) }) ?? {}) }));
   const sized = heads.filter((head) => head.along !== undefined);
   return {
+    fire,
     head: { frames: heads, minAlong: sized.length ? Math.min(...sized.map((x) => x.along)) : null, minAcross: sized.length ? Math.min(...sized.map((x) => x.across)) : null },
     flash: { roi, series, firstOverPeak: peak > 0 ? +(series[0] / peak).toFixed(3) : null, overPre, vsHead: flashVsHead, color, heads: headBlobs },
     scorch,

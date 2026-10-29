@@ -17,7 +17,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { badResources, BASE, MOD, press } from "./lib/dh.mjs";
 import { aim, open, SHIM, step } from "./dh-vfx-word.mjs";
-import { beside, brightBlob, clip, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
+import { beside, brightBlob, clip, fireRegion, headSize, lum255, meanLuma, montage, readRgb, tagContrast, whiteOut } from "./lib/vfx-measure.mjs";
 
 const LABEL = process.env.LABEL ?? "after";
 const OUT = resolve(process.env.OUT_DIR ?? join("tmp/vfx", "skyfire-" + LABEL));
@@ -188,6 +188,15 @@ export function measure(run, h, { at = null } = {}) {
   const before = readRgb(frameAt(iAt - 1).png);
   const f0 = readRgb(frameAt(iAt).png);
   impact.blob = { core: brightBlob(f0, before, impactPx, { level: 0.9, gain: 0.08, reach: Math.round(160 * s) }), body: brightBlob(f0, before, impactPx, { level: 0, gain: 0.15, reach: Math.round(160 * s) }) };
+  // The fire-colour region (coordinator 29/10): round the mouth on R's first frame against the cast frame, round the
+  // blast on I's first three frames against the frame before (1080p boxes 300 × 180 and 400 × 300, scaled).
+  const k = h / 1080;
+  const castImg = readRgb(cast.png);
+  const relImg = frameAt(rAt) ? readRgb(frameAt(rAt).png) : null;
+  const fire = {
+    release: flashPx && relImg ? fireRegion(relImg, castImg, { x: flashPx.x - 220 * k, y: flashPx.y - 90 * k, w: 300 * k, h: 180 * k }) : null,
+    impact: Object.fromEntries([0, 1, 3].filter((d) => frameAt(iAt + d)).map((d) => ["f" + String(iAt + d).padStart(3, "0"), fireRegion(readRgb(frameAt(iAt + d).png), before, { x: impactPx.x - 200 * k, y: impactPx.y - 150 * k, w: 400 * k, h: 300 * k })])),
+  };
   // Lights: the light's intensity (cd) frame by frame from R and from I (after builds).
   const lightRow = (from, n) => Array.from({ length: n }, (_, k) => frameAt(from + k)?.lightCd ?? null);
   const lights = { release: lightRow(rAt, 8), impact: lightRow(iAt, 14) };
@@ -231,6 +240,7 @@ export function measure(run, h, { at = null } = {}) {
   const sorted = [...contrasts].sort((a, b) => a.contrast - b.contrast);
   const drawCalls = dense.map((f) => f.drawCalls);
   return {
+    fire,
     frames: { release: rAt, impact: iAt },
     release,
     impact,

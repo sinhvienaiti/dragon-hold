@@ -299,6 +299,56 @@ export function changedBlob(img, base, center, { dist = 0.12, reach = 120 } = {}
  * Colour of a box: mean sRGB (0–255), mean HSV saturation, and the share of "fire" pixels (red over green over
  * blue, saturation ≥ 0.45) and of dark-red pixels (fire hue, value ≤ 0.55): a release that reads as fire, not cream.
  */
+/**
+ * The fire-colour region (coordinator 29/10: next to the luma box and the head size, which both read a saturated
+ * flame on beige stone as "no gain"): inside `box`, the pixels that changed against `base` (RGB distance > `delta`)
+ * and are fire-coloured (hue 345°–60°, saturation ≥ 0.45, value ≥ 0.3). Returns their area (px and share of the
+ * box), mean hue (degrees, red 0, negative toward magenta), mean saturation and mean value, and the share of them
+ * near white-hot (saturation < 0.25 at value ≥ 0.9 is not counted as fire: it is the core); null for an empty box.
+ */
+export function fireRegion(img, base, box, { delta = 0.12 } = {}) {
+  let n = 0;
+  let area = 0;
+  let hueSum = 0;
+  let satSum = 0;
+  let valSum = 0;
+  const x0 = Math.max(0, Math.round(box.x));
+  const y0 = Math.max(0, Math.round(box.y));
+  const x1 = Math.min(img.w, Math.round(box.x + box.w));
+  const y1 = Math.min(img.h, Math.round(box.y + box.h));
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      n += 1;
+      const i = (y * img.w + x) * 3;
+      const R = img.data[i];
+      const G = img.data[i + 1];
+      const B = img.data[i + 2];
+      const dr = R - base.data[i];
+      const dg = G - base.data[i + 1];
+      const db = B - base.data[i + 2];
+      if (Math.sqrt(dr * dr + dg * dg + db * db) / (255 * Math.sqrt(3)) <= delta) continue;
+      const max = Math.max(R, G, B);
+      const min = Math.min(R, G, B);
+      const v = max / 255;
+      const sat = max === 0 ? 0 : (max - min) / max;
+      if (sat < 0.45 || v < 0.3) continue;
+      let h;
+      if (max === R) h = (60 * (G - B)) / (max - min);
+      else if (max === G) h = 120 + (60 * (B - R)) / (max - min);
+      else h = 240 + (60 * (R - G)) / (max - min);
+      if (h > 180) h -= 360;
+      if (h < -15 || h > 60) continue;
+      area += 1;
+      hueSum += h;
+      satSum += sat;
+      valSum += v;
+    }
+  }
+  if (n === 0) return null;
+  if (area === 0) return { area: 0, share: 0, hue: null, saturation: null, value: null };
+  return { area, share: +(area / n).toFixed(4), hue: +(hueSum / area).toFixed(1), saturation: +(satSum / area).toFixed(3), value: +(valSum / area).toFixed(3) };
+}
+
 export function boxColor(img, box) {
   let r = 0;
   let g = 0;
