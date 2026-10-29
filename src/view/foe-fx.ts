@@ -298,7 +298,7 @@ export class FoeFx {
     const host = this.host;
     const front = this.u.set(at.x + ux * 0.5 * h, at.y + 0.1 * h, at.z + uz * 0.5 * h);
     if (blow === "slash" || blow === "bite" || blow === "nip") {
-      const size = (blow === "slash" ? 1.25 : blow === "bite" ? 0.85 : 0.5) * h;
+      const size = (blow === "slash" ? 1.6 : blow === "bite" ? 1.0 : 0.55) * h;
       const swings = blow === "bite" ? 2 : 1;
       for (let i = 0; i < swings; i += 1) {
         const rot = (blow === "bite" ? (i === 0 ? 0.5 : -0.5) * Math.PI : Math.PI / 2) + (host.random() - 0.5) * 1.2;
@@ -336,7 +336,8 @@ export class FoeFx {
     const host = this.host;
     const soft = host.reduced ? 0.6 : 1;
     const k = host.k;
-    const small = blow === "nip" ? 0.55 : blow === "charge" ? 1.4 : 1;
+    // On the Dragons the blow lands on a body 4 m long: bigger than on a unit (the first capture: an 18 px dot).
+    const small = (blow === "nip" ? 0.55 : blow === "charge" ? 1.4 : 1) * (victim === "dragon" || victim === "guide" ? 1.5 : 1);
     this.impacts += 1;
     this.impactsThisFrame += 1;
     if (this.impactsThisFrame > IMPACTS_PER_FRAME) {

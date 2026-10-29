@@ -185,7 +185,7 @@ void main() {
     // where the blade passed, torn by noise, thinning to points at both ends; the fading alpha burns it away.
     float ang = atan(p.y, p.x);
     float sweep = 1.0 - smoothstep(0.55, 1.25, abs(ang));
-    float band = 1.0 - smoothstep(0.0, 0.12 + 0.1 * sweep, abs(r - 0.78));
+    float band = 1.0 - smoothstep(0.0, 0.16 + 0.14 * sweep, abs(r - 0.74));
     vec2 sq = vec2(ang * 2.2 + seed * 9.0, r * 5.0) + vec2(uTime * 3.0, 0.0);
     vec4 f = vxFoeFlame(1.0 - band * sweep, (1.0 - sweep) * 0.7, sq, (1.0 - vColor.a) * 0.8, 1.15);
     gl_FragColor = vec4(f.rgb, f.a * min(1.0, vColor.a * 1.5));

@@ -35,6 +35,8 @@ export interface FoeShowcase {
   points(foe: EnemyId): { foe: ScreenPoint; dragon: ScreenPoint; edge: ScreenPoint };
   /** fx core counters (strikes, impacts, spawns). */
   counts(): { strikes: number; impacts: number; spawns: number; windups: number; flights: number };
+  /** Draw calls of the last frame. */
+  drawCalls(): number;
   dispose(): void;
 }
 
@@ -217,6 +219,7 @@ export async function runFoeShowcase(host: HTMLElement, quality: Quality = "high
       stage.project(ex, painted.heightAt(ex, ez), ez, out);
       return { foe: fp, dragon, edge: { ...out } };
     },
+    drawCalls: () => stage.stats().drawCalls,
     counts: () => {
       const core = fx.core.foes;
       return { strikes: core.strikes, impacts: core.impacts, spawns: core.spawns, windups: core.windupCount, flights: core.flightCount };
