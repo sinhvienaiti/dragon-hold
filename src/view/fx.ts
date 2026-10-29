@@ -1000,7 +1000,7 @@ export class FxCore {
     if (!this.wetOf(burnX, burnZ)) this.marks.spawn(burnX, this.markY(burnX, burnZ, 1.6 * s * g) + 0.05, burnZ, 1.6 * s * g, 0.55, FX_COLORS.scorch, 0.8 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
     this.flares.flare(at, 1.1 * s * g, FX_COLORS.flashCore, 3.4 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, lift);
     // Frame 0 only: a white-gold burst a little wider than the spent gather's core, so the release frame outshines it.
-    this.flares.flare(at, 1.5 * s * g, FX_COLORS.fireHot, 2.0 * heat * soft, 2 / 60, 1 / 60, 0, 1, lift);
+    this.flares.flare(at, 1.6 * s * g, FX_COLORS.fireHot, 3.4 * heat * soft, 2 / 60, 1 / 60, 0, 1, lift);
     this.flares.flare(this.u.copy(at).addScaledVector(this.w, 0.5 * s), 1.4 * s * g, hot, (strong ? 0.9 : 0.8) * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, lift);
     // Dark soot at the jet's root and edges, in from frame 2, gone by frame 8 (§3.5 rule 4: dark under the bright).
     const sideX = -uz;
