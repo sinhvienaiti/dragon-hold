@@ -33,7 +33,8 @@ import type { TerrainView } from "./terrain";
 import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
 import { SkyFire } from "./skyfire";
 import { FoeFx, type FoeVictim } from "./foe-fx";
-import { ShellPool, Streak, StreakSparks, VFX_FLAME_GLSL, VFX_NOISE_GLSL } from "./vfx-layers";
+import { blankTexture, ShellPool, Streak, StreakSparks, VFX_FLAME_GLSL, VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
+import { cellRect, FlipbookSet, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
 
 export { FX_COLORS, FX_RIBBON_ORDER };
 
@@ -115,6 +116,30 @@ const HOT_TONGUES = 6;
 const BOLT_TRAIL_SPAN = 0.42;
 const BOLT_TRAIL_POINTS = 24;
 const MAX_EMITTERS = 48;
+/**
+ * A flipbook sprite's size over the effect's own size: how much of its cell the clip fills (Firefly cuts leave dark
+ * margins). Tuned per atlas when it arrives; the sizes the code layers had stay the reference.
+ */
+const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
+  // charge-orb v1: the swirl fills ~85 % of its cell.
+  "charge-orb": 1.2,
+  // muzzle-flash v2: a 2:1 cell, the star at 0.26 of its width, the jet ~0.7 of the width (1.4 × the cell height).
+  "muzzle-flash": 1.5,
+  // fireball-head v1: the ball is ~0.4 of the cell, its flames trail behind it.
+  "fireball-head": 2.4,
+  "flame-trail": 1,
+  // impact-burst v1 grows from ~35 % to ~80 % of its cell; impact-big v1 from ~45 % to ~90 %.
+  "impact-burst": 1.4,
+  "impact-big": 1.25,
+  "smoke-roll": 1.4,
+  embers: 1.0,
+  "ground-fire": 1.3,
+  "fire-burst": 1.4,
+};
+/** The Firefly fireball's white core runs over 30 % of its ball (FXV flag 0.32): a warm tint keeps it cream-orange. */
+const HEAD_TINT = new THREE.Color(1, 0.86, 0.72);
+/** Playback speed of the one-shot clips at a word hit (Firefly cuts run 1.5–3 s; a hit's fire burns ≈ 0.8 s). */
+const FLIP_RATE: Readonly<Partial<Record<FlipbookId, number>>> = { "impact-burst": 3.2, "fire-burst": 3.2, "impact-big": 3.5, embers: 2.6 };
 
 // ── Quads: soft billboards and flat ground marks ────────────────────────────
 
@@ -122,23 +147,32 @@ const PUFF_VERTEX = /* glsl */ `
 attribute vec3 iPos;
 attribute vec4 iData;
 attribute vec4 iColor;
+attribute vec3 iLife;
 varying vec2 vUv;
 varying vec4 vColor;
 varying float vSeed;
+varying vec3 vLife;
+varying vec3 vWorld;
 void main() {
   vUv = uv;
   vColor = iColor;
   vSeed = iData.w;
+  vLife = iLife;
   float s = sin(iData.y);
   float c = cos(iData.y);
   if (iData.z > 0.5) {
     // Flat on the ground (rings, scorch, nets): x and −z.
     vec3 world = iPos + vec3(position.x * iData.x, 0.0, -position.y * iData.x);
+    vWorld = world;
     gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
   } else {
     vec4 view = modelViewMatrix * vec4(iPos, 1.0);
     vec2 corner = position.xy * iData.x;
-    view.xy += vec2(corner.x * c - corner.y * s, corner.x * s + corner.y * c);
+    corner = vec2(corner.x * c - corner.y * s, corner.x * s + corner.y * c);
+    view.xy += corner;
+    vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+    vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+    vWorld = (modelMatrix * vec4(iPos, 1.0)).xyz + right * corner.x + up * corner.y;
     gl_Position = projectionMatrix * view;
   }
 }`;
@@ -147,22 +181,28 @@ void main() {
 // Billboards: iData.w = shape + seed (shape 0 a soft puff, PUFF_FIRE a fire ball; seed in [0, 1)).
 const PUFF_FRAGMENT = /* glsl */ `
 uniform float uTime;
+uniform float uSoftM;
 varying vec2 vUv;
 varying vec4 vColor;
 varying float vSeed;
+varying vec3 vLife;
+varying vec3 vWorld;
 ${VFX_NOISE_GLSL}
 ${VFX_FLAME_GLSL}
+${VFX_SOFT_GLSL}
 void main() {
   vec2 p = (vUv - 0.5) * 2.0;
   if (vColor.a <= 0.0) discard;
   float shape = floor(vSeed);
   float seed = fract(vSeed);
   float angle = atan(p.y, p.x);
+  // Round 8 (both judges: sprites cut into the ground on a straight line): faded out before the depth test cuts them.
+  float soft = vxSoftGround(vWorld, vLife.z, uSoftM);
   if (shape < 0.5) {
     // A soft puff with a wobbly edge.
     float wobble = 0.85 + 0.15 * sin(angle * 5.0 + seed * 30.0);
     float a = 1.0 - smoothstep(0.15, 1.0, length(p) / wobble);
-    gl_FragColor = vec4(vColor.rgb, a * vColor.a);
+    gl_FragColor = vec4(vColor.rgb, a * vColor.a * soft);
     return;
   }
   float r = length(p);
@@ -176,7 +216,7 @@ void main() {
     float heat = 1.0 - smoothstep(0.0, 1.0, e);
     vec3 c = mix(vec3(0.85, 0.1, 0.02), vec3(1.6, 0.6, 0.1), smoothstep(0.25, 0.6, heat));
     c = mix(c, vec3(3.0, 2.7, 2.2), smoothstep(0.72, 0.9, heat));
-    gl_FragColor = vec4(c, (1.0 - smoothstep(0.72, 1.0, e)) * vColor.a);
+    gl_FragColor = vec4(c, (1.0 - smoothstep(0.72, 1.0, e)) * vColor.a * soft);
     return;
   }
   if (shape > 2.5) {
@@ -196,8 +236,21 @@ void main() {
   vec2 q = p * 3.0 + vec2(seed * 17.0, seed * 31.0) + vec2(0.35, -1.0) * uTime * 2.2;
   float hot = clamp(dot(vColor.rgb, vec3(0.3, 0.6, 0.1)) * 2.0, 0.3, 1.15);
   // PUFF_FOE: the same ball in the foes' crimson ramp.
-  vec4 f = shape > 1.5 ? vxFoeFlame(r, r * 0.45, q, (1.0 - vColor.a) * 0.6, hot) : vxFlame(r, r * 0.45, q, (1.0 - vColor.a) * 0.6, hot);
-  gl_FragColor = vec4(f.rgb, f.a * min(1.0, vColor.a * 1.4));
+  if (shape > 1.5) {
+    vec4 f = vxFoeFlame(r, r * 0.45, q, (1.0 - vColor.a) * 0.6, hot);
+    gl_FragColor = vec4(f.rgb, f.a * min(1.0, vColor.a * 1.4) * soft);
+    return;
+  }
+  // Round 8 (both judges: the balls faded through see-through mustard and olive over the grass, f018–f020): the age
+  // (vLife.x, 0 fresh … 1 at its end) cools the ramp to deep red, then to a neutral cool charcoal, and the noise eats
+  // the ball from its edge inward; it stays opaque where it is left (vLife.y: alpha × fade-in), never a gold veil.
+  float age = vLife.x;
+  vec3 b = vxBurn(r, r * 0.45, q, age * 0.9, hot);
+  float cool = smoothstep(0.1, 0.75, age);
+  vec3 c = vxFireRamp(b.x * (1.0 - 0.8 * cool) + 0.04 * (1.0 - cool)) * b.z;
+  c = mix(c, vec3(0.03, 0.03, 0.034), smoothstep(0.45, 0.95, age) * 0.85);
+  float a = b.y * vLife.y * (1.0 - smoothstep(0.82, 1.0, age));
+  gl_FragColor = vec4(c, clamp(a, 0.0, 1.0) * soft);
 }`;
 
 /** Puff shape (QuadPool.spawn option `shape`): a fire ball with a red-orange ramp and a dark-red rim. */
@@ -210,10 +263,12 @@ export const PUFF_SLASH = 3;
 export const PUFF_STAR = 4;
 
 const MARK_FRAGMENT = /* glsl */ `
+uniform float uTime;
 varying vec2 vUv;
 varying vec4 vColor;
 varying float vSeed;
 ${VFX_NOISE_GLSL}
+${VFX_FLAME_GLSL}
 void main() {
   vec2 p = (vUv - 0.5) * 2.0;
   float r = length(p);
@@ -252,6 +307,19 @@ void main() {
     rgb = mix(vec3(0.012, 0.009, 0.007), vec3(0.06, 0.03, 0.014), clamp(smoothstep(0.3, 0.95, d) + (n - 0.5) * 0.3, 0.0, 1.0));
     // Round 5 (judge 4: lost on dusk grass): a grey ash rim round the char, lighter than dark grass, darker than sunlit.
     rgb = mix(rgb, vec3(0.13, 0.12, 0.11), smoothstep(0.68, 0.9, d + (torn - 0.5) * 0.15) * 0.85);
+  } else if (kind > 7.5) {
+    // A heat ring (kind 8, normal blend; round 8): licks of fire on a band at 0.7 of the radius, the fire ramp from deep
+    // red to orange-gold, over a wider charcoal band of its own; thickness × 2 is how hot it burns (the typing).
+    float level = thick;
+    float ang = atan(p.y, p.x);
+    float n = vxNoise(vec2(ang * 4.0 + 3.0, r * 5.0 - uTime * 2.6));
+    float n2 = vxNoise(vec2(ang * 9.0 - uTime * 1.7, r * 9.0 + 1.3));
+    float lick = (n * 0.65 + n2 * 0.35);
+    float d = abs(r - 0.7 - (lick - 0.5) * 0.08);
+    float fire = (1.0 - smoothstep(0.03, 0.09 + 0.08 * lick * level, d)) * smoothstep(0.25, 0.55, lick + level * 0.3);
+    float backing = 1.0 - smoothstep(0.08, 0.2, abs(r - 0.7));
+    rgb = mix(vec3(0.03, 0.028, 0.03), vxFireRamp(clamp(fire * (0.4 + 0.5 * level) * (0.7 + 0.5 * n2), 0.0, 0.78)), smoothstep(0.05, 0.3, fire));
+    a = max(backing * 0.6, fire);
   } else if (kind > 6.5) {
     // Claw scratches (kind 7; thickness carries a seed): three torn dark grooves across the quad's x axis with a pale
     // rim, where a foe's blow struck stone or ground.
@@ -280,6 +348,11 @@ export class QuadPool {
   private readonly iPos: Float32Array;
   private readonly iData: Float32Array;
   private readonly iColor: Float32Array;
+  /** Per drawn quad: its fade progress (0 … 1), alpha × fade-in, the ground under it (soft fade; −1e5: none). */
+  private readonly iLife: Float32Array;
+  private readonly ground: Float32Array;
+  /** Seconds before a quad is drawn at all (a layer born a few frames after the one that spawned it). */
+  private readonly delay: Float32Array;
   private readonly x: Float32Array;
   private readonly y: Float32Array;
   private readonly z: Float32Array;
@@ -303,11 +376,14 @@ export class QuadPool {
   private time = 0;
   live = 0;
 
-  constructor(readonly capacity: number, flat: boolean, blending: THREE.Blending, renderOrder: number, private readonly random: () => number = Math.random) {
+  constructor(readonly capacity: number, flat: boolean, blending: THREE.Blending, renderOrder: number, private readonly random: () => number = Math.random, private readonly groundAt: ((x: number, z: number) => number) | null = null) {
     const f = (n = 1): Float32Array => new Float32Array(capacity * n);
     this.iPos = f(3);
     this.iData = f(4);
     this.iColor = f(4);
+    this.iLife = f(3);
+    this.ground = f();
+    this.delay = f();
     [this.x, this.y, this.z, this.vx, this.vy, this.vz, this.size, this.grow, this.rot, this.spin, this.alpha, this.life, this.total, this.fadeIn, this.drag, this.seed] = [
       f(), f(), f(), f(), f(), f(), f(), f(), f(), f(), f(), f(), f(), f(), f(), f(),
     ];
@@ -321,9 +397,10 @@ export class QuadPool {
     geometry.setAttribute("iPos", new THREE.InstancedBufferAttribute(this.iPos, 3).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iData", new THREE.InstancedBufferAttribute(this.iData, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.iColor, 4).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("iLife", new THREE.InstancedBufferAttribute(this.iLife, 3).setUsage(THREE.DynamicDrawUsage));
     geometry.instanceCount = 0;
     const material = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 } },
+      uniforms: { uTime: { value: 0 }, uSoftM: { value: 0.8 } },
       vertexShader: PUFF_VERTEX,
       fragmentShader: flat ? MARK_FRAGMENT : PUFF_FRAGMENT,
       transparent: true,
@@ -346,10 +423,12 @@ export class QuadPool {
    * life; `kind` + thickness for flat marks (1 ring, 2 disc, 3 net, 4 area, 5 blast scorch, 6 scorch embers; 5 and 6
    * read the thickness as a seed); `shape` for billboards (0 soft puff, PUFF_FIRE); `hold` s at full alpha before the fade.
    */
-  spawn(x: number, y: number, z: number, size: number, life: number, color: THREE.Color, alpha: number, options: { vx?: number; vy?: number; vz?: number; grow?: number; rot?: number; spin?: number; fadeIn?: number; hold?: number; drag?: number; kind?: number; thickness?: number; seed?: number; shape?: number } = {}): number {
+  spawn(x: number, y: number, z: number, size: number, life: number, color: THREE.Color, alpha: number, options: { vx?: number; vy?: number; vz?: number; grow?: number; rot?: number; spin?: number; fadeIn?: number; hold?: number; drag?: number; kind?: number; thickness?: number; seed?: number; shape?: number; delay?: number } = {}): number {
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % this.capacity;
     if (this.life[i]! <= 0) this.live += 1;
+    this.ground[i] = !this.flat && this.groundAt !== null ? this.groundAt(x, z) : -1e5;
+    this.delay[i] = Math.max(0, options.delay ?? 0);
     this.x[i] = x;
     this.y[i] = y;
     this.z[i] = z;
@@ -388,6 +467,16 @@ export class QuadPool {
     let live = 0;
     for (let i = 0; i < this.capacity; i += 1) {
       if (this.life[i]! <= 0) continue;
+      if (this.delay[i]! > 0) {
+        // Not yet born: drawn from the frame its delay runs out (at age 0 then).
+        this.delay[i] = this.delay[i]! - dt;
+        if (this.delay[i]! > 1e-6) {
+          live += 1;
+          continue;
+        }
+        this.delay[i] = 0;
+        this.life[i] = this.life[i]! + dt;
+      }
       const left = this.life[i]! - dt;
       this.life[i] = left;
       if (left <= 0) continue;
@@ -419,6 +508,9 @@ export class QuadPool {
       this.iColor[n * 4 + 1] = this.color[i * 3 + 1]!;
       this.iColor[n * 4 + 2] = this.color[i * 3 + 2]!;
       this.iColor[n * 4 + 3] = this.alpha[i]! * fade;
+      this.iLife[n * 3] = out;
+      this.iLife[n * 3 + 1] = this.alpha[i]! * fadeIn;
+      this.iLife[n * 3 + 2] = this.ground[i]!;
       n += 1;
     }
     this.live = live;
@@ -427,10 +519,17 @@ export class QuadPool {
     geometry.getAttribute("iPos").needsUpdate = true;
     geometry.getAttribute("iData").needsUpdate = true;
     geometry.getAttribute("iColor").needsUpdate = true;
+    geometry.getAttribute("iLife").needsUpdate = true;
+  }
+
+  /** Soft fade distance against the ground (m; billboards only). */
+  set softM(value: number) {
+    this.mesh.material.uniforms.uSoftM!.value = value;
   }
 
   clear(): void {
     this.life.fill(0);
+    this.delay.fill(0);
     this.live = 0;
   }
 
@@ -457,30 +556,42 @@ attribute vec3 iPos;
 attribute vec4 iColor;
 attribute float iSize;
 attribute float iLift;
+attribute float iGround;
 varying vec2 vUv;
 varying vec4 vColor;
+varying vec3 vWorld;
+varying float vGround;
 void main() {
   vUv = uv;
   vColor = iColor;
+  vGround = iGround;
   vec4 view = modelViewMatrix * vec4(iPos, 1.0);
   // Lifted toward the eye: the plane sits in front of what is just behind the flare (Hỏa Long's head).
   view.z += iLift;
-  view.xy += position.xy * iSize;
+  vec2 corner = position.xy * iSize;
+  view.xy += corner;
+  vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+  vWorld = (modelMatrix * vec4(iPos, 1.0)).xyz + right * corner.x + up * corner.y;
   gl_Position = projectionMatrix * view;
 }`;
 
 // A small hot centre (≤ 30 % of the radius) over a soft coloured body; the colour is HDR, so only the centre
 // reaches the bloom threshold (05 §2.1: 1.6) and the rim keeps the fire's hue.
 const FLARE_FRAGMENT = /* glsl */ `
+uniform float uSoftM;
 varying vec2 vUv;
 varying vec4 vColor;
+varying vec3 vWorld;
+varying float vGround;
+${VFX_SOFT_GLSL}
 void main() {
   float r = length((vUv - 0.5) * 2.0);
   if (r >= 1.0 || vColor.a <= 0.0) discard;
   float body = pow(1.0 - r, 2.0);
   float core = 1.0 - smoothstep(0.0, 0.3, r);
-  // Additive with alpha 1: the frame gains colour × shape × alpha.
-  gl_FragColor = vec4(vColor.rgb * (body * 0.7 + core * 0.8) * vColor.a, 1.0);
+  // Additive with alpha 1: the frame gains colour × shape × alpha (soft against the ground, round 8).
+  gl_FragColor = vec4(vColor.rgb * (body * 0.7 + core * 0.8) * vColor.a * vxSoftGround(vWorld, vGround, uSoftM), 1.0);
 }`;
 
 /**
@@ -495,7 +606,8 @@ export class FlarePool {
   private readonly iColor: Float32Array;
   private readonly iSize: Float32Array;
   private readonly iLift: Float32Array;
-  /** Timed flares: x y z, size, grow, r g b, alpha, age, life, hold, lift. */
+  private readonly iGround: Float32Array;
+  /** Timed flares: x y z, size, grow, r g b, alpha, age, life, hold, lift, ground. */
   private readonly timed: Float32Array;
   private readonly timedCount: number;
   private cursor = 0;
@@ -503,13 +615,14 @@ export class FlarePool {
   private now = 0;
   live = 0;
 
-  constructor(readonly capacity: number) {
+  constructor(readonly capacity: number, private readonly groundAt: ((x: number, z: number) => number) | null = null) {
     this.timedCount = Math.floor(capacity / 2);
-    this.timed = new Float32Array(this.timedCount * 13);
+    this.timed = new Float32Array(this.timedCount * 14);
     this.iPos = new Float32Array(capacity * 3);
     this.iColor = new Float32Array(capacity * 4);
     this.iSize = new Float32Array(capacity);
     this.iLift = new Float32Array(capacity);
+    this.iGround = new Float32Array(capacity).fill(-1e5);
     const base = new THREE.PlaneGeometry(1, 1);
     const geometry = new THREE.InstancedBufferGeometry();
     geometry.index = base.index;
@@ -519,12 +632,22 @@ export class FlarePool {
     geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.iColor, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iSize", new THREE.InstancedBufferAttribute(this.iSize, 1).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iLift", new THREE.InstancedBufferAttribute(this.iLift, 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("iGround", new THREE.InstancedBufferAttribute(this.iGround, 1).setUsage(THREE.DynamicDrawUsage));
     geometry.instanceCount = 0;
-    const material = new THREE.ShaderMaterial({ vertexShader: FLARE_VERTEX, fragmentShader: FLARE_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const material = new THREE.ShaderMaterial({ uniforms: { uSoftM: { value: 0.8 } }, vertexShader: FLARE_VERTEX, fragmentShader: FLARE_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 6;
-    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 13 + 10] = 0;
+    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 14 + 10] = 0;
+  }
+
+  /** Soft fade distance against the ground (m). */
+  set softM(value: number) {
+    this.mesh.material.uniforms.uSoftM!.value = value;
+  }
+
+  private groundOf(at: THREE.Vector3): number {
+    return this.groundAt === null ? -1e5 : this.groundAt(at.x, at.z);
   }
 
   /**
@@ -533,9 +656,9 @@ export class FlarePool {
    * nearer the eye than `at` (depth only).
    */
   flare(at: THREE.Vector3, size: number, color: THREE.Color, intensity: number, life: number, hold: number, grow = 0, alpha = 1, lift = 0): void {
-    const o = this.cursor * 13;
+    const o = this.cursor * 14;
     this.cursor = (this.cursor + 1) % this.timedCount;
-    this.timed.set([at.x, at.y, at.z, size, grow, color.r * intensity, color.g * intensity, color.b * intensity, alpha, 0, Math.max(0.001, life), Math.max(0, hold), lift], o);
+    this.timed.set([at.x, at.y, at.z, size, grow, color.r * intensity, color.g * intensity, color.b * intensity, alpha, 0, Math.max(0.001, life), Math.max(0, hold), lift, this.groundOf(at)], o);
   }
 
   /** A sprite for this frame only (call before update). */
@@ -543,11 +666,12 @@ export class FlarePool {
     if (this.drawn >= this.capacity - this.timedCount) return;
     const n = this.timedCount + this.drawn;
     this.drawn += 1;
-    this.write(n, at.x, at.y, at.z, size, color.r * intensity, color.g * intensity, color.b * intensity, alpha, lift);
+    this.write(n, at.x, at.y, at.z, size, color.r * intensity, color.g * intensity, color.b * intensity, alpha, lift, this.groundOf(at));
   }
 
-  private write(slot: number, x: number, y: number, z: number, size: number, r: number, g: number, b: number, a: number, lift: number): void {
+  private write(slot: number, x: number, y: number, z: number, size: number, r: number, g: number, b: number, a: number, lift: number, ground: number): void {
     this.iLift[slot] = lift;
+    this.iGround[slot] = ground;
     this.iPos[slot * 3] = x;
     this.iPos[slot * 3 + 1] = y;
     this.iPos[slot * 3 + 2] = z;
@@ -563,7 +687,7 @@ export class FlarePool {
     this.now += dt;
     let live = 0;
     for (let i = 0; i < this.timedCount; i += 1) {
-      const o = i * 13;
+      const o = i * 14;
       const life = this.timed[o + 10]!;
       const age = this.timed[o + 9]!;
       if (life <= 0 || age >= life) {
@@ -577,7 +701,7 @@ export class FlarePool {
       // It grows only once its hold is over: frame 0 is the peak in size as in brightness (28/10 capture: grown
       // from frame 0, frame 1 drew 2–6 % brighter round the centre).
       const size = this.timed[o + 3]! * (1 + this.timed[o + 4]! * Math.max(0, (age - hold) / Math.max(1e-6, life - hold)));
-      this.write(i, this.timed[o]!, this.timed[o + 1]!, this.timed[o + 2]!, size, this.timed[o + 5]!, this.timed[o + 6]!, this.timed[o + 7]!, this.timed[o + 8]! * k, this.timed[o + 12]!);
+      this.write(i, this.timed[o]!, this.timed[o + 1]!, this.timed[o + 2]!, size, this.timed[o + 5]!, this.timed[o + 6]!, this.timed[o + 7]!, this.timed[o + 8]! * k, this.timed[o + 12]!, this.timed[o + 13]!);
       this.timed[o + 9] = age + dt;
     }
     this.live = live + this.drawn;
@@ -587,11 +711,12 @@ export class FlarePool {
     geometry.getAttribute("iColor").needsUpdate = true;
     geometry.getAttribute("iSize").needsUpdate = true;
     geometry.getAttribute("iLift").needsUpdate = true;
+    geometry.getAttribute("iGround").needsUpdate = true;
     this.drawn = 0;
   }
 
   clear(): void {
-    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 13 + 10] = 0;
+    for (let i = 0; i < this.timedCount; i += 1) this.timed[i * 14 + 10] = 0;
     this.drawn = 0;
   }
 
@@ -682,6 +807,8 @@ export interface FxCoreOptions {
   heightAt?: (x: number, z: number) => number;
   /** True where the river covers the ground (no scorch on water); default: never. */
   wetAt?: (x: number, z: number) => boolean;
+  /** 0 on the water … 1 a hand above it (decals fade along the bank, not on a grid line); default from wetAt. */
+  dryAt?: (x: number, z: number) => number;
   /** Drawn foe positions (view/actors). */
   locator?: FoeLocator;
   /** View-side randomness (default Math.random). */
@@ -747,6 +874,8 @@ export class FxCore {
   readonly sky: SkyFire;
   /** The foes' blows and spawns (VFX step 3). */
   readonly foes: FoeFx;
+  /** Firefly flipbooks (round 8): real fire for each phase, where an atlas is in (flipbook.ts). */
+  readonly flip: FlipbookSet;
   /** Where Hỏa Long's mouth is this frame (setMouth) and the flat way it faces (from the dais out). */
   private readonly mouthAt = new THREE.Vector3(0, 4.2, -0.8);
   private readonly facing = new THREE.Vector3(0, 0, -1);
@@ -785,6 +914,7 @@ export class FxCore {
   readonly random: () => number;
   private readonly heightOf: (x: number, z: number) => number;
   private readonly wetOf: (x: number, z: number) => boolean;
+  private readonly dryOf: (x: number, z: number) => number;
   locator: FoeLocator | null;
   /**
    * World-size multiplier of the fire effects (bolts, impacts, Phun Lửa, Thiên Hỏa), set each frame from the camera
@@ -801,20 +931,23 @@ export class FxCore {
     this.random = options.random ?? Math.random;
     this.heightOf = options.heightAt ?? (() => 0);
     this.wetOf = options.wetAt ?? (() => false);
+    const wet = this.wetOf;
+    this.dryOf = options.dryAt ?? ((x, z) => (wet(x, z) ? 0 : 1));
     this.locator = options.locator ?? null;
     this.group.name = "fx";
     const budget = FX_BUDGET[quality];
     const tex = textures();
     this.sparks = new ParticlePool(Math.round(budget.particles * 0.6), tex.spark, false, this.random);
     this.glows = new ParticlePool(Math.round(budget.particles * 0.4), tex.soft, false, this.random);
-    this.puffs = new QuadPool(quality === "low" ? 120 : 260, false, THREE.NormalBlending, 5, this.random);
+    this.puffs = new QuadPool(quality === "low" ? 120 : 260, false, THREE.NormalBlending, 5, this.random, this.heightOf);
     this.rings = new QuadPool(64, true, THREE.AdditiveBlending, 4, this.random);
     this.marks = new QuadPool(96, true, THREE.NormalBlending, 2, this.random);
     this.debris = new Debris(budget.debris, { profile: DRAGON, floorY: this.heightOf(0, 0) + 0.04, random: this.random });
-    this.flares = new FlarePool(96);
+    this.flares = new FlarePool(96, this.heightOf);
     this.reduced = options.reduced ?? false;
     this.group.add(this.marks.mesh, this.rings.mesh, this.puffs.mesh, this.debris.mesh, this.glows.points, this.sparks.points, this.flares.mesh);
-    this.light = (options.mouthLight ?? FX_MOUTH_LIGHT[quality]) ? new THREE.PointLight("#ff9a4a", 0, 14, 2) : null;
+    // Round 8 (judge B: on the light dais the release washed the stone pale orange): a more saturated light.
+    this.light = (options.mouthLight ?? FX_MOUTH_LIGHT[quality]) ? new THREE.PointLight("#ff8436", 0, 14, 2) : null;
     if (this.light !== null) {
       this.light.name = "fx-mouth-light";
       this.light.castShadow = false;
@@ -844,6 +977,8 @@ export class FxCore {
     this.group.add(this.cones.group);
     this.embers.mesh.renderOrder = 5.5;
     this.group.add(this.embers.mesh);
+    this.flip = new FlipbookSet(blankTexture(), { "fireball-head": 32, "charge-orb": 8, embers: 24, "ground-fire": 24, "smoke-roll": 24 });
+    this.group.add(this.flip.group);
     this.sky = new SkyFire(this, 3, quality);
     this.group.add(this.sky.group);
     this.foes = new FoeFx(this);
@@ -866,6 +1001,12 @@ export class FxCore {
     });
     renderer.compile(scene, camera);
     for (const object of hidden) object.visible = false;
+    // Atlases upload as they arrive (not on the first frame they are drawn in a wave); those already in, now.
+    this.flip.upload = (texture) => renderer.initTexture(texture);
+    for (const id of flipbooks.ids()) {
+      const entry = flipbooks.get(id);
+      if (entry !== null) renderer.initTexture(entry.texture);
+    }
     if (draw) this.warmDraw(camera, draw);
   }
 
@@ -901,7 +1042,9 @@ export class FxCore {
     this.update(1 / 120, 0, eye, 600);
     // After the update: Sky Fire's update hides its rune circle while no cast is active.
     this.sky.warmShow(at, eye);
+    this.flip.warm(at);
     draw();
+    this.flip.clear();
     this.flares.clear();
     this.puffs.clear();
     this.rings.clear();
@@ -990,7 +1133,7 @@ export class FxCore {
       // `life`), ≥ 3 px wide at 720p with a bright red-orange head and a dark tail.
       const g = this.rand(7, 13) * (this.random() < 0.5 ? 1 : -1) * rk;
       const velocity = this.u.set((this.mouthAt.x - start.x) / life, (this.mouthAt.y - start.y) / life + 0.5 * g * life, (this.mouthAt.z - start.z) / life);
-      this.embers.spawn(start, velocity, i === 0 ? this.chargeTint() : FX_COLORS.ember, 2.6 * soft, 0.28 * rk, 0.05, life, 0, g);
+      this.embers.spawn(start, velocity, i === 0 ? this.chargeTint() : FX_COLORS.ember, 2.6 * soft, 0.26 * rk, 0.08, life, 0, g);
     }
   }
 
@@ -1023,20 +1166,27 @@ export class FxCore {
     // Round 5 (judge 4: flat orange cut-outs, the mouth no brighter on release, the flash 20 px against the ≥ 1.5×
     // head rule): three layers, a hot additive core, the eroded orange body, dark soot at its root and edges; and a
     // mouth flash of about 75 px (50 px plain) at the 1080p play camera, held 2 frames.
-    const g = (strong ? 1 : 0.65) * big;
+    // Round 8 (judge B: on the light dais the plain jet melted into the stone): a plain jet 0.8 of a strong one's.
+    const g = (strong ? 1 : 0.8) * big;
     const heat = strong ? 1 : 0.9;
     this.w.set(ux, 0.04, uz).normalize();
     // Body: the cone of fire from the snout, torn by noise, held 2 frames, eaten by frame 8 (normal blend).
     // Round 7 (judge 6): about 75 % as long, its far end split into tongues (vfx-layers CONE_FRAGMENT).
-    this.cones.cone(this.u.copy(at).addScaledVector(this.w, 0.15 * s), this.w, 2.6 * s * g, 0.85 * s * g, WORD_FX.jetS, WORD_FX.flashHoldS, soft);
+    // Round 8: the Firefly muzzle flash (its tongues grow out of its left edge, turned along the shot) carries the
+    // fire's material; the code cone stays under it for volume, lighter.
+    const muzzle = this.flip.pick("muzzle-flash");
+    if (muzzle !== null) {
+      muzzle.spawn(this.u.copy(at).addScaledVector(this.w, 0.05 * s), FLIP_FILL["muzzle-flash"] * 1.25 * s * g, { dir: this.w, life: (strong ? 15 : 12) / 60, intensity: strong ? 1.25 : 1.1, occlude: 0.85, fadeOut: 0.1 });
+    }
+    this.cones.cone(this.u.copy(at).addScaledVector(this.w, 0.15 * s), this.w, 2.6 * s * g, 0.85 * s * g, WORD_FX.jetS, WORD_FX.flashHoldS, soft * (muzzle !== null ? 0.6 : 1));
     const near = 1.05 * s * g;
     this.puffs.spawn(at.x + ux * near, at.y - 0.05, at.z + uz * near, 1.3 * s * g, 6 / 60, FX_COLORS.releaseBall, 0.95, { vx: ux * 4, vz: uz * 4, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.25, rot: this.random() * TAU, shape: PUFF_FIRE });
     // Hot core (additive, HDR): a flame core down the jet's axis, ≤ 30 % of its width, and two thinner licks.
     this.tongue(at, ux, 0.05, uz, 0, 3.0 * g, 0.42 * g, 0.5, 0.1, WORD_FX.tongueS, true);
     this.tongue(at, ux, 0.1, uz, this.rand(0.12, 0.22), 2.1 * g, 0.22 * g, -1, 0.3, WORD_FX.tongueS, true);
-    // Fire tongues out of the body (normal blend).
+    // Fire tongues out of the body (normal blend), uneven: one long, one short (judge A round 7: two alike horns).
     this.tongue(at, ux, 0.08, uz, this.rand(0.22, 0.36), 2.4 * g, 0.4 * g, -1, 0.6 * g);
-    if (strong) this.tongue(at, ux, 0.02, uz, -this.rand(0.16, 0.3), 2.9, 0.36, 1, 0.6);
+    if (strong || muzzle === null) this.tongue(at, ux, 0.02, uz, -this.rand(0.16, 0.3), (strong ? 1.7 : 1.4) * g, 0.32 * g, 1, 0.5);
     // The mouth flash (L10): a white-hot core in a gold-orange flare, full on frames 0–1, lifted in front of the head.
     // On the merged map's light dais (luma 0.72) the orange body darkens the box round the mouth; the hot core and the
     // flash carry the light: bigger and hotter than in the first round-5 capture.
@@ -1055,10 +1205,12 @@ export class FxCore {
     // Its white heart on the release point (the flash's own cell): the gather orb, as big as the judge asked, lit
     // that cell before; the release frame must still be the brightest there (§5.6, first frame ≥ 95 % of the peak).
     const star = this.flashAt.set(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s);
-    this.flares.flare(star, 0.6 * s * g, FX_COLORS.flashCore, 3.4 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, 0);
+    // Round 8 (judge A: a strong word's f000 was a soft peach glow, its star only on f001): the additive core and the
+    // frame-0 burst are the same size for both grades and smaller than the star, so the star reads on its first frame.
+    this.flares.flare(star, 0.45 * s * big, FX_COLORS.flashCore, 3.4 * heat * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.1, 1, 0);
     // Frame 0 only: a white-gold burst, so the release frame outshines the spent gather (§5.6 first frame ≥ 95 %).
-    this.flares.flare(star, 0.95 * s * big, FX_COLORS.fireHot, 3.4 * soft, 2 / 60, 1 / 60, 0, 1, 0);
-    this.flares.flare(this.u.copy(at).addScaledVector(this.w, 0.6 * s), 0.8 * s * g, hot, (strong ? 1.0 : 0.85) * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, 0);
+    this.flares.flare(star, 0.7 * s * big, FX_COLORS.fireHot, 3.0 * soft, 2 / 60, 1 / 60, 0, 1, 0);
+    this.flares.flare(this.u.copy(at).addScaledVector(this.w, 0.75 * s), 0.6 * s * g, hot, (strong ? 1.0 : 0.85) * soft, WORD_FX.flashS, WORD_FX.flashHoldS, 0.2, 1, 0);
     // Dark soot at the jet's root and edges, in from frame 2, gone by frame 8 (§3.5 rule 4: dark under the bright).
     const sideX = -uz;
     const sideZ = ux;
@@ -1209,6 +1361,20 @@ export class FxCore {
     if (!found) this.impact(fallback, tier, dirX, dirZ, false);
   }
 
+  private readonly trailCell = new THREE.Vector4();
+
+  /** The flame-trail flipbook's frame for a fire ribbon now (none loaded: the ribbon's own noise). */
+  trailTexture(ribbon: Streak, time: number): void {
+    const pool = this.flip.pools["flame-trail"];
+    const meta = pool.meta;
+    if (meta === null) {
+      ribbon.setTrail(null, null);
+      return;
+    }
+    const frame = Math.floor(time * meta.fps) % meta.frames;
+    ribbon.setTrail(pool.mesh.material.uniforms.uMap!.value as THREE.Texture, cellRect(meta, frame, this.trailCell));
+  }
+
   /** The thin dark smoke strand behind a bolt's fire (L4): from just behind the head at `t` back over the flight. */
   private smokeStrand(bolt: Bolt, t: number, eye: THREE.Vector3, time: number, intensity: number): void {
     const smoke = bolt.smoke;
@@ -1301,25 +1467,35 @@ export class FxCore {
       // With the bright layer, not after it (judge 5: the dark only came at f018–f024).
       this.puffs.spawn(back.x + this.rand(-0.3, 0.3) * s, back.y + (0.2 + k * 0.25) * s, back.z + this.rand(-0.3, 0.3) * s, mass * (1.0 + 0.15 * k), 0.8, FX_COLORS.char, 0.65 * soft, { vy: 1.0, grow: 0.8, fadeIn: 0.001, hold: 0.12, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
     }
-    // The fire bodies (normal blend): gold-middled, one thrown along the blow, one rising; thinning from frame 2.
-    // Round 6 (judge 5: a one-tone blob hiding the foe for 6 frames): the flame-material balls sit round the struck body
-    // (above it and to either side), so its white flash and recoil show in the middle.
-    // Round 7 (judge 6: a separate round mass under the foe): the flanking balls go left and right on screen (the
-    // camera's right, flat), not across the shot, which on a shot across the screen put one under the foe.
+    // The fire bodies, behind and over the struck body (it is drawn in front of them, so its white flash and recoil
+    // show). Round 8 (both judges, round 7: 2–3 alike flat "stamps" full-size at f012 and still until f016, then a
+    // see-through mustard fade): one rolling burst that swells, layered in depth and in time.
     this.w.subVectors(hit, this.eye);
     const flatLen = Math.hypot(this.w.x, this.w.z) || 1;
     const sideX = -this.w.z / flatLen;
     const sideZ = this.w.x / flatLen;
-    // The side balls behind the body (it is drawn in front of them), lifted off the ground.
     const rear = this.hitRear.subVectors(hit, this.eye).normalize().multiplyScalar(0.35 * rk).add(hit);
-    // Round 7 (judge 6: a separate round mass under the foe): the hot ball sits at the plume's base, behind and over
-    // the body, where the tongues rise from.
-    this.puffs.spawn(rear.x, rear.y + 0.38 * mass, rear.z, mass * 0.85, 8 / 60, FX_COLORS.releaseBall, 0.95, { vy: 1.4, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.35, rot: this.random() * TAU, shape: PUFF_FIRE });
+    const ground = this.heightOf(hit.x, hit.z);
     // And a dark oval on the ground round the foe from the hit frame (judge 6 kept it; earlier and charcoal now).
     if (!this.wetOf(hit.x, hit.z)) this.marks.spawn(hit.x, this.markY(hit.x, hit.z, mass * 1.6) + 0.04, hit.z, mass * 1.6, 0.7, FX_COLORS.char, 0.5 * soft, { kind: 2, fadeIn: 0.001, hold: 0.25, drag: 0, rot: this.random() * TAU });
-    this.puffs.spawn(rear.x + sideX * 0.48 * mass, rear.y + 0.3 * mass, rear.z + sideZ * 0.48 * mass, mass * 0.85, 10 / 60, FX_COLORS.ember, 0.97, { vx: sideX * 3 + ux * 2, vy: 1.4, vz: sideZ * 3 + uz * 2, fadeIn: 0.001, hold: 1 / 60, grow: 0.4, rot: this.random() * TAU, shape: PUFF_FIRE });
-    this.puffs.spawn(rear.x, rear.y + 0.6 * mass, rear.z, mass * 0.75, 12 / 60, FX_COLORS.ember, 0.97, { vy: 2.2, fadeIn: 0.001, hold: 1 / 60, grow: 0.5, rot: this.random() * TAU, shape: PUFF_FIRE });
-    this.puffs.spawn(rear.x - sideX * 0.48 * mass, rear.y + 0.3 * mass, rear.z - sideZ * 0.48 * mass, mass * 0.8, 11 / 60, FX_COLORS.fireDeep, 0.97, { vx: -sideX * 3 + ux * 2, vy: 1.4, vz: -sideZ * 3 + uz * 2, fadeIn: 0.001, hold: 1 / 60, grow: 0.45, rot: this.random() * TAU, shape: PUFF_FIRE });
+    const book = strong ? this.flip.pick("impact-big", "impact-burst", "fire-burst") : this.flip.pick("impact-burst", "fire-burst", "impact-big");
+    if (book !== null) {
+      // The Firefly burst: real rolling fire with inner shadows and a smoke tail. A second, smaller clip to one side
+      // on screen, turned and two frames later, gives the blast depth; the code balls are not drawn.
+      const fill = FLIP_FILL[book.id];
+      const rate = FLIP_RATE[book.id] ?? 3;
+      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill, { rate, rot: this.rand(-0.3, 0.3), grow: 0.15, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.7, fadeOut: 0.15 });
+      book.spawn(this.v.set(rear.x + sideX * 0.42 * mass, rear.y + 0.55 * mass, rear.z + sideZ * 0.42 * mass), size * fill * 0.55, { rate: rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.4, delay: 2 / 60, fadeOut: 0.12 });
+      const sparkBook = this.flip.pick("embers");
+      if (sparkBook !== null) sparkBook.spawn(this.v.set(front.x, front.y, front.z), size * (strong ? 1.5 : 1.2), { rate: FLIP_RATE.embers, rot: this.rand(0, TAU), intensity: 1.2, occlude: 0.35, ground, delay: 1 / 60, fadeOut: 0.2 });
+    } else {
+      // Code-drawn: one main mass that swells (0.7 → 1.15 of it over its life), two smaller ones to either side on
+      // screen born 2 and 3 frames later, each its own size and turn, cooling to deep red and charcoal (PUFF_FIRE).
+      this.puffs.spawn(rear.x, rear.y + 0.38 * mass, rear.z, mass * 0.72, 13 / 60, FX_COLORS.releaseBall, 0.95, { vy: 1.4, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.6, rot: this.random() * TAU, shape: PUFF_FIRE });
+      this.puffs.spawn(rear.x + sideX * 0.5 * mass, rear.y + 0.32 * mass, rear.z + sideZ * 0.5 * mass, mass * 0.5, 12 / 60, FX_COLORS.ember, 0.95, { vx: sideX * 2.5 + ux * 1.5, vy: 1.6, vz: sideZ * 2.5 + uz * 1.5, fadeIn: 0.001, grow: 0.8, rot: this.random() * TAU, shape: PUFF_FIRE, delay: 2 / 60 });
+      this.puffs.spawn(rear.x - sideX * 0.45 * mass, rear.y + 0.58 * mass, rear.z - sideZ * 0.45 * mass, mass * 0.42, 11 / 60, FX_COLORS.fireDeep, 0.95, { vx: -sideX * 2.5 + ux * 1.5, vy: 2.2, vz: -sideZ * 2.5 + uz * 1.5, fadeIn: 0.001, grow: 0.9, rot: this.random() * TAU, shape: PUFF_FIRE, delay: 3 / 60 });
+      this.puffs.spawn(rear.x, rear.y + 0.85 * mass, rear.z, mass * 0.4, 14 / 60, FX_COLORS.ember, 0.9, { vy: 2.6, fadeIn: 0.001, grow: 1.0, rot: this.random() * TAU, shape: PUFF_FIRE, delay: 4 / 60 });
+    }
     // L10/L9: the hot core, additive and HDR (white ≤ 30 % of the burst's radius), in an orange glow 0.6 of it; full on
     // frames 0–1, lifted toward the eye over the body.
     const lift = 1.0 * rk;
@@ -1330,7 +1506,7 @@ export class FxCore {
     this.flares.flare(front, size * 0.38, strong ? FX_COLORS.teal : FX_COLORS.fireHot, (strong ? 0.9 : 1.0) * soft, 4 / 60, WORD_FX.flashHoldS, 0.2, 1, lift);
     // Tongues of fire thrown off the blow: a fan away from the dais and up (fire ribbons, 2 full frames, out by f9).
     // Round 6: up and out from behind the body (round 5's fan from its front hid it).
-    const tongues = (this.reduced ? 3 : 4) + (strong ? 1 : 0);
+    const tongues = (this.reduced ? 3 : 4) + (strong ? 1 : 0) - (book !== null ? 2 : 0);
     for (let k = 0; k < tongues; k += 1) {
       const yaw = (k / Math.max(1, tongues - 1) - 0.5) * 2.2 + this.rand(-0.2, 0.2);
       const len = (size / s) * this.rand(0.45, 0.7);
@@ -1339,14 +1515,16 @@ export class FxCore {
     // L8: embers flying off the blow, stretched (teal-tipped on a strong word), and a few round ones falling.
     const streaks = this.sky.streaks;
     // Round 6 (judge 5: "short pink sticks"): fewer, and orange rather than HDR pink-white.
+    // Round 8 (both judges: blunt pink, orange and teal sticks like confetti): comets (vfx-layers STREAK_FRAGMENT) of
+    // uneven length on arcs under gravity, a hot head, an orange body, a red tail; teal only on a strong word, 1 in 4.
     const n = (this.reduced ? 4 : 6) + tierId * 2;
     for (let k = 0; k < n; k += 1) {
       const yaw = this.rand(-1.3, 1.3);
       const cs = Math.cos(yaw);
       const sn = Math.sin(yaw);
-      const speed = this.rand(9, 16) * rk;
-      this.w.set((ux * cs - uz * sn) * speed, this.rand(2.5, 8) * rk, (uz * cs + ux * sn) * speed);
-      streaks.spawn(front, this.w, k % 3 === 0 ? (strong ? FX_COLORS.teal : FX_COLORS.fireHot) : FX_COLORS.ember, 1.7 * soft, 0.16 * s, 0.06, this.rand(10, 18) / 60, 2.2, 14);
+      const speed = this.rand(8, 17) * rk;
+      this.w.set((ux * cs - uz * sn) * speed, this.rand(3, 9) * rk, (uz * cs + ux * sn) * speed);
+      streaks.spawn(front, this.w, strong && k % 4 === 0 ? FX_COLORS.teal : FX_COLORS.ember, 1.9 * soft, 0.12 * s, this.rand(0.04, 0.09), this.rand(12, 22) / 60, 1.2, 16);
     }
     // 10–16 embers thrown up and falling under gravity, dark-tailed (judge 5).
     for (let k = 0; k < (this.reduced ? 8 : 10 + tierId * 2); k += 1) {
@@ -1362,7 +1540,10 @@ export class FxCore {
     if (row.ring) this.rings.spawn(hit.x, this.heightOf(hit.x, hit.z) + 0.12, hit.z, 1.2 * rk, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.6, { grow: (2.2 + tierId * 0.4) * rk, kind: 1, thickness: 0.18, drag: 0 });
     else this.rings.spawn(hit.x, this.heightOf(hit.x, hit.z) + 0.12, hit.z, 0.9 * rk, 10 / 60, FX_COLORS.ember, 0.8, { grow: 1.5 * rk, kind: 1, thickness: 0.1, drag: 0 });
     // Smoke (§3.5 rule 4): charcoal from the hit frame on (dark on sunlit grass), grey above it from frame 6 (dusk grass).
-    for (let k = 0; k < 3; k += 1) {
+    // Round 8: a Firefly smoke roll (dark smoke filmed on white) when its atlas is in, and fewer code puffs.
+    const roll = this.flip.pick("smoke-roll");
+    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.5 * s, hit.z), mass * 1.5, { rate: 0.9, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.char, alpha: 0.85 * soft, ground: this.heightOf(hit.x, hit.z), vy: 1.0, delay: 4 / 60, fadeIn: 0.08, fadeOut: 0.35 });
+    for (let k = 0; k < (roll !== null ? 1 : 3); k += 1) {
       this.puffs.spawn(hit.x + this.rand(-0.35, 0.35) * s, hit.y + (0.25 + k * 0.15) * s, hit.z + this.rand(-0.35, 0.35) * s, (0.85 + k * 0.12) * s * big, this.rand(0.7, 0.95), FX_COLORS.char, 0.6 * (this.reduced ? 0.7 : 1), { vy: 1.1, vx: ux * 0.5, vz: uz * 0.5, grow: 1.3, fadeIn: k / 60 + 0.001, spin: this.rand(-1, 1), rot: this.random() * TAU });
     }
     for (let k = 0; k < 2; k += 1) {
@@ -1509,6 +1690,10 @@ export class FxCore {
     return this.wetOf(x, z);
   }
 
+  dryAt(x: number, z: number): number {
+    return this.dryOf(x, z);
+  }
+
   mouthPoint(out: THREE.Vector3): THREE.Vector3 {
     return out.copy(this.mouthAt);
   }
@@ -1648,7 +1833,8 @@ export class FxCore {
     const life = 0.16;
     const start = this.w.set(to.x, to.y + 1.2, to.z);
     const velocity = this.u.set((from.x - start.x) / life, (from.y - start.y) / life, (from.z - start.z) / life);
-    this.sky.streaks.spawn(start, velocity, FX_COLORS.fireHot, 2.2 * (this.reduced ? 0.7 : 1), 0.12 * s, 0.03, life, 0, 0);
+    // Round 8 (judge B: a thin yellow-white laser line, lost at 720): an ember comet 3–6 px wide, its tail ≈ 1.5 m.
+    this.embers.spawn(start, velocity, FX_COLORS.ember, 2.4 * (this.reduced ? 0.7 : 1), 0.2 * s, Math.min(0.03, 1.5 / Math.max(1, velocity.length())), life, 0, 0);
     this.glows.spawn(start, velocity, FX_COLORS.fireHot, 0.6 * s, life, { drag: 0, grow: -0.2 });
   }
 
@@ -1860,12 +2046,18 @@ export class FxCore {
       for (let i = 0; i < n; i += 1) this.bezier(bolt, bolt.arc, bolt.t - (span * i) / (n - 1), bolt.trail.points[i]!);
       // Round 5 (judge 4): the head is there at the mouth from frame 0, inside the mouth flash (the ribbon too).
       const born = 1;
+      this.trailTexture(bolt.trail, time);
       bolt.trail.update(cameraPos, width, bolt.t < 1 ? born : Math.max(0, 1 - bolt.waited * 6), time);
       this.smokeStrand(bolt, bolt.t, cameraPos, time, bolt.t < 1 ? born : 1);
       if (bolt.t < 1) {
         // The head: a fire ball with a dark rim (PUFF_FIRE, drawn for this frame) round a hot core: teal on a strong word,
         // wrapped in orange fire so it still reads as fire (judge 3); an HDR heart over it.
-        this.puffs.spawn(head.x, head.y, head.z, (bolt.strong ? 1.35 : 0.98) * this.k, 1 / 30, FX_COLORS.releaseBall, 0.97 * born, { fadeIn: 0.001, hold: 1 / 30, spin: 5, rot: this.random() * TAU, shape: PUFF_FIRE });
+        // Round 8: the Firefly fireball (its flames lick back along the flight) when its atlas is in.
+        const ball = this.flip.pick("fireball-head");
+        if (ball !== null) {
+          const ahead = this.bezier(bolt, bolt.arc, Math.min(1, bolt.t + 0.03), this.w).sub(head);
+          ball.spawn(head, (bolt.strong ? 1.35 : 0.98) * this.k * FLIP_FILL["fireball-head"], { life: ONE_FRAME, frame: time * (ball.meta?.fps ?? 24) + bolt.from.x, dir: ahead.lengthSq() > 1e-8 ? ahead : null, tint: HEAD_TINT, intensity: 1.05 * born, occlude: 0.85 });
+        } else this.puffs.spawn(head.x, head.y, head.z, (bolt.strong ? 1.35 : 0.98) * this.k, 1 / 30, FX_COLORS.releaseBall, 0.97 * born, { fadeIn: 0.001, hold: 1 / 30, spin: 5, rot: this.random() * TAU, shape: PUFF_FIRE });
         // Near the end the head is drawn on the camera's side of the foe, so it does not vanish into the body (f011).
         const headLift = bolt.t > 0.75 ? 1.2 * this.k : 0;
         this.flares.draw(head, (bolt.strong ? 1.0 : 0.68) * this.k, bolt.strong ? FX_COLORS.teal : FX_COLORS.fireHot, (bolt.strong ? 1.5 : 1.4) * born, 1, headLift);
@@ -1910,6 +2102,12 @@ export class FxCore {
     // Sky Fire draws at its ages, then the light picks the strongest request of this frame (its own or a word's).
     this.sky.update(dt, time, cameraPos);
     this.updateLight(dt);
+    // Soft particles fade over about half a metre of depth at the play camera (round 8).
+    const softM = 0.55 * this.k;
+    this.puffs.softM = softM;
+    this.flares.softM = softM;
+    this.flip.softM = softM;
+    this.flip.update(dt);
     for (const emitter of this.emitters) {
       if (!emitter.active) continue;
       this.runEmitter(emitter, dt);
@@ -1943,7 +2141,9 @@ export class FxCore {
       // gather. An additive orange halo 2.5–3× its hot core grows a step a letter to about 30 px at 1080p; the core
       // (HDR, gold, teal on a clean word from half way) sits on a small fire bead with a dark rim; licks rise off it.
       const rk = Math.sqrt(s);
-      const at = this.w.set(this.mouthAt.x + this.facing.x * 0.28 * rk, this.mouthAt.y - 0.05, this.mouthAt.z + this.facing.z * 0.28 * rk);
+      // Round 8 (both judges: at the play camera the orb hid the head and neck while typing): in front of the snout
+      // along the way it faces, a little low, so the coiling head shows behind it.
+      const at = this.w.set(this.mouthAt.x + this.facing.x * 0.8 * s, this.mouthAt.y - 0.15 * rk, this.mouthAt.z + this.facing.z * 0.8 * s);
       const flicker = 0.9 + 0.1 * Math.sin(this.time * 41) * Math.sin(this.time * 17 + 1.3);
       const pulse = this.chargePulse;
       const soft = this.reduced ? 0.7 : 1;
@@ -1953,14 +2153,20 @@ export class FxCore {
       // half a clean word), no wide additive halo.
       // Round 7 (judge 6: 14 px on the last letter, smaller than the bolt head): to about 1.5× the head by then.
       // Its heart burns orange-gold, not white: the release's white star must outshine it on the next frame.
-      this.puffs.spawn(at.x, at.y, at.z, (0.45 + 1.9 * level + 0.2 * pulse) * s * flicker, 1 / 30, FX_COLORS.ember, 0.97, { fadeIn: 0.001, hold: 1 / 30, rot: this.random() * TAU, shape: PUFF_FIRE });
-      // The last letters: a heat ring on the dais under the mouth (hot additive band over a dark backing).
-      const ring = Math.max(0, Math.min(1, (level - 0.6) / 0.3));
+      // Round 8: capped at 1.5× the strong bolt head (1.35 m × k), a fifth smaller once the word has an error (judge B:
+      // the plain charge as big as the strong one); its rim a little see-through.
+      const orb = (0.4 + 1.6 * level + 0.15 * pulse) * s * flicker * (this.chargeClean ? 1 : 0.8);
+      const book = this.flip.pick("charge-orb");
+      if (book !== null) book.spawn(at, orb * FLIP_FILL["charge-orb"], { life: ONE_FRAME, frame: this.time * (book.meta?.fps ?? 24), intensity: 1.0 + 0.35 * level + 0.3 * pulse, occlude: 0.85 });
+      else this.puffs.spawn(at.x, at.y, at.z, orb, 1 / 30, FX_COLORS.ember, 0.9, { fadeIn: 0.001, hold: 1 / 30, rot: this.random() * TAU, shape: PUFF_FIRE });
+      // The last letters: a heat ring on the dais under the mouth. Round 8 (both judges: a flat salmon arc that sank into
+      // the beige stone): licks of fire on a band (normal blend, the fire ramp) over its own charcoal backing, growing
+      // with the typing.
+      const ring = Math.max(0, Math.min(1, (level - 0.45) / 0.45));
       if (ring > 0) {
         const floor = this.markY(this.mouthAt.x, this.mouthAt.z, 1.6 * s) + 0.04;
-        const r = (1.3 + 0.25 * pulse) * s;
-        this.marks.spawn(this.mouthAt.x, floor, this.mouthAt.z, r * 1.1, 1 / 30, FX_COLORS.char, 0.75 * ring * soft, { kind: 1, thickness: 0.42, fadeIn: 0.001, hold: 1 / 30, drag: 0 });
-        this.rings.spawn(this.mouthAt.x, floor + 0.02, this.mouthAt.z, r, 1 / 30, FX_COLORS.fireDeep, 2.4 * ring * flicker * soft, { kind: 1, thickness: 0.26, fadeIn: 0.001, hold: 1 / 30, drag: 0 });
+        const r = (1.25 + 0.25 * pulse) * s;
+        this.marks.spawn(this.mouthAt.x, floor, this.mouthAt.z, r * 2, 1 / 30, FX_COLORS.white, Math.min(1, ring * 1.2) * soft, { kind: 8, thickness: 0.3 + 0.6 * ring, fadeIn: 0.001, hold: 1 / 30, drag: 0 });
       }
       const core = (0.25 + 0.4 * level + 0.1 * pulse) * rk;
       this.flares.draw(at, core, this.chargeTint(), (1.4 + 1.2 * level + 0.6 * pulse) * flicker * soft, 1, lift);
@@ -1990,7 +2196,7 @@ export class FxCore {
       this.light.position.copy(this.sky.lightAt);
     } else {
       this.light.intensity = word;
-      this.light.distance = 14;
+      this.light.distance = 12;
       this.light.position.set(this.mouthAt.x + this.facing.x * 0.6, this.mouthAt.y, this.mouthAt.z + this.facing.z * 0.6);
     }
   }
@@ -2005,6 +2211,7 @@ export class FxCore {
     this.cones.dispose();
     this.embers.dispose();
     this.sky.dispose();
+    this.flip.dispose();
     this.sparks.dispose();
     this.glows.dispose();
     this.puffs.dispose();
@@ -2101,7 +2308,11 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const field = options.terrain && "field" in options.terrain ? (options.terrain as { field?: { waterLevel?: number } }).field : undefined;
   const waterLevel = field?.waterLevel;
   const wetAt = waterLevel === undefined ? undefined : (x: number, z: number) => heightAt(x, z) < waterLevel + 0.04;
-  const core = new FxCore(stage.quality, { heightAt, wetAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });
+  // Continuous: 0 at the water's edge, 1 a hand (0.3 m) above it (decals fade along the bank's own contour).
+  const dryAt = waterLevel === undefined ? undefined : (x: number, z: number) => (heightAt(x, z) - waterLevel - 0.04) / 0.3;
+  const core = new FxCore(stage.quality, { heightAt, wetAt, dryAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });
+  // The Firefly atlases (round 8): loaded once a page; each pool takes its atlas when it arrives.
+  void flipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1);
   const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
   const kickTo: ScreenPoint = { x: 0, y: 0, visible: false };
   let lastRelease: { at: number } | null = null;
@@ -2163,6 +2374,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     return out.set(x, heightAt(x, z) + (anchor === "base" ? 0 : 0.8), z);
   };
   const numberAt = new THREE.Vector3();
+  /** Foes that die in this batch of events (their word cards leave with them). */
+  const dying = new Set<number>();
   const keepBox = { x: 0, y: 0, w: 0, h: 0 };
   const telegraphMs = new Map<number, number>();
   /** Foe ids by serial from spawns (the bench and tests have no world list). */
@@ -2196,7 +2409,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     } else struck.set(tx, heightAt(tx, tz) + 0.9, tz);
     core.foes.strike({ slot, serial, foe, x, z, tx, tz, victim, hit: struck, edge: rim });
   };
-  const number = (key: number, point: THREE.Vector3, amount: number, tierId: number, style: number): void => {
+  const number = (key: number, point: THREE.Vector3, amount: number, tierId: number, style: number, leaving = false): void => {
     const row = tierRow(tierId, DRAGON.tiers);
     if (row.number === null || amount <= 0) return;
     // Born on the top of the head (judge 4: +0.7 m put it a body above it; judge 5: there, 2.5×, see NUMBER_FEEL), its
@@ -2206,6 +2419,13 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     if (!screen.visible) return;
     const up = numbers.fontPx * row.number.size * 0.8;
     const y = screen.y - up;
+    if (leaving) {
+      // Round 8 (judge A, Sky Fire fix 1: the number floated 100–170 px beside its victim): a victim that dies takes its
+      // word card with it (tags.ts fades it out, app.ts no longer keeps numbers off a leaving card), so its own card,
+      // the one standing over its head, stops guarding the head now and the number lands there. Live cards still do.
+      const reach = numbers.fontPx * row.number.size * 1.6;
+      numbers.protected = numbers.protected.filter((r) => !(Math.abs(r.x + r.w / 2 - screen.x) < Math.max(reach, r.w * 0.6) && r.y + r.h > y - reach && r.y + r.h < screen.y + 12));
+    }
     const i = numbers.spawn(key, screen.x, y, amount, style, tierId, row.number.size, row.number.life, 0, -1, nowMs / 1000);
     // Round 7 (judge 6: a Sky Fire victim's number was born 80–90 px up, over its still-live word card): the kit
     // lifts a number over any card it would cover (FEEL §2.5). When it did, try beside the card at head height
@@ -2257,6 +2477,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     onEvents(events: readonly SimEvent[], world: World): void {
       const now = nowMs;
       lastDeath = null;
+      dying.clear();
+      for (const event of events) if (event.type === "death") dying.add(event.enemy.serial);
       beamsDrawn.clear();
       // A foe's wind-up comes just before its telegraph in the same tick: the telegraph says how long it lasts.
       telegraphMs.clear();
@@ -2341,7 +2563,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
               const style = strongGrade(event.grade) ? STYLE.perfect : event.source.kind === "trap" || event.source.kind === "unit" ? STYLE.tick : event.tier >= 3 ? STYLE.crit : STYLE.normal;
               // A finishing word shows its strength: lock protection or a trap may have left the foe at 1 HP (test pass 27/10: "HOÀN HẢO 1").
               // Above the head (judge 3: "92" sat over the struck foe's head), not at its middle.
-              number(target.serial, foePoint(target.slot, target.serial, event.x, event.z, numberAt, "top"), event.damageType === "word" && event.source.kind === "hero" && event.power !== undefined ? event.power : event.amount, event.tier, style);
+              number(target.serial, foePoint(target.slot, target.serial, event.x, event.z, numberAt, "top"), event.damageType === "word" && event.source.kind === "hero" && event.power !== undefined ? event.power : event.amount, event.tier, style, event.by === "skyfire" && dying.has(target.serial));
             } else if (target.kind === "hero" || target.kind === "guide") {
               addTrauma(0.12);
               if (!options.shake) trauma.kick(0, 1, 4);

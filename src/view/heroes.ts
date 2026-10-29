@@ -80,9 +80,15 @@ export const FIRE_STRIKE = { attackL: FIRE_CLIPS.attackL + "_Strike", attackR: F
  * the wing beat play on underneath. R: on release the head kicks back on a spring (peak ~4 frames, settled by 10).
  */
 const COIL = { neck: 0.2, head: 0.13, chest: -0.08 } as const;
-const HEAD_KICK = { rad: 0.16, peakS: 0.06 } as const;
+// Round 8 (judge A: no head kick seen at the release, L18): a firmer kick, the chest giving with it.
+const HEAD_KICK = { rad: 0.22, peakS: 0.06 } as const;
 /** Sky Fire (VFX_STANDARD §5.3 part 2): the head jerks up at the release, 12 frames into the Cast clip (skyfire.ts SKY_FX.releaseS), harder than a word's. */
 const SKYFIRE_KICK = { delayS: 12 / 60, gain: 1.6 } as const;
+/**
+ * Round 8 (judge B: through Sky Fire's crouch the Dragon stood still for about 18 frames): from the release on, the
+ * chest heaves and the head follows the fireball up a little, two breaths over 0.8 s, easing out.
+ */
+const SKYFIRE_BREATH = { s: 0.8, hz: 2.4, chest: 0.07, neck: 0.05, head: -0.06 } as const;
 /** A word left half typed holds its coil this long (s), then lets go. */
 const COIL_HOLD_S = 1.4;
 /** Wing ribbons on FX_WING_L/R/L2/R2: points (one a frame), half-width (m), how long they burn after an attack (s). */
@@ -268,6 +274,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
   let typing = -1;
   let kickAge = Number.POSITIVE_INFINITY;
   let kickGain = 1;
+  let breathAge = Number.POSITIVE_INFINITY;
   /** Wing trails: how bright they burn now (an attack lights them, they fade over WING_TRAIL_S). */
   let wingHeat = 0;
   let bones: { neck: THREE.Object3D | null; head: THREE.Object3D | null; chest: THREE.Object3D | null } = { neck: null, head: null, chest: null };
@@ -442,10 +449,13 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
     kickAge += dt;
     // A kick may be booked ahead (negative age: Sky Fire's release comes 12 frames after its cast).
     const kick = Number.isFinite(t) && t >= 0 ? HEAD_KICK.rad * kickGain * (t / HEAD_KICK.peakS) * Math.exp(1 - t / HEAD_KICK.peakS) : 0;
-    if (coil < 0.002 && Math.abs(kick) < 0.002) return;
-    bones.neck?.rotateX(COIL.neck * coil + kick * 0.4);
-    bones.head?.rotateX(COIL.head * coil + kick);
-    bones.chest?.rotateX(COIL.chest * coil);
+    const b = breathAge;
+    breathAge += dt;
+    const heave = Number.isFinite(b) && b >= 0 && b < SKYFIRE_BREATH.s ? Math.sin(b * SKYFIRE_BREATH.hz * Math.PI * 2) * Math.sin((b / SKYFIRE_BREATH.s) * Math.PI) : 0;
+    if (coil < 0.002 && Math.abs(kick) < 0.002 && Math.abs(heave) < 0.002) return;
+    bones.neck?.rotateX(COIL.neck * coil + kick * 0.4 + SKYFIRE_BREATH.neck * heave);
+    bones.head?.rotateX(COIL.head * coil + kick + SKYFIRE_BREATH.head * Math.abs(heave));
+    bones.chest?.rotateX(COIL.chest * coil - kick * 0.25 + SKYFIRE_BREATH.chest * heave);
     fire?.root.updateMatrixWorld(true);
   };
 
@@ -507,6 +517,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
       glow = 0;
       coil = coilTarget = 0;
       kickAge = Number.POSITIVE_INFINITY;
+      breathAge = Number.POSITIVE_INFINITY;
       wingHeat = 0;
       typing = -1;
       boostUntil = 0;
@@ -584,6 +595,7 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
               // R: the head jerks up as the fireball leaves the mouth (L18).
               kickAge = -SKYFIRE_KICK.delayS;
               kickGain = SKYFIRE_KICK.gain;
+              breathAge = -SKYFIRE_KICK.delayS - 4 / 60;
             } else if (event.skill === "inferno") play("cast");
             else if (event.skill === "roar") {
               boostUntil = time + 0.9;

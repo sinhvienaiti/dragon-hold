@@ -907,8 +907,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     protectAt = now + PROTECT_EVERY_MS;
     const rects: { x: number; y: number; w: number; h: number }[] = [];
     for (const node of overlay!.querySelectorAll<HTMLElement>("[data-dh-avoid], [data-keepout], .kit-learning-frame, .dh-tag")) {
-      // A freed tag keeps its element at opacity 0 (tags.ts) and is no word on screen.
-      if (node.hidden || node.style.opacity === "0") continue;
+      // A freed tag keeps its element at opacity 0 (tags.ts) and is no word on screen; a leaving one (done or folded,
+      // fading 160 ms) is none either: its foe's damage number may land on the head under it (VFX round 8).
+      if (node.hidden || node.style.opacity === "0" || node.classList.contains("is-done") || node.classList.contains("is-fold")) continue;
       const r = node.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
     }

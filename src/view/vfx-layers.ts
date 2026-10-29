@@ -11,6 +11,16 @@ import * as THREE from "three";
 import { FLAME_FRAGMENT, FLAME_VERTEX } from "../kit/three";
 import { FX_RIBBON_ORDER } from "./fx-palette";
 
+let blank: THREE.DataTexture | null = null;
+
+/** A 1×1 black texture: what a sampler holds until its atlas arrives (one program either way). */
+export function blankTexture(): THREE.DataTexture {
+  if (blank !== null) return blank;
+  blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
+  blank.needsUpdate = true;
+  return blank;
+}
+
 // ── Shared GLSL ─────────────────────────────────────────────────────────────
 
 /** Value noise, fbm and the fire ramp (our side: deep red → orange → gold → pale gold; never white, §3.5 rule 3). */
@@ -36,6 +46,20 @@ vec3 vxFire(float h) {
   vec3 c = mix(vec3(0.42, 0.03, 0.0), vec3(1.0, 0.28, 0.03), smoothstep(0.05, 0.4, h));
   c = mix(c, vec3(1.0, 0.62, 0.18), smoothstep(0.4, 0.78, h));
   return mix(c, vec3(1.0, 0.9, 0.62), smoothstep(0.85, 1.05, h));
+}`;
+
+/**
+ * Analytic soft particles (round 8, both judges: sprites cut into the ground on a hard straight line). The scene has no
+ * depth texture on High (no extra pass in a 2 ms budget), but the ground under a blast is close to a plane: the
+ * distance from a fragment down its view ray to the ground at `ground` (m) fades it out before the depth test cuts it.
+ * `ground` below −1e4: no fade (a sprite in the air). Needs `cameraPosition` (three's built-in uniform).
+ */
+export const VFX_SOFT_GLSL = /* glsl */ `
+float vxSoftGround(vec3 world, float ground, float fadeM) {
+  if (ground < -1e4) return 1.0;
+  vec3 ray = normalize(world - cameraPosition);
+  float down = max(0.12, -ray.y);
+  return smoothstep(0.0, fadeM, (world.y - ground) / down);
 }`;
 
 /**
@@ -115,19 +139,39 @@ const FIRE_RIBBON_FRAGMENT = /* glsl */ `
 uniform float uTime;
 uniform float uSeed;
 uniform float uIntensity;
+uniform float uLength;
+uniform sampler2D uTrail;
+uniform vec4 uTrailFrame;
+uniform float uTrailOn;
 varying float vAlong;
 varying float vSide;
 varying float vAlpha;
 ${VFX_NOISE_GLSL}
 ${VFX_FLAME_GLSL}
 void main() {
-  // Flow runs from the head (along 0) back to the tail: the noise scrolls with it.
-  vec2 q = vec2(vAlong * 6.0 - uTime * 7.0 + uSeed, vSide * 3.0 + uTime * 0.8);
-  // Round 7 (judge 6: a plain orange tube; tongues like smooth "carrots"): a finer noise tears the edge, so the body
-  // breaks up; the ramp runs from a hot root to a deep-red tip.
-  float tear = vxNoise(vec2(vAlong * 16.0 - uTime * 10.0 + uSeed * 1.7, vSide * 4.0));
-  vec4 f = vxFlame(abs(vSide) * (0.8 + 0.6 * tear), vAlong, q, 1.0 - uIntensity, 1.1);
-  gl_FragColor = vec4(f.rgb, clamp(f.a * min(1.0, vAlpha * 1.6), 0.0, 1.0));
+  float across = abs(vSide);
+  // Round 8 (both judges, round 7: a glossy orange tube, fixed dark dots on it): the noise scrolls back along the flow
+  // in world metres (uLength), two octaves at different speeds, so the body churns; holes open toward the tail and burn
+  // through with a hot rim; the ramp runs yellow-hot at the head, orange, deep red at the torn edges and the tail.
+  float m = vAlong * uLength;
+  float n1 = vxNoise(vec2(m * 1.1 - uTime * 9.0 + uSeed, vSide * 1.6 + uTime * 0.7));
+  float n2 = vxNoise(vec2(m * 2.9 - uTime * 15.0 + uSeed * 2.3, vSide * 3.4 - uTime * 1.3));
+  float n = n1 * 0.6 + n2 * 0.4;
+  float shape = 1.0 - across / max(0.08, 1.0 - vAlong * 0.35);
+  // The flame-trail flipbook (Firefly, when loaded): its luminance is the body, scrolled back along the flow.
+  if (uTrailOn > 0.5) {
+    vec2 uv = vec2(fract(m * 0.18 - uTime * 1.4 + uSeed * 0.37), 0.5 + vSide * 0.42);
+    vec3 t = texture2D(uTrail, uTrailFrame.xy + uv * uTrailFrame.zw).rgb;
+    n = mix(n, clamp(max(t.r, max(t.g, t.b)) * 1.15, 0.0, 1.0), 0.75);
+  }
+  float erode = n + shape * 0.55 - vAlong * 0.75 - (1.0 - uIntensity) * 0.6;
+  float body = smoothstep(0.2, 0.36, erode);
+  if (body <= 0.002) discard;
+  float heat = clamp((erode - 0.2) * 1.6, 0.0, 1.0) * (1.0 - vAlong * 0.55) * (0.75 + 0.5 * shape);
+  vec3 color = vxFireRamp(heat * 0.95 + 0.06);
+  // A hot rim where a hole burns through (never dark specks fixed on the body).
+  color += vec3(1.1, 0.42, 0.06) * (1.0 - smoothstep(0.2, 0.3, erode)) * 0.6;
+  gl_FragColor = vec4(color, clamp(body * min(1.0, vAlpha * 1.6), 0.0, 1.0));
 }`;
 
 export type StreakLook = "flame" | "smoke" | "fire";
@@ -169,7 +213,15 @@ export class Streak {
     geometry.setIndex(index);
     const flame = look === "flame";
     const material = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uSeed: { value: seed }, uIntensity: { value: 1 } },
+      uniforms: {
+        uTime: { value: 0 },
+        uSeed: { value: seed },
+        uIntensity: { value: 1 },
+        uLength: { value: 4 },
+        uTrail: { value: blankTexture() },
+        uTrailFrame: { value: new THREE.Vector4(0, 0, 1, 1) },
+        uTrailOn: { value: 0 },
+      },
       vertexShader: FLAME_VERTEX,
       fragmentShader: flame ? FLAME_FRAGMENT : look === "fire" ? FIRE_RIBBON_FRAGMENT : SMOKE_FRAGMENT,
       transparent: true,
@@ -193,6 +245,8 @@ export class Streak {
     const n = this.count;
     // Fire and flame share the shape: a swell just behind the head, then a long taper.
     const flame = this.look !== "smoke";
+    let length = 0;
+    for (let i = 1; i < n; i += 1) length += this.points[i]!.distanceTo(this.points[i - 1]!);
     for (let i = 0; i < n; i += 1) {
       const point = this.points[i]!;
       this.tangent.subVectors(this.points[Math.max(0, i - 1)]!, this.points[Math.min(n - 1, i + 1)]!);
@@ -219,8 +273,17 @@ export class Streak {
     const uniforms = this.mesh.material.uniforms;
     uniforms.uTime!.value = time;
     uniforms.uIntensity!.value = intensity;
+    uniforms.uLength!.value = Math.max(0.5, length);
     this.mesh.geometry.getAttribute("position").needsUpdate = true;
     this.mesh.geometry.getAttribute("aAlpha").needsUpdate = true;
+  }
+
+  /** The flame-trail flipbook (fire look): `frame` is the cell (u0, v0, du, dv) to sample this frame; null: noise only. */
+  setTrail(texture: THREE.Texture | null, frame: THREE.Vector4 | null): void {
+    const uniforms = this.mesh.material.uniforms;
+    uniforms.uTrailOn!.value = texture !== null && frame !== null ? 1 : 0;
+    if (texture !== null) uniforms.uTrail!.value = texture;
+    if (frame !== null) (uniforms.uTrailFrame!.value as THREE.Vector4).copy(frame);
   }
 
   hide(): void {
@@ -273,10 +336,23 @@ void main() {
   float across = (1.0 - pow(facing, 0.75)) * 0.8;
   vec2 q = vec2(vUv.x * 7.0 + uSeed, vUv.y * 6.0 - uTime * 9.0);
   vec4 f = vxFlame(across, vUv.y * 0.8, q, uAge, 1.05);
-  float t = vxNoise(vec2(vUv.x * 11.0 + uSeed * 3.1, uTime * 2.0));
-  float tongues = 1.0 - smoothstep(0.4, 0.8, vUv.y + (t - 0.5) * 0.6);
+  // Round 8 (judge A: two long symmetric smooth spikes like horns): four tongues round the cone, each its own length
+  // (0.45–0.95 of the cone), its tip torn by noise; between them the far half burns away.
+  float a = vUv.x * 6.2832;
+  float lobes = 0.0;
+  for (int i = 0; i < 4; i++) {
+    float fi = float(i);
+    float centre = fi * 1.5708 + 0.7 * sin(uSeed * 1.3 + fi * 2.1);
+    float d = abs(mod(a - centre + 3.1416, 6.2832) - 3.1416);
+    float reach = 0.45 + 0.5 * fract(sin(uSeed * 7.1 + fi * 3.7) * 43758.5);
+    lobes = max(lobes, reach * (1.0 - smoothstep(0.25, 0.75, d)));
+  }
+  float t = vxNoise(vec2(vUv.x * 13.0 + uSeed * 3.1, vUv.y * 4.0 - uTime * 6.0));
+  float tongues = 1.0 - smoothstep(0.0, 0.18, vUv.y - max(0.38, lobes) - (t - 0.5) * 0.22);
+  // As it leaves the mouth (judge A: a blunt cut at the jaw end, f002–f004) the root burns away first, into the noise.
+  float root = mix(1.0, smoothstep(0.0, 0.16, vUv.y - uAge * 0.75 + (vxNoise(q * 1.3) - 0.5) * 0.3), smoothstep(0.0, 0.2, uAge));
   float side = smoothstep(0.04, 0.42, facing + (vxNoise(q * 1.7) - 0.5) * 0.4 - uAge * 0.15);
-  gl_FragColor = vec4(f.rgb, f.a * tongues * side * uAlpha);
+  gl_FragColor = vec4(f.rgb, f.a * tongues * root * side * uAlpha);
 }`;
 
 /**
@@ -306,7 +382,8 @@ void main() {
   float hotEdge = 1.0 - smoothstep(0.0, 0.1, front);
   float foot = 1.0 - smoothstep(0.0, 0.3, d.y);
   // Round 7 (judge 6: read as an opaque brown ball): a near-clear inside, a hot gold fresnel rim.
-  vec3 color = uBody * (0.02 + rim * 0.9 + foot * 0.35) + uHot * (hotEdge * 1.8 + pow(rim, 2.2) * 1.7 + rim * foot * 0.7);
+  // Round 8 (judge A: on light ground the inside still read murky): less body at the foot, a hotter rim.
+  vec3 color = uBody * (0.01 + rim * 0.8 + foot * 0.2) + uHot * (hotEdge * 1.8 + pow(rim, 2.2) * 2.3 + rim * foot * 0.7);
   gl_FragColor = vec4(color, uAlpha);
 }`;
 
@@ -490,21 +567,29 @@ void main() {
   vec2 side = vec2(-dir.y, dir.x);
   float t = position.y + 0.5;
   vec4 p = mix(tail, head, t);
-  // Round the ends a little past head and tail.
-  p.xy += dir * (t - 0.5) * iSize.x;
-  p.xy += side * position.x * iSize.x;
+  // Round 8 (both judges: blunt sticks, rectangles round the head): a comet, its round head a little past the point,
+  // the tail thinning to a fifth of the head's width.
+  p.xy += dir * t * iSize.x * 0.5;
+  p.xy += side * position.x * iSize.x * mix(0.2, 1.0, t * t);
   gl_Position = projectionMatrix * p;
 }`;
 
+/** Additive comets: a small hot round head (HDR), the body in the spark's own colour (≤ 1, so orange stays orange through the tone map), cooling to deep red and out at the tail. */
 const STREAK_FRAGMENT = /* glsl */ `
 varying vec2 vUv;
 varying vec4 vColor;
 void main() {
   if (vColor.a <= 0.0) discard;
   float across = abs(vUv.x - 0.5) * 2.0;
-  float body = (1.0 - across * across) * smoothstep(0.0, 0.45, vUv.y);
-  float hot = smoothstep(0.55, 1.0, vUv.y) * (1.0 - across);
-  gl_FragColor = vec4(vColor.rgb * (body + hot * 1.4) * vColor.a, 1.0);
+  float along = vUv.y;
+  float head = 1.0 - smoothstep(0.86, 1.0, along);
+  float body = (1.0 - across * across) * head * pow(smoothstep(0.0, 0.7, along), 1.4);
+  float peak = max(vColor.r, max(vColor.g, vColor.b));
+  vec3 tone = vColor.rgb / max(1.0, peak);
+  vec3 c = mix(tone * vec3(0.75, 0.28, 0.12), tone, smoothstep(0.25, 0.75, along));
+  float hot = smoothstep(0.62, 0.9, along) * head * (1.0 - across);
+  c += mix(tone, vec3(1.0, 0.86, 0.6), 0.6) * hot * max(0.0, peak - 0.6) * 1.2;
+  gl_FragColor = vec4(c * body * vColor.a, 1.0);
 }`;
 
 /**
@@ -521,8 +606,14 @@ varying vec4 vColor;
 void main() {
   if (vColor.a <= 0.0) discard;
   float across = abs(vUv.x - 0.5) * 2.0;
-  float body = (1.0 - across * across) * smoothstep(0.0, 0.25, vUv.y);
-  vec3 c = mix(vec3(0.05, 0.022, 0.014), vColor.rgb, smoothstep(0.3, 0.95, vUv.y));
+  float along = vUv.y;
+  // Round 8 (judge A: a pale stick with a dark blunt end, "a cigarette filter"): a hot round head, the body cooling
+  // through red to soot, the tail thinning and fading out (never a dark block at its end).
+  float head = 1.0 - smoothstep(0.86, 1.0, along);
+  float body = (1.0 - across * across) * head * smoothstep(0.0, 0.55, along);
+  vec3 c = mix(vec3(0.05, 0.022, 0.014), vec3(0.55, 0.07, 0.015), smoothstep(0.1, 0.45, along));
+  c = mix(c, vColor.rgb, smoothstep(0.45, 0.85, along));
+  c += vec3(1.2, 0.95, 0.6) * smoothstep(0.72, 0.92, along) * head * (1.0 - across) * 0.8;
   gl_FragColor = vec4(c, body * vColor.a);
 }`;
 
@@ -750,6 +841,8 @@ export class ShardPool {
     private readonly restS = 6,
     private readonly fadeS = 0.7,
     readonly glowing = false,
+    /** Where a falling shard sinks instead of lying (the river). */
+    private readonly wetAt: (x: number, z: number) => boolean = () => false,
   ) {
     this.mesh = new THREE.InstancedMesh(geometry, material, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -857,6 +950,13 @@ export class ShardPool {
               this.v[o + 2] = this.v[o + 2]! * 0.5;
               this.spin[o] = this.spin[o]! * 0.4;
               this.spin[o + 2] = this.spin[o + 2]! * 0.4;
+            } else if (this.wetAt(this.p[o]!, this.p[o + 2]!)) {
+              // Into the river: gone (judge B, round 7: rocks lay on the water).
+              this.state[i] = 0;
+              this.live -= 1;
+              this.matrix.makeScale(0, 0, 0);
+              this.mesh.setMatrixAt(i, this.matrix);
+              continue;
             } else {
               this.state[i] = 4;
               // Lie on a side: drop the tilt toward a flat rest.
@@ -1021,28 +1121,33 @@ varying float vDry;
 void main() {
   vec2 p = vUv - 0.5;
   float r = length(p) * 2.0;
-  // Never on the river: the decal fades out over wet ground (aDry per vertex, from the host's water test).
-  float dry = smoothstep(0.35, 0.85, vDry);
-  if (r > 1.0 || uFade <= 0.0 || dry <= 0.0) discard;
+  if (r > 1.0 || uFade <= 0.0 || vDry <= 0.0) discard;
   float c = cos(uRot);
   float s = sin(uRot);
   vec4 m = texture2D(uMask, vec2(c * p.x - s * p.y, s * p.x + c * p.y) + 0.5);
   float crack = m.r;
   float halo = m.g;
   float n = m.b;
-  // Round 7 (judge 6: hair-thin cracks and a small burn, gone at 720): a wider, darker scorch disc.
-  float edge = 0.86 + (n - 0.5) * 0.3;
-  float scorch = 1.0 - smoothstep(edge * 0.55, edge, r);
+  // Never on the river (round 8, judge A: the shore side ended on a straight line; judge B: cracks on the water):
+  // dryness per vertex is continuous (0 at the water … 1 a hand above it), broken by the noise along the bank.
+  float dry = smoothstep(0.2, 0.8, vDry + (n - 0.5) * 0.4);
+  if (dry <= 0.0) discard;
+  // Round 8 (judge A: a flat brown-black patch with a hard edge): a radial ramp, a char-black heart, a warm brown
+  // band, an ash fringe eaten by the noise, then nothing.
+  float edge = 0.86 + (n - 0.5) * 0.34;
+  float d = r / edge;
+  float scorch = (1.0 - smoothstep(0.5, 1.0, d)) * smoothstep(0.22, 0.5, n + (1.0 - d) * 0.75);
+  vec3 base = mix(vec3(0.016, 0.015, 0.016), vec3(0.1, 0.068, 0.046), smoothstep(0.2, 0.75, d + (n - 0.5) * 0.25));
+  base = mix(base, vec3(0.15, 0.145, 0.14), smoothstep(0.72, 0.95, d) * 0.6);
   float cool = clamp(uAge / uCool, 0.0, 1.0);
-  // Hot gold-orange, then red, then dark lines (cracks cool from their thin ends: the halo goes first).
+  // Hot gold-orange, then red, then dark lines; the glow hugs the cracks (round 8, judge A: a flat orange smear at f085).
   vec3 hot = mix(vec3(2.6, 1.15, 0.28), vec3(1.1, 0.16, 0.03), smoothstep(0.0, 0.55, cool));
   hot = mix(hot, vec3(0.05, 0.03, 0.02), smoothstep(0.55, 1.0, cool));
-  float glow = halo * (1.0 - smoothstep(0.0, 0.6, cool)) * 0.55;
-  // The cracks widen into their halo as they cool, so the dark lines keep a width at 720p.
-  crack = max(crack, smoothstep(0.3, 0.75, halo) * smoothstep(0.3, 0.9, cool));
-  vec3 base = vec3(0.07, 0.055, 0.045) * (0.75 + 0.5 * n);
+  float glow = pow(halo, 2.5) * (1.0 - smoothstep(0.0, 0.6, cool)) * 0.4;
+  // The cracks widen a little as they cool, so the dark lines keep a width at 720p.
+  crack = max(crack, smoothstep(0.55, 0.85, halo) * smoothstep(0.4, 0.9, cool));
   vec3 color = mix(base, hot, max(crack, glow));
-  float alpha = max(scorch * (0.88 + 0.1 * n), max(crack, glow)) * uFade * dry;
+  float alpha = max(scorch * 0.92, max(crack, glow)) * uFade * dry;
   gl_FragColor = vec4(color, alpha);
 }`;
 
@@ -1063,7 +1168,8 @@ export class FissurePool {
   private readonly slots: DecalSlot[] = [];
   private readonly segments: number;
 
-  constructor(capacity: number, private readonly heightAt: (x: number, z: number) => number, segments = 18, private readonly wetAt: (x: number, z: number) => boolean = () => false) {
+  /** `dryAt`: 0 on the water … 1 well above it (continuous, so the decal's shore edge follows the bank, not the grid). */
+  constructor(capacity: number, private readonly heightAt: (x: number, z: number) => number, segments = 18, private readonly dryAt: (x: number, z: number) => number = () => 1) {
     this.segments = segments;
     const mask = crackMask();
     for (let i = 0; i < capacity; i += 1) {
@@ -1115,7 +1221,7 @@ export class FissurePool {
         const wx = x + (u - 0.5) * span;
         const wz = z - (v - 0.5) * span;
         position.setXYZ(j * n + i, wx, this.heightAt(wx, wz) + 0.07, wz);
-        dry.setX(j * n + i, this.wetAt(wx, wz) ? 0 : 1);
+        dry.setX(j * n + i, Math.max(0, Math.min(1, this.dryAt(wx, wz))));
       }
     }
     position.needsUpdate = true;
@@ -1172,13 +1278,28 @@ void main() {
   float r = length(p) * 2.0;
   if (r > 1.0 || uAlpha <= 0.0) discard;
   // The outer band turns one way; a smaller copy of the circle turns the other way inside it.
-  float outer = texture2D(uMap, vxRot(uTime * 0.9) * p + 0.5).a * step(0.56, r);
-  float inner = texture2D(uMap, vxRot(-uTime * 1.6) * p * 1.7 + 0.5).a * (1.0 - step(0.56, r));
+  mat2 ro = vxRot(uTime * 0.9);
+  mat2 ri = vxRot(-uTime * 1.6);
+  float isOuter = step(0.56, r);
+  float outer = texture2D(uMap, ro * p + 0.5).a * isOuter;
+  float inner = texture2D(uMap, ri * p * 1.7 + 0.5).a * (1.0 - isOuter);
   float m = max(outer, inner * 0.9);
-  float fill = 0.22 * (1.0 - smoothstep(0.1, 1.0, r));
-  // Round 4 capture: the circle was faint on the dais; stronger strokes, a brighter orange.
+  // Round 8 (both judges: the orange strokes sank into the beige dais at 720): every stroke sits on a dark soot
+  // shadow (the mask dilated by eight taps), and a scorched fill darkens the circle, so orange-on-charcoal reads on
+  // light stone as on dark grass.
+  float shadow = 0.0;
+  for (int i = 0; i < 8; i++) {
+    float a = float(i) * 0.7854;
+    vec2 o = vec2(cos(a), sin(a)) * 0.022;
+    shadow = max(shadow, texture2D(uMap, ro * (p + o) + 0.5).a * isOuter);
+    shadow = max(shadow, texture2D(uMap, ri * (p + o) * 1.7 + 0.5).a * (1.0 - isOuter) * 0.9);
+  }
+  float fill = 0.3 * (1.0 - smoothstep(0.2, 1.0, r)) * (0.6 + 0.4 * uHot);
+  float dark = max(shadow * 0.85, fill);
   vec3 color = mix(vec3(1.0, 0.36, 0.04), vec3(1.0, 0.86, 0.52), uHot) * (1.35 + 0.9 * uHot);
-  gl_FragColor = vec4(color, clamp(m * 1.4 + fill * (0.5 + uHot), 0.0, 1.0) * uAlpha);
+  float stroke = clamp(m * 1.5, 0.0, 1.0);
+  vec3 under = vec3(0.035, 0.03, 0.03);
+  gl_FragColor = vec4(mix(under, color, stroke), clamp(max(stroke, dark), 0.0, 1.0) * uAlpha);
 }`;
 
 /** A rune circle laid on the ground (kit textures().runes), normal blend: saturated orange strokes that read on light and dark ground. */
