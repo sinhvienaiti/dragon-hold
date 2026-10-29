@@ -94,8 +94,12 @@ const WING_COLORS = [new THREE.Color("#ff8a3d"), new THREE.Color("#ff5a1f")] as 
 
 /**
  * An Attack clip from `fromS` on, resampled at 60 Hz (every track kept: a dropped track would let a bone fall to
- * its rest pose under the full-weight shot).
+ * its rest pose). Key 0 holds the whole clip's first pose and the strike starts STRIKE_LEAD_S later: the Hero plays
+ * these clips additively (CHARACTER_ANIMATION.md L1), and the kit makes a clip additive against its own frame 0,
+ * which must be the pose the clip was authored around (the glide pose G0), not the release pose. The mixer's first
+ * step after play() is longer than the lead, so the release pose still shows on the frame the word completes.
  */
+export const STRIKE_LEAD_S = 1e-4;
 export function strikeClip(clip: THREE.AnimationClip, fromS: number, name: string): THREE.AnimationClip {
   const fps = 60;
   const length = Math.max(1 / fps, clip.duration - fromS);
@@ -103,16 +107,17 @@ export function strikeClip(clip: THREE.AnimationClip, fromS: number, name: strin
   const tracks = clip.tracks.map((track) => {
     const size = track.getValueSize();
     const interpolant = track.createInterpolant();
-    const times = new Float32Array(count);
-    const values = new Float32Array(count * size);
+    const times = new Float32Array(count + 1);
+    const values = new Float32Array((count + 1) * size);
+    values.set(interpolant.evaluate(0) as ArrayLike<number>, 0);
     for (let i = 0; i < count; i += 1) {
-      times[i] = Math.min(length, i / fps);
-      values.set(interpolant.evaluate(Math.min(clip.duration, fromS + i / fps)) as ArrayLike<number>, i * size);
+      times[i + 1] = STRIKE_LEAD_S + Math.min(length, i / fps);
+      values.set(interpolant.evaluate(Math.min(clip.duration, fromS + i / fps)) as ArrayLike<number>, (i + 1) * size);
     }
     const Track = track.constructor as new (name: string, times: Float32Array, values: Float32Array) => THREE.KeyframeTrack;
     return new Track(track.name, times, values);
   });
-  return new THREE.AnimationClip(name, length, tracks);
+  return new THREE.AnimationClip(name, length + STRIKE_LEAD_S, tracks);
 }
 
 /** 05 §2.3 at the default camera: Hỏa Long 80–100 px, Bạch Long 60–70 px at 1080p. */
@@ -309,6 +314,10 @@ export function createHeroes(stage: Stage, map: MapDef, options: HeroesOptions =
         clips: { idle: [FIRE_CLIPS.idle], attackL: [FIRE_STRIKE.attackL], attackR: [FIRE_STRIKE.attackR], attackBoth: [FIRE_STRIKE.attackBoth], cast: [FIRE_CLIPS.cast], hit: [FIRE_CLIPS.hit], death: [FIRE_CLIPS.death], victory: [FIRE_CLIPS.victory] },
         // The strike clips start at their release: the bolt leaves on play() (FIRE_RELEASE_S).
         release: { attackL: 0, attackR: 0, attackBoth: 0 },
+        // CHARACTER_ANIMATION.md L1 (29/10): the Space-made Attack, Hit and Cast clips are built round the glide pose
+        // (body pitched 70°) to play additively over the flight loop; at full weight over Hover they laid Hỏa Long
+        // flat for a frame on every attack. Additive, against their first (glide) pose, as Space plays them.
+        additive: ["attackL", "attackR", "attackBoth", "cast", "hit"],
         knock: 0.6,
       });
       fireAnchor.add(hero.root);

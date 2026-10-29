@@ -122,6 +122,10 @@ const MAX_WINDUPS = 24;
 const MAX_FLIGHTS = 24;
 /** Strikes drawn in full per frame; more only flash at the victim (a crowd at the dais strikes dozens a second). */
 const STRIKES_PER_FRAME = 8;
+/** Impacts drawn in full per frame; more only flash (the bench's 220-foe ring struck ~60 times a second). */
+const IMPACTS_PER_FRAME = 6;
+/** Wind-ups drawn per frame (the rest keep their clocks and draw when a slot frees). */
+const WINDUPS_DRAWN = 12;
 const SPAWNS_PER_FRAME = 3;
 
 export const FOE_FX = {
@@ -142,6 +146,7 @@ export class FoeFx {
   private readonly windups: Windup[] = [];
   private readonly flights: Flight[] = [];
   private strikesThisFrame = 0;
+  private impactsThisFrame = 0;
   private spawnsThisFrame = 0;
   private time = 0;
   private readonly v = new THREE.Vector3();
@@ -333,6 +338,11 @@ export class FoeFx {
     const k = host.k;
     const small = blow === "nip" ? 0.55 : blow === "charge" ? 1.4 : 1;
     this.impacts += 1;
+    this.impactsThisFrame += 1;
+    if (this.impactsThisFrame > IMPACTS_PER_FRAME) {
+      host.flares.flare(at, 0.5 * small * k, FOE_COLORS.glint, 1.4 * soft, 4 / 60, 1 / 60, 0.2, 1, 0.4 * k);
+      return;
+    }
     // A pale core (additive, HDR) over a crimson ball (normal) over a dark wine puff behind it, all from frame 0.
     host.puffs.spawn(at.x + ux * 0.25, at.y + 0.1, at.z + uz * 0.25, 0.8 * small * k, 0.35, FOE_COLORS.soot, 0.55 * soft, { vy: 0.6, grow: 0.8, fadeIn: 0.001, hold: 3 / 60, rot: host.random() * TAU });
     host.puffs.spawn(at.x, at.y, at.z, 0.6 * small * k, 7 / 60, FOE_COLORS.ball, 0.95, { fadeIn: 0.001, hold: 2 / 60, grow: 0.4, rot: host.random() * TAU, shape: SHAPE_FOE });
@@ -396,9 +406,12 @@ export class FoeFx {
     this.time += dt;
     this.strikesThisFrame = 0;
     this.spawnsThisFrame = 0;
+    this.impactsThisFrame = 0;
+    let drawn = 0;
     for (const w of this.windups) {
       if (!w.active) continue;
-      this.drawWindup(w, dt);
+      if (drawn < WINDUPS_DRAWN) this.drawWindup(w, dt);
+      drawn += 1;
       w.age += dt;
       // A swing whose strike never came (the foe was pushed, stunned, its target gone) fades out.
       if (w.age > w.duration + 0.25) w.active = false;

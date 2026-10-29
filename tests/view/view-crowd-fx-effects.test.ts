@@ -8,7 +8,7 @@ import type { World } from "../../src/sim/world";
 import type { FrameInfo, ScreenPoint } from "../../src/app/contracts";
 import { createActors, type FoeLocator } from "../../src/view/actors";
 import { createFx, FX_BUDGET, FX_RIBBON_ORDER, FxCore, flareEnvelope, strongGrade, tierForGrade } from "../../src/view/fx";
-import { createHeroes, FIRE_RELEASE_S, modelUrl, strikeClip } from "../../src/view/heroes";
+import { createHeroes, FIRE_RELEASE_S, modelUrl, STRIKE_LEAD_S, strikeClip } from "../../src/view/heroes";
 import type { Stage } from "../../src/view/stage";
 import { createTelegraphs, MIN_WINDUP_S, TELEGRAPH_COLORS, telegraphColors } from "../../src/view/telegraphs";
 import { drawnWarnings } from "../../src/view/foe-look";
@@ -242,12 +242,15 @@ describe("view fx", () => {
     const times = new Float32Array([0, 0.5, 1]);
     const clip = new THREE.AnimationClip("Hero_Attack_L", 1, [new THREE.NumberKeyframeTrack("head.morphTargetInfluences[0]", times, new Float32Array([0, 0.5, 1]))]);
     const strike = strikeClip(clip, FIRE_RELEASE_S.attackL, "Hero_Attack_L_Strike");
-    expect(strike.duration).toBeCloseTo(1 - FIRE_RELEASE_S.attackL, 5);
+    expect(strike.duration).toBeCloseTo(1 - FIRE_RELEASE_S.attackL + STRIKE_LEAD_S, 5);
     const track = strike.tracks[0]!;
-    // Linear track: value = time; the strike's frame 0 is the clip at its release, its last frame the clip's end.
-    expect(track.values[0]).toBeCloseTo(FIRE_RELEASE_S.attackL, 5);
+    // Linear track: value = time. Key 0 is the whole clip's first pose (the additive reference, CHARACTER_ANIMATION
+    // L1); a hair later the strike starts at the clip's release; its last frame is the clip's end.
+    expect(track.values[0]).toBeCloseTo(0, 5);
+    expect(track.times[1]).toBeCloseTo(STRIKE_LEAD_S, 6);
+    expect(track.values[1]).toBeCloseTo(FIRE_RELEASE_S.attackL, 5);
     expect(track.values[track.values.length - 1]).toBeCloseTo(1, 5);
-    expect(track.times[1]! - track.times[0]!).toBeCloseTo(1 / 60, 5);
+    expect(track.times[2]! - track.times[1]!).toBeCloseTo(1 / 60, 5);
   });
 
   it("lands a word bolt with fire and soot, and a scorch held dark 1.5 s, gone by 2.6 s (VFX_STANDARD §3.4, judge 1a)", () => {
