@@ -29,6 +29,8 @@ export const FX_COLORS = {
   ash: new THREE.Color("#8a847c"),
   /** Soot: the dark puffs of a word bolt's impact (§3.5 rule 4, dark behind the bright). */
   soot: new THREE.Color("#2e2723"),
+  /** Round 7 (judge 6: the dark round a word hit read olive brown on grass): a neutral, slightly cool charcoal. */
+  char: new THREE.Color("#222326"),
   dust: new THREE.Color("#a89272"),
   scorch: new THREE.Color("#2a2018"),
   wood: new THREE.Color("#8a6a45"),

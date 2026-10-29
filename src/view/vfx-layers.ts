@@ -122,8 +122,11 @@ ${VFX_NOISE_GLSL}
 ${VFX_FLAME_GLSL}
 void main() {
   // Flow runs from the head (along 0) back to the tail: the noise scrolls with it.
-  vec2 q = vec2(vAlong * 9.0 - uTime * 7.0 + uSeed, vSide * 2.4 + uTime * 0.8);
-  vec4 f = vxFlame(abs(vSide), vAlong, q, 1.0 - uIntensity, 1.0);
+  vec2 q = vec2(vAlong * 6.0 - uTime * 7.0 + uSeed, vSide * 3.0 + uTime * 0.8);
+  // Round 7 (judge 6: a plain orange tube; tongues like smooth "carrots"): a finer noise tears the edge, so the body
+  // breaks up; the ramp runs from a hot root to a deep-red tip.
+  float tear = vxNoise(vec2(vAlong * 16.0 - uTime * 10.0 + uSeed * 1.7, vSide * 4.0));
+  vec4 f = vxFlame(abs(vSide) * (0.8 + 0.6 * tear), vAlong, q, 1.0 - uIntensity, 1.1);
   gl_FragColor = vec4(f.rgb, clamp(f.a * min(1.0, vAlpha * 1.6), 0.0, 1.0));
 }`;
 
@@ -264,10 +267,16 @@ ${VFX_FLAME_GLSL}
 void main() {
   // across: the silhouette is the edge, the side facing the eye the axis; the flow scrolls from the apex out.
   float facing = abs(dot(normalize(vN), normalize(vE)));
-  float across = 1.0 - pow(facing, 0.75);
-  vec2 q = vec2(vUv.x * 9.0 + uSeed, vUv.y * 3.2 - uTime * 9.0);
-  vec4 f = vxFlame(across, vUv.y, q, uAge, 1.05);
-  gl_FragColor = vec4(f.rgb, f.a * uAlpha);
+  // Round 7 (judge 6: the far end cut straight, a dark line along the top edge, stripes): the silhouette fades out
+  // while it is still red (no soot rim), the noise is round rather than streaked, and the open end splits into
+  // tongues that burn away well before the mesh ends.
+  float across = (1.0 - pow(facing, 0.75)) * 0.8;
+  vec2 q = vec2(vUv.x * 7.0 + uSeed, vUv.y * 6.0 - uTime * 9.0);
+  vec4 f = vxFlame(across, vUv.y * 0.8, q, uAge, 1.05);
+  float t = vxNoise(vec2(vUv.x * 11.0 + uSeed * 3.1, uTime * 2.0));
+  float tongues = 1.0 - smoothstep(0.4, 0.8, vUv.y + (t - 0.5) * 0.6);
+  float side = smoothstep(0.04, 0.42, facing + (vxNoise(q * 1.7) - 0.5) * 0.4 - uAge * 0.15);
+  gl_FragColor = vec4(f.rgb, f.a * tongues * side * uAlpha);
 }`;
 
 /**
@@ -296,7 +305,8 @@ void main() {
   if (front < 0.0) discard;
   float hotEdge = 1.0 - smoothstep(0.0, 0.1, front);
   float foot = 1.0 - smoothstep(0.0, 0.3, d.y);
-  vec3 color = uBody * (0.06 + rim * 1.5 + foot * 0.45) + uHot * (hotEdge * 1.8 + rim * foot * 0.7);
+  // Round 7 (judge 6: read as an opaque brown ball): a near-clear inside, a hot gold fresnel rim.
+  vec3 color = uBody * (0.02 + rim * 0.9 + foot * 0.35) + uHot * (hotEdge * 1.8 + pow(rim, 2.2) * 1.7 + rim * foot * 0.7);
   gl_FragColor = vec4(color, uAlpha);
 }`;
 
@@ -1020,16 +1030,19 @@ void main() {
   float crack = m.r;
   float halo = m.g;
   float n = m.b;
-  float edge = 0.74 + (n - 0.5) * 0.4;
-  float scorch = 1.0 - smoothstep(edge * 0.5, edge, r);
+  // Round 7 (judge 6: hair-thin cracks and a small burn, gone at 720): a wider, darker scorch disc.
+  float edge = 0.86 + (n - 0.5) * 0.3;
+  float scorch = 1.0 - smoothstep(edge * 0.55, edge, r);
   float cool = clamp(uAge / uCool, 0.0, 1.0);
   // Hot gold-orange, then red, then dark lines (cracks cool from their thin ends: the halo goes first).
   vec3 hot = mix(vec3(2.6, 1.15, 0.28), vec3(1.1, 0.16, 0.03), smoothstep(0.0, 0.55, cool));
   hot = mix(hot, vec3(0.05, 0.03, 0.02), smoothstep(0.55, 1.0, cool));
   float glow = halo * (1.0 - smoothstep(0.0, 0.6, cool)) * 0.55;
-  vec3 base = vec3(0.105, 0.08, 0.062) * (0.75 + 0.5 * n);
+  // The cracks widen into their halo as they cool, so the dark lines keep a width at 720p.
+  crack = max(crack, smoothstep(0.3, 0.75, halo) * smoothstep(0.3, 0.9, cool));
+  vec3 base = vec3(0.07, 0.055, 0.045) * (0.75 + 0.5 * n);
   vec3 color = mix(base, hot, max(crack, glow));
-  float alpha = max(scorch * (0.8 + 0.15 * n), max(crack, glow)) * uFade * dry;
+  float alpha = max(scorch * (0.88 + 0.1 * n), max(crack, glow)) * uFade * dry;
   gl_FragColor = vec4(color, alpha);
 }`;
 

@@ -257,13 +257,14 @@ describe("view fx", () => {
     core.landBolt(5, 1, new THREE.Vector3(0, 1, -15), 0, -1);
     let frames = 0;
     let puffs = 0;
-    // Round 6: the release leaves a short burn under the mouth (0.55 s); the bolt's scorch is the last live mark.
-    while (core.stats().marks < 2 && frames < 60) {
+    // Round 6: the release leaves a short burn under the mouth (0.55 s); round 7: the hit a dark oval round the foe
+    // (0.7 s). The bolt's scorch is the last live mark.
+    while (core.scorchPoint.lengthSq() === 0 && frames < 60) {
       puffs = core.stats().puffs;
       core.update(1 / 60, frames / 60, eye, 600);
       frames += 1;
     }
-    expect(core.stats().marks).toBe(2);
+    expect(core.stats().marks).toBe(3);
     // The impact's fire bodies and soot puffs come on top of what the flight left.
     // (7 born on the landing frame: 3 fire, 3 soot, 1 grey; the flight's last head bodies run out meanwhile.)
     expect(core.stats().puffs).toBeGreaterThanOrEqual(puffs + 5);
