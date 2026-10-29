@@ -1047,7 +1047,8 @@ export class FxCore {
     this.puffs.spawn(at.x + ux * 0.45 * s, at.y, at.z + uz * 0.45 * s, 1.3 * s * g, 7 / 60, FX_COLORS.ember, 0.97, { vx: ux * 2, vz: uz * 2, fadeIn: 0.001, hold: WORD_FX.flashHoldS, grow: 0.3, rot: this.random() * TAU, shape: PUFF_FIRE });
     // Round 7 (judge 6: a soft peach blob over the head for 2 frames): a compact star in front of the snout, a white
     // core on ≤ 30 % of it, seven rays, a red-orange rim; full for 2 frames.
-    this.puffs.spawn(at.x + ux * 0.5 * s, at.y + 0.05, at.z + uz * 0.5 * s, 1.55 * s * g, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
+    // A plain word's star is 0.85 of a strong one's (not 0.65 like its jet): the flash still beats its head ≥ 1.5×.
+    this.puffs.spawn(at.x + ux * 0.5 * s, at.y + 0.05, at.z + uz * 0.5 * s, 1.55 * s * (strong ? 1 : 0.85) * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
     const burnX = at.x + ux * 0.4 * s;
     const burnZ = at.z + uz * 0.4 * s;
     if (!this.wetOf(burnX, burnZ)) this.marks.spawn(burnX, this.markY(burnX, burnZ, 1.6 * s * g) + 0.05, burnZ, 1.6 * s * g, 0.55, FX_COLORS.scorch, 0.8 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
@@ -1062,7 +1063,7 @@ export class FxCore {
     for (let k = 0; k < 3; k += 1) {
       const along = (k === 0 ? 0.5 : 1.8) * s * g;
       const off = (k === 0 ? 0 : k === 1 ? 0.75 : -0.75) * s * g;
-      this.puffs.spawn(at.x + ux * along + sideX * off, at.y - 0.1, at.z + uz * along + sideZ * off, (k === 0 ? 1.0 : 0.85) * s * g, 0.35, FX_COLORS.soot, 0.6 * soft, { vy: 0.6, vx: ux * 1.5, vz: uz * 1.5, grow: 0.6, fadeIn: 1 / 60, hold: 3 / 60, rot: this.random() * TAU });
+      this.puffs.spawn(at.x + ux * along + sideX * off, at.y - 0.1, at.z + uz * along + sideZ * off, (k === 0 ? 1.0 : 0.85) * s * g, 0.35, FX_COLORS.soot, 0.6 * soft, { vy: 0.6, vx: ux * 1.5, vz: uz * 1.5, grow: 0.6, fadeIn: 0.001, hold: 3 / 60, rot: this.random() * TAU });
     }
     // Stretched sparks along the shot (L8), hot gold (teal on a strong word), full on frame 0: 9 strong, 5 plain.
     const streaks = this.sky.streaks;
@@ -1948,7 +1949,8 @@ export class FxCore {
       // a deep-red rim, growing a step a letter to about 1.5× the bolt head; a small hot core in it (gold, or teal from
       // half a clean word), no wide additive halo.
       // Round 7 (judge 6: 14 px on the last letter, smaller than the bolt head): to about 1.5× the head by then.
-      this.puffs.spawn(at.x, at.y, at.z, (0.45 + 1.9 * level + 0.2 * pulse) * s * flicker, 1 / 30, FX_COLORS.chargeBall, 0.97, { fadeIn: 0.001, hold: 1 / 30, rot: this.random() * TAU, shape: PUFF_FIRE });
+      // Its heart burns orange-gold, not white: the release's white star must outshine it on the next frame.
+      this.puffs.spawn(at.x, at.y, at.z, (0.45 + 1.9 * level + 0.2 * pulse) * s * flicker, 1 / 30, FX_COLORS.ember, 0.97, { fadeIn: 0.001, hold: 1 / 30, rot: this.random() * TAU, shape: PUFF_FIRE });
       // The last letters: a heat ring on the dais under the mouth (hot additive band over a dark backing).
       const ring = Math.max(0, Math.min(1, (level - 0.6) / 0.3));
       if (ring > 0) {
