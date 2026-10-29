@@ -57,10 +57,10 @@ export const SKY_FX = {
   flashS: 3 / 60,
   /** R cone (L13): full 2 frames, eaten by frame 10. */
   coneS: 10 / 60,
-  /** I dome (L2): from frame 1, 0 → radius in 8 frames (round 9: a fast shock), gone by frame 15. */
-  domeDelayS: 1 / 60,
+  /** I dome (L2): from frame 2 (the impact frame stays the brightest, §5.6), 0 → radius in 8 frames, gone by 16. */
+  domeDelayS: 2 / 60,
   domeGrowS: 8 / 60,
-  domeS: 14 / 60,
+  domeS: 15 / 60,
   /** I core: swells for 6 frames, out by 12. */
   coreGrowS: 6 / 60,
   coreS: 12 / 60,
@@ -506,7 +506,7 @@ export class SkyFire {
     // Round 9 (both judges: the climax was weaker than the flight; a pale cream flash on salmon ground at c069–c072):
     // L10 a white-hot core 3 frames (≤ 30 % of the blast) over a short saturated fire pop, no wide gold or peach wash.
     host.puffs.spawn(at.x, ground + 0.8, at.z, 3.6 * s * big, 7 / 60, FX_COLORS.ember, 0.92, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.35, rot: host.random() * TAU, shape: PUFF_FIRE });
-    host.flares.flare(up, 2.6 * s * big, FX_COLORS.flashCore, 5.0 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.2, 1, 0.8 * s);
+    host.flares.flare(up, 3.0 * s * big, FX_COLORS.flashCore, 5.5 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.2, 1, 0.8 * s);
     host.flares.flare(up, 2.4 * s * big, FX_COLORS.ember, 0.45 * soft, 7 / 60, SKY_FX.flashHoldS, 0.3, 1, 0);
     // Warm soot behind and above the fire (dark under the bright), rising.
     for (let i = 0; i < 2; i += 1) {
@@ -533,7 +533,7 @@ export class SkyFire {
       const angle = (i / 10) * TAU + host.random() * 0.5;
       const d = r * this.rand(0.05, 0.4);
       const color = i < 4 ? FX_COLORS.releaseBall : i % 2 === 0 ? FX_COLORS.fireDeep : FX_COLORS.ember;
-      host.puffs.spawn(at.x + Math.cos(angle) * d, ground + this.rand(0.4, 1.6), at.z + Math.sin(angle) * d, r * this.rand(0.3, 0.75) * s, this.rand(0.4, 0.75), color, 0.95, { vx: Math.cos(angle) * 1.5, vz: Math.sin(angle) * 1.5, vy: this.rand(2, 4), grow: 1.1, spin: this.rand(-1, 1), fadeIn: this.rand(1, 4) / 60, shape: PUFF_FIRE });
+      host.puffs.spawn(at.x + Math.cos(angle) * d, ground + this.rand(0.4, 1.6), at.z + Math.sin(angle) * d, r * this.rand(0.3, 0.75) * s, this.rand(0.4, 0.75), color, 0.95, { vx: Math.cos(angle) * 1.5, vz: Math.sin(angle) * 1.5, vy: this.rand(2, 4), grow: 1.1, spin: this.rand(-1, 1), fadeIn: this.rand(2, 5) / 60, shape: PUFF_FIRE });
     }
     // Flames licking up round the edge.
     for (let i = 0; i < 7; i += 1) {
@@ -546,7 +546,7 @@ export class SkyFire {
     // runs out to the rule's radius in about 6 frames, the additive hot ring over it; a few warm dust puffs roll out.
     host.marks.spawn(at.x, ground + 0.1, at.z, r * 0.36, 12 / 60, FX_COLORS.char, 0.5 * soft, { grow: (r * 2.15) / (r * 0.36) - 1, kind: 1, thickness: 0.3, fadeIn: 0.001, drag: 0 });
     host.marks.spawn(at.x, ground + 0.11, at.z, r * 0.3, 10 / 60, FX_COLORS.fireDeep, 0.95, { grow: (r * 2) / (r * 0.3) - 1, kind: 1, thickness: 0.2, fadeIn: 0.001, drag: 0 });
-    host.rings.spawn(at.x, ground + 0.14, at.z, r * 0.5, 0.3, FX_COLORS.fireHot, 1, { grow: 3, kind: 1, thickness: 0.18, fadeIn: 1 / 60, drag: 0 });
+    host.rings.spawn(at.x, ground + 0.14, at.z, r * 0.5, 0.3, FX_COLORS.fireHot, 1, { grow: 3, kind: 1, thickness: 0.18, fadeIn: 0.001, drag: 0 });
     for (let i = 0; i < Math.round(10 * few); i += 1) {
       const angle = (i / 10) * TAU + host.random() * 0.3;
       host.puffs.spawn(at.x + Math.cos(angle) * r * 0.35, ground + 0.35, at.z + Math.sin(angle) * r * 0.35, 1.3 * s, 0.8, FX_COLORS.smokeWarm, 0.4, { vx: Math.cos(angle) * 7.5, vz: Math.sin(angle) * 7.5, vy: 0.8, grow: 1.3, drag: 2.6, fadeIn: 2 / 60 });
@@ -625,7 +625,8 @@ export class SkyFire {
     const smokeLeft = 1 - since / SKY_FX.smokeS;
     this.smokeRibbon(cast, 0.95, Math.min(0.9, 0.2 + 0.7 * (1 - smokeLeft)), Math.max(0, smokeLeft) * (host.reduced ? 0.6 : 1), eye, time);
     // L9: the core swells for 6 frames and falls away by 12 (its brightness per pixel falls as it grows: frame 0 stays the peak).
-    if (since < SKY_FX.coreS) {
+    // Round 9: from frame 2 (from frame 1 it outshone the impact frame's own white core in its cell, §5.6).
+    if (since >= 2 / 60 - 1e-6 && since < SKY_FX.coreS) {
       const g = Math.min(1, since / SKY_FX.coreGrowS);
       const fade = 1 - since / SKY_FX.coreS;
       host.flares.draw(this.v.set(at.x, ground + 1.0, at.z), (1.5 + 2.0 * g) * s, FX_COLORS.blastHot, 1.0 * fade * (host.reduced ? 0.6 : 1));

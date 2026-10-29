@@ -2299,12 +2299,11 @@ export interface FxOptions {
 const STRONG_KICK_PX = 1.6;
 /**
  * Sky Fire's camera (§5.3 part 2). Round 9 (judge B: the release push, MAE 4958, dwarfed the impact's, 890; the climax
- * must be the hit): a 2 px kick and a +0.35° FOV push at the release, a 6 px kick down and +1.2° at the impact (8
- * frames, full on 2).
+ * must be the hit): a 2 px kick and a +0.35° FOV push at the release, +1.2° at the impact with its T3 shake (8 frames,
+ * full on 2).
  */
 const SKY_KICK_PX = 2;
 const SKY_FOV_DEG = 0.35;
-const SKY_IMPACT_KICK_PX = 6;
 const SKY_IMPACT_FOV_DEG = 1.2;
 const SKY_FOV_HOLD_S = 2 / 60;
 const SKY_FOV_S = 8 / 60;
@@ -2772,9 +2771,10 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
       }
       if (core.sky.impacts > 0) {
         core.sky.impacts = 0;
-        // I: the hit is the climax (round 9): a kick down the screen and the bigger FOV push.
+        // I: the hit is the climax (round 9): the bigger FOV push on the impact frame, held 2 frames like the white
+        // flash, with the T3 shake. A directional kick a frame later slid the hit's core across its own place on
+        // screen, so the frame after the flash read brighter than the flash (§5.6); there is none.
         if (!core.reduced) {
-          options.kick?.(0, 1, SKY_IMPACT_KICK_PX);
           fovAge = 0;
           fovDeg = SKY_IMPACT_FOV_DEG;
         }
