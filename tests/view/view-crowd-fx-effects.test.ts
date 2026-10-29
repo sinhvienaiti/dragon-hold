@@ -257,17 +257,18 @@ describe("view fx", () => {
     core.landBolt(5, 1, new THREE.Vector3(0, 1, -15), 0, -1);
     let frames = 0;
     let puffs = 0;
-    while (core.stats().marks === 0 && frames < 60) {
+    // Round 6: the release leaves a short burn under the mouth (0.55 s); the bolt's scorch is the last live mark.
+    while (core.stats().marks < 2 && frames < 60) {
       puffs = core.stats().puffs;
       core.update(1 / 60, frames / 60, eye, 600);
       frames += 1;
     }
-    expect(core.stats().marks).toBe(1);
+    expect(core.stats().marks).toBe(2);
     // The impact's fire bodies and soot puffs come on top of what the flight left.
     // (7 born on the landing frame: 3 fire, 3 soot, 1 grey; the flight's last head bodies run out meanwhile.)
     expect(core.stats().puffs).toBeGreaterThanOrEqual(puffs + 5);
     const marks = core.group.children.find((m): m is THREE.Mesh => m instanceof THREE.Mesh && m.renderOrder === 2 && (m.material as THREE.ShaderMaterial).polygonOffset)!;
-    const alpha = (): number => (marks.geometry.getAttribute("iColor") as THREE.InstancedBufferAttribute).getW(0);
+    const alpha = (): number => (marks.geometry.getAttribute("iColor") as THREE.InstancedBufferAttribute).getW(core.stats().marks - 1);
     const at = (seconds: number): number => {
       for (let k = 0; k < Math.round(seconds * 60); k += 1) core.update(1 / 60, 1, eye, 600);
       return alpha();

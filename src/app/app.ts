@@ -313,6 +313,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   /** A tag appeared: read the keep-out rectangles again next frame, not 250 ms later (numbers under a fresh tag). */
   let keepOutSoon = false;
   let protectAt = 0;
+  /** A read of the keep-out rectangles due just after a done word's tag has faded (Infinity: none). */
+  let keepOutAfterTag = Infinity;
   let audioPaused = false;
   let prelearnShown = false;
   /** The last Thẻ Ôn answers (debug handle: scenarios answer by keyboard). */
@@ -727,6 +729,12 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         case "word-assigned":
           keepOutSoon = true;
           break;
+        case "word-complete":
+          // The done word's tag fades out over 160 ms (tags.ts MS.leave): read the rectangles again just after, before
+          // the bolt lands (200 ms), so its stale box does not lift the damage number off the foe's head (judge 1a
+          // round 5, item 5).
+          keepOutAfterTag = Math.min(keepOutAfterTag, now + 175);
+          break;
         default:
           break;
       }
@@ -889,11 +897,17 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
    * sample a run). Between reads (250 ms) a tag can still move onto a number.
    */
   function refreshKeepOut(now: number): void {
-    if (!run || now < protectAt) return;
+    if (!run) return;
+    if (now >= keepOutAfterTag) {
+      keepOutAfterTag = Infinity;
+      protectAt = 0;
+    }
+    if (now < protectAt) return;
     protectAt = now + PROTECT_EVERY_MS;
     const rects: { x: number; y: number; w: number; h: number }[] = [];
     for (const node of overlay!.querySelectorAll<HTMLElement>("[data-dh-avoid], [data-keepout], .kit-learning-frame, .dh-tag")) {
-      if (node.hidden) continue;
+      // A freed tag keeps its element at opacity 0 (tags.ts) and is no word on screen.
+      if (node.hidden || node.style.opacity === "0") continue;
       const r = node.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
     }
