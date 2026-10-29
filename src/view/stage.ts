@@ -69,7 +69,7 @@ export interface PaintedStage extends Stage {
   readonly height: number;
   /** Draw calls and triangles of the last rendered frame (shadow and post passes included). */
   stats(): { drawCalls: number; triangles: number };
-  /** Turns the HDR bloom (fire, spells) on or off where the tier has it (High, Ultra); false when it has none. */
+  /** Turns the HDR bloom (fire, spells) on or off where the tier builds it (Ultra, an opt-in); false when it has none. */
   setBloom(on: boolean): boolean;
 }
 
@@ -83,8 +83,10 @@ export interface PaintedStage extends Stage {
 export const STAGE_QUALITY: Readonly<Record<Quality, { dpr: number; shadow: number; post: boolean; samples: number; fxaa: boolean; bloom: boolean; bloomPass: boolean }>> = {
   low: { dpr: 1, shadow: 0, post: false, samples: 0, fxaa: false, bloom: false, bloomPass: false },
   medium: { dpr: 1, shadow: 1024, post: true, samples: 0, fxaa: true, bloom: false, bloomPass: false },
-  high: { dpr: 1.25, shadow: 2048, post: true, samples: 0, fxaa: true, bloom: false, bloomPass: true },
-  ultra: { dpr: 2, shadow: 4096, post: true, samples: 4, fxaa: false, bloom: true, bloomPass: true },
+  // Owner decision 29/10 (VFX rounds 5–7): no bloom on High and below (effects read without it: HDR cores over dark
+  // layers); on Ultra an opt-in (`?bloom=1` until the settings screen), off at start.
+  high: { dpr: 1.25, shadow: 2048, post: true, samples: 0, fxaa: true, bloom: false, bloomPass: false },
+  ultra: { dpr: 2, shadow: 4096, post: true, samples: 4, fxaa: false, bloom: false, bloomPass: true },
 };
 
 /** Mist colour (sky never shows at 40–75° tilt; the far ground melts into it). */

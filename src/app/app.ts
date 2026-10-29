@@ -73,7 +73,7 @@ export interface AppOptions {
   readonly tagSizePct?: number;
   /** Dev only (VFX captures, VFX_STANDARD §4.5): lights and mist dimmed to a dusk shade, the dark-background test. */
   readonly dusk?: boolean;
-  /** Dev only: the HDR bloom on or off where the tier builds it (High, Ultra); unset keeps the tier's default. */
+  /** The HDR bloom opt-in, Ultra only (the only tier that builds it); unset keeps it off. */
   readonly bloom?: boolean;
   /** Dev only: Hỏa Long's mouth light (fx.ts) on or off; unset keeps the tier's default. */
   readonly mouthLight?: boolean;
@@ -125,7 +125,8 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   const speed = num("speed");
   return {
     dusk: flag("dusk"),
-    bloom: flag("bloom"),
+    // The Ultra bloom opt-in is the player's (no settings screen yet): read outside dev too; only Ultra builds the pass.
+    bloom: params.get("bloom") === null ? undefined : params.get("bloom") === "1",
     mouthLight: flag("mouthlight"),
     quality: q && QUALITIES.includes(q) ? q : undefined,
     difficulty: d && DIFFICULTIES.includes(d) ? d : undefined,
