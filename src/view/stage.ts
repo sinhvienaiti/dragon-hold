@@ -27,6 +27,7 @@ import { sceneFor } from "./maps/scene";
 import { BRIDGE_MODEL, PROP_SPECS } from "./model-specs";
 import { loadCrowdModels, type CrowdModels } from "./models";
 import { buildPaths, type PathsView } from "./paths";
+import { buildRoads, type RoadsView } from "./roads";
 import { buildScatter, type ScatterView } from "./scatter";
 import { groundTextureStatus, mapSwitch } from "./paint";
 import { buildTerrain, SUN_DIRECTION, sunDirection, type PaintedTerrain } from "./terrain";
@@ -332,6 +333,8 @@ export interface MapStage {
   readonly terrain: PaintedTerrain;
   readonly water: WaterView;
   readonly paths: PathsView;
+  /** PATH_QUALITY: the lane roads (ribbon mesh, one draw call). */
+  readonly roads: RoadsView;
   readonly scatter: ScatterView;
   readonly rig: CameraRig;
   /** Ground height actors stand on (dais tiers and bridge decks included). */
@@ -353,8 +356,13 @@ export interface MapStage {
     bakeSplit: { prepMs: number; compileMs: number; renderMs: number } | null;
     baked: boolean;
   };
-  /** Settles once the ground bake has run (or was skipped or failed). */
+  /** Settles once the ground bake has run (or was skipped or failed); the stage is warmed then. */
   readonly groundBaked: Promise<void>;
+  /**
+   * Draws one real frame with frustum culling off, so every material's program and GPU pipeline (shadow pass
+   * included) exists before play: Metal creates pipelines at first draw (a ~300 ms hitch mid-run otherwise).
+   */
+  warm(): void;
   dispose(): void;
 }
 
@@ -366,6 +374,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   const t1 = performance.now();
   const water = buildWater(map, terrain);
   const paths = buildPaths(map, terrain);
+  const roads = buildRoads(map, terrain);
   const t2 = performance.now();
   const scatter = buildScatter(map, terrain, quality);
   const loadStats = {
@@ -377,7 +386,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
     bakeSplit: null as { prepMs: number; compileMs: number; renderMs: number } | null,
     baked: false,
   };
-  stage.layers.ground.add(terrain.group, water.group, paths.group, scatter.group);
+  stage.layers.ground.add(terrain.group, roads.group, water.group, paths.group, scatter.group);
   // The map's light (scene spec): the key sun moves to the map's bearing and elevation; the cool fill
   // comes from the other side; the sky light's ground bounce takes the map's colour.
   const sun = sunDirection(map);
@@ -395,6 +404,18 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   const rig = createCameraRig(stage.camera, map, host);
   rig.update(0);
   let disposed = false;
+  const warm = (): void => {
+    if (disposed) return;
+    const culled: THREE.Object3D[] = [];
+    stage.scene.traverse((object) => {
+      if (object.frustumCulled) {
+        culled.push(object);
+        object.frustumCulled = false;
+      }
+    });
+    stage.render();
+    for (const object of culled) object.frustumCulled = true;
+  };
   // A3: bake the ground paint once its tiles and decals are in (the live paint shows until then).
   const groundBaked = terrain.paint.ready
     .then(() => (disposed ? null : terrain.paint.bake(stage.renderer, terrain.look)))
@@ -402,11 +423,13 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
       loadStats.bakeMs = ms;
       loadStats.baked = ms !== null;
       loadStats.bakeSplit = terrain.paint.bakeSplit;
+      warm();
     })
     .catch((error: unknown) => console.warn("paint: the ground bake failed; the live paint stays", error));
   return {
     loadStats,
     groundBaked,
+    warm,
     stage,
     scene: stage.scene,
     camera: stage.camera,
@@ -414,6 +437,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
     terrain,
     water,
     paths,
+    roads,
     scatter,
     rig,
     heightAt: terrain.heightAt,
@@ -432,12 +456,14 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
         if (disposed) return;
         scatter.useProps((key) => models.prop(key), stage.renderer);
         paths.useBridge(models.prop(BRIDGE_MODEL.manifest));
+        warm();
       });
     },
     dispose(): void {
       disposed = true;
       rig.dispose();
       scatter.dispose();
+      roads.dispose();
       paths.dispose();
       water.dispose();
       terrain.dispose();
