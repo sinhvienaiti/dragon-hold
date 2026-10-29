@@ -640,6 +640,30 @@ export class SkyFire {
     };
   }
 
+  /** One instance of every Sky Fire layer at `at`, for FxCore.warmDraw's load-time frame (cleared after). */
+  warmShow(at: THREE.Vector3, eye: THREE.Vector3): void {
+    const dir = this.w.set(0, 0.05, -1).normalize();
+    const c = FX_COLORS.ember;
+    this.cones.cone(at, dir, 1, 0.5, 0.5, 0.1);
+    this.domes.dome(at, 1, 0.1, 0.5);
+    this.streaks.spawn(at, dir, c, 1, 0.1, 0.05, 0.5);
+    this.rocks.throw(at, this.u.set(0, 1, 0), 0.4, this.s.set(1, 1, 1), this.v.set(1, 1, 1), SKY_COLORS.rock[0]!);
+    this.shards.throw(at, this.u.set(0, 1, 0), 0.4, this.s.set(1, 1, 1), this.v.set(1, 1, 1), c, { heat: 1, coolS: 1 });
+    this.fissures.spawn(at.x, at.z, 1, 0, 1, 0.5, 0.5);
+    this.rune.set(at.x, at.y, at.z, 1, 1, 0.5, 0);
+    const cast = this.casts[0]!;
+    for (let i = 0; i < cast.flame.count; i += 1) cast.flame.points[i]!.copy(at).addScaledVector(dir, -i * 0.2);
+    for (let i = 0; i < cast.smoke.count; i += 1) cast.smoke.points[i]!.copy(at).addScaledVector(dir, -i * 0.2);
+    cast.flame.update(eye, 0.5, 1, 0);
+    cast.smoke.update(eye, 0.3, 1, 0);
+    this.cones.update(0);
+    this.domes.update(1 / 60);
+    this.streaks.update(0);
+    this.rocks.update(0);
+    this.shards.update(0);
+    this.fissures.update(0);
+  }
+
   clear(): void {
     for (const cast of this.casts) {
       cast.active = false;

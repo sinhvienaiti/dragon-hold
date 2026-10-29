@@ -797,7 +797,7 @@ export class FxCore {
    * Compiles every effect's shader up front (trails start hidden, pools
    * empty), so the first meteor or bolt of a wave does not stall a frame.
    */
-  warm(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera): void {
+  warm(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, draw?: () => void): void {
     const hidden: THREE.Object3D[] = [];
     this.group.traverse((object) => {
       if (!object.visible) {
@@ -807,6 +807,56 @@ export class FxCore {
     });
     renderer.compile(scene, camera);
     for (const object of hidden) object.visible = false;
+    if (draw) this.warmDraw(camera, draw);
+  }
+
+  /**
+   * One real frame drawn at load with every pool holding an instance, then all cleared. compile() alone left the
+   * first Sky Fire with two 240–250 ms frames in the bench (its charge on f0 and its impact on f49; trace 29/10):
+   * ANGLE/Metal builds a material's pipeline on its first real draw. The frame goes through the stage's own path
+   * (`draw`), so the render targets match the game's.
+   */
+  private warmDraw(camera: THREE.Camera, draw: () => void): void {
+    const eye = camera.getWorldPosition(new THREE.Vector3());
+    const at = new THREE.Vector3(0, this.heightOf(0, 0) + 2.5, 0);
+    const dir = new THREE.Vector3(0, 0.05, -1).normalize();
+    const c = FX_COLORS.fire;
+    this.flares.flare(at, 1, c, 1, 0.5, 0.1);
+    this.flares.draw(at, 1, c, 1);
+    this.puffs.spawn(at.x, at.y, at.z, 1, 0.5, c, 1, { shape: PUFF_FIRE });
+    this.puffs.spawn(at.x, at.y, at.z, 1, 0.5, c, 1);
+    for (const kind of [1, 2, 4, 5]) this.marks.spawn(at.x, at.y - 2, at.z, 1, 0.5, c, 1, { kind });
+    for (const kind of [1, 6]) this.rings.spawn(at.x, at.y - 2, at.z, 1, 0.5, c, 1, { kind });
+    this.sparks.spawn(at, dir, c, 0.3, 0.5);
+    this.glows.spawn(at, dir, c, 0.3, 0.5);
+    this.sky.streaks.spawn(at, dir, c, 1, 0.1, 0.05, 0.5);
+    this.cones.cone(at, dir, 1, 0.5, 0.5, 0.1);
+    this.tongue(at, 0, 0, -1, 0, 1, 0.3, 1, 0);
+    this.tongue(at, 0, 0, -1, 0, 1, 0.3, 1, 0, WORD_FX.tongueS, true);
+    const bolt = this.bolts[0]!;
+    for (let i = 0; i < bolt.trail.count; i += 1) bolt.trail.points[i]!.copy(at).addScaledVector(dir, -i * 0.2);
+    for (let i = 0; i < bolt.smoke.count; i += 1) bolt.smoke.points[i]!.copy(at).addScaledVector(dir, -i * 0.2);
+    bolt.trail.update(eye, 0.5, 1, 0);
+    bolt.smoke.update(eye, 0.3, 1, 0);
+    this.update(1 / 120, 0, eye, 600);
+    // After the update: Sky Fire's update hides its rune circle while no cast is active.
+    this.sky.warmShow(at, eye);
+    draw();
+    this.flares.clear();
+    this.puffs.clear();
+    this.rings.clear();
+    this.marks.clear();
+    this.sparks.clear();
+    this.glows.clear();
+    this.cones.clear();
+    for (const tongue of this.tongues) {
+      tongue.active = false;
+      tongue.trail.hide();
+    }
+    bolt.trail.hide();
+    bolt.smoke.hide();
+    this.sky.clear();
+    this.update(0, 0, eye, 600);
   }
 
   /** Live counts (bench, tests, captures). */
@@ -1952,7 +2002,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     }
     previousAfter.call(stage.scene, renderer, scene, camera, geometry, material, group);
   };
-  core.warm(stage.renderer, stage.scene, stage.camera);
+  core.warm(stage.renderer, stage.scene, stage.camera, () => stage.render());
   const hitStop = new HitStop(DRAGON);
   const trauma = new Trauma(DRAGON, options.random);
   // The kit field: its box is the drawn digits and label, settle() runs until none touch (round 3 kit drift, fixed in the kit).

@@ -72,6 +72,8 @@ export interface BenchResult {
   readonly gpuMeanMs: number | null;
   readonly gpuNote: string | null;
   readonly maxMs: number;
+  /** Frames over 50 ms while measuring: when (s since start), how long, and what Sky Fire was drawing (hitch traces). */
+  readonly longFrames: readonly { t: number; ms: number; sky: string | null; skyFrame: number }[];
   readonly fps: number;
   readonly count: number;
   readonly quality: Quality;
@@ -625,7 +627,7 @@ export class BenchEffects {
     this.core = new FxCore(stage.quality, { locator: crowd, random, heightAt: crowd.heightAt, mouthLight });
     this.core.setMouth(this.mouth);
     stage.layers.fx.add(this.core.group);
-    this.core.warm(stage.renderer, stage.scene, stage.camera);
+    this.core.warm(stage.renderer, stage.scene, stage.camera, () => stage.render());
   }
 
   private pick(crowd: BenchCrowd): number {
@@ -790,6 +792,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   };
   const warmup = options.warmup ?? 1.5;
   const intervals: number[] = [];
+  const longFrames: { t: number; ms: number; sky: string | null; skyFrame: number }[] = [];
   const cpu: number[] = [];
   let calls = 0;
   let triangles = 0;
@@ -823,6 +826,10 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
     const spent = performance.now() - t0;
     if (!measuring) return;
     intervals.push(interval);
+    if (interval > 50) {
+      const sky = fx?.core.skyDebug();
+      longFrames.push({ t: round2(elapsed), ms: round2(interval), sky: sky?.phase ?? null, skyFrame: sky?.frame ?? -1 });
+    }
     cpu.push(spent);
     const stats = painted?.stage.stats();
     calls = stats?.drawCalls ?? stage.renderer.info.render.calls;
@@ -841,6 +848,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
         cpuP95Ms: round2(percentile(cpu, 0.95)),
         ...gpuReading(gpu, mean(intervals), rendererName(stage.renderer)),
         maxMs: round2(Math.max(...intervals)),
+        longFrames,
         fps: round2(1000 / Math.max(0.001, mean(intervals))),
         count: options.count,
         quality: options.quality,
