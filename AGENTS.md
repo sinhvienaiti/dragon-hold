@@ -79,6 +79,16 @@ Dev port 3005, host `dragon.typing-game.local`.
   `s6-traps` wait for the owner. Merged on 28/10: M0b models and the speed
   card's Easy hint (D33 (6), Codex 023). See
   `docs/changelog/2026-10-27-owner-decisions.md` §8.
+- State (29/10, Mac, model tiers lane): every model ships per quality from the
+  Tripo originals (parent `docs/games/MODEL_QUALITY.md` §2b,
+  `scripts/models/m0b-tiers.mjs`): Ultra the whole mesh with colour, normal and
+  roughness maps; High the §2 floors (foes whole, trees 8,000); Medium half of
+  High; Low unchanged (no 3D). Materials keep the maps under the painted look.
+  Scatter draws a far LOD past `PROP_LOD_M` (High 70 m: trees their Medium
+  mesh, the rest the M0b cut) and the crowd's outline and ghost draw the Medium
+  mesh: the tier meshes everywhere broke High's 8 ms gate. Ultra's black box
+  over foes (MSAA NaN in the crowd rim, spread by bloom) is fixed. See
+  `docs/changelog/2026-10-29-model-tiers.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
