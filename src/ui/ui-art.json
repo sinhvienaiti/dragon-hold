@@ -715,5 +715,28 @@
       "accepted": null,
       "interim": true
     }
+  ],
+  "art": [
+    {
+      "name": "title-backdrop",
+      "alt": "Dragonhold mountain stronghold at dawn",
+      "source": "ui/title-epic/title-backdrop",
+      "width": 1536,
+      "accepted": null
+    },
+    {
+      "name": "logo",
+      "alt": "Dragonhold",
+      "source": "ui/title-epic/logo.alpha",
+      "width": 1024,
+      "accepted": null
+    },
+    {
+      "name": "emblem",
+      "alt": "Dragonhold emblem",
+      "source": "ui/title-epic/emblem.alpha",
+      "width": 512,
+      "accepted": null
+    }
   ]
 }

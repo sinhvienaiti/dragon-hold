@@ -13,7 +13,7 @@ const ZOOM = Number(process.env.ZOOM ?? "1");
 
 export default async function (page) {
   const out = outDir("integrator/camera");
-  await page.goto(BASE + "/?view=terrain&hud=0&q=" + Q, { settle: 300 });
+  await page.goto(BASE + "/?title=0&view=terrain&hud=0&q=" + Q, { settle: 300 });
   for (let i = 0; i < 100; i += 1) {
     if ((await page.eval("window.__dhTerrain?.info().ready === true")) === true) break;
     await page.sleep(100);

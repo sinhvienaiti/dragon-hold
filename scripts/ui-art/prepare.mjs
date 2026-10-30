@@ -2,7 +2,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -22,6 +22,12 @@ function validateTable(table) {
       if (names.has(name)) throw new Error('Duplicate icon name/key: ' + name);
       names.add(name);
     }
+  }
+  for (const entry of table.art ?? []) {
+    if (!/^[a-z0-9-]+$/.test(entry.name) || names.has(entry.name) || !entry.alt || !entry.source || isAbsolute(entry.source)
+      || entry.source.split(/[\\/]/).includes('..') || !Number.isInteger(entry.width) || entry.width < 1
+      || !(entry.accepted === null || (typeof entry.accepted === 'string' && /^\d+$/.test(entry.accepted)))) throw new Error('Invalid art: ' + entry.name);
+    names.add(entry.name);
   }
 }
 
@@ -60,6 +66,22 @@ async function check(table, artSrc, out) {
       if (bytes.length !== meta.bytes || md5(bytes) !== meta.md5) throw new Error(name + ': bytes/md5 mismatch');
     }
   }
+  const selected = (table.art ?? []).filter(entry => entry.accepted !== null);
+  const artNames = new Set(selected.map(entry => entry.name));
+  for (const name of Object.keys(manifest.art ?? {})) if (!artNames.has(name)) throw new Error(file + ': unaccepted/unknown art ' + name);
+  for (const entry of selected) {
+    const packed = manifest.art?.[entry.name];
+    if (!packed || packed.source !== entry.source || packed.accepted !== entry.accepted || packed.requestedWidth !== entry.width) throw new Error(file + ': selection mismatch for ' + entry.name);
+    const source = entry.source + '.png'; const original = await readFile(join(artSrc, source));
+    if (packed.sources?.[source] !== md5(original) || Object.keys(packed.sources ?? {}).length !== 1) throw new Error('Source md5 mismatch: ' + source);
+    const [width, height] = magick(['identify', '-format', '%w %h', 'png:-'], original).toString().split(' ').map(Number);
+    const expectedWidth = Math.min(entry.width, width); const expectedHeight = Math.max(1, Math.round(height * expectedWidth / width));
+    if (packed.file !== '../title/' + entry.name + '.webp' || packed.width !== expectedWidth || packed.height !== expectedHeight) throw new Error(entry.name + ': invalid manifest size/file');
+    const bytes = await readFile(join(out, packed.file));
+    if (bytes.length !== packed.bytes || md5(bytes) !== packed.md5) throw new Error(packed.file + ': bytes/md5 mismatch');
+    const dimensions = magick(['identify', '-format', '%w %h', 'webp:-'], bytes).toString();
+    if (dimensions !== expectedWidth + ' ' + expectedHeight) throw new Error(packed.file + ': invalid WebP size');
+  }
   return manifest;
 }
 
@@ -77,8 +99,11 @@ function psnr(png, webp, stage) {
 /** Convert everything before publishing; roll back originals on a publication error. */
 async function publish(out, pending, stage) {
   const previous = new Map();
+  const staged = new Map();
   for (const [name, bytes] of pending) {
-    await writeFile(join(stage, name), bytes);
+    const temp = join(stage, 'publish-' + staged.size);
+    staged.set(name, temp);
+    await writeFile(temp, bytes);
     try { previous.set(name, await readFile(join(out, name))); }
     catch (error) { if (error.code !== 'ENOENT') throw error; previous.set(name, null); }
   }
@@ -87,7 +112,8 @@ async function publish(out, pending, stage) {
   try {
     // Manifest is inserted last and renamed only after all images succeed.
     for (const [name] of pending) {
-      await rename(join(stage, name), join(out, name));
+      await mkdir(dirname(join(out, name)), { recursive: true });
+      await rename(staged.get(name), join(out, name));
       published.push(name);
     }
   } catch (error) {
@@ -95,8 +121,8 @@ async function publish(out, pending, stage) {
       const bytes = previous.get(name);
       if (bytes === null) await rm(join(out, name), { force: true });
       else {
-        await writeFile(join(stage, name), bytes);
-        await rename(join(stage, name), join(out, name));
+        await writeFile(staged.get(name), bytes);
+        await rename(staged.get(name), join(out, name));
       }
     }
     throw error;
@@ -108,14 +134,15 @@ export async function prepareUiArt({ artSrc, out = DEFAULT_OUT, check: checkOnly
   table ??= JSON.parse(await readFile(TABLE, 'utf8'));
   validateTable(table);
   artSrc = resolve(artSrc); out = resolve(out);
-  if (within(artSrc, out) || within(out, artSrc)) throw new Error('Source and output must not overlap');
+  const titleOut = resolve(out, '../title');
+  if ([out, titleOut].some(target => within(artSrc, target) || within(target, artSrc))) throw new Error('Source and output must not overlap');
   if (checkOnly) return check(table, artSrc, out);
   // All scratch files stay in the worktree, including production conversions.
   const tempRoot = join(ROOT, 'tmp/ui-art');
   await mkdir(tempRoot, { recursive: true });
   const stage = await mkdtemp(join(tempRoot, '.prepare-'));
   try {
-    const manifest = { version: table.version, icons: {} };
+    const manifest = { version: table.version, icons: {}, art: {} };
     const pending = new Map();
     for (const entry of table.icons) {
       const sources = await sourceSet(artSrc, entry);
@@ -140,6 +167,17 @@ export async function prepareUiArt({ artSrc, out = DEFAULT_OUT, check: checkOnly
       }
       manifest.icons[entry.name] = packed;
     }
+    for (const entry of table.art ?? []) {
+      if (entry.accepted === null) continue;
+      const source = entry.source + '.png'; const original = await readFile(join(artSrc, source));
+      const png = magick(['png:-', '-filter', 'Lanczos', '-resize', entry.width + 'x>', '-strip', 'png:-'], original);
+      const [width, height] = magick(['identify', '-format', '%w %h', 'png:-'], png).toString().split(' ').map(Number);
+      const sourceFile = join(stage, 'art-input.png'); await writeFile(sourceFile, png);
+      const bytes = execFileSync(process.env.ART_CWEBP || 'cwebp', ['-quiet', '-q', '90', '-alpha_q', '100', '-exact', '-metadata', 'none', sourceFile, '-o', '-'], { maxBuffer: 32 * 1024 * 1024 });
+      const file = '../title/' + entry.name + '.webp';
+      manifest.art[entry.name] = { file, source: entry.source, accepted: entry.accepted, requestedWidth: entry.width, width, height, bytes: bytes.length, md5: md5(bytes), sources: { [source]: md5(original) } };
+      pending.set(file, bytes);
+    }
     pending.set('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2) + '\n'));
     await publish(out, pending, stage);
     return manifest;
@@ -147,7 +185,7 @@ export async function prepareUiArt({ artSrc, out = DEFAULT_OUT, check: checkOnly
 }
 
 export async function runPrepare(args = process.argv.slice(2), table) {
-  const usage = 'pnpm prepare-ui-art --art-src <dir> [--out <dir>] [--check]\nOutput: public/assets/dragon-hold/ui/icons/<name>.{64,128,256}.webp and manifest.json\nMissing sizes use the nearest larger PNG with Lanczos; never upscale. Quality 90, alpha 100; PSNR <35 dB uses lossless.\nSet ART_MAGICK for ImageMagick 7 and ART_CWEBP for cwebp.';
+  const usage = 'pnpm prepare-ui-art --art-src <dir> [--out <dir>] [--check]\nOutput: public/assets/dragon-hold/ui/icons/<name>.{64,128,256}.webp and manifest.json; accepted art: ui/title/<name>.webp (same manifest).\nMissing sizes use the nearest larger PNG with Lanczos; never upscale. Quality 90, alpha 100; PSNR <35 dB uses lossless.\nSet ART_MAGICK for ImageMagick 7 and ART_CWEBP for cwebp.';
   if (args.length === 1 && ['--help', '-h'].includes(args[0])) { console.log(usage); return; }
   const options = { table }; const seen = new Set();
   for (let i = 0; i < args.length; i++) {

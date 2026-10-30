@@ -13,7 +13,7 @@ const SIZES = [
 const SCENES = ["prep", "break", "breather", "placing", "edit", "menu", "warning", "wave", "low", "victory", "defeat"];
 
 async function boot(page) {
-  await page.goto(base + "/?view=ui", { settle: 600 });
+  await page.goto(base + "/?title=0&view=ui", { settle: 600 });
   // Until main.ts routes ?view=ui (integrator), load the preview module directly.
   const ready = await page.eval(`(async () => {
     if (!window.__dhUi) { const m = await import("/src/ui/ui-preview.ts"); m.startUiPreview(document); }

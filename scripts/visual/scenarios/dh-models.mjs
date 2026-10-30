@@ -63,7 +63,7 @@ export async function props(page, out, [width, height] = [page.width, page.heigh
   const dir = join(out, "props-" + tag);
   mkdirSync(dir, { recursive: true });
   await page.viewport(width, height);
-  await page.goto((process.env.URL ?? "http://127.0.0.1:4152/").replace(/\/$/, "") + "/?bench=models", { settle: 400 });
+  await page.goto((process.env.URL ?? "http://127.0.0.1:4152/").replace(/\/$/, "") + "/?title=0&bench=models", { settle: 400 });
   await page.eval(
     "(async () => { const m = await import('/src/view/studio.ts'); const host = document.createElement('div'); host.style.cssText = 'position:fixed;inset:0'; document.body.append(host);" +
       " await m.runModelStudio(host, { content: [] }); return true; })()",
@@ -151,7 +151,7 @@ export default async function (page) {
   const set = SETS[process.env.SET ?? "samples"] ?? SETS.samples;
   const sizes = (process.env.SIZES ?? "1280x720,1920x1080").split(",").map((size) => size.split("x").map(Number));
   const quality = process.env.Q ?? "high";
-  await page.goto(base + "/?bench=models", { settle: 400 });
+  await page.goto(base + "/?title=0&bench=models", { settle: 400 });
   const info = await page.eval(
     "(async () => { const m = await import('/src/view/studio.ts'); const host = document.createElement('div'); host.style.cssText = 'position:fixed;inset:0'; document.body.append(host);" +
       " const h = await m.runModelStudio(host, " +

@@ -19,7 +19,7 @@ const OUT = resolve(process.env.OUT_DIR ?? "tmp/shots/view-crowd-fx");
 
 /** Close-ups of every effect through the real presenters (bench.ts runFxShowcase). */
 async function showcase(page, base, quality) {
-  await page.goto(base + "/?bench=fx", { settle: 600 });
+  await page.goto(base + "/?title=0&bench=fx", { settle: 600 });
   const loaded = await page.eval(
     "(async () => { const bench = await import('/src/view/bench.ts');" +
       " const host = document.createElement('div'); host.id = 'dh-showcase'; host.style.cssText = 'position:fixed;inset:0;z-index:50;background:#a9c2cf';" +
@@ -65,7 +65,7 @@ export default async function (page) {
   const bones = process.env.MODE === "bones";
   const tag = quality + "-" + page.width + "x" + page.height + "@" + page.dpr + (fx ? "" : "-nofx") + (ground === "painted" ? "-painted" : "") + (bones ? "-bones" : "");
   mkdirSync(OUT, { recursive: true });
-  await page.goto(base + "/?bench=crowd&q=" + quality + "&count=" + count, { settle: 600 });
+  await page.goto(base + "/?title=0&bench=crowd&q=" + quality + "&count=" + count, { settle: 600 });
   // Start the bench unless the app already did (integrator route).
   const started = await page.eval(
     "(async () => { if (window.__dhBenchStop) return 'app'; const bench = await import('/src/view/bench.ts');" +

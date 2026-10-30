@@ -38,6 +38,7 @@ import { VICTORY_HOLD_MS, createResults } from "../ui/results";
 import { createShopStrip } from "../ui/shop-strip";
 import { createDebutCard } from "../ui/debut-card";
 import { el, icon, installSkin, keyLabel, setShown, uiButton } from "../ui/skin";
+import { createTitle } from "../ui/title";
 import { createTags } from "../ui/tags";
 import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
@@ -52,7 +53,7 @@ import { createLaneCue } from "../view/lane-cue";
 import { createTelegraphs, type TelegraphsView } from "../view/telegraphs";
 import type { ActionHandler, FrameInfo, Presenter, Quality, ScreenPoint } from "./contracts";
 import { createInputRouter, type InputRouter, type KeyPanel } from "./input-router";
-import { createLearningClient, type LearningClient } from "./learning";
+import { DeckBuildError, createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
 import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
@@ -72,6 +73,8 @@ export interface AppOptions {
   readonly speed?: number;
   /** Show Học trước before the first setup (default true). */
   readonly prelearn?: boolean;
+  /** False only for automated scenarios that bypass the title. */
+  readonly title?: boolean;
   /** Word tag size, 80–150 % (01 §3.1; the settings screen comes later). */
   readonly tagSizePct?: number;
 }
@@ -89,7 +92,7 @@ const PICK_PX = 44;
 /** Word zone (01 §2.1, rules RINGS), sim u: fast-forward stays off while a foe is inside it. */
 const WORD_ZONE_U = mmToU(RINGS.wordZoneMm);
 
-/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?tagsize=80–150, and in dev ?speed=. */
+/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?title=0, ?tagsize=80–150, and in dev ?speed=. */
 export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   const params = new URLSearchParams(search);
   const q = params.get("q") as Quality | null;
@@ -108,6 +111,7 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
     typistWpm: clampWpm(num("wpm")),
     speed: dev && speed !== undefined ? Math.min(16, Math.max(0.25, speed)) : undefined,
     prelearn: params.get("prelearn") !== "0",
+    title: params.get("title") !== "0",
     tagSizePct: num("tagsize"),
   };
 }
@@ -204,8 +208,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   if (!overlay || !canvasHost) throw new Error("app: #dh-overlay or #dh-canvas missing from index.html");
   overlay.replaceChildren();
 
-  const notice = el(doc, "div", "dh-boot", "Dragonhold · " + stage.nameVi + " · loading words…");
-  overlay.append(notice);
+  // Detached legacy notice anchor for the title=0 deck-error/Retry path.
+  const notice = el(doc, "div");
 
   const foundMap = MAPS[stage.mapId];
   if (!foundMap) throw new Error("app: stage " + stage.id + " names unknown map " + stage.mapId);
@@ -739,6 +743,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   /** Pause overlay, countdown and the pause menu see a press first. */
   const intercept = (event: KeyboardEvent, action: string | null): boolean => {
+    if (title?.isOpen) return title.handleAction(action);
     // The speed card takes every press while it is up (letters too: nothing types under it).
     // A bare Digit 0 has no KEYS action; on the card it picks the measured row.
     if (paceCard.isOpen) {
@@ -901,30 +906,43 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     }
     ready = true;
   };
-  const deckBoot = startDeckBoot(overlay, notice, learning, stage, (built) => {
+  const startFromTitle = (): void => {
+    if (header !== null) begin();
+    else askPace((picked, choice) => {
+      header = picked;
+      if (choice?.easy) difficulty = "easy";
+      begin();
+    });
+  };
+  const title = options.title === false ? null : createTitle(overlay, { onStart: startFromTitle });
+  // R2: attach the map camera with title.onShow/onHide and title.setBackdrop("live").
+  title?.show();
+  // Moved before buildDeck: the title receives keys while all four sources load.
+  router = createInputRouter(view, sink, {
+    intercept, panel: activePanel,
+    locked: () => (run ? run.world.words.lock >= 0 : false), fallback,
+    onImeSign: () => { if (run) imeUntil = view.performance.now() + 8000; },
+    now: () => view.performance.now(),
+  });
+  const deckBoot = title ? { dispose() {} } : startDeckBoot(overlay, notice, learning, stage, (built) => {
     if (disposed) return;
     deck = built;
-    notice.remove();
-    // The router first: the speed card answers to it before there is a run.
-    router = createInputRouter(view, sink, {
-      intercept,
-      panel: activePanel,
-      locked: () => (run ? run.world.words.lock >= 0 : false),
-      fallback,
-      // A notice over the learning frame, held until a letter reaches the game (test pass 27/10: an 11 px toast in a corner).
-      onImeSign: () => {
-        if (run) imeUntil = view.performance.now() + 8000;
-      },
-      now: () => view.performance.now(),
-    });
-    if (header !== null) begin();
-    else
-      askPace((picked, choice) => {
-        header = picked;
-        if (choice?.easy) difficulty = "easy";
-        begin();
-      });
+    startFromTitle();
   });
+  if (title) {
+    void learning.buildDeck(stage).then(built => {
+      if (disposed) return;
+      deck = built;
+      title.settle("words");
+    }, error => {
+      if (!disposed) title.settle("words", error instanceof DeckBuildError ? error.reason : "load-failed");
+    });
+    for (const [source, promise] of [["models", models.ready], ["ground", map.groundBaked], ["dragons", heroes.ready]] as const) {
+      void Promise.resolve(promise).catch((error: unknown) => {
+        if (!disposed) console.warn("title: load failed", source, error);
+      }).then(() => { if (!disposed) title.settle(source); });
+    }
+  }
 
   const handle: DebugHandle = {
     get ready() {
@@ -933,9 +951,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     world: () => run!.world,
     state: () => {
       const world = run?.world;
-      if (!world) return { ready, paceCard: paceCard.isOpen, idleSpeed, timeScale: lastTimeScale };
+      if (!world) return { ready, title: title?.state ?? "started", paceCard: paceCard.isOpen, idleSpeed, timeScale: lastTimeScale };
       return {
         ready,
+        title: title?.state ?? "started",
         pace: { ...run!.header, kPm: world.pace.kPm, marginPm: world.pace.marginPm, graceTicks: world.pace.graceTicks },
         paceCard: paceCard.isOpen,
         phase: world.phase,
@@ -1110,6 +1129,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     dispose(): void {
       disposed = true;
       deckBoot.dispose();
+      title?.dispose();
       learning.flush();
       loop?.stop();
       router?.dispose();

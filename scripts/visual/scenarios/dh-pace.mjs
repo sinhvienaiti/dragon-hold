@@ -140,7 +140,7 @@ export default async function (page) {
   const out = { size: W + "x" + H, steps: {} };
 
   // 1. No ?wpm: the card, nothing running.
-  await page.goto(BASE + "/?prelearn=0", { settle: 300 });
+  await page.goto(BASE + "/?title=0&prelearn=0", { settle: 300 });
   out.steps.cardShown = await waitFor(page, "window.__dh && window.__dh.state().paceCard === true");
   await page.sleep(500);
   const first = await cardState(page);
@@ -183,7 +183,7 @@ export default async function (page) {
 
   // 5. A measured profile in storage: offered first, preselected, built with a and CV.
   await page.eval(`localStorage.setItem('dragon-hold.skill', JSON.stringify({ version: 1, audience: 'adult', mode: 'balanced', measures: { e: { value: 27.3, n: 160 }, a: { value: 0.93, n: 800 }, cv: { value: 0.3, n: 160 } }, vocabLevel: 1, sessionWpm: 27.3, trend: { stages: 2, streak: 1, easyWins: 0, quits: 0, safety: { value: 0.6, n: 2 }, nearMisses: { value: 0, n: 2 } }, input: { ime: false, weakKeys: [] } }))`);
-  await page.goto(BASE + "/?prelearn=0", { settle: 300 });
+  await page.goto(BASE + "/?title=0&prelearn=0", { settle: 300 });
   await waitFor(page, "window.__dh && window.__dh.state().paceCard === true");
   await page.sleep(500);
   const measuredCard = await cardState(page);
@@ -218,7 +218,7 @@ export default async function (page) {
 
   // 6. ?wpm=25 skips the card.
   await page.eval("localStorage.removeItem('dragon-hold.skill')");
-  await page.goto(BASE + "/?prelearn=0&wpm=25", { settle: 300 });
+  await page.goto(BASE + "/?title=0&prelearn=0&wpm=25", { settle: 300 });
   await waitFor(page, "window.__dh && window.__dh.ready === true");
   await page.sleep(400);
   out.steps.url = { card: await page.eval("window.__dh.state().paceCard"), pace: await pace(page) };
