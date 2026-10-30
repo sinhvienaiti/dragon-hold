@@ -22,7 +22,7 @@ import { MAPS } from "../content/data/maps";
 import { STAGE_M0 } from "../content/data/stages";
 import { RINGS, URGENT } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
-import { createLearningBridge } from "../kit/learning";
+import { createPortalBridge } from "./portal";
 import { safeLocalStorage } from "../kit/platform";
 import { setSpeechGate } from "../kit/speech";
 import { mmToU, uToM } from "../sim/fixed";
@@ -218,7 +218,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   map.useModels(models);
 
   // Persistent services: audio, the learning bridge and client.
-  const bridge = createLearningBridge({ gameId: "dragon-hold" });
+  const bridge = createPortalBridge();
   const learning: LearningClient = createLearningClient({ bridge });
   const audio: GameAudio = createAudio({ quality });
   const stopMusicWatch = bridge.onSharedMusic((playing) => audio.setSharedMusic(playing));

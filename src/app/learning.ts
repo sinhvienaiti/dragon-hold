@@ -9,12 +9,13 @@
  */
 import { ECONOMY, LEARNING } from "../content/rules";
 import type { ActivityType, DeckWord, SimEvent, StageDef, WordDeck } from "../content/types";
-import { buildCombatLearningEvent, createLearningBridge, normalizeLearningEntityId, type LearningBridge, type LearningEvent } from "../kit/learning";
+import { buildCombatLearningEvent, normalizeLearningEntityId, type LearningBridge, type LearningEvent } from "../kit/learning";
 import { createRng, safeLocalStorage } from "../kit/platform";
 import { speakEnglish } from "../kit/speech";
 import { filterVocabularyEntries, loadVocabularyIndex, loadVocabularyLevel, textHasBlockedWord, type VocabularyEntry } from "../kit/vocab";
 import { buildWordDeck, isDeckText, type DeckCandidate } from "../typing/deck";
 import type { Gloss } from "../ui/learning-frame";
+import { createPortalBridge } from "./portal";
 
 const GAME_ID = LEARNING.gameId;
 /** Recall activities: always sent (01 §6.6), and a right answer without a hint counts toward hiding the meaning (01 §6.3). */
@@ -243,7 +244,7 @@ const browser = typeof window !== "undefined";
 export function createLearningClient(options: LearningClientOptions = {}): LearningClient {
   const now = options.now ?? (() => Date.now());
   const storage = options.storage ?? safeLocalStorage;
-  const bridge = options.bridge ?? createLearningBridge({ gameId: GAME_ID });
+  const bridge = options.bridge ?? createPortalBridge();
   const excludeMature = options.excludeMature ?? false;
   const mode: PronounceMode = options.pronounce ?? "new-weak";
   const speakNow = options.speak ?? ((text: string) => (browser ? speakEnglish(text, { enabled: true, rate: 0.9, volume: 1 }) : undefined));

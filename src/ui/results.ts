@@ -252,14 +252,18 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   const foot = el(doc, "div", "dh-results__foot");
   const buttons = el(doc, "div", "dh-results__actions");
   const retryButton = uiButton(doc, "dh-retry", () => actions.retry());
-  const portalButton = el(doc, "a", "dh-btn dh-results__portal");
-  portalButton.href = portalHome(import.meta.env.VITE_PORTAL_ORIGINS);
-  portalButton.target = "_top";
-  portalButton.tabIndex = -1;
-  portalButton.addEventListener("mousedown", (event) => event.preventDefault());
-  portalButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>Back to portal`;
   // Keep focus in the window key router, as uiButton does elsewhere.
-  const resultButtons = [retryButton, portalButton] as const;
+  const resultButtons: HTMLElement[] = [retryButton];
+  const home = portalHome(import.meta.env.VITE_PORTAL_URL);
+  if (home) {
+    const portalButton = el(doc, "a", "dh-btn dh-results__portal");
+    portalButton.href = home;
+    portalButton.target = "_top";
+    portalButton.tabIndex = -1;
+    portalButton.addEventListener("mousedown", (event) => event.preventDefault());
+    portalButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>Back to portal`;
+    resultButtons.push(portalButton);
+  }
   let focusedAction = 0;
   const focusAction = (index: number): void => {
     focusedAction = index;
@@ -355,7 +359,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     setShown(easierButton, offerEasier);
     if (easier !== null) easierButton.innerHTML = `<span class="dh-key">${keyLabel("call-early")}</span>Lost twice: retry on ${easier}`;
     keys.innerHTML =
-      `<span class="dh-key">${keyLabel("rotate-left")}</span><span class="dh-key">${keyLabel("rotate-right")}</span> buttons · ` +
+      (resultButtons.length > 1 ? `<span class="dh-key">${keyLabel("rotate-left")}</span><span class="dh-key">${keyLabel("rotate-right")}</span> buttons · ` : "") +
       `<span class="dh-key">${keyLabel("tilt-up")}</span><span class="dh-key">${keyLabel("tilt-down")}</span> words` +
       (actions.listen ? ` · <span class="dh-key">${keyLabel("replay")}</span> listen` : "");
     focusAction(0);
@@ -417,7 +421,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     }
     if (!summary) return false;
     if (action === "enter") resultButtons[focusedAction]!.click();
-    else if (action === "rotate-left" || action === "rotate-right") focusAction(1 - focusedAction);
+    else if (action === "rotate-left" || action === "rotate-right") focusAction((focusedAction + 1) % resultButtons.length);
     else if (action === "call-early" && offerEasier) actions.easier?.();
     else if (action === "tilt-up") select(selected - 1);
     else if (action === "tilt-down") select(selected + 1);

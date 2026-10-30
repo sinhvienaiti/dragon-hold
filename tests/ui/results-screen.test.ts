@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { portalHome } from "../../src/app/portal";
 import { KEYS } from "../../src/content/rules";
 import type { SimEvent } from "../../src/content/types";
@@ -73,11 +73,31 @@ function fixture() {
   return { doc, world, actions, results, node, key, open, frame };
 }
 
+beforeEach(() => vi.stubEnv("VITE_PORTAL_URL", "https://portal.example/"));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("results portal action (105b, DH-24 / G5)", () => {
-  it.each([undefined, "", " https://portal.example , https://other.example "])("renders two matching actions with portalHome(%s) and target _top", (origins) => {
-    vi.stubEnv("VITE_PORTAL_ORIGINS", origins);
+  it.each([undefined, "", "   "])("omits the portal action when the URL is empty (%j)", (url) => {
+    vi.stubEnv("VITE_PORTAL_URL", url);
+    for (const outcome of ["victory", "defeat"] as const) {
+      const f = fixture();
+      f.open(outcome);
+      const retry = f.node("dh-retry");
+      expect(f.node("dh-results__actions").children).toHaveLength(1);
+      expect(f.node("dh-results__actions").children[0]).toBe(retry);
+      expect(f.node("dh-results__portal")).toBeUndefined();
+      for (const code of ["ArrowRight", "ArrowLeft", "ArrowRight"]) {
+        expect(f.key(code)).toBe(true);
+        expect(retry.classList.contains("is-focused")).toBe(true);
+        f.key("Enter");
+      }
+      expect(f.actions.retry).toHaveBeenCalledTimes(3);
+      expect(f.node("dh-results__keys").innerHTML).not.toContain("buttons");
+    }
+  });
+
+  it.each(["https://portal.example/", " https://portal.example/learn/?game=dragon-hold#home "])("renders two matching actions with portalHome(%s) and target _top", (url) => {
+    vi.stubEnv("VITE_PORTAL_URL", url);
     const f = fixture();
     f.open("defeat");
     const retry = f.node("dh-retry");
@@ -86,7 +106,7 @@ describe("results portal action (105b, DH-24 / G5)", () => {
     expect(retry.tagName).toBe("BUTTON");
     expect(portal.tagName).toBe("A");
     expect(portal.classList.contains("dh-btn")).toBe(true);
-    expect(portal.href).toBe(portalHome(origins));
+    expect(portal.href).toBe(portalHome(url));
     expect(portal.target).toBe("_top");
     expect(portal.innerHTML).toBe(`<span class="dh-key">${keyLabel("enter")}</span>Back to portal`);
     // A pointer click must keep the anchor's native navigation.
