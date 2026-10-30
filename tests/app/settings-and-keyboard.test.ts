@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GameKeyboard, KEYS_BASE, loadGameKeyboards } from "../../src/app/keyboard";
 import { SETTINGS_DEFAULTS, BUILT_IN_KEYS, applyQuick, audioVolumes, keyboardChoice, keyboardLevel, loadSettings, quickValues, voiceLevel } from "../../src/app/settings";
@@ -56,14 +57,21 @@ describe("192 settings", () => {
 });
 
 describe("192 shipped Firefly media and player", () => {
-  it("reads Off, Dragonhold and the 32 Firefly sets in seven families from the kit catalogue, with lazy samples", async () => {
+  it("reads Off, Dragonhold and the 33 Firefly sets in seven families from the kit catalogue, with lazy samples", async () => {
     const catalog = await loadGameKeyboards();
     expect(catalog.state).toBe("ready");
     expect(catalog.options.slice(0, 2).map((p) => p.value)).toEqual(["off", BUILT_IN_KEYS]);
     const firefly = catalog.options.slice(2);
-    expect(firefly).toHaveLength(32);
+    expect(firefly).toHaveLength(33);
     // Each family is one contiguous run, so the kit list draws one heading per family.
     expect(firefly.map((p) => p.family).filter((family, i, all) => family !== all[i - 1])).toEqual(["Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack"]);
+    // Owner pick 30/10: Raindrop Tile closes the Crisp family. It has no 218 score (null), and the kit still lists it.
+    const raindrop = firefly.findIndex((p) => p.value === "raindrop-tile");
+    expect(firefly.slice(raindrop - 1, raindrop + 2).map((p) => p.value)).toEqual(["crisp-silk", "raindrop-tile", "clear"]);
+    expect(firefly[raindrop]).toEqual({ value: "raindrop-tile", label: "Raindrop Tile", family: "Crisp", manifest: KEYS_BASE + "raindrop-tile/keys-manifest.json", preview: KEYS_BASE + "raindrop-tile/preview.ogg" });
+    const rows = (JSON.parse(readFileSync(publicFile(KEYS_BASE + "keys-manifest.json"), "utf8")) as { profiles: Record<string, unknown>[] }).profiles;
+    expect(rows.find((row) => row.id === "raindrop-tile")).toMatchObject({ score: null, ownerPick: true, order: 18 });
+    expect(rows.filter((row) => typeof row.score !== "number").map((row) => row.id)).toEqual(["raindrop-tile"]);
     // The seven earlier ids stay, so a save from the first release keeps its set.
     for (const id of ["deep", "warm", "rounded", "solid", "crisp", "clear", "bright-clack"]) expect(firefly.map((p) => p.value)).toContain(id);
     expect(fetchLocal).toHaveBeenCalledTimes(1);
@@ -72,7 +80,7 @@ describe("192 shipped Firefly media and player", () => {
     expect(keyboardChoice("off", catalog.options)).toBe("off");
   });
 
-  it("ships 70-80 key and 8 space variants and a preview per set, OGG only", async () => {
+  it("ships 70-80 key variants (17 for Raindrop Tile), 8 space variants and a preview per set, OGG only", async () => {
     const catalog = await loadGameKeyboards();
     let keys = 0;
     let spaces = 0;
@@ -80,8 +88,11 @@ describe("192 shipped Firefly media and player", () => {
       if (!option.manifest) continue;
       const folder = option.manifest.slice(0, option.manifest.lastIndexOf("/") + 1);
       const files = keyboardFiles(JSON.parse(readFileSync(publicFile(option.manifest), "utf8")), folder);
-      expect(files.key.length).toBeGreaterThanOrEqual(70);
-      expect(files.key.length).toBeLessThanOrEqual(80);
+      if (option.value === "raindrop-tile") expect(files.key).toHaveLength(17);
+      else {
+        expect(files.key.length).toBeGreaterThanOrEqual(70);
+        expect(files.key.length).toBeLessThanOrEqual(80);
+      }
       expect(files.space).toHaveLength(8);
       expect(new Set([...files.key, ...files.space]).size).toBe(files.key.length + files.space.length);
       for (const url of [...files.key, ...files.space, option.preview!]) {
@@ -92,7 +103,48 @@ describe("192 shipped Firefly media and player", () => {
       keys += files.key.length;
       spaces += files.space.length;
     }
-    expect([keys, spaces]).toEqual([2396, 256]);
+    expect([keys, spaces]).toEqual([2413, 264]);
+  });
+
+  it("lists every shipped keyboard OGG in media.md5 with its hash, and nothing else under audio/keys", () => {
+    const root = publicFile(KEYS_BASE);
+    const shipped = (readdirSync(root, { recursive: true }) as string[]).filter((name) => name.endsWith(".ogg")).map((name) => "public" + KEYS_BASE + name.split(sep).join("/")).sort();
+    const listed = new Map(readFileSync("media.md5", "utf8").split("\n").filter((line) => line.includes(" public" + KEYS_BASE)).map((line) => {
+      const [hash, path] = line.split(/ {2}/);
+      return [path!, hash!] as const;
+    }));
+    expect(shipped).toHaveLength(2710);
+    expect([...listed.keys()].sort()).toEqual(shipped);
+    for (const path of shipped) expect(createHash("md5").update(readFileSync(path)).digest("hex"), path).toBe(listed.get(path));
+  });
+
+  it("lets Raindrop Tile's long stereo tails (keys up to 450 ms) ring out at 10 keys and 2 spaces a second", async () => {
+    const catalog = await loadGameKeyboards();
+    const settings = { ...loadSettings(null), keyboard: "raindrop-tile" };
+    const manifest = JSON.parse(readFileSync(publicFile(KEYS_BASE + "raindrop-tile/keys-manifest.json"), "utf8")) as { schema: string; files: { file: string; set: string; durationMs: number }[]; preview: string };
+    expect(manifest.schema).toBe("typing-keys-firefly/2");
+    expect(manifest.preview).toBe("preview.ogg");
+    const ms = new Map(manifest.files.map((f) => [f.file, f.durationMs]));
+    expect(Math.max(...manifest.files.filter((f) => f.set === "key").map((f) => f.durationMs))).toBe(450);
+    const ctx = new TestContext();
+    // Decoded buffers carry the real lengths, so the voice pool sees the natural tails.
+    ctx.decodeAudioData.mockImplementation(async (bytes: ArrayBuffer) => {
+      const url = new TextDecoder().decode(bytes);
+      return { duration: ms.get(url.slice(url.lastIndexOf("/") + 1))! / 1000, numberOfChannels: 2, url } as unknown as AudioBuffer;
+    });
+    const keyboard = new GameKeyboard(() => settings, catalog.options, () => ctx as unknown as AudioContext);
+    await keyboard.preload();
+    expect(ctx.decodeAudioData).toHaveBeenCalledTimes(25);
+    expect(keyboard.sounds.profile?.id).toBe("raindrop-tile");
+    for (let i = 0; i < 40; i += 1) {
+      ctx.currentTime = i / 10;
+      keyboard.type(i % 5 === 4 ? "space" : "key");
+    }
+    expect(ctx.sources).toHaveLength(40);
+    // No voice was stolen: nothing cut a sample before its tail ended.
+    expect(keyboard.sounds.stolen).toBe(0);
+    for (const source of ctx.sources) expect(source.stop).not.toHaveBeenCalled();
+    keyboard.dispose();
   });
 
   it("preloads only the saved set, plays its key/space files with variation at Master × Keyboard", async () => {
