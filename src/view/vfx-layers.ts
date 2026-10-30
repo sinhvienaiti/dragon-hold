@@ -1074,8 +1074,10 @@ export function crackMask(size = 256): THREE.DataTexture {
       const angle = Math.atan2(py, px);
       for (const base of radials) {
         const wobble = base + 0.22 * Math.sin(r * 9 + base * 3);
-        let da = Math.abs(angle - wobble);
-        if (da > Math.PI) da = Math.PI * 2 - da;
+        // The wrapped angle between them, 0…π (round 10: |a − b| folded once went negative past 2π, and a negative
+        // distance filled a whole wedge of the decal as one crack: the flat orange, then dark, patch the judges saw).
+        const turn = angle - wobble;
+        const da = Math.abs(turn - Math.round(turn / (Math.PI * 2)) * Math.PI * 2);
         const dist = da * r;
         crack = Math.max(crack, (1 - smooth(0, 0.016 + 0.018 * (1 - r), dist)) * (1 - smooth(0.7, 1.0, r + (n - 0.5) * 0.3)));
       }
@@ -1111,6 +1113,7 @@ void main() {
  * end as dark lines; the whole decal fades over its last seconds (uFade). Normal blend; the hot cracks are HDR.
  */
 const FISSURE_FRAGMENT = /* glsl */ `
+${VFX_NOISE_GLSL}
 uniform sampler2D uMask;
 uniform float uAge;
 uniform float uCool;
@@ -1136,8 +1139,12 @@ void main() {
   // band, an ash fringe eaten by the noise, then nothing.
   float edge = 0.86 + (n - 0.5) * 0.34;
   float d = r / edge;
-  float scorch = (1.0 - smoothstep(0.5, 1.0, d)) * smoothstep(0.22, 0.5, n + (1.0 - d) * 0.75);
-  vec3 base = mix(vec3(0.016, 0.015, 0.016), vec3(0.1, 0.068, 0.046), smoothstep(0.2, 0.75, d + (n - 0.5) * 0.25));
+  float scorch = (1.0 - smoothstep(0.62, 1.02, d)) * smoothstep(0.18, 0.45, n + (1.0 - d) * 0.8);
+  // Round 10 (both judges: the crater read as a flat hole): charred rays thrown out from the centre and a mottled char.
+  float ang = atan(p.y, p.x);
+  float rays = vxNoise(vec2(ang * 9.0 + uRot * 3.0, d * 1.2));
+  scorch = max(scorch * (0.8 + 0.2 * rays), smoothstep(0.6, 0.85, rays) * (1.0 - smoothstep(0.85, 1.2, d)) * 0.75);
+  vec3 base = mix(vec3(0.016, 0.015, 0.016), vec3(0.1, 0.068, 0.046), smoothstep(0.2, 0.75, d + (n - 0.5) * 0.45));
   base = mix(base, vec3(0.15, 0.145, 0.14), smoothstep(0.72, 0.95, d) * 0.6);
   float cool = clamp(uAge / uCool, 0.0, 1.0);
   // Hot gold-orange, then red, then dark lines; the glow hugs the cracks (round 8, judge A: a flat orange smear at f085).

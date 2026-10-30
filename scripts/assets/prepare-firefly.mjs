@@ -18,7 +18,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 // smoke-mask (round 10): white smoke filmed on black, a density mask the game colours; it replaces smoke-roll when in.
-const IDS = ['charge-orb', 'muzzle-flash', 'fireball-head', 'flame-trail', 'impact-burst', 'impact-big', 'smoke-roll', 'smoke-mask', 'embers', 'ground-fire', 'fire-burst'];
+const IDS = ['charge-orb', 'muzzle-flash', 'fireball-head', 'flame-trail', 'impact-burst', 'impact-big', 'smoke-roll', 'smoke-mask', 'smoke-column', 'embers', 'ground-fire', 'fire-burst'];
+/**
+ * Runtime ids cut from another id's folder (round 10): FXV's smoke-mask holds billowing bursts (v1, v2: the impact
+ * smoke) and rising columns (v3, v4: Sky Fire's aftermath); smoke-column is a column from it.
+ */
+const ALIASES = { 'smoke-column': { from: 'smoke-mask', pick: 'v3' } };
 /** What a cut's JSON may leave out, per id (the coordinator's quick fire-burst cut opens on five frames of a dot). */
 const DEFAULTS = { 'fire-burst': { start: 5 }, 'muzzle-flash': { pivot: [0.06, 0.5] } };
 /**
@@ -30,7 +35,9 @@ const DEFAULTS = { 'fire-burst': { start: 5 }, 'muzzle-flash': { pivot: [0.06, 0
 // with a real flash), impact-big v3, smoke-roll v2; muzzle-flash v4, fireball-head v1, embers v1, ground-fire v1 as here.
 // Round 9 (both judges: impact-burst v3's 8-point star and rim ring read as a sticker and red noodles): impact-burst
 // v2, the organic burst (fx.ts plays its frames 9–23).
-const PICKS = { 'impact-burst': 'v2', 'impact-big': 'v3', 'muzzle-flash': 'v4', 'fireball-head': 'v1', 'charge-orb': 'v2', embers: 'v1', 'flame-trail': 'v2', 'smoke-roll': 'v2', 'ground-fire': 'v1', 'fire-burst': 'v1' };
+// Round 10 (the coordinator's density masks, 30/10): smoke-mask v1, the rounder, softer billow (v2's spiky base reads as
+// a splash); smoke-column v3, the fuller column (ALIASES).
+const PICKS = { 'smoke-mask': 'v1', 'impact-burst': 'v2', 'impact-big': 'v3', 'muzzle-flash': 'v4', 'fireball-head': 'v1', 'charge-orb': 'v2', embers: 'v1', 'flame-trail': 'v2', 'smoke-roll': 'v2', 'ground-fire': 'v1', 'fire-burst': 'v1' };
 const md5 = (bytes) => createHash('md5').update(bytes).digest('hex');
 
 function arg(name, fallback) {
@@ -81,17 +88,18 @@ async function main() {
     if (process.argv[i - 1] === '--pick' && /^[a-z-]+=v\d+$/.test(value)) forced[value.split('=')[0]] = value.split('=')[1];
   });
   for (const id of IDS) {
-    const dir = join(from, id);
+    const source = ALIASES[id]?.from ?? id;
+    const dir = join(from, source);
     // fire-burst is the stand-in for the impacts: not loaded (8 MB of GPU memory) once a real impact cut exists.
     if (id === 'fire-burst' && (flipbooks['impact-burst'] !== undefined || flipbooks['impact-big'] !== undefined)) continue;
-    const cut = await pickCut(dir, id, summary, forced[id]);
+    const cut = await pickCut(dir, source, summary, forced[id] ?? ALIASES[id]?.pick);
     if (cut === null) {
       missing.push(id);
       continue;
     }
     const jsonPath = cut.json;
     const json = JSON.parse(await readFile(jsonPath, 'utf8'));
-    const atlas = await atlasOf(dir, id, json);
+    const atlas = await atlasOf(dir, source, json);
     if (atlas === null) {
       missing.push(id);
       continue;
@@ -130,7 +138,7 @@ async function main() {
     await mkdir(out, { recursive: true });
     await mkdir(join(art, id), { recursive: true });
     // The chosen cut only (its atlas, JSON, metrics, sheet) as source media.
-    const stem = cut.version === 'v0' ? id + '.' : id + '__' + cut.version + '.';
+    const stem = cut.version === 'v0' ? source + '.' : source + '__' + cut.version + '.';
     for (const name of await readdir(dir)) {
       if (name.startsWith(stem) && /\.(png|webp|json|jpg)$/i.test(name)) await copyFile(join(dir, name), join(art, id, name));
     }

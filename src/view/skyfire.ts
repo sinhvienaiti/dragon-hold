@@ -495,11 +495,8 @@ export class SkyFire {
     host.flares.draw(head, 1.0 * k, FX_COLORS.fireHot, 2.2 * born, 1, headLift);
     // A white-hot heart (≤ 30 % of the ball's radius): the head glows, it is not a flat orange disc.
     host.flares.draw(head, 0.7 * k, FX_COLORS.flashCore, 3.2 * born, 1, headLift);
-    // The contact: one white frame as it reaches the foe (round 10, judge B).
-    if (!cast.contact && t > 0.93) {
-      cast.contact = true;
-      host.flares.flare(head, 2.4 * k, FX_COLORS.flashCore, 3.0 * (host.reduced ? 0.6 : 1), 1 / 60, 1 / 60, 0, 1, headLift + 0.5 * k);
-    }
+    // The contact (round 10, judge B: "the ball arrives, a full flash frame, then the blast"): the flash frame is the
+    // impact frame itself; a white frame one earlier made the hit frame no brighter than the one before it (§5.6).
     // L8: embers falling from it.
     const rate = host.reduced ? 28 : 48;
     if (host.random() < rate / 60) host.sparks.spawn(head, this.s.set(this.rand(-1.5, 1.5), this.rand(-0.5, 1.5), this.rand(-1.5, 1.5)), host.random() < 0.5 ? FX_COLORS.ember : FX_COLORS.fireHot, 0.36 * k, this.rand(0.35, 0.6), { drag: 1.2, gravity: 7 });
@@ -596,8 +593,9 @@ export class SkyFire {
     // L6 at once: a crater (round 10, both judges: small, near gone by 2.4 s, and at a ford half of it was water): a
     // charred blast scorch 1.6 r across with a cooling ember rim (fx.ts MARK kind 5), held 5 s, gone by 7 s, set on the
     // driest ground near the hit.
+    // The crater is the terrain-hugging fissure decal below (a flat mark on the bank cut into the slope on a straight
+    // line in the first round-10 check).
     const crater = this.dryCentre(at.x, at.z, r);
-    if (host.dryAt(crater.x, crater.z) > 0.4) host.marks.spawn(crater.x, host.heightAt(crater.x, crater.z) + 0.09, crater.z, r * 1.6, 7, FX_COLORS.scorch, 0.92, { kind: 5, thickness: host.random() * 0.9, fadeIn: 0.001, hold: 5, drag: 0, rot: host.random() * TAU });
     // L8: stretched sparks (f0), a few round embers among them.
     for (let i = 0; i < Math.round(SKY_FX.streaks * few); i += 1) {
       const angle = host.random() * TAU;
@@ -622,11 +620,22 @@ export class SkyFire {
     // rising and drifting, eroding over about 85 frames; from inside the fire.
     // Round 10 (both judges: a still, straight-edged band across the river): density smoke coloured in the shader,
     // three rolling clouds from inside the blast about 6 frames before it dies, rising and widening over ~70 frames.
-    const roll = host.flip.pick("smoke-mask", "smoke-roll");
+    // With Firefly's smoke-column (v3: a column that rises from its base, 32 frames at 8 fps): two columns standing on
+    // the crater and one billowing cloud over the blast; without it, three rolling clouds.
+    const column = host.flip.pick("smoke-column");
+    const billow = host.flip.pick("smoke-mask");
+    if (column !== null) {
+      for (let i = 0; i < 2; i += 1) {
+        const angle = (i / 2) * TAU + host.random() * 0.8;
+        column.spawn(this.u.set(crater.x + Math.cos(angle) * r * 0.25, ground + 0.1, crater.z + Math.sin(angle) * r * 0.25), r * (1.9 - i * 0.3) * s, { rate: 1.7, rot: this.rand(-0.12, 0.12), tint: FX_COLORS.smokeWarm, alpha: soft, ground, vx: Math.cos(angle) * 0.4, vy: 0.8 * s, vz: Math.sin(angle) * 0.4, grow: 0.35, life: 2.3, delay: (22 + 6 * i) / 60, fadeIn: 0.12, cool: 0.6, fadeOut: 0.3 });
+      }
+      if (billow !== null) billow.spawn(this.u.set(crater.x, ground + r * 0.5, crater.z), r * 1.1 * s, { rate: 2.2, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground, vy: 3.0 * s, grow: 1.0, life: 1.3, delay: 26 / 60, fadeIn: 0.12, cool: 0.55, fadeOut: 0.2 });
+    }
+    const roll = column === null ? host.flip.pick("smoke-mask", "smoke-roll") : null;
     if (roll !== null) {
       for (let i = 0; i < 3; i += 1) {
         const angle = (i / 3) * TAU + host.random() * 0.6;
-        roll.spawn(this.u.set(crater.x + Math.cos(angle) * r * 0.3, ground + r * 0.4 + i * 0.4, crater.z + Math.sin(angle) * r * 0.3), r * 0.85 * s, { rate: roll.id === "smoke-mask" ? 1 : 2.2, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground, vx: Math.cos(angle) * 0.6, vy: 2.6 * s, vz: Math.sin(angle) * 0.6, grow: 0.9, life: 1.15, delay: (26 + 4 * i) / 60, fadeIn: 0.12, cool: 0.4, fadeOut: 0.2 });
+        roll.spawn(this.u.set(crater.x + Math.cos(angle) * r * 0.3, ground + r * 0.4 + i * 0.4, crater.z + Math.sin(angle) * r * 0.3), r * 0.85 * s, { rate: roll.id === "smoke-mask" ? 1 : 2.2, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground, vx: Math.cos(angle) * 0.9, vy: 3.6 * s, vz: Math.sin(angle) * 0.9, grow: 1.3, life: 1.15, delay: (26 + 4 * i) / 60, fadeIn: 0.12, cool: 0.4, fadeOut: 0.2 });
       }
     }
     for (let i = 0; i < 2; i += 1) {
@@ -634,7 +643,7 @@ export class SkyFire {
       host.puffs.spawn(at.x + this.rand(-r, r) * 0.4, ground + this.rand(1.8, 2.6), at.z + this.rand(-r, r) * 0.4, r * 0.5 * s, this.rand(1.2, 1.5), FX_COLORS.smokeWarm, 0.35 * soft, { vy: this.rand(2.2, 3), grow: 1.8, spin: this.rand(-0.6, 0.6), fadeIn: 0.25 });
     }
     // L6: the fissure (cracks hot from the first frame, cooling over 1.5 s), bigger, on the same dry centre.
-    this.fissures.spawn(crater.x, crater.z, r * 1.25, host.random() * TAU, SKY_FX.fissureS, SKY_FX.coolS);
+    this.fissures.spawn(crater.x, crater.z, r * 1.35, host.random() * TAU, SKY_FX.fissureS, SKY_FX.coolS);
     // F (round 8): patches of fire burning on in the scorch for 2–3 s (ground-fire, a loop), never on the water.
     const burn = host.flip.pick("ground-fire");
     if (burn !== null) {

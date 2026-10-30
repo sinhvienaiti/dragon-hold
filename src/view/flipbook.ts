@@ -20,7 +20,7 @@ import * as THREE from "three";
 import { VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
 
 /** The Firefly ids (FIREFLY_VFX_LIST §3) and the first quick cut the coordinator made. */
-export const FLIPBOOK_IDS = ["charge-orb", "muzzle-flash", "fireball-head", "flame-trail", "impact-burst", "impact-big", "smoke-roll", "smoke-mask", "embers", "ground-fire", "fire-burst"] as const;
+export const FLIPBOOK_IDS = ["charge-orb", "muzzle-flash", "fireball-head", "flame-trail", "impact-burst", "impact-big", "smoke-roll", "smoke-mask", "smoke-column", "embers", "ground-fire", "fire-burst"] as const;
 export type FlipbookId = (typeof FLIPBOOK_IDS)[number];
 
 /** How each id is drawn: smoke-roll is dark smoke on white (normal blend); every other is fire on black. */
@@ -34,6 +34,8 @@ export const FLIPBOOK_MODE: Readonly<Record<FlipbookId, "fire" | "smoke">> = {
   "smoke-roll": "smoke",
   // Round 10: white smoke filmed on black, a density mask (luminance) the shader colours.
   "smoke-mask": "smoke",
+  // Round 10: the same kind of mask, a column rising from its base (Sky Fire's aftermath).
+  "smoke-column": "smoke",
   embers: "fire",
   "ground-fire": "fire",
   "fire-burst": "fire",
@@ -158,6 +160,8 @@ class FlipbookLibrary {
         console.warn("flipbook: no Firefly manifest; code-drawn fire only", error);
         return;
       }
+      // Round 10: the density masks replace smoke-roll; it is not loaded beside them (8 MB of GPU memory).
+      if (metas.has("smoke-mask")) metas.delete("smoke-roll");
       const loader = new THREE.TextureLoader();
       await Promise.all(
         [...metas.values()].map(async (meta) => {
@@ -301,14 +305,17 @@ void main() {
     // mask (its alpha, its luminance for white smoke on black, or its darkness for dark smoke on white); the colour is
     // made here. A dense warm charcoal core, a lighter warm grey top, a fire-lit underside while young; dense enough
     // that the grass never tints it, its thin edges eaten by the noise instead of fading as a veil.
-    float d = uHasAlpha > 0.5 ? t.a : uLumaMask > 0.5 ? lum : clamp((1.0 - lum) * 1.25, 0.0, 1.0);
-    float core = smoothstep(0.3, 0.8, d);
-    float a = smoothstep(0.1, 0.42, d + (n - 0.5) * 0.22) * smoothstep(cool * 1.1 - 0.1, cool * 1.1 + 0.06, n * 0.6 + d * 0.55);
-    vec3 c = mix(vTint * 0.62, vTint * 1.18, smoothstep(0.3, 0.95, vUv.y));
-    c = mix(c, vTint * 0.42, core * 0.65);
+    // A luminance mask is read in its display values (sqrt ≈ sRGB): read linear, the cloud's shaded half fell to a
+    // fifth and the smoke broke into grey blotches.
+    float d = uHasAlpha > 0.5 ? t.a : uLumaMask > 0.5 ? sqrt(lum) : clamp((1.0 - lum) * 1.25, 0.0, 1.0);
+    float core = smoothstep(0.35, 0.85, d);
+    float a = smoothstep(0.05, 0.5, d + (n - 0.5) * 0.25) * smoothstep(cool * 1.1 - 0.14, cool * 1.1 + 0.1, n * 0.6 + d * 0.55);
+    // Lighter warm grey toward the top and the thin parts, a warm charcoal only in the dense core.
+    vec3 c = mix(vTint * 0.95, vTint * 1.55, smoothstep(0.25, 0.95, vUv.y));
+    c = mix(c, vTint * 0.7, core * 0.45);
     float lit = (1.0 - smoothstep(0.0, 0.3, vAge.x)) * (1.0 - smoothstep(0.05, 0.55, vUv.y)) * core;
     c += vec3(0.95, 0.38, 0.08) * lit;
-    gl_FragColor = vec4(c, a * (0.72 + 0.23 * core) * soft);
+    gl_FragColor = vec4(c, a * (0.78 + 0.17 * core) * soft);
     return;
   }
   vec3 rgb = t.rgb * vTint;
@@ -316,11 +323,14 @@ void main() {
   if (cool > 0.0) {
     // Round 10 (both judges: the fire died as flat hard-edged red cut-outs and rust lace): it darkens through deep red,
     // hot embers outlive it in its densest parts, and it fades softly into the smoke behind it (never an opaque rim).
-    rgb = mix(rgb, vec3(0.62, 0.09, 0.02) * (0.3 + lum), smoothstep(0.0, 0.5, cool));
-    rgb *= 1.0 - smoothstep(0.35, 1.0, cool);
-    float ember = smoothstep(0.7, 0.88, n) * smoothstep(0.25, 0.6, lum) * (1.0 - smoothstep(0.55, 0.95, cool));
+    // Its light goes first (deep red by 0.35, near none by 0.7) while its body stays: the ground under it darkens to
+    // a smoky char (no salmon veil of dim red light over green), then the noise eats it from its thin parts.
+    rgb = mix(rgb, vec3(0.62, 0.09, 0.02) * (0.3 + lum), smoothstep(0.0, 0.35, cool));
+    rgb *= 1.0 - smoothstep(0.2, 0.7, cool);
+    float ember = smoothstep(0.7, 0.88, n) * smoothstep(0.25, 0.6, lum) * (1.0 - smoothstep(0.5, 0.9, cool));
     rgb += vec3(1.5, 0.5, 0.08) * ember;
-    body *= 1.0 - smoothstep(0.1, 0.9, cool + (n - 0.5) * 0.3);
+    // Thin parts first (a late frame's lace of filaments goes before its dense heart).
+    body *= 1.0 - smoothstep(0.35, 1.0, cool + (n - 0.5) * 0.3 + (0.5 - min(lum, 1.0)) * 0.5);
   }
   // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude. The
   // curve is steep (final check on light ground: the burst's dim flames stayed see-through and pale): a dim red flame
@@ -421,9 +431,9 @@ export class FlipbookPool {
         uLoop: { value: 0 },
         uSmoke: { value: smoke ? 1 : 0 },
         uHasAlpha: { value: 0 },
-        uLumaMask: { value: id === "smoke-mask" ? 1 : 0 },
+        uLumaMask: { value: id === "smoke-mask" || id === "smoke-column" ? 1 : 0 },
         uSoftM: { value: 0.8 },
-        uVignette: { value: id === "ground-fire" ? 2 : id === "impact-burst" || id === "impact-big" || id === "fire-burst" || id === "smoke-roll" || id === "smoke-mask" || id === "embers" ? 1 : 0 },
+        uVignette: { value: id === "ground-fire" ? 2 : id === "impact-burst" || id === "impact-big" || id === "fire-burst" || id === "smoke-roll" || id === "smoke-mask" || id === "smoke-column" || id === "embers" ? 1 : 0 },
         uPivot: { value: new THREE.Vector2(0.5, 0.5) },
         uAspect: { value: 1 },
         uHeading: { value: 0 },
@@ -614,6 +624,7 @@ export class FlipbookSet {
     const order: Record<FlipbookId, number> = {
       "smoke-roll": 4.9,
       "smoke-mask": 4.9,
+      "smoke-column": 4.9,
       "ground-fire": 4.95,
       "impact-burst": 5.3,
       "impact-big": 5.3,

@@ -134,6 +134,7 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
   "impact-big": 1.25,
   "smoke-roll": 1.4,
   "smoke-mask": 1.4,
+  "smoke-column": 1.4,
   embers: 1.0,
   "ground-fire": 1.3,
   "fire-burst": 1.4,
@@ -320,8 +321,8 @@ void main() {
     rgb = mix(rgb, vec3(0.006, 0.005, 0.004), crack * (1.0 - smoothstep(0.6, 0.9, d)));
     // Round 5 (judge 4: lost on dusk grass): a grey ash rim round the char, lighter than dark grass, darker than sunlit.
     rgb = mix(rgb, vec3(0.15, 0.135, 0.12), smoothstep(0.66, 0.9, d + (torn - 0.5) * 0.15) * 0.85);
-    float hotRim = (1.0 - smoothstep(0.05, 0.35, vLife.z)) * smoothstep(0.55, 0.78, d) * (1.0 - smoothstep(0.85, 1.0, d)) * smoothstep(0.35, 0.65, torn);
-    rgb = mix(rgb, mix(vec3(1.0, 0.45, 0.08), vec3(0.55, 0.06, 0.01), smoothstep(0.1, 0.3, vLife.z)), hotRim);
+    float hotRim = (1.0 - smoothstep(0.03, 0.2, vLife.z)) * smoothstep(0.66, 0.76, d) * (1.0 - smoothstep(0.8, 0.9, d)) * smoothstep(0.5, 0.7, torn);
+    rgb = mix(rgb, mix(vec3(1.0, 0.45, 0.08), vec3(0.55, 0.06, 0.01), smoothstep(0.06, 0.18, vLife.z)), hotRim);
   } else if (kind > 7.5) {
     // A heat ring (kind 8, normal blend; round 8): licks of fire on a band at 0.7 of the radius, the fire ramp from deep
     // red to orange-gold, over a wider charcoal band of its own; thickness × 2 is how hot it burns (the typing).
@@ -994,7 +995,7 @@ export class FxCore {
     this.group.add(this.cones.group);
     this.embers.mesh.renderOrder = 5.5;
     this.group.add(this.embers.mesh);
-    this.flip = new FlipbookSet(blankTexture(), { "fireball-head": 32, "charge-orb": 8, embers: 24, "ground-fire": 24, "smoke-roll": 24 });
+    this.flip = new FlipbookSet(blankTexture(), { "fireball-head": 32, "charge-orb": 8, embers: 24, "ground-fire": 24, "smoke-roll": 24, "smoke-mask": 24, "smoke-column": 8 });
     this.group.add(this.flip.group);
     this.sky = new SkyFire(this, 3, quality);
     this.group.add(this.sky.group);
@@ -1530,9 +1531,9 @@ export class FxCore {
       const fill = FLIP_FILL[book.id];
       // Round 10 (judges: frames 16–18 of impact-big read as a hard 2D starburst, f060–f063): from frame 19, its round
       // rolling ball, slower, so it holds about 0.45 s and dies into the smoke (flipbook `cool`).
-      const clip = big2 ? { frame: 19, until: 23, rate: 0.9 } : { frame: 10, until: 23, rate: 2.2 };
-      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (big2 ? 1.05 : 0.95), { ...clip, rot: this.rand(-0.3, 0.3), grow: 0.3, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.9, cool: 0.45, fadeOut: 0.05 });
-      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.5, { ...clip, rate: clip.rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.6, delay: 2 / 60, cool: 0.4, fadeOut: 0.05 });
+      const clip = big2 ? { frame: 20, until: 23, rate: 0.75 } : { frame: 10, until: 23, rate: 2.2 };
+      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (big2 ? 1.05 : 0.95), { ...clip, rot: this.rand(-0.3, 0.3), grow: 0.3, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.9, cool: 0.3, fadeOut: 0.05 });
+      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.5, { ...clip, rate: clip.rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.6, delay: 2 / 60, cool: 0.3, fadeOut: 0.05 });
     } else {
       // Code-drawn: one main mass that swells (0.7 → 1.15 of it over its life), two smaller ones to either side on
       // screen born 2 and 3 frames later, each its own size and turn, cooling to deep red and charcoal (PUFF_FIRE).
@@ -1594,7 +1595,10 @@ export class FxCore {
     // shader (warm charcoal core, lighter top, fire-lit underside while young); it starts inside the fire about 6
     // frames before the fire dies (~f018), rises and widens over about 60 frames, its edges eaten by the noise.
     const roll = this.flip.pick("smoke-mask", "smoke-roll");
-    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.6 * s, hit.z), mass * 0.75, { rate: roll.id === "smoke-mask" ? 1 : 2.6, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground: this.heightOf(hit.x, hit.z), vx: ux * 0.7, vy: 2.4 * rk, vz: uz * 0.7, grow: 0.9, life: 1.0, delay: 16 / 60, fadeIn: 0.1, cool: 0.4, fadeOut: 0.15 });
+    // Firefly smoke-mask v1 (a billowing cloud, 32 frames at 8 fps, its density fading over the last ten): played at
+    // ×2.6, so it rolls through most of its life in ~1.1 s and thins out on its own.
+    const mask = roll?.id === "smoke-mask";
+    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.6 * s, hit.z), mass * (mask ? 0.62 : 0.58), { rate: 2.6, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground: this.heightOf(hit.x, hit.z), vx: ux * 0.9, vy: 3.4 * rk, vz: uz * 0.9, grow: 1.3, life: mask ? 1.1 : 1.0, delay: (mask ? 10 : 14) / 60, fadeIn: 0.1, cool: mask ? 0.6 : 0.4, fadeOut: 0.15 });
     // Code puffs only while no smoke clip is in (see-through grey discs over grass read olive).
     if (roll === null) {
       for (let k = 0; k < 3; k += 1) {
@@ -2384,7 +2388,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const edgeOf = field?.riverEdge ? (x: number, z: number) => field.riverEdge!(x, z) : null;
   const wetAt = waterLevel === undefined ? undefined : (x: number, z: number) => heightAt(x, z) < waterLevel + 0.04 || (edgeOf !== null && edgeOf(x, z) < 0);
   // Continuous: 0 at the water's edge, 1 a little way up the bank (decals fade along the bank's own contour).
-  const dryAt = waterLevel === undefined ? undefined : (x: number, z: number) => Math.min((heightAt(x, z) - waterLevel - 0.04) / 0.3, edgeOf === null ? 1 : (edgeOf(x, z) - 0.5) / 1.2);
+  // Round 10 (judges: the Sky Fire crater was near invisible at a ford): the ramp starts 0.15 m from the edge.
+  const dryAt = waterLevel === undefined ? undefined : (x: number, z: number) => Math.min((heightAt(x, z) - waterLevel - 0.04) / 0.3, edgeOf === null ? 1 : (edgeOf(x, z) - 0.15) / 0.6);
   const core = new FxCore(stage.quality, { heightAt, wetAt, dryAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });
   // The Firefly atlases (round 8): loaded once a page; each pool takes its atlas when it arrives.
   void flipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, stage.quality === "ultra");

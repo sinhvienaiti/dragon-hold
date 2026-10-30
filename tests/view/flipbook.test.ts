@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { afterEach, describe, expect, it } from "vitest";
 import { cellRect, FlipbookPool, FlipbookSet, flipbooks, ONE_FRAME, parseFlipbookManifest, type FlipbookMeta } from "../../src/view/flipbook";
-import { blankTexture } from "../../src/view/vfx-layers";
+import { blankTexture, crackMask } from "../../src/view/vfx-layers";
 
 const entry = { file: "impact-burst.webp", md5: "0123456789abcdef0123456789abcdef", cols: 8, rows: 4, frames: 30, fps: 12, loop: false, blend: "additive", cell: [256, 256], pivot: [0.5, 0.5] };
 
@@ -94,5 +94,26 @@ describe("FlipbookSet", () => {
     flipbooks.add({ id: "fire-burst", url: "/x", cols: 8, rows: 4, frames: 30, fps: 12, loop: false, blend: "additive", aspect: 1, pivot: [0.5, 0.5], start: 0, heading: 0, alpha: false }, new THREE.Texture());
     expect(set.pick("impact-big", "fire-burst")?.id).toBe("fire-burst");
     set.dispose();
+  });
+});
+
+describe("crackMask (the fissure decal's cracks)", () => {
+  it("is a thin crack network, not a filled wedge (round 10: a wrapped angle went negative and filled a sixth of it)", () => {
+    const data = crackMask().image.data as Uint8Array;
+    let cracks = 0;
+    let wedge = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i]! > 128) cracks += 1;
+    }
+    // No 24-pixel run of solid crack along any row inside the disc: a crack is a few pixels wide.
+    for (let y = 0; y < 256; y += 8) {
+      let run = 0;
+      for (let x = 0; x < 256; x += 1) {
+        run = data[(y * 256 + x) * 4]! > 200 ? run + 1 : 0;
+        wedge = Math.max(wedge, run);
+      }
+    }
+    expect(cracks / (data.length / 4)).toBeLessThan(0.12);
+    expect(wedge).toBeLessThan(24);
   });
 });
