@@ -18,6 +18,15 @@ export function settleTitle(state: TitleState, source: TitleSource, reason?: Tit
   const blocked = state.reason ?? (source === "words" ? reason : undefined);
   return { ...state, completed, reason: blocked, status: blocked ? "blocked" : completed.length === 4 ? "ready" : "loading" };
 }
+/** Retry after a deck error: forget only the words result; the other sources stay settled. */
+export function retryTitle(state: TitleState): TitleState {
+  if (state.status !== "blocked") return state;
+  return { status: "loading", completed: state.completed.filter(source => source !== "words"), portal: state.portal, focus: state.focus };
+}
+/** On a blocked title the first slot is Retry; titleAction itself never retries. */
+export function wantsRetry(state: TitleState, action: string | null): boolean {
+  return state.status === "blocked" && action === "enter" && state.focus === 0;
+}
 export function titleAction(state: TitleState, action: string | null): { state: TitleState; command: "start" | "portal" | null } {
   if (state.status === "started") return { state, command: null };
   const delta = action === "rotate-left" || action === "tilt-up" ? -1 : action === "rotate-right" || action === "tilt-down" ? 1 : 0;

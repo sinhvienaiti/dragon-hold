@@ -3,6 +3,48 @@ import { el, icon } from "../ui/skin";
 import { DeckBuildError, type LearningClient } from "./learning";
 import { portalHome } from "./portal";
 
+export interface DeckLoader {
+  /** Starts one build; false while one runs, after a delivered deck, or after dispose. */
+  load(): boolean;
+  readonly busy: boolean;
+  dispose(): void;
+}
+
+/** The 195 recovery path without a panel: one build at a time, nothing after a deck or dispose. */
+export function createDeckLoader(learning: Pick<LearningClient, "buildDeck">, stage: StageDef, on: {
+  ready(deck: WordDeck): void;
+  failed(error: DeckBuildError): void;
+  started?(): void;
+}): DeckLoader {
+  let busy = false;
+  let closed = false;
+  const run = async (): Promise<void> => {
+    let built: WordDeck;
+    try {
+      built = await learning.buildDeck(stage);
+    } catch (error) {
+      busy = false;
+      if (!closed) on.failed(error instanceof DeckBuildError ? error : new DeckBuildError("load-failed", 0));
+      return;
+    }
+    busy = false;
+    if (closed) return;
+    closed = true;
+    on.ready(built);
+  };
+  return {
+    load() {
+      if (closed || busy) return false;
+      busy = true;
+      on.started?.();
+      void run();
+      return true;
+    },
+    get busy() { return busy; },
+    dispose() { closed = true; },
+  };
+}
+
 /** Owns pre-router input and the single deck-to-boot transition. */
 export function startDeckBoot(root: HTMLElement, notice: HTMLElement, learning: Pick<LearningClient, "buildDeck">, stage: StageDef, ready: (deck: WordDeck) => void): { dispose(): void } {
   const doc = root.ownerDocument;
@@ -10,7 +52,6 @@ export function startDeckBoot(root: HTMLElement, notice: HTMLElement, learning: 
   let panel: HTMLElement | null = null;
   let retry: HTMLButtonElement | null = null;
   let actions: HTMLElement[] = [];
-  let busy = false;
   let closed = false;
   let index = 0;
 
@@ -18,7 +59,7 @@ export function startDeckBoot(root: HTMLElement, notice: HTMLElement, learning: 
     if (closed || !panel || !["Enter", "Tab", "ArrowLeft", "ArrowRight"].includes(event.code)) return;
     event.preventDefault();
     event.stopPropagation();
-    if (busy) return;
+    if (loader.busy) return;
     if (event.code === "Enter") actions[index]?.click();
     else {
       const delta = event.code === "ArrowLeft" || (event.code === "Tab" && event.shiftKey) ? -1 : 1;
@@ -28,6 +69,7 @@ export function startDeckBoot(root: HTMLElement, notice: HTMLElement, learning: 
   };
   const dispose = (): void => {
     closed = true;
+    loader.dispose();
     view.removeEventListener("keydown", onKey, true);
     panel?.remove();
   };
@@ -46,7 +88,7 @@ export function startDeckBoot(root: HTMLElement, notice: HTMLElement, learning: 
       const row = el(doc, "div", "dh-deck-notice__actions");
       retry = el(doc, "button", "dh-btn dh-deck-notice__retry");
       retry.type = "button";
-      retry.addEventListener("click", () => { void load(); });
+      retry.addEventListener("click", () => { loader.load(); });
       row.append(retry);
       actions = [retry];
       const home = portalHome(import.meta.env.VITE_PORTAL_URL);
@@ -70,24 +112,15 @@ export function startDeckBoot(root: HTMLElement, notice: HTMLElement, learning: 
     retry!.focus();
   };
   let lead: HTMLElement | null = null;
-  const load = async (): Promise<void> => {
-    if (closed || busy) return;
-    busy = true;
-    if (retry) { retry.disabled = true; retry.textContent = "Loading words…"; }
-    let built: WordDeck;
-    try {
-      built = await learning.buildDeck(stage);
-    } catch (error) {
-      busy = false;
-      if (!closed) show(error instanceof DeckBuildError ? error : new DeckBuildError("load-failed", 0));
-      return;
-    }
-    busy = false;
-    if (closed) return;
-    notice.remove();
-    dispose();
-    ready(built);
-  };
-  void load();
+  const loader = createDeckLoader(learning, stage, {
+    started: () => { if (retry) { retry.disabled = true; retry.textContent = "Loading words…"; } },
+    failed: show,
+    ready: (built) => {
+      notice.remove();
+      dispose();
+      ready(built);
+    },
+  });
+  loader.load();
   return { dispose };
 }

@@ -1,8 +1,8 @@
 import "./styles/title.css";
 import { portalHome } from "../app/portal";
-import { el, uiButton } from "./skin";
+import { el, icon, uiButton } from "./skin";
 import table from "./ui-art.json";
-import { initialTitleState, settleTitle, titleAction, type TitleDeckError, type TitleSource, type TitleStatus } from "./title-state";
+import { initialTitleState, retryTitle, settleTitle, titleAction, wantsRetry, type TitleDeckError, type TitleSource, type TitleStatus } from "./title-state";
 
 export interface TitleArtTable {
   readonly version: number;
@@ -22,19 +22,21 @@ export interface Title {
   dispose(): void;
 }
 
-export function createTitle(root: HTMLElement, options: { onStart(): void; art?: TitleArtTable }): Title {
+/** onRetry reloads the words after a deck error; it returns false when no load started. */
+export function createTitle(root: HTMLElement, options: { onStart(): void; onRetry?(): boolean | void; art?: TitleArtTable }): Title {
   const doc = root.ownerDocument;
   const art = options.art ?? table;
   const home = portalHome(import.meta.env.VITE_PORTAL_URL);
   let state = initialTitleState(home !== null);
-  let open = false, disposed = false;
+  let open = false, disposed = false, retrying = false;
   const shown = new Set<() => void>(), hidden = new Set<() => void>();
   const warned = new Set<string>();
   const warn = (name: string): void => {
     if (warned.has(name)) return;
     warned.add(name); console.warn("title: missing art", name);
   };
-  const screen = el(doc, "section", "dh-title");
+  // Layout lives on .dh-title-screen only; .dh-title keeps the shared heading typography.
+  const screen = el(doc, "section", "dh-title-screen dh-title");
   screen.hidden = true;
   screen.dataset.backdrop = "art";
   screen.setAttribute("aria-label", "Dragonhold");
@@ -55,8 +57,11 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; art?:
   logoText.hidden = logo !== null;
   const menu = el(doc, "div", "dh-title__menu");
   const emblem = image("emblem", "dh-title__emblem");
-  const start = uiButton(doc, "dh-title__start", () => { select(0); act("enter"); });
+  const start = uiButton(doc, "dh-title__start", () => { if (primary() === start) { select(0); act("enter"); } });
   start.textContent = "Start";
+  // The 195 recovery on the title: shown while words are blocked or reloading.
+  const retryButton = options.onRetry ? uiButton(doc, "dh-title__retry", () => { select(0); retry(); }) : null;
+  let retryLabel = "";
   const status = el(doc, "p", "dh-title__status");
   status.setAttribute("role", "status");
   const progress = el(doc, "progress", "dh-title__progress");
@@ -70,14 +75,15 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; art?:
     "Place traps, units and houses on the lanes during breaks.",
     "Keep Hỏa Long standing until the last wave ends.",
   ]) help.append(el(doc, "p", "", line));
-  const actions: HTMLElement[] = [start];
   if (emblem) menu.append(emblem);
-  menu.append(start, error, status, progress, help);
-  if (home) {
-    const portal = el(doc, "a", "dh-btn dh-title__portal", "Back to portal");
+  menu.append(start);
+  if (retryButton) menu.append(retryButton);
+  menu.append(error, status, progress, help);
+  const portal = home ? el(doc, "a", "dh-btn dh-title__portal", "Back to portal") : null;
+  if (portal && home) {
     portal.href = home; portal.target = "_top"; portal.tabIndex = -1;
     portal.addEventListener("mousedown", event => event.preventDefault());
-    actions.push(portal); menu.append(portal);
+    menu.append(portal);
   }
   const quickSlot = el(doc, "div", "dh-title__quick");
   if (backdrop) screen.append(backdrop);
@@ -85,14 +91,29 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; art?:
   if (logo) screen.append(logo);
   screen.append(logoText, menu, quickSlot); root.append(screen);
 
+  /** Slot 0: Retry while words are blocked or reloading, else Start; slot 1: the portal. */
+  const primary = (): HTMLButtonElement => retryButton && (state.status === "blocked" || retrying) ? retryButton : start;
   const paint = (): void => {
     start.disabled = state.status !== "ready";
-    actions.forEach((node, i) => node.classList.toggle("is-focused", state.focus === i));
+    if (retryButton) {
+      retryButton.hidden = primary() !== retryButton;
+      retryButton.disabled = state.status !== "blocked";
+      const label = state.status === "blocked" ? "retry" : "loading";
+      if (label !== retryLabel) {
+        retryLabel = label;
+        if (label === "retry") retryButton.innerHTML = icon("retry") + "Retry";
+        else retryButton.textContent = "Loading words…";
+      }
+    }
+    const slots = [primary(), portal];
+    for (const node of [start, retryButton, portal]) node?.classList.toggle("is-focused", node === slots[state.focus]);
     error.hidden = state.status !== "blocked";
     const last = state.completed[state.completed.length - 1] ?? "words";
+    // While words reload after Retry the line names that wait, not the 197 source count.
     status.textContent = state.status === "blocked"
       ? state.reason === "load-failed" ? "Check your connection and try again." : "Not enough words arrived for this stage."
       : state.status === "ready" || state.status === "started" ? "Press Enter to start"
+      : retrying ? "Loading words…"
       : `Loading ${state.completed.length} of 4 · ${last}`;
     progress.value = state.completed.length;
     progress.hidden = state.status !== "loading";
@@ -103,21 +124,36 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; art?:
     if (!open) return;
     open = false; screen.hidden = true; hidden.forEach(fn => fn());
   };
+  const retry = (): void => {
+    if (!open || disposed || !options.onRetry || state.status !== "blocked") return;
+    const before = state;
+    state = retryTitle(state); retrying = true; paint();
+    // The loader refused (busy or closed): stay blocked.
+    if (options.onRetry() === false) { state = before; retrying = false; paint(); }
+  };
   const act = (action: string | null): void => {
     if (!open || disposed) return;
+    if (retryButton && wantsRetry(state, action)) { retry(); return; }
     const next = titleAction(state, action); state = next.state; paint();
     if (next.command === "start") { hide(); options.onStart(); }
-    else if (next.command === "portal") actions[1]?.click();
+    else if (next.command === "portal") portal?.click();
   };
-  actions.forEach((node, index) => {
-    for (const event of ["pointerenter", "mouseenter", "focus"]) node.addEventListener(event, () => select(index));
-  });
+  const hover = (node: HTMLElement | null, index: number, when: () => boolean = () => true): void => {
+    for (const event of ["pointerenter", "mouseenter", "focus"]) node?.addEventListener(event, () => { if (when()) select(index); });
+  };
+  hover(start, 0, () => primary() === start);
+  hover(retryButton, 0);
+  hover(portal, 1);
   paint();
   return {
     get isOpen() { return open; }, get state() { return state.status; }, quickSlot,
     show() { if (disposed || open || state.status === "started") return; open = true; screen.hidden = false; shown.forEach(fn => fn()); },
     hide,
-    settle(source, reason) { if (!disposed) { state = settleTitle(state, source, reason); paint(); } },
+    settle(source, reason) {
+      if (disposed) return;
+      if (source === "words") retrying = false;
+      state = settleTitle(state, source, reason); paint();
+    },
     handleAction(action) { if (!open) return false; act(action); return true; },
     onShow(fn) { shown.add(fn); return () => { shown.delete(fn); }; },
     onHide(fn) { hidden.add(fn); return () => { hidden.delete(fn); }; },

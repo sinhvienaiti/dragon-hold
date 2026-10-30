@@ -23,7 +23,7 @@ import { STAGE_M0 } from "../content/data/stages";
 import { RINGS, URGENT } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
 import { createPortalBridge } from "./portal";
-import { startDeckBoot } from "./deck-boot";
+import { createDeckLoader, startDeckBoot } from "./deck-boot";
 import { normalizeQuality } from "./quality";
 import { createIdleSpeed, frameTimeScale } from "./idle-speed";
 import { safeLocalStorage } from "../kit/platform";
@@ -53,7 +53,7 @@ import { createLaneCue } from "../view/lane-cue";
 import { createTelegraphs, type TelegraphsView } from "../view/telegraphs";
 import type { ActionHandler, FrameInfo, Presenter, Quality, ScreenPoint } from "./contracts";
 import { createInputRouter, type InputRouter, type KeyPanel } from "./input-router";
-import { DeckBuildError, createLearningClient, type LearningClient } from "./learning";
+import { createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
 import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
@@ -914,7 +914,16 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       begin();
     });
   };
-  const title = options.title === false ? null : createTitle(overlay, { onStart: startFromTitle });
+  // Title path: the 195 loader without its panel; the title shows the error and Retry.
+  const titleDeck = options.title === false ? null : createDeckLoader(learning, stage, {
+    ready: (built) => {
+      if (disposed) return;
+      deck = built;
+      title?.settle("words");
+    },
+    failed: (error) => { if (!disposed) title?.settle("words", error.reason); },
+  });
+  const title = titleDeck ? createTitle(overlay, { onStart: startFromTitle, onRetry: () => titleDeck.load() }) : null;
   // R2: attach the map camera with title.onShow/onHide and title.setBackdrop("live").
   title?.show();
   // Moved before buildDeck: the title receives keys while all four sources load.
@@ -924,19 +933,13 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     onImeSign: () => { if (run) imeUntil = view.performance.now() + 8000; },
     now: () => view.performance.now(),
   });
-  const deckBoot = title ? { dispose() {} } : startDeckBoot(overlay, notice, learning, stage, (built) => {
+  const deckBoot = titleDeck ?? startDeckBoot(overlay, notice, learning, stage, (built) => {
     if (disposed) return;
     deck = built;
     startFromTitle();
   });
   if (title) {
-    void learning.buildDeck(stage).then(built => {
-      if (disposed) return;
-      deck = built;
-      title.settle("words");
-    }, error => {
-      if (!disposed) title.settle("words", error instanceof DeckBuildError ? error.reason : "load-failed");
-    });
+    titleDeck?.load();
     for (const [source, promise] of [["models", models.ready], ["ground", map.groundBaked], ["dragons", heroes.ready]] as const) {
       void Promise.resolve(promise).catch((error: unknown) => {
         if (!disposed) console.warn("title: load failed", source, error);

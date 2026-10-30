@@ -1,4 +1,5 @@
-.dh-title {
+/* The title screen's own root: .dh-title stays the shared heading typography (dh.css). */
+.dh-title-screen {
   position: absolute;
   inset: 0;
   z-index: 40;
@@ -7,9 +8,9 @@
   background: #17130f;
   color: var(--dh-cream);
 }
-.dh-title[hidden], .dh-title [hidden] { display: none !important; }
-.dh-title[data-backdrop="live"] { background: transparent; }
-.dh-title[data-backdrop="live"] > .dh-title__backdrop { display: none; }
+.dh-title-screen[hidden], .dh-title-screen [hidden] { display: none !important; }
+.dh-title-screen[data-backdrop="live"] { background: transparent; }
+.dh-title-screen[data-backdrop="live"] > .dh-title__backdrop { display: none; }
 .dh-title__backdrop {
   position: absolute;
   inset: 0;
