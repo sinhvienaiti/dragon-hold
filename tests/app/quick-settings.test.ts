@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TestContext, TestGain, TestSource, flush } from "./keyboard-audio-fixture";
 import { SETTINGS_KEY, loadSettings } from "../../src/app/settings";
+import { TypingSounds } from "../../src/kit/feedback/typing-fx";
 
 const h = vi.hoisted(() => ({
   presenter: () => ({ onEvents() {}, frame() {}, dispose: vi.fn(), handleAction: () => false }),
@@ -222,6 +223,48 @@ describe("192 app and shared panels", () => {
     press(window, "b", "KeyB");
     press(window, " ", "Space");
     expect(ctx.sources).toHaveLength(count);
+  });
+
+  it("keeps exactly one set decoded while the player switches sets, and still previews each pick", async () => {
+    const load = vi.spyOn(TypingSounds.prototype, "loadKeyboardManifest");
+    const decodeAll = async (): Promise<void> => {
+      for (let batch = 0; batch < 8; batch += 1) {
+        await vi.advanceTimersByTimeAsync(1);
+        await flush();
+      }
+    };
+    // The saved set loads on the first key and finishes before the panel opens.
+    press(window, "a", "KeyA");
+    await decodeAll();
+    const sounds = load.mock.contexts[0] as TypingSounds;
+    const held = () => [...(sounds as unknown as { loaded: Map<string, unknown> }).loaded.keys()];
+    expect(held()).toEqual(["bright-clack"]);
+    press(window, "F2");
+    for (const id of ["warm", "deep", "crisp"]) {
+      choose(id).click();
+      await decodeAll();
+      expect(held()).toEqual([id]);
+      expect(sounds.profile?.id).toBe(id);
+      const preview = ctx.sources.find((s) => (s.buffer as unknown as { url: string } | null)?.url.endsWith(`/${id}/preview.ogg`))!;
+      expect(preview.start).toHaveBeenCalledWith(expect.any(Number), 0, 1);
+      // Releasing the old set never cuts the new preview (a release stops with no time).
+      expect(preview.stop).not.toHaveBeenCalledWith();
+    }
+    // The same set picked again keeps playing.
+    choose("crisp").click();
+    await decodeAll();
+    expect(held()).toEqual(["crisp"]);
+    expect(sounds.profile?.id).toBe("crisp");
+    choose("dragonhold").click();
+    await flush();
+    expect(held()).toEqual([]);
+    choose("solid").click();
+    await decodeAll();
+    expect(held()).toEqual(["solid"]);
+    choose("off").click();
+    await flush();
+    expect(held()).toEqual([]);
+    load.mockRestore();
   });
 
   it("keeps the original keyboard as a reversible option", async () => {

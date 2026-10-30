@@ -171,6 +171,39 @@ describe("192 shipped Firefly media and player", () => {
     await flush();
   });
 
+  it.each([
+    ["samples", (url: string) => url.endsWith(".ogg")],
+    ["manifest and samples", (url: string) => !url.endsWith("/keys/keys-manifest.json")],
+  ])("does not refetch a set whose %s cannot be fetched on every key, until the player picks again or the page reloads", async (_, missing) => {
+    const catalog = await loadGameKeyboards();
+    const fetchSome = vi.fn(async (url: string) => missing(url)
+      ? { ok: false, status: 404, json: async () => { throw new Error("404"); }, arrayBuffer: async () => { throw new Error("404"); } }
+      : { ok: true, json: async () => JSON.parse(readFileSync(publicFile(url), "utf8")), arrayBuffer: async () => new TextEncoder().encode(url).buffer });
+    vi.stubGlobal("fetch", fetchSome);
+    const settings = loadSettings(null);
+    const ctx = new TestContext();
+    const choice = catalog.options.find((p) => p.value === settings.keyboard)!;
+    const files = keyboardFiles(JSON.parse(readFileSync(publicFile(choice.manifest!), "utf8")), "");
+    const perLoad = missing(choice.manifest!) ? 1 : 1 + files.key.length + files.space.length;
+    const settle = async (): Promise<void> => { for (let i = 0; i < 12; i += 1) { await flush(); await new Promise((r) => setTimeout(r, 0)); } };
+    let keyboard = new GameKeyboard(() => settings, catalog.options, () => ctx as unknown as AudioContext);
+    const typeLetters = async (): Promise<void> => { for (let i = 0; i < 10; i += 1) { keyboard.type("key"); await settle(); } };
+    await typeLetters();
+    expect(fetchSome).toHaveBeenCalledTimes(perLoad);
+    expect(ctx.sources).toHaveLength(0);
+    // Picking the set again retries once.
+    keyboard.changed();
+    await typeLetters();
+    expect(fetchSome).toHaveBeenCalledTimes(2 * perLoad);
+    // So does a page reload (a new player).
+    keyboard.dispose();
+    keyboard = new GameKeyboard(() => settings, catalog.options, () => ctx as unknown as AudioContext);
+    await typeLetters();
+    expect(fetchSome).toHaveBeenCalledTimes(3 * perLoad);
+    expect(ctx.sources).toHaveLength(0);
+    keyboard.dispose();
+  });
+
   it("has no fake legacy Firefly packs when the catalogue is missing", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("missing"); }));
     const missing = await loadGameKeyboards();
