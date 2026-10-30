@@ -178,14 +178,15 @@ describe("192 app and shared panels", () => {
     expect(row("master").querySelector<HTMLInputElement>("input")!.value).toBe("40");
   });
 
-  it("offers real settings only, all seven audio rows, and Off, Dragonhold and 33 sets under seven family headings", () => {
+  it("offers real settings only, all seven audio rows, and Off, Dragonhold and 34 sets under seven family headings", () => {
     expect([...document.querySelectorAll<HTMLElement>('[data-row]')].map((r) => r.dataset.row)).toEqual(expect.arrayContaining(["quality", "master", "music", "effects", "keyboard", "keyboardVolume", "voice", "ui"]));
     for (const id of ["fxStyle", "fxIntensity", "fxSize", "reducedMotion", "learnMeaning", "learnIpa"]) expect(row(id)).toBeNull();
     const labels = [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
-    expect(labels).toHaveLength(35);
+    expect(labels).toHaveLength(36);
     expect(labels.slice(0, 3)).toEqual(["Off", "Dragonhold", "Deep Velvet"]);
     expect(labels).toContain("Bright Clack Velvet");
-    // The owner's pick sits last in Crisp, before the Clear heading.
+    // The owner's picks: Hail Stone sits last in Solid, before the Crisp heading; Raindrop Tile last in Crisp, before the Clear heading.
+    expect(labels.slice(labels.indexOf("Solid Amber"), labels.indexOf("Solid Amber") + 3)).toEqual(["Solid Amber", "Hail Stone", "Crisp Velvet"]);
     expect(labels.slice(labels.indexOf("Crisp Silk"), labels.indexOf("Crisp Silk") + 3)).toEqual(["Crisp Silk", "Raindrop Tile", "Clear Velvet"]);
     expect([...document.querySelectorAll(".kit-keyboards__family[id]")].map((heading) => heading.textContent)).toEqual(["Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack"]);
     // A first launch saves the default set.
@@ -242,7 +243,7 @@ describe("192 app and shared panels", () => {
     const held = () => [...(sounds as unknown as { loaded: Map<string, unknown> }).loaded.keys()];
     expect(held()).toEqual(["bright-clack"]);
     press(window, "F2");
-    for (const id of ["warm", "deep", "raindrop-tile", "crisp"]) {
+    for (const id of ["warm", "deep", "hail-stone", "raindrop-tile", "crisp"]) {
       choose(id).click();
       await decodeAll();
       expect(held()).toEqual([id]);
