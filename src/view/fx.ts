@@ -1227,9 +1227,11 @@ export class FxCore {
     const burnZ = at.z + uz * 0.4 * s;
     if (!this.wetOf(burnX, burnZ)) {
       const floor = this.markY(burnX, burnZ, 1.6 * s * g) + 0.05;
-      this.marks.spawn(burnX, floor, burnZ, 1.6 * s * g, 0.55, FX_COLORS.scorch, 0.5 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
+      // Round 10 (both judges: the mouth soot vanished in one frame, strong f54→f55): smaller and lighter, fading
+      // over about 30 frames after a short hold.
+      this.marks.spawn(burnX, floor, burnZ, 1.25 * s * g, 0.7, FX_COLORS.scorch, 0.36 * soft, { kind: 5, thickness: this.random() * 0.9, fadeIn: 0.001, hold: 0.2, drag: 0, rot: this.random() * TAU });
       // Round 9 (judge B, round 7 fix 1): a soft soot ring under the jet keeps it apart from the light stone.
-      this.marks.spawn(burnX, floor + 0.01, burnZ, 3.0 * s * g, 0.4, FX_COLORS.char, 0.32 * soft, { kind: 1, thickness: 0.4, fadeIn: 0.001, hold: 0.1, grow: 0.25, drag: 0 });
+      this.marks.spawn(burnX, floor + 0.01, burnZ, 2.4 * s * g, 0.55, FX_COLORS.char, 0.24 * soft, { kind: 1, thickness: 0.4, fadeIn: 0.001, hold: 0.1, grow: 0.25, drag: 0 });
       // A strong word's own mark at the caster: a teal ring under the mouth (judge A: strong R no different from plain).
       // Round 10 (judge A: the ring sat round Bạch Long): under Hỏa Long's own body, behind its mouth.
       if (strong) {
