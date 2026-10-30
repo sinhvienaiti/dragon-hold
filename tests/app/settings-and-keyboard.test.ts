@@ -136,11 +136,17 @@ describe("192 shipped Firefly media and player", () => {
     await keyboard.preload();
     expect(ctx.decodeAudioData).toHaveBeenCalledTimes(25);
     expect(keyboard.sounds.profile?.id).toBe("raindrop-tile");
-    for (let i = 0; i < 40; i += 1) {
-      ctx.currentTime = i / 10;
-      keyboard.type(i % 5 === 4 ? "space" : "key");
+    // 4 s at 10 keys a second (every 100 ms) plus 2 spaces a second between them: 48 plays.
+    const strokes = [
+      ...Array.from({ length: 40 }, (_, i) => ({ at: i / 10, kind: "key" as const })),
+      ...Array.from({ length: 8 }, (_, i) => ({ at: 0.25 + i / 2, kind: "space" as const })),
+    ].sort((a, b) => a.at - b.at);
+    for (const stroke of strokes) {
+      ctx.currentTime = stroke.at;
+      keyboard.type(stroke.kind);
     }
-    expect(ctx.sources).toHaveLength(40);
+    expect(ctx.sources).toHaveLength(48);
+    expect(ctx.sources.filter((source) => (source.buffer as unknown as { url: string }).url.includes("/space-"))).toHaveLength(8);
     // No voice was stolen: nothing cut a sample before its tail ended.
     expect(keyboard.sounds.stolen).toBe(0);
     for (const source of ctx.sources) expect(source.stop).not.toHaveBeenCalled();
