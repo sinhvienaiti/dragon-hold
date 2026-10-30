@@ -173,7 +173,7 @@ describe("192 app and shared panels", () => {
   it("offers real settings only, all seven audio rows and the nine keyboard choices", () => {
     expect([...document.querySelectorAll<HTMLElement>('[data-row]')].map((r) => r.dataset.row)).toEqual(expect.arrayContaining(["quality", "master", "music", "effects", "keyboard", "keyboardVolume", "voice", "ui"]));
     for (const id of ["fxStyle", "fxIntensity", "fxSize", "reducedMotion", "learnMeaning", "learnIpa"]) expect(row(id)).toBeNull();
-    expect([...document.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual(["Off", "Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack", "Dragonhold"]);
+    expect([...document.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual(["Off", "Dragonhold", "Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack"]);
   });
 
   it("previews after 150 ms for exactly one second, cancels when closed and loads the chosen pack into gameplay", async () => {

@@ -50,8 +50,12 @@ export function loadSettings(raw: unknown): Settings {
   };
 }
 
+/** A saved id the catalogue no longer lists falls back to the default set, then any Firefly set, then the original sound. */
 export function keyboardChoice(id: string, choices: readonly KeyboardSoundChoice[]): string {
-  return choices.some((p) => p.value === id && !p.disabled) ? id : choices.find((p) => p.value !== "off" && !p.disabled)?.value ?? "off";
+  const usable = (value: string): boolean => choices.some((p) => p.value === value && !p.disabled);
+  if (usable(id)) return id;
+  if (usable(DEFAULT_KEYBOARD_SOUND)) return DEFAULT_KEYBOARD_SOUND;
+  return choices.find((p) => p.manifest !== undefined && !p.disabled)?.value ?? choices.find((p) => p.value !== "off" && !p.disabled)?.value ?? "off";
 }
 
 export function quickValues(s: Settings): Record<string, QuickValue> {

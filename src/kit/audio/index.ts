@@ -27,7 +27,13 @@ export {
 export {
   SceneAudio,
   type PlayOptions,
+  type PlayCounts,
+  type SceneAudioStats,
   type SceneAudioOptions,
   type SoundSpec,
   type SoundTable,
 } from "./scene-audio";
+
+export { parseAudioManifest, loadAudioManifest, type AudioManifest, type AudioManifestV1, type AudioManifestV2, type AudioManifestSource, type ManifestSound, type ManifestTrack } from "./manifest";
+export { VariantPicker, type VariantOptions } from "./variants";
+export { FileBank, LayeredBank, type MissingHook, type FileBankOptions, type FileBankStats, type DurationMismatch, type FileSelection, type LayeredSelection } from "./file-bank";

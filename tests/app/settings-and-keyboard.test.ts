@@ -59,7 +59,7 @@ describe("192 shipped Firefly media and player", () => {
   it("reads Off + seven Firefly sets + Dragonhold from the kit catalogue, with lazy samples", async () => {
     const catalog = await loadGameKeyboards();
     expect(catalog.state).toBe("ready");
-    expect(catalog.options.map((p) => p.value)).toEqual(["off", "deep", "warm", "rounded", "solid", "crisp", "clear", "bright-clack", BUILT_IN_KEYS]);
+    expect(catalog.options.map((p) => p.value)).toEqual(["off", BUILT_IN_KEYS, "deep", "warm", "rounded", "solid", "crisp", "clear", "bright-clack"]);
     expect(fetchLocal).toHaveBeenCalledTimes(1);
     expect(keyboardChoice("gone", catalog.options)).toBe("deep");
     expect(keyboardChoice("off", catalog.options)).toBe("off");
@@ -143,7 +143,10 @@ describe("192 shipped Firefly media and player", () => {
 
   it("has no fake legacy Firefly packs when the catalogue is missing", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("missing"); }));
-    expect((await loadGameKeyboards()).options.map((p) => p.value)).toEqual(["off", BUILT_IN_KEYS]);
+    const missing = await loadGameKeyboards();
+    expect(missing.options.map((p) => p.value)).toEqual(["off", BUILT_IN_KEYS]);
+    // A save for a set that is not on disk keeps a typing sound: the original one.
+    expect(keyboardChoice("deep", missing.options)).toBe(BUILT_IN_KEYS);
     expect(KEYS_BASE).toBe("/assets/dragon-hold/audio/keys/");
   });
 });

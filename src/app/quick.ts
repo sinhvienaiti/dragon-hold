@@ -1,6 +1,6 @@
 import { QuickSettings, QUICK_ICON_NAMES, defaultSoundRows, type QuickIcons, type QuickRow, type QuickSettingsOptions } from "../kit/ui";
 import type { KeyboardSoundChoice } from "../kit/feedback/typing-fx";
-import { QUALITY_LEVELS } from "./settings";
+import { DEFAULT_KEYBOARD_SOUND, QUALITY_LEVELS, keyboardChoice } from "./settings";
 
 const UI_BASE = `${import.meta.env.BASE_URL}assets/dragon-hold/ui/quick-settings/`;
 export const QUICK_ICONS: QuickIcons = Object.fromEntries(QUICK_ICON_NAMES.map((name) => [name, UI_BASE + name + ".64.png"]));
@@ -18,7 +18,8 @@ export function createQuickSettings(options: QuickSettingsOptions, keyboards: re
   const quick = new QuickSettings({
     ...options,
     settingsRows: settingsRows(),
-    soundRows: defaultSoundRows({ keyboardProfiles: keyboards }),
+    // The kit's default is the first listed sound (Dragonhold follows Off); ours is the default Firefly set.
+    soundRows: defaultSoundRows({ keyboardProfiles: keyboards }).map((row) => row.kind === "choice" && row.id === "keyboard" ? { ...row, default: keyboardChoice(DEFAULT_KEYBOARD_SOUND, keyboards) } : row),
     icons: QUICK_ICONS,
     skin: { panel: UI_BASE + "panel-large.alpha.png", button: UI_BASE + "button.alpha.png" },
   });

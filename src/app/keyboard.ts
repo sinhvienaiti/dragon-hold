@@ -14,6 +14,7 @@ export class GameKeyboard {
   private generation = 0;
   private disposed = false;
   private pending: string | null = null;
+  private abort: AbortController | null = null;
 
   constructor(private readonly settings: () => Settings, private readonly choices: readonly KeyboardSoundChoice[], context: () => AudioContext) {
     this.sounds = new TypingSounds({ context });
@@ -30,7 +31,7 @@ export class GameKeyboard {
   /** Invalidates startup loads when the picker takes ownership of a selection. */
   changed(): void {
     this.generation += 1;
-    this.pending = null;
+    this.cancel();
     this.sounds.use("off");
     this.refresh();
   }
@@ -40,12 +41,23 @@ export class GameKeyboard {
     const choice = this.choices.find((p) => p.value === id);
     if (this.disposed || !choice?.manifest || this.pending === id || this.sounds.profile?.id === id) return;
     const generation = ++this.generation;
+    this.cancel();
+    const abort = new AbortController();
+    this.abort = abort;
     this.pending = id;
     try {
-      const result = await this.sounds.loadKeyboardManifest(choice.manifest, id, choice.label);
+      // Active from the start: the first decoded batch plays while the other variants load.
+      const result = await this.sounds.loadKeyboardManifest(choice.manifest, id, choice.label, undefined, undefined, true, abort.signal);
       if (!this.disposed && generation === this.generation && this.settings().keyboard === id) this.sounds.use(result.state === "pending" ? "off" : id);
     } catch { /* An unavailable file stays silent; a later gesture can retry. */ }
-    finally { if (generation === this.generation) this.pending = null; }
+    finally { if (generation === this.generation) { this.pending = null; this.abort = null; } }
+  }
+
+  /** Stops a startup load and releases what it decoded, so a superseded set never stays in memory. */
+  private cancel(): void {
+    this.abort?.abort();
+    this.abort = null;
+    this.pending = null;
   }
 
   type(kind: "key" | "space"): void {
@@ -60,6 +72,7 @@ export class GameKeyboard {
   dispose(): void {
     this.disposed = true;
     this.generation += 1;
+    this.cancel();
     this.sounds.dispose();
   }
 }

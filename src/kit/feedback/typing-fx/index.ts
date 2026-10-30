@@ -11,7 +11,7 @@ export { DEFAULT_PALETTE, FxCanvas, mixHex, toneColors, type TypingFxAtlas, type
 export { injectTypingFxCss, TYPING_FX_CSS } from "./css";
 export { FocusStrip, type FocusStripOptions } from "./strip";
 export {
-  KEYBOARD_PROFILES, keyboardFiles, profileGaps, TYPING_SOUND_EVENTS, TYPING_SOUND_MAP, TYPING_SOUND_SET, TYPING_SOUND_SETS, TypingSounds, VariantPicker, VoicePool,
+  KEYBOARD_DECODE_BATCH_SIZE, KEYBOARD_PROFILES, keyboardFiles, profileGaps, TYPING_SOUND_EVENTS, TYPING_SOUND_MAP, TYPING_SOUND_SET, TYPING_SOUND_SETS, TypingSounds, VariantPicker, VoicePool,
   type KeyboardLoad, type SoundStandIn, type TypingSoundEvent, type TypingSoundProfile, type TypingSoundSet, type TypingSoundsOptions,
 } from "./audio";
 
