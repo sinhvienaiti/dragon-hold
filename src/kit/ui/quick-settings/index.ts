@@ -5,6 +5,7 @@ export {
   QUICK_DEFAULT_Z_INDEX,
   QUICK_PREVIEW_THROTTLE_MS,
   QuickSettings,
+  type QuickKeyboardFetch,
   type QuickSettingsOptions,
 } from "./quick-settings";
 export { DEFAULT_KEYBOARD_PROFILES, defaultSettingsRows, defaultSoundRows, type QuickDefaultsOptions } from "./rows";
@@ -30,6 +31,6 @@ export {
   type QuickValues,
 } from "./types";
 
-export { KeyboardSoundChoices, KEYBOARD_CHOICES_CSS } from "./keyboard-choices";
-export { loadKeyboardCatalog, KeyboardSoundPreview, keyboardPreviewGain, type KeyboardCatalog, type KeyboardSoundChoice, type KeyboardPreviewLevels } from "../../feedback/typing-fx/audio";
-export { pendingKeyboardChoices, settleKeyboardChoice, timedJson, typingFeelKeysBase, type KeyboardSettlement } from "../../feedback/typing-fx/audio";
+export { KeyboardSoundChoices, KEYBOARD_CHOICES_CSS, type KeyboardChoicesState, type KeyboardPointer } from "./keyboard-choices";
+export { loadKeyboardCatalog, KeyboardSoundPreview, keyboardPreviewGain, type KeyboardCatalog, type KeyboardLoad, type KeyboardSoundChoice, type KeyboardPreviewLevels } from "../../feedback/typing-fx/audio";
+export { KEYBOARD_SAMPLE_TIMEOUT_MS, pendingKeyboardChoices, settleKeyboardChoice, timedBytes, timedJson, typingFeelKeysBase, type KeyboardSettlement } from "../../feedback/typing-fx/audio";

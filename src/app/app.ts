@@ -53,9 +53,10 @@ import { createInputRouter, type InputRouter, type KeyPanel } from "./input-rout
 import { createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
-import { GameKeyboard, loadGameKeyboards } from "./keyboard";
+import { GameKeyboard, KEYBOARD_UNAVAILABLE, KEYS_BASE, ORIGINAL_KEYBOARD, requestKeyboardCatalogue, savedKeyboardId, startKeyboard } from "./keyboard";
+import { pendingKeyboardChoices, type KeyboardCatalog } from "../kit/feedback/typing-fx";
 import { createQuickSettings } from "./quick";
-import { SETTINGS_KEY, BUILT_IN_KEYS, loadSettings, applyQuick, quickValues, audioVolumes, keyboardChoice, voiceLevel } from "./settings";
+import { SETTINGS_KEY, loadSettings, applyQuick, quickValues, audioVolumes, builtInKeys, storedSettings, voiceLevel } from "./settings";
 import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
 
 export interface App {
@@ -75,6 +76,8 @@ export interface AppOptions {
   readonly prelearn?: boolean;
   /** Word tag size, 80–150 % (01 §3.1; the settings screen comes later). */
   readonly tagSizePct?: number;
+  /** The Typing Feel keys base; default KEYS_BASE (the build's VITE_TYPING_FEEL_ORIGIN). Tests point it at a sample host. */
+  readonly keysBase?: string | null;
 }
 
 const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
@@ -84,6 +87,8 @@ const EASIER: Readonly<Record<Difficulty, Difficulty | null>> = { hard: "normal"
 const DIFFICULTY_VI: Readonly<Record<Difficulty, string>> = { easy: "Easy", normal: "Normal", hard: "Hard" };
 /** Countdown after a pause in a wave (06 §2 rule 4). */
 const COUNTDOWN_MS = 3000;
+/** How long "Keyboard sounds unavailable" shows over the learning frame, from the first frame of a run after the Typing Feel host failed (ms). */
+const KEYBOARD_NOTICE_MS = 6000;
 /** How often the UI rectangles damage numbers keep off are read (fx.numbers.protected). */
 const PROTECT_EVERY_MS = 250;
 /** Foe pick radius for a left click, CSS px (00 §6 mouse). */
@@ -182,13 +187,26 @@ export interface DebugHandle {
   fxStorm(count: number): number;
   setView(view: { yawDeg?: number; pitchDeg?: number; zoom?: number; targetX?: number; targetZ?: number }, snap?: boolean): void;
   project(x: number, y: number, z: number): ScreenPoint;
+  /** Typing Feel's keyboard sounds: the keys base (null: off), the catalogue, the chosen and the saved id, whether the save owns it, the stand-in, the set playing, the gate's times (performance.now(), −1: not yet), the keyboard's context state (null: none made). */
+  keyboard(): Record<string, unknown>;
 }
 
 export function startApp(doc: Document = document, given?: AppOptions): App {
   const view = doc.defaultView!;
   const dev = import.meta.env.DEV;
   const options: AppOptions = given ?? optionsFromUrl(view.location.search, dev);
-  const settings = loadSettings(safeLocalStorage.readJson(SETTINGS_KEY));
+  const savedSettings = safeLocalStorage.readJson(SETTINGS_KEY);
+  const settings = loadSettings(savedSettings);
+  /** The save's own keyboard sound, read before the hard default (Bright Clack) fills it in: the Typing Feel catalogue settles it (keyboard.ts). */
+  const savedKeyboard = savedKeyboardId(savedSettings);
+  /** Whether the save holds a keyboard sound: only then is it written (storedSettings; a repair or the player's pick makes it so). */
+  let keyboardOwned = savedKeyboard !== null;
+  /** The chosen set the Dragonhold sound stands in for this session (it cannot sound); null: none. Never saved. */
+  let keyboardStandIn: string | null = null;
+  /** Aborts once the player picks a keyboard sound: the catalogue then settles the player's pick, not the save. */
+  const keyboardStartup = new AbortController();
+  /** The keyboard catalogue loads beside everything else; nothing waits on it (parent TYPING_FEEL_SERVICE.md §5.1–5.2). */
+  const keyboardFeed = requestKeyboardCatalogue(options.keysBase === undefined ? KEYS_BASE : options.keysBase);
   const stage = options.stage ?? STAGE_M0;
   const quality: Quality = options.quality ?? settings.quality;
   const seed = options.seed ?? stage.seed;
@@ -230,7 +248,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   } });
   const audio: GameAudio = createAudio({ quality, volumes: audioVolumes(settings) });
   audio.setMuted(settings.muted);
-  audio.setKeyboardEnabled(settings.keyboard === BUILT_IN_KEYS);
+  audio.setKeyboardEnabled(builtInKeys(settings));
   const stopMusicWatch = bridge.onSharedMusic((playing) => audio.setSharedMusic(playing));
   setSpeechGate(async (play) => {
     for (let waited = 0; audio.speechBlocked() && waited < 1500; waited += 100) await new Promise((done) => view.setTimeout(done, 100));
@@ -887,9 +905,13 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     seep.classList.toggle("is-strong", now < seepUntil && seepStrong);
     const lowHp = world.phase === "wave" && world.hero.hp > 0 && world.hero.hp * 100 < world.hero.hpMax * URGENT.heroHpPct;
     lowEdge.classList.toggle("is-on", lowHp);
-    // The notice over the learning frame: the IME first, then low HP with a potion ready.
+    // The notice over the learning frame: the IME first, then low HP with a potion ready, then a Typing Feel host that failed (6 s from a run's first frame).
     const potion = Object.values(world.shop.held).some((count) => count > 0) && world.tick >= world.shop.consumableReadyAt;
-    const noticeText = now < imeUntil ? "Turn off Vietnamese input (Unikey, Telex) to type English" : lowHp && potion ? "Hỏa Long low on HP: press " + keyLabel("consumable-1") + " for a Small Potion" : "";
+    if (keyboardProbe.notice === "due") {
+      keyboardProbe.notice = "shown";
+      keyboardProbe.noticeUntil = now + KEYBOARD_NOTICE_MS;
+    }
+    const noticeText = now < imeUntil ? "Turn off Vietnamese input (Unikey, Telex) to type English" : lowHp && potion ? "Hỏa Long low on HP: press " + keyLabel("consumable-1") + " for a Small Potion" : now < keyboardProbe.noticeUntil ? KEYBOARD_UNAVAILABLE : "";
     setShown(notice2, noticeText !== "" && !menuOpen && !paceCard.isOpen && !quick?.blocking);
     if (notice2.textContent !== noticeText) notice2.textContent = noticeText;
     notice2.classList.toggle("is-ime", now < imeUntil);
@@ -932,9 +954,17 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   // ── Boot: deck, world, loop, router ──
   let ready = false;
-  /** The first run, once the deck is in and the speed is known. */
+  /** The startup keyboard sound may play (startKeyboard's playable: its first batch, nothing to wait for, or 1.5 s): the first run waits for it. */
+  let keyboardPlayable = false;
+  /** A run was asked for before that: it starts once the keyboard is playable. */
+  let beginWhenPlayable = false;
+  /** The first run, once the deck is in, the speed is known and the keyboard sound is playable (1.5 s at most). */
   const begin = (): void => {
     if (disposed || run) return;
+    if (!keyboardPlayable) {
+      beginWhenPlayable = true;
+      return;
+    }
     run = buildRun();
     router!.handlers.push(...run.handlers);
     loop = createLoop({ step: () => run && step(run.world), frame, timeScale });
@@ -947,59 +977,114 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     }
     ready = true;
   };
-  const quickReady = loadGameKeyboards().then((catalog) => {
-    if (disposed) return;
-    settings.keyboard = keyboardChoice(settings.keyboard, catalog.options);
-    safeLocalStorage.writeJson(SETTINGS_KEY, settings);
-    audio.setKeyboardEnabled(settings.keyboard === BUILT_IN_KEYS);
-    audio.setVolumes(audioVolumes(settings));
-    keyboard = new GameKeyboard(() => settings, catalog.options, () => audio.context());
-    quick = createQuickSettings({
-      host: overlay,
-      getValues: () => quickValues(settings),
-      keyboardSounds: keyboard.sounds,
-      onChange: (id, value) => {
-        if (!applyQuick(settings, id, value)) return;
-        if (id === "keyboard") keyboard?.changed();
-        keyboard?.refresh();
-        audio.setMuted(settings.muted);
-        audio.setVolumes(audioVolumes(settings));
-        audio.setKeyboardEnabled(settings.keyboard === BUILT_IN_KEYS);
-        if (id === "master" || id === "muted" || id === "voice") stopSpeech();
-        safeLocalStorage.writeJson(SETTINGS_KEY, settings);
-      },
-      onPreview: (group) => {
-        if (group === "voice") learning.speak("dragon");
-        else if (group === "keyboard" && settings.keyboard !== BUILT_IN_KEYS) keyboard?.type("key");
-        else audio.preview(group);
-      },
-      onPause: () => {
-        loop?.setPaused(true);
-        countdownUntil = 0;
-        audio.setPaused(true);
-        audioPaused = true;
-        stopSpeech();
-        overlay.classList.add("is-hushed");
-        setShown(hush, true);
-      },
-      onResume: () => {
-        loop?.setPaused(paused(view.performance.now()));
-        if (!run) {
-          audio.setPaused(false);
-          audioPaused = false;
-          overlay.classList.remove("is-hushed");
-          setShown(hush, false);
-        }
-      },
-      onQuit: quitToTitle,
-      countdownMs: () => run ? 1000 : 0,
-    }, catalog.options);
+
+  /** Typing Feel's keyboard sounds as the page saw them, for the debug handle; `notice`: "due" until a run's first frame shows it. */
+  const keyboardProbe = {
+    state: "loading" as KeyboardCatalog["state"] | "loading", revision: "", sets: 0, startAt: view.performance.now(), settledAt: -1, playableAt: -1, beginAt: -1,
+    notice: "none" as "none" | "due" | "shown", noticeUntil: -1,
+  };
+  void keyboardFeed.catalog.then((catalog) => {
+    keyboardProbe.state = catalog.state;
+    keyboardProbe.revision = catalog.revision ?? "";
+    keyboardProbe.sets = catalog.options.filter((choice) => choice.manifest !== undefined).length;
+    keyboardProbe.settledAt = view.performance.now();
   });
-  // The kit's capture listener must precede the game's router, including at title.
+  /** Master, mute, the buses and the Dragonhold sound (the choice, or standing in) after a settings or keyboard change. */
+  const applyAudio = (): void => {
+    keyboard?.refresh();
+    audio.setMuted(settings.muted);
+    audio.setVolumes(audioVolumes(settings, keyboardStandIn));
+    audio.setKeyboardEnabled(builtInKeys(settings, keyboardStandIn));
+  };
+  const saveSettings = (): void => {
+    safeLocalStorage.writeJson(SETTINGS_KEY, storedSettings(settings, keyboardOwned));
+  };
+  // The kit's capture listener must precede the game's router, including at title; a gesture also starts the current set's load if nothing has (typing does too).
   const preloadKeys = (): void => { void keyboard?.preload(); };
   view.addEventListener("pointerdown", preloadKeys, { capture: true });
   view.addEventListener("keydown", preloadKeys, { capture: true });
-  void Promise.all([learning.buildDeck(stage), quickReady]).then(([built]) => {
+  // The set decodes on the page's context as soon as the catalogue settles: before the first gesture it is made suspended
+  // (audio.prepare(), no mixer or music yet), so the first key, even the page's first gesture, already has its sound (§5.4, §8.4).
+  keyboard = new GameKeyboard(() => settings, pendingKeyboardChoices(settings.keyboard, ORIGINAL_KEYBOARD), () => audio.prepare(), {
+    // A set that cannot sound (unavailable, or no sample came, at startup, on a key or picked in the panel): Dragonhold stands in, unsaved.
+    onFail: (id) => {
+      if (disposed) return;
+      keyboardStandIn = id;
+      applyAudio();
+    },
+  });
+  // Built at once (parent TYPING_FEEL_SERVICE.md §5.2): Off, Dragonhold and the saved set "Loading…" until the catalogue settles the list.
+  quick = createQuickSettings({
+    host: overlay,
+    getValues: () => quickValues(settings),
+    keyboardSounds: keyboard.sounds,
+    onChange: (id, value) => {
+      if (!applyQuick(settings, id, value)) return;
+      if (id === "keyboard") {
+        // The player's own keyboard sound: it goes into the save, ends the stand-in and the startup's say over the choice.
+        keyboardOwned = true;
+        keyboardStandIn = null;
+        keyboardStartup.abort();
+        keyboard?.changed();
+      }
+      applyAudio();
+      if (id === "master" || id === "muted" || id === "voice") stopSpeech();
+      saveSettings();
+    },
+    onPreview: (group) => {
+      if (group === "voice") learning.speak("dragon");
+      else if (group === "keyboard" && !builtInKeys(settings, keyboardStandIn)) keyboard?.type("key");
+      else audio.preview(group);
+    },
+    onKeyboardLoad: (result) => keyboard?.pickLoaded(result),
+    onKeyboardFail: (choice) => keyboard?.pickFailed(choice.value),
+    onPause: () => {
+      loop?.setPaused(true);
+      countdownUntil = 0;
+      audio.setPaused(true);
+      audioPaused = true;
+      stopSpeech();
+      overlay.classList.add("is-hushed");
+      setShown(hush, true);
+    },
+    onResume: () => {
+      loop?.setPaused(paused(view.performance.now()));
+      if (!run) {
+        audio.setPaused(false);
+        audioPaused = false;
+        overlay.classList.remove("is-hushed");
+        setShown(hush, false);
+      }
+    },
+    onQuit: quitToTitle,
+    countdownMs: () => run ? 1000 : 0,
+  }, pendingKeyboardChoices(settings.keyboard, ORIGINAL_KEYBOARD));
+  // The catalogue settles the saved choice when it comes (a host that failed keeps it), then the set loads; the first run waits for it 1.5 s at most.
+  void startKeyboard(keyboard, keyboardFeed, savedKeyboard, {
+    current: () => settings.keyboard,
+    choose: (id, save) => {
+      if (disposed) return;
+      settings.keyboard = id;
+      if (save) keyboardOwned = true;
+      applyAudio();
+      if (save) saveSettings();
+    },
+    list: (options) => {
+      quick?.setChoiceOptions("keyboard", options);
+    },
+    unavailable: () => {
+      if (keyboardProbe.notice === "none") keyboardProbe.notice = "due";
+    },
+    playable: () => {
+      keyboardPlayable = true;
+      keyboardProbe.playableAt = view.performance.now();
+      if (!beginWhenPlayable) return;
+      beginWhenPlayable = false;
+      keyboardProbe.beginAt = view.performance.now();
+      begin();
+    },
+  }, { signal: keyboardStartup.signal });
+  void learning.buildDeck(stage).then((built) => {
     if (disposed) return;
     deck = built;
     notice.remove();
@@ -1201,6 +1286,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     },
     setView: (next, snap = true) => map.rig.setView(next, snap),
     project: (x, y, z) => map.worldToScreen(x, y, z),
+    keyboard: () => ({
+      base: keyboardFeed.base, ...keyboardProbe, id: settings.keyboard, saved: savedKeyboard, owned: keyboardOwned, standIn: keyboardStandIn,
+      builtIn: builtInKeys(settings, keyboardStandIn), profile: keyboard?.sounds.profile?.id ?? null, stats: { ...keyboard?.sounds.stats }, playable: keyboardPlayable, ready, unlocked: audio.unlocked, context: keyboard?.sounds.context?.state ?? null,
+    }),
   };
   if (dev || new URLSearchParams(view.location.search).get("debug") === "1") view.__dh = handle;
 

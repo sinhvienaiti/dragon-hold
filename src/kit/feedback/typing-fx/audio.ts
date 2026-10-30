@@ -298,7 +298,13 @@ export class TypingSounds implements TypingFxSink {
     if (this.out !== null) this.out.gain.value = this.volume;
   }
 
-  /** Decode at most one batch concurrently, publishing samples as each completes. */
+  /**
+   * Decode at most one batch concurrently, publishing samples as each completes.
+   * A first batch that decodes nothing ends the load (TYPING_FEEL_SERVICE.md
+   * §5.3, §8.1): the host or the files are broken for this set, so the rest is
+   * never asked for and is listed as missing. A set on a hung host then ends
+   * after one batch (one fetch timeout), not after every batch in turn.
+   */
   async load(profile: TypingSoundProfile, fetchBytes: (url: string) => Promise<ArrayBuffer> = defaultFetch, activate = true, signal?: AbortSignal): Promise<{ loaded: number; missing: string[] }> {
     if (signal?.aborted) return { loaded: 0, missing: [] };
     this.release(profile.id);
@@ -329,6 +335,10 @@ export class TypingSounds implements TypingFxSink {
               loaded += 1;
             } catch { if (live()) missing.push(url); }
           }));
+          if (start === 0 && loaded === 0) {
+            if (live()) missing.push(...jobs.slice(KEYBOARD_DECODE_BATCH_SIZE).map(({ url }) => url));
+            break;
+          }
           // A macrotask gives rendering/input a turn even with cached fetches.
           if (start + KEYBOARD_DECODE_BATCH_SIZE < jobs.length && live()) await new Promise<void>((resolve) => setTimeout(resolve, 0));
         }
@@ -639,8 +649,51 @@ export async function loadKeyboardCatalog(base: string | null, options: {
 
 /** How long a Typing Feel catalogue fetch may take before the game plays on without it (§5.3). */
 export const KEYBOARD_CATALOG_TIMEOUT_MS = 3000;
+/** How long one sample or preview file may take before it counts as missing, so a set's load always ends (§8.1). */
+export const KEYBOARD_SAMPLE_TIMEOUT_MS = 8000;
 /** setTimeout's largest delay: browsers and Node fire a longer one almost at once. */
 const MAX_TIMER_MS = 2_147_483_647;
+
+/** `timeoutMs` when it is a usable setTimeout delay, else `fallback`. */
+const timerLimit = (timeoutMs: number, fallback: number): number => (Number.isFinite(timeoutMs) && timeoutMs > 0 && timeoutMs <= MAX_TIMER_MS ? timeoutMs : fallback);
+
+/**
+ * Runs `read` with an abort signal and rejects after `limit` ms (aborting the
+ * request, even one whose fetch ignores the signal). The timer is cleared
+ * however it ends, and the request's own late rejection stays handled.
+ */
+function withDeadline<T>(url: string, limit: number, read: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const abort = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // Only rejects once the timer fires; Promise.race below always handles it.
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${url}: no answer in ${limit} ms`));
+      abort.abort();
+    }, limit);
+  });
+  return Promise.race([read(abort.signal), expired]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * A fetchBytes for sample and preview files (TypingSounds.loadKeyboardManifest,
+ * KeyboardSoundPreview, QuickSettings' `keyboardFetch`) that gives up after
+ * `timeoutMs` (default 8000; a non-positive, non-finite or above-setTimeout
+ * value takes the default), the same way as timedJson: it rejects on the
+ * timeout (aborting the request) and on a non-OK status, and clears its timer
+ * however it ends. A file that rejects counts as missing. `cache` is the
+ * fetch's own default unless given. The kit's built-in sample fetch (used
+ * when a caller passes no fetchBytes) keeps no time limit.
+ */
+export function timedBytes(timeoutMs: number = KEYBOARD_SAMPLE_TIMEOUT_MS, options: { readonly cache?: RequestCache } = {}): (url: string) => Promise<ArrayBuffer> {
+  const limit = timerLimit(timeoutMs, KEYBOARD_SAMPLE_TIMEOUT_MS);
+  const init = options.cache === undefined ? {} : { cache: options.cache };
+  return (url: string): Promise<ArrayBuffer> => withDeadline(url, limit, async (signal) => {
+    const response = await fetch(url, { ...init, signal });
+    if (!response.ok) throw new Error(url + ": " + response.status);
+    return response.arrayBuffer();
+  });
+}
 
 /**
  * A fetchJson for loadKeyboardCatalog(base, { fetchJson }) that gives up after
@@ -652,31 +705,19 @@ const MAX_TIMER_MS = 2_147_483_647;
  * pass "default" to bound a set manifest's fetch, whose versioned URL never changes.
  */
 export function timedJson(timeoutMs: number = KEYBOARD_CATALOG_TIMEOUT_MS, options: { readonly cache?: RequestCache } = {}): (url: string) => Promise<unknown> {
-  const limit = Number.isFinite(timeoutMs) && timeoutMs > 0 && timeoutMs <= MAX_TIMER_MS ? timeoutMs : KEYBOARD_CATALOG_TIMEOUT_MS;
+  const limit = timerLimit(timeoutMs, KEYBOARD_CATALOG_TIMEOUT_MS);
   const cache = options.cache ?? "no-cache";
-  return (url: string): Promise<unknown> => {
-    const abort = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    // Only rejects once the timer fires; Promise.race below always handles it.
-    const expired = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        reject(new Error(`${url}: no answer in ${limit} ms`));
-        abort.abort();
-      }, limit);
-    });
-    const read = (async (): Promise<unknown> => {
-      const response = await fetch(url, { cache, signal: abort.signal });
-      if (!response.ok) throw new Error(url + ": " + response.status);
-      if (/html/i.test(response.headers?.get("content-type") ?? "")) throw new Error(url + ": HTML, not JSON");
-      const text = await response.text();
-      try {
-        return JSON.parse(text) as unknown;
-      } catch {
-        throw new Error(url + ": not JSON");
-      }
-    })();
-    return Promise.race([read, expired]).finally(() => clearTimeout(timer));
-  };
+  return (url: string): Promise<unknown> => withDeadline(url, limit, async (signal) => {
+    const response = await fetch(url, { cache, signal });
+    if (!response.ok) throw new Error(url + ": " + response.status);
+    if (/html/i.test(response.headers?.get("content-type") ?? "")) throw new Error(url + ": HTML, not JSON");
+    const text = await response.text();
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      throw new Error(url + ": not JSON");
+    }
+  });
 }
 
 export type KeyboardSettlement = { readonly id: string; readonly options: readonly KeyboardSoundChoice[]; readonly repaired: boolean };
@@ -787,6 +828,14 @@ export class KeyboardSoundPreview {
     readonly fetchBytes?: (url: string) => Promise<ArrayBuffer>;
     readonly fetchJson?: (url: string) => Promise<unknown>;
     readonly onLoad?: (result: KeyboardLoad) => void;
+    /**
+     * The latest selected set cannot sound: its load ended with no sample
+     * ("pending": no manifest, no file decoded) or failed (blocked audio).
+     * A game stands its own sound in here. Never for a superseded selection.
+     * On a hung host that is one manifest timeout, or one sample timeout:
+     * TypingSounds.load stops after a first batch that decoded nothing.
+     */
+    readonly onFail?: (choice: KeyboardSoundChoice) => void;
     /** Game-specific already registered sounds (e.g. Relay). */
     readonly onUse?: (choice: KeyboardSoundChoice) => void;
   }) {
@@ -896,11 +945,18 @@ export class KeyboardSoundPreview {
       this.pack = { key, abort, result };
     }
     const pack = this.pack;
+    const latest = (): boolean => !this.disposed && selection === this.selection && pack === this.pack;
     void pack.result.then((result) => {
-      if (this.disposed || selection !== this.selection || pack !== this.pack) return;
+      if (!latest()) return;
       this.sounds.use(result.state === "pending" ? "off" : choice.value);
       this.options.onLoad?.(result);
       if (result.state !== "ready") this.pack = null;
+      if (result.state === "pending") this.options.onFail?.(choice);
+    }, () => {
+      // The load itself failed (e.g. no AudioContext): the set cannot sound.
+      const failed = latest();
+      if (this.pack === pack) this.pack = null;
+      if (failed) this.options.onFail?.(choice);
     }).catch(() => { if (this.pack === pack) this.pack = null; });
   }
 

@@ -16,5 +16,5 @@ export {
 } from "./audio";
 
 export { loadKeyboardCatalog, KeyboardSoundPreview, keyboardPreviewGain, KEYBOARD_PREVIEW_DELAY_MS, KEYBOARD_PREVIEW_SECONDS, KEYBOARD_PREVIEW_FADE_SECONDS, type KeyboardCatalog, type KeyboardSoundChoice, type KeyboardPreviewLevels } from "./audio";
-// Typing Feel data step (TYPING_FEEL_SERVICE.md §4.6): timed catalogue fetch, saved-choice rule, keys base from the build's origin.
-export { KEYBOARD_CATALOG_TIMEOUT_MS, pendingKeyboardChoices, settleKeyboardChoice, timedJson, typingFeelKeysBase, type KeyboardSettlement } from "./audio";
+// Typing Feel data step (TYPING_FEEL_SERVICE.md §4.6): timed catalogue and sample fetches, saved-choice rule, keys base from the build's origin.
+export { KEYBOARD_CATALOG_TIMEOUT_MS, KEYBOARD_SAMPLE_TIMEOUT_MS, pendingKeyboardChoices, settleKeyboardChoice, timedBytes, timedJson, typingFeelKeysBase, type KeyboardSettlement } from "./audio";

@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TestContext, TestGain, TestSource, flush } from "./keyboard-audio-fixture";
+import { catalogue, FEEL_BASE, serve, setDir, type Reply } from "./feel-fixture";
 import { SETTINGS_KEY, loadSettings } from "../../src/app/settings";
+import { KEYBOARD_GATE_MS } from "../../src/app/keyboard";
 import { TypingSounds } from "../../src/kit/feedback/typing-fx";
 
 const h = vi.hoisted(() => ({
@@ -12,7 +12,13 @@ const h = vi.hoisted(() => ({
   context: null as unknown as AudioContext,
   loops: [] as { paused: boolean; advance(): void; stop: ReturnType<typeof vi.fn> }[],
 }));
-vi.mock("../../src/audio", () => ({ createAudio: () => ({ ...h.presenter(), ...h.audio, unlock() {}, context: () => h.context, speechBlocked: () => false, setSharedMusic() {}, setListener() {} }) }));
+// No gesture reaches this audio: the keyboard set decodes on prepare()'s context (suspended until a gesture, parent
+// TYPING_FEEL_SERVICE.md §5.4) as soon as the catalogue settles; context() is the gesture path that builds the mixer.
+vi.mock("../../src/audio", () => ({ createAudio: () => ({
+  ...h.presenter(), ...h.audio, unlocked: false, unlock() {}, prepare: () => h.context,
+  context: () => { throw new Error("context() builds the mixer and needs a gesture: keyboard samples decode on prepare()"); },
+  speechBlocked: () => false, setSharedMusic() {}, setListener() {},
+}) }));
 vi.mock("../../src/app/learning", async () => {
   const { makeDeck } = await import("../typing-helpers");
   return { createLearningClient: () => ({ buildDeck: async () => makeDeck(), gloss: () => null, speak: vi.fn(), flush() {}, dispose() {}, onEvents() {} }) };
@@ -63,9 +69,31 @@ const slide = (id: string, value: number) => {
   input.value = String(value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
 };
-const boot = async (given = { typistWpm: 35, prelearn: false }) => {
+/** Every fetch the page made. */
+let fetched: string[];
+/** A fetch answer as timedJson, timedBytes and the kit read it; sample bytes are the file's URL (TestContext). */
+const respond = (url: string, reply: Reply): Response => ({
+  ok: reply.status >= 200 && reply.status < 300, status: reply.status, headers: new Headers(reply.type ? { "content-type": reply.type } : {}),
+  text: async () => reply.text ?? "", json: async () => JSON.parse(reply.text ?? ""), arrayBuffer: async () => new TextEncoder().encode(url).buffer,
+}) as unknown as Response;
+/** The sample Typing Feel host (feel-fixture.ts) behind fetch; `route` may answer first. */
+const feelHost = (route?: (url: string) => Promise<Response> | Response | undefined): void => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    fetched.push(url);
+    return route?.(url) ?? respond(url, serve(url, catalogue()));
+  }));
+};
+/** Microtasks and the macrotask turns between decode batches: the catalogue, the saved set's first batches, the gate. */
+const decodeAll = async (): Promise<void> => {
+  for (let batch = 0; batch < 8; batch += 1) {
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+  }
+};
+const boot = async (given: Record<string, unknown> = { typistWpm: 35, prelearn: false, keysBase: FEEL_BASE }) => {
   app = startApp(document, given);
   await flush();
+  await decodeAll();
 };
 beforeEach(async () => {
   vi.useFakeTimers();
@@ -77,7 +105,8 @@ beforeEach(async () => {
   h.context = ctx as unknown as AudioContext;
   vi.stubGlobal("GainNode", TestGain);
   vi.stubGlobal("AudioBufferSourceNode", TestSource);
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => ({ ok: true, json: async () => JSON.parse(readFileSync(resolve("public", url.replace(/^\//, "")), "utf8")), arrayBuffer: async () => new TextEncoder().encode(url).buffer })));
+  fetched = [];
+  feelHost();
   await boot();
 });
 afterEach(async () => {
@@ -147,14 +176,14 @@ describe("192 app and shared panels", () => {
     expect(document.activeElement).toBe(choose("deep-amber"));
     // PageDown/PageUp move between families in the kit's grouped list.
     press(choose("deep-amber"), "PageDown");
-    expect(document.activeElement).toBe(choose("warm"));
-    press(choose("warm"), "PageDown");
-    expect(document.activeElement).toBe(choose("rounded"));
-    press(choose("rounded"), "PageUp");
-    expect(document.activeElement).toBe(choose("warm"));
-    expect(press(choose("warm"), "Tab").defaultPrevented).toBe(false);
-    press(choose("warm"), "Enter");
-    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).keyboard).toBe("warm");
+    expect(document.activeElement).toBe(choose("solid"));
+    press(choose("solid"), "PageDown");
+    expect(document.activeElement).toBe(choose("raindrop-tile"));
+    press(choose("raindrop-tile"), "PageUp");
+    expect(document.activeElement).toBe(choose("solid"));
+    expect(press(choose("solid"), "Tab").defaultPrevented).toBe(false);
+    press(choose("solid"), "Enter");
+    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).keyboard).toBe("solid");
   });
 
   it("persists every channel and graphics; mute/zero Master uses the muted speaker", async () => {
@@ -178,24 +207,22 @@ describe("192 app and shared panels", () => {
     expect(row("master").querySelector<HTMLInputElement>("input")!.value).toBe("40");
   });
 
-  it("offers real settings only, all seven audio rows, and Off, Dragonhold and 34 sets under seven family headings", () => {
+  it("offers real settings only, all seven audio rows, and Off, Dragonhold and the Typing Feel sets under their family headings", () => {
     expect([...document.querySelectorAll<HTMLElement>('[data-row]')].map((r) => r.dataset.row)).toEqual(expect.arrayContaining(["quality", "master", "music", "effects", "keyboard", "keyboardVolume", "voice", "ui"]));
     for (const id of ["fxStyle", "fxIntensity", "fxSize", "reducedMotion", "learnMeaning", "learnIpa"]) expect(row(id)).toBeNull();
     const labels = [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
-    expect(labels).toHaveLength(36);
-    expect(labels.slice(0, 3)).toEqual(["Off", "Dragonhold", "Deep Velvet"]);
-    expect(labels).toContain("Bright Clack Velvet");
-    // The owner's picks: Hail Stone sits last in Solid, before the Crisp heading; Raindrop Tile last in Crisp, before the Clear heading.
-    expect(labels.slice(labels.indexOf("Solid Amber"), labels.indexOf("Solid Amber") + 3)).toEqual(["Solid Amber", "Hail Stone", "Crisp Velvet"]);
-    expect(labels.slice(labels.indexOf("Crisp Silk"), labels.indexOf("Crisp Silk") + 3)).toEqual(["Crisp Silk", "Raindrop Tile", "Clear Velvet"]);
-    expect([...document.querySelectorAll(".kit-keyboards__family[id]")].map((heading) => heading.textContent)).toEqual(["Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack"]);
-    // A first launch saves the default set.
-    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).keyboard).toBe("bright-clack");
+    expect(labels).toEqual(["Off", "Dragonhold", "Deep Velvet", "Deep Amber", "Solid Velvet", "Hail Stone", "Raindrop Tile", "Bright Clack Velvet", "Bright Clack Amber"]);
+    expect([...document.querySelectorAll(".kit-keyboards__family[id]")].map((heading) => heading.textContent)).toEqual(["Deep", "Solid", "Crisp", "Bright Clack"]);
+    // A first launch follows the catalogue's default without writing it into the save (parent TYPING_FEEL_SERVICE.md §4.5).
+    expect(window.__dh!.keyboard()).toMatchObject({ id: "bright-clack", saved: null, owned: false, profile: "bright-clack" });
+    expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
   });
 
   it("previews after 150 ms for exactly one second, cancels when closed and loads the chosen pack into gameplay", async () => {
     press(window, "F2");
-    choose("warm").dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse" }));
+    // The list was rebuilt when the catalogue came: rows under a resting pointer preview nothing until it moves (the kit's settle).
+    choose("deep").dispatchEvent(new PointerEvent("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10, bubbles: true }));
+    choose("deep").dispatchEvent(new PointerEvent("pointerenter", { pointerType: "mouse", clientX: 40, clientY: 60 }));
     vi.advanceTimersByTime(149);
     await flush();
     expect(ctx.sources).toHaveLength(0);
@@ -203,20 +230,17 @@ describe("192 app and shared panels", () => {
     await flush();
     expect(ctx.sources).toHaveLength(1);
     expect(ctx.sources[0]!.start).toHaveBeenCalledWith(0, 0, 1);
-    choose("warm").click();
-    // Many-variant sets decode in batches with a timer turn between them (88 files, 16 per batch).
-    for (let batch = 0; batch < 8; batch += 1) {
-      await vi.advanceTimersByTimeAsync(1);
-      await flush();
-    }
+    choose("deep").click();
+    // Many-variant sets decode in batches with a timer turn between them (16 per batch).
+    await decodeAll();
     expect(h.audio.setKeyboardEnabled).toHaveBeenLastCalledWith(false);
     press(window, "Escape");
     expect(ctx.sources.at(-1)!.stop).toHaveBeenLastCalledWith(0.03);
     vi.advanceTimersByTime(3000);
     press(window, "a", "KeyA");
-    expect((ctx.sources.at(-1)!.buffer as unknown as { url: string }).url).toMatch(/\/warm\/key-\d\d.ogg$/);
+    expect((ctx.sources.at(-1)!.buffer as unknown as { url: string }).url).toMatch(/\/deep\/[0-9a-f]{12}\/key-\d\d.ogg$/);
     press(window, " ", "Space");
-    expect((ctx.sources.at(-1)!.buffer as unknown as { url: string }).url).toMatch(/\/warm\/space-\d\d.ogg$/);
+    expect((ctx.sources.at(-1)!.buffer as unknown as { url: string }).url).toMatch(/\/deep\/[0-9a-f]{12}\/space-\d\d.ogg$/);
     press(window, "F2");
     choose("off").click();
     await flush();
@@ -230,34 +254,31 @@ describe("192 app and shared panels", () => {
 
   it("keeps exactly one set decoded while the player switches sets, and still previews each pick", async () => {
     const load = vi.spyOn(TypingSounds.prototype, "loadKeyboardManifest");
-    const decodeAll = async (): Promise<void> => {
-      for (let batch = 0; batch < 8; batch += 1) {
-        await vi.advanceTimersByTimeAsync(1);
-        await flush();
-      }
-    };
-    // The saved set loads on the first key and finishes before the panel opens.
+    // The catalogue's default loaded once it settled (on the page's prepared context, no gesture) and plays on a key.
     press(window, "a", "KeyA");
     await decodeAll();
-    const sounds = load.mock.contexts[0] as TypingSounds;
-    const held = () => [...(sounds as unknown as { loaded: Map<string, unknown> }).loaded.keys()];
-    expect(held()).toEqual(["bright-clack"]);
+    expect(load).not.toHaveBeenCalled();
+    expect((ctx.sources.at(-1)!.buffer as unknown as { url: string }).url).toMatch(/\/bright-clack\/[0-9a-f]{12}\/key-\d\d.ogg$/);
     press(window, "F2");
-    for (const id of ["warm", "deep", "hail-stone", "raindrop-tile", "crisp"]) {
+    let sounds: TypingSounds | undefined;
+    const held = () => [...(sounds as unknown as { loaded: Map<string, unknown> }).loaded.keys()];
+    for (const id of ["deep", "solid", "hail-stone", "raindrop-tile", "bright-clack-amber"]) {
       choose(id).click();
       await decodeAll();
+      // The gameplay player the panel loads into (the one that held Bright Clack).
+      sounds ??= load.mock.contexts[0] as TypingSounds;
       expect(held()).toEqual([id]);
       expect(sounds.profile?.id).toBe(id);
-      const preview = ctx.sources.find((s) => (s.buffer as unknown as { url: string } | null)?.url.endsWith(`/${id}/preview.ogg`))!;
+      const preview = ctx.sources.find((s) => (s.buffer as unknown as { url: string } | null)?.url === setDir(id) + "preview.ogg")!;
       expect(preview.start).toHaveBeenCalledWith(expect.any(Number), 0, 1);
       // Releasing the old set never cuts the new preview (a release stops with no time).
       expect(preview.stop).not.toHaveBeenCalledWith();
     }
     // The same set picked again keeps playing.
-    choose("crisp").click();
+    choose("bright-clack-amber").click();
     await decodeAll();
-    expect(held()).toEqual(["crisp"]);
-    expect(sounds.profile?.id).toBe("crisp");
+    expect(held()).toEqual(["bright-clack-amber"]);
+    expect(sounds?.profile?.id).toBe("bright-clack-amber");
     choose("dragonhold").click();
     await flush();
     expect(held()).toEqual([]);
@@ -297,5 +318,127 @@ describe("192 app and shared panels", () => {
     await flush();
     expect(window.__dh!.ready).toBe(true);
     expect(h.loops).toHaveLength(2);
+  });
+});
+
+describe("Typing Feel keyboard sounds in the app (parent TYPING_FEEL_SERVICE.md §5.1–5.3)", () => {
+  /** Boots again on a fresh page: the save, then the host (`route` answers first). */
+  const reboot = async (save: Record<string, unknown> | null, route?: (url: string) => Promise<Response> | Response | undefined, given: Record<string, unknown> = { typistWpm: 35, prelearn: false, keysBase: FEEL_BASE }) => {
+    app?.dispose();
+    app = null;
+    localStorage.clear();
+    if (save) localStorage.setItem(SETTINGS_KEY, JSON.stringify(save));
+    fetched = [];
+    vi.clearAllMocks();
+    feelHost(route);
+    await boot(given);
+  };
+  const labels = () => [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
+  const feelUrls = () => fetched.filter((url) => url.startsWith(FEEL_BASE));
+
+  it("builds both panels at once and starts the run by 1.5 s while the catalogue is out; the late catalogue fills the open list in place, unsaved", async () => {
+    let answer!: () => void;
+    const held = new Promise<void>((resolve) => { answer = resolve; });
+    await reboot(null, (url) => (url === FEEL_BASE + "keys-manifest.json" ? held.then(() => respond(url, serve(url, catalogue()))) : undefined));
+    expect(corner("settings")).not.toBeNull();
+    press(window, "F2");
+    expect(labels()).toEqual(["Off", "Dragonhold", "Loading…"]);
+    expect(choose("bright-clack").disabled).toBe(true);
+    expect(window.__dh!.ready).toBe(false);
+    await vi.advanceTimersByTimeAsync(KEYBOARD_GATE_MS - 20);
+    expect(window.__dh!.ready).toBe(false);
+    await vi.advanceTimersByTimeAsync(20);
+    expect(window.__dh!.ready).toBe(true);
+    answer();
+    await decodeAll();
+    expect(labels()).toEqual(["Off", "Dragonhold", "Deep Velvet", "Deep Amber", "Solid Velvet", "Hail Stone", "Raindrop Tile", "Bright Clack Velvet", "Bright Clack Amber"]);
+    expect(choose("bright-clack").getAttribute("aria-selected")).toBe("true");
+    expect(window.__dh!.keyboard()).toMatchObject({ state: "ready", sets: 7, id: "bright-clack", owned: false, standIn: null, notice: "none" });
+    expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
+  });
+
+  it("a host that fails (404): the saved set stays in the save as \"Saved sound · unavailable\", Dragonhold stands in for it, the notice is due, no set is fetched", async () => {
+    await reboot({ keyboard: "hail-stone", music: 0.3 }, (url) => respond(url, { status: 404, type: "text/html", text: "<h1>404</h1>" }));
+    expect(window.__dh!.ready).toBe(true);
+    expect(window.__dh!.keyboard()).toMatchObject({ state: "missing", id: "hail-stone", saved: "hail-stone", standIn: "hail-stone", builtIn: true, notice: "due" });
+    expect(h.audio.setKeyboardEnabled).toHaveBeenLastCalledWith(true);
+    expect(h.audio.setVolumes).toHaveBeenLastCalledWith(expect.objectContaining({ keyboard: 1 }));
+    expect(feelUrls()).toEqual([FEEL_BASE + "keys-manifest.json"]);
+    press(window, "F2");
+    expect(labels()).toEqual(["Off", "Dragonhold", expect.stringContaining("Saved sound")]);
+    expect(choose("hail-stone").disabled).toBe(true);
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ keyboard: "hail-stone", music: 0.3 });
+    // Typing asks nothing more of the host.
+    press(window, "Escape");
+    vi.advanceTimersByTime(3000);
+    press(window, "a", "KeyA");
+    await decodeAll();
+    expect(feelUrls()).toHaveLength(1);
+  });
+
+  it("no origin: nothing is fetched from a feel host; Off and Dragonhold, which plays; no notice", async () => {
+    await reboot(null, undefined, { typistWpm: 35, prelearn: false, keysBase: null });
+    expect(feelUrls()).toEqual([]);
+    expect(window.__dh!.ready).toBe(true);
+    expect(window.__dh!.keyboard()).toMatchObject({ base: null, state: "missing", id: "dragonhold", standIn: null, notice: "none" });
+    expect(h.audio.setKeyboardEnabled).toHaveBeenLastCalledWith(true);
+    press(window, "F2");
+    expect(labels()).toEqual(["Off", "Dragonhold"]);
+  });
+
+  it("a save without a keyboard sound gets none from unrelated Sound panel changes, host up, down or absent; the player's pick writes it (§4.5, §5.1 step 5)", async () => {
+    const stored = (): Record<string, unknown> => JSON.parse(localStorage.getItem(SETTINGS_KEY)!) as Record<string, unknown>;
+    const cases: [string, ((url: string) => Response | undefined) | undefined, string | null, string][] = [
+      ["host up", undefined, FEEL_BASE, "deep"],
+      ["host down", (url) => respond(url, { status: 404 }), FEEL_BASE, "off"],
+      ["no origin", undefined, null, "off"],
+    ];
+    for (const [name, route, keysBase, pick] of cases) {
+      await reboot({ music: 0.5 }, route, { typistWpm: 35, prelearn: false, keysBase });
+      press(window, "F2");
+      row("master").querySelector<HTMLButtonElement>("button")!.click();
+      slide("keyboardVolume", 40);
+      expect(stored(), name).toMatchObject({ music: 0.5, muted: true, keyboardVolume: 0.4 });
+      // Neither the catalogue's default, the hard default nor Dragonhold (the host down) is written as the player's choice.
+      expect(stored(), name).not.toHaveProperty("keyboard");
+      choose(pick).click();
+      await decodeAll();
+      expect(stored().keyboard, name).toBe(pick);
+      slide("keyboardVolume", 50);
+      expect(stored(), name).toMatchObject({ keyboard: pick, keyboardVolume: 0.5 });
+    }
+  });
+
+  it("decodes the saved set before any gesture on the page's prepared (suspended) context: the first run waits for its first batch, and the first key plays it (§5.4, §8.4)", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    // Before a gesture the browser keeps the context suspended, whatever resume() asks.
+    ctx.state = "suspended";
+    ctx.resume.mockImplementation(async () => {});
+    await reboot({ keyboard: "raindrop-tile" }, (url) => (url.endsWith(".ogg") ? held.then(() => respond(url, serve(url, catalogue()))) : undefined));
+    expect(feelUrls().filter((url) => url.endsWith(".ogg")).length).toBeGreaterThan(0);
+    await vi.advanceTimersByTimeAsync(KEYBOARD_GATE_MS - 100);
+    expect(window.__dh!.ready).toBe(false);
+    expect(window.__dh!.keyboard()).toMatchObject({ state: "ready", id: "raindrop-tile", unlocked: false, context: "suspended", playable: false });
+    release();
+    await decodeAll();
+    expect(window.__dh!.ready).toBe(true);
+    expect(window.__dh!.keyboard()).toMatchObject({ profile: "raindrop-tile", standIn: null, context: "suspended", playable: true });
+    press(window, "a", "KeyA");
+    expect((ctx.sources.at(-1)!.buffer as unknown as { url: string }).url).toMatch(/\/raindrop-tile\/[0-9a-f]{12}\/key-\d\d.ogg$/);
+  });
+
+  it("a set picked in the panel that cannot sound (manifest 404): Dragonhold stands in, the save keeps the pick, the next pick ends it", async () => {
+    await reboot({ keyboard: "deep" }, (url) => (url === setDir("solid") + "keys-manifest.json" ? respond(url, { status: 404 }) : undefined));
+    press(window, "F2");
+    choose("solid").click();
+    await decodeAll();
+    expect(h.audio.setKeyboardEnabled).toHaveBeenLastCalledWith(true);
+    expect(window.__dh!.keyboard()).toMatchObject({ id: "solid", standIn: "solid", owned: true, profile: null });
+    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).keyboard).toBe("solid");
+    choose("deep").click();
+    await decodeAll();
+    expect(h.audio.setKeyboardEnabled).toHaveBeenLastCalledWith(false);
+    expect(window.__dh!.keyboard()).toMatchObject({ id: "deep", standIn: null, profile: "deep" });
   });
 });

@@ -4,7 +4,12 @@ import type { KeyboardSoundChoice } from "../../feedback/typing-fx/audio";
 
 const STYLE_ID = "kit-keyboard-choices";
 let nextGroupId = 0;
-/** Kept separate from TF2's quick-settings/css.ts. 9 × 34 px at 720p, independently scrollable. */
+/**
+ * Kept separate from TF2's quick-settings/css.ts. 9 × 34 px at 720p, independently scrollable.
+ * The selected option keeps its accent fill under the pointer (a dark inset ring marks the hover);
+ * a selected option that is also disabled ("Saved sound · unavailable") is muted ink on the panel's
+ * dark ground with an accent bar, so every state stays readable (≥ 4.5:1, see keyboard-panel.test.ts).
+ */
 export const KEYBOARD_CHOICES_CSS = `
 .kit-keyboards{display:grid;grid-template-columns:minmax(0,1fr) auto;max-height:306px;overflow:auto;overscroll-behavior:contain;width:100%;border:1px solid var(--kit-qs-line,#4A505C);border-radius:6px;background:var(--kit-qs-control,#232731)}
 .kit-keyboards__list,.kit-keyboards__listens,.kit-keyboards__group{display:flex;flex-direction:column;min-width:0}
@@ -13,7 +18,9 @@ export const KEYBOARD_CHOICES_CSS = `
 .kit-keyboards button:focus-visible{outline:2px solid var(--kit-qs-focus,#FFD166);outline-offset:-3px}
 .kit-keyboards button:hover:not(:disabled){background:var(--kit-qs-bg,#14161B)}
 .kit-keyboards button[aria-selected="true"]{background:var(--kit-qs-accent,#8FD3FF);color:var(--kit-qs-accent-text,#0B0D12)}
+.kit-keyboards button[aria-selected="true"]:hover:not(:disabled){background:var(--kit-qs-accent,#8FD3FF);box-shadow:inset 0 0 0 2px var(--kit-qs-accent-text,#0B0D12)}
 .kit-keyboards button:disabled{color:var(--kit-qs-muted,#C3C9D3);cursor:not-allowed}
+.kit-keyboards button[aria-selected="true"]:disabled{background:var(--kit-qs-bg,#14161B);color:var(--kit-qs-muted,#C3C9D3);box-shadow:inset 4px 0 0 var(--kit-qs-accent,#8FD3FF)}
 .kit-keyboards__listen{min-width:44px;text-align:center!important}
 .kit-keyboards__listen img{display:block;width:24px;height:24px;object-fit:contain;pointer-events:none}
 .kit-keyboards__family{box-sizing:border-box;height:28px;min-height:28px;flex:0 0 28px;padding:4px 10px;font-size:.82em;font-weight:700;color:var(--kit-qs-muted,#C3C9D3)}
@@ -23,11 +30,29 @@ export const KEYBOARD_CHOICES_CSS = `
 @media (any-pointer:coarse){.kit-keyboards button{height:44px;min-height:44px;flex-basis:44px}.kit-keyboards__spacer{height:44px;flex-basis:44px}}
 `;
 
+/**
+ * What a list hands to the one that replaces it (QuickSettings.setChoiceOptions):
+ * its scroll position and the option or Listen button that had keyboard focus.
+ */
+export type KeyboardChoicesState = {
+  readonly scrollTop: number;
+  readonly focus: { readonly value: string; readonly listen: boolean } | null;
+};
+
+/** A mouse pointer's place in client coordinates (PointerEvent clientX/clientY). */
+export type KeyboardPointer = { readonly x: number; readonly y: number };
+
 export class KeyboardSoundChoices {
   readonly element: HTMLElement;
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly listens: HTMLButtonElement[] = [];
   private pointerFocus = false;
+  /** True while adopt() moves focus: that focus is not the player's, so it previews nothing. */
+  private quietFocus = false;
+  /** This list replaced another (config.settle) and the mouse pointer has not moved since: see still(). */
+  private settling: boolean;
+  /** Where the pointer rested when this list replaced the old one; null until known. */
+  private rest: KeyboardPointer | null;
   private destroyed = false;
   private readonly families: { family: string; index: number }[] = [];
 
@@ -41,7 +66,18 @@ export class KeyboardSoundChoices {
     readonly onStop: () => void;
     /** Ticket 180 hud-sound image URL. Missing art uses a labelled Listen button. */
     readonly listenIcon?: string;
+    /**
+     * Set when this list replaces another one (QuickSettings.setChoiceOptions):
+     * where the mouse pointer last was (null: not known). The new rows can land
+     * under a resting pointer, and the browser then sends their pointerenter
+     * (and pointerleave) with no move. Until the pointer really moves, those
+     * events at that point preview and stop nothing: only the player's own
+     * hover does. Unknown: the first mouse event the list sees gives the point.
+     */
+    readonly settle?: { readonly pointer: KeyboardPointer | null };
   }) {
+    this.settling = config.settle !== undefined;
+    this.rest = config.settle?.pointer ?? null;
     const doc = config.document;
     if (!doc.getElementById(STYLE_ID)) {
       const style = doc.createElement("style");
@@ -59,6 +95,8 @@ export class KeyboardSoundChoices {
     const listens = doc.createElement("div");
     listens.className = "kit-keyboards__listens";
     root.append(list, listens);
+    // A move away from where the pointer rested ends the settling (a catch-up move at the same point does not).
+    if (this.settling) root.addEventListener("pointermove", (event) => { this.still(event); }, { passive: true });
     let parent = list;
     let family: string | undefined;
     config.options.forEach((choice, index) => {
@@ -104,14 +142,19 @@ export class KeyboardSoundChoices {
       }
       button.addEventListener("pointerdown", () => { this.pointerFocus = true; });
       button.addEventListener("pointerenter", (event) => {
-        if (event.pointerType === "mouse" && !button.disabled) config.onPreview(choice);
+        if (event.pointerType !== "mouse" || this.still(event)) return;
+        if (!button.disabled) config.onPreview(choice);
       });
-      button.addEventListener("pointerleave", (event) => { if (event.pointerType === "mouse") config.onStop(); });
+      button.addEventListener("pointerleave", (event) => {
+        if (event.pointerType !== "mouse" || this.still(event)) return;
+        config.onStop();
+      });
       button.addEventListener("focus", () => {
         this.rove(index);
-        if (!this.pointerFocus && !button.disabled) config.onPreview(choice);
+        if (!this.pointerFocus && !this.quietFocus && !button.disabled) config.onPreview(choice);
       });
-      button.addEventListener("blur", () => { this.pointerFocus = false; config.onStop(); });
+      // A replaced list's last events (its focused option leaving the document) are not the player's.
+      button.addEventListener("blur", () => { this.pointerFocus = false; if (!this.destroyed) config.onStop(); });
       button.addEventListener("pointercancel", () => { this.pointerFocus = false; config.onStop(); });
       button.addEventListener("click", () => {
         this.pointerFocus = false;
@@ -149,7 +192,7 @@ export class KeyboardSoundChoices {
         listen.title = `Listen to ${choice.label}`;
         // Touch must not start a focus/hover preview as well as the explicit one.
         listen.addEventListener("click", () => config.onPreview(choice, 0));
-        listen.addEventListener("blur", config.onStop);
+        listen.addEventListener("blur", () => { if (!this.destroyed) config.onStop(); });
         this.listens.push(listen);
         listens.append(listen);
       } else {
@@ -160,18 +203,40 @@ export class KeyboardSoundChoices {
       }
     });
     this.setListenIcon(config.listenIcon);
-    this.sync("");
+    // Nothing selected yet: the owner's own sync(value) reveals the selection.
+    this.sync("", false);
+  }
+
+  /**
+   * While this list settles: true for a mouse event at the point where the
+   * pointer rested (the first event seen gives that point when it was not
+   * known), which is the browser catching up with the new layout, not the
+   * player. An event anywhere else means the pointer moved: the settling ends
+   * and from then on every event is the player's (false).
+   */
+  private still(event: PointerEvent): boolean {
+    if (!this.settling || event.pointerType !== "mouse") return false;
+    const rest = this.rest ?? (this.rest = { x: event.clientX, y: event.clientY });
+    if (Math.abs(event.clientX - rest.x) < 1 && Math.abs(event.clientY - rest.y) < 1) return true;
+    this.settling = false;
+    return false;
   }
 
   private rove(index: number): void {
     this.buttons.forEach((button, i) => { button.tabIndex = i === index ? 0 : -1; });
   }
 
-  sync(value: string): void {
+  /**
+   * Marks `value` selected. `reveal` (default) then scrolls it into view once
+   * the list is visible; QuickSettings passes false while it rebuilds a list,
+   * so the list stays where the player left it.
+   */
+  sync(value: string, reveal = true): void {
     this.buttons.forEach((button) => button.setAttribute("aria-selected", String(button.dataset.value === value)));
     const focused = this.buttons.indexOf(this.config.document.activeElement as HTMLButtonElement);
     const selected = this.buttons.findIndex((button) => button.dataset.value === value && !button.disabled);
     this.rove(focused >= 0 ? focused : selected >= 0 ? selected : this.buttons.findIndex((button) => !button.disabled));
+    if (!reveal) return;
     // QuickSettings syncs just before dialog.show(); measure after it becomes visible.
     queueMicrotask(() => {
       if (!this.destroyed && this.element.isConnected) {
@@ -203,9 +268,46 @@ export class KeyboardSoundChoices {
     }
   }
 
-  destroy(): void {
+  /** This list's scroll and keyboard focus, for the list that replaces it (adopt). */
+  state(): KeyboardChoicesState {
+    const active = this.config.document.activeElement;
+    const option = this.buttons.find((button) => button === active);
+    const listen = this.listens.find((button) => button === active);
+    return {
+      scrollTop: this.element.scrollTop,
+      focus: option !== undefined ? { value: option.dataset.value ?? "", listen: false } : listen !== undefined ? { value: listen.dataset.listen ?? "", listen: true } : null,
+    };
+  }
+
+  /**
+   * Takes over from the list this one replaced, once its element is in the
+   * document and synced: the same scroll position and, when the old list had
+   * keyboard focus, focus on the same option or Listen button (else the
+   * selected option, else the first enabled one). That focus is not the
+   * player's, so it previews nothing and scrolls nothing.
+   */
+  adopt(state: KeyboardChoicesState): void {
+    if (this.destroyed) return;
+    this.element.scrollTop = state.scrollTop;
+    if (state.focus === null) return;
+    const { value, listen } = state.focus;
+    const target = (listen ? this.listens.find((button) => button.dataset.listen === value) : undefined)
+      ?? this.buttons.find((button) => button.dataset.value === value && !button.disabled)
+      ?? this.buttons.find((button) => button.getAttribute("aria-selected") === "true" && !button.disabled)
+      ?? this.buttons.find((button) => !button.disabled);
+    if (target === undefined) return;
+    this.quietFocus = true;
+    try {
+      target.focus({ preventScroll: true });
+    } finally {
+      this.quietFocus = false;
+    }
+  }
+
+  /** Removes the list. `stop` (default) also stops its preview; a list being replaced passes false, so a preview the player started plays on. */
+  destroy(stop = true): void {
     this.destroyed = true;
-    this.config.onStop();
+    if (stop) this.config.onStop();
     this.element.remove();
   }
 }

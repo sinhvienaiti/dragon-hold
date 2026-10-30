@@ -12,8 +12,8 @@
  * controls from reaching the game's document/window handlers.
  */
 import A11yDialog from "a11y-dialog";
-import { KeyboardSoundPreview, type TypingSounds } from "../../feedback/typing-fx/audio";
-import { KeyboardSoundChoices } from "./keyboard-choices";
+import { KeyboardSoundPreview, type KeyboardLoad, type TypingSounds } from "../../feedback/typing-fx/audio";
+import { KeyboardSoundChoices, type KeyboardPointer } from "./keyboard-choices";
 import { cssUrl, installQuickSettingsStyles } from "./css";
 import {
   QUICK_KEYS,
@@ -49,6 +49,17 @@ export const QUICK_COUNTDOWN_STEP_MS = 500;
 export const QUICK_PREVIEW_THROTTLE_MS = 150;
 export const QUICK_DEFAULT_Z_INDEX = 100;
 
+/**
+ * The fetchers the Sound panel's keyboard choices use; each one left out is
+ * the kit's own fetch, with no time limit (and no HTTP cache for a manifest).
+ */
+export type QuickKeyboardFetch = {
+  /** A picked set's manifest, e.g. timedJson(3000, { cache: "default" }) (its URL is versioned). */
+  readonly fetchJson?: (url: string) => Promise<unknown>;
+  /** A picked set's samples and every preview file, e.g. timedBytes(). */
+  readonly fetchBytes?: (url: string) => Promise<ArrayBuffer>;
+};
+
 export type QuickSettingsOptions = QuickDefaultsOptions & {
   /** Element the layer covers (give it position relative/absolute/fixed); default document.body. */
   readonly host?: HTMLElement;
@@ -62,6 +73,17 @@ export type QuickSettingsOptions = QuickDefaultsOptions & {
   readonly keyboardSounds?: TypingSounds;
   /** Game-owned choice without a catalogue manifest (e.g. Relay). Apply it here. */
   readonly onKeyboardUse?: (choice: QuickChoiceOption) => void;
+  /** How the keyboard row fetches a picked set and its previews (TYPING_FEEL_SERVICE.md §5.1); default the kit's fetch. */
+  readonly keyboardFetch?: QuickKeyboardFetch;
+  /** A set picked in the Sound panel finished loading ("pending": no sample, it cannot sound). Only the latest pick reports. */
+  readonly onKeyboardLoad?: (result: KeyboardLoad) => void;
+  /**
+   * A set picked in the Sound panel cannot sound: its load gave no sample or
+   * failed (§5.3). The game stands its own sound in for it (unsaved). Only
+   * the latest pick reports; a new pick (Off, the game's own sound, a set)
+   * is the place to end the stand-in.
+   */
+  readonly onKeyboardFail?: (choice: QuickChoiceOption) => void;
   /** A panel opened from play: freeze the game. */
   readonly onPause?: () => void;
   /** The countdown after closing ended: unfreeze. */
@@ -92,9 +114,15 @@ const TEXT = {
 } as const;
 
 const KEY_EVENTS = ["keydown", "keypress", "keyup"] as const;
+/** Each carries where the mouse pointer is now (QuickSettings.pointer). */
+const POINTER_EVENTS = ["pointermove", "pointerdown", "pointerover"] as const;
+/** The panel's margin from the layer's top and bottom edges (css.ts: max-height calc(100% - 32px)). */
+const PANEL_EDGE_PX = 16;
 
 type Panel = {
   readonly element: HTMLElement;
+  /** The panel box the dialog centres (.kit-qs__panel). */
+  readonly box: HTMLElement;
   readonly dialog: A11yDialog;
   readonly syncers: (() => void)[];
   readonly slots: { readonly host: HTMLElement; readonly mount: QuickMount }[];
@@ -124,11 +152,15 @@ export class QuickSettings {
   private readonly previews: KeyedThrottle;
   private readonly keyboardPreview: KeyboardSoundPreview;
   private readonly keyboardChoices: KeyboardSoundChoices[] = [];
-  /** Each choice row's line and the function that rebuilds its control from new options. */
-  private readonly choiceRows = new Map<string, { readonly line: HTMLElement; readonly fill: (row: QuickChoiceRow) => void }>();
+  /** Each choice row's line and the function that rebuilds its control from new options (it returns what puts focus and scroll back once synced). */
+  private readonly choiceRows = new Map<string, { readonly line: HTMLElement; readonly fill: (row: QuickChoiceRow) => () => void }>();
   private readonly resizeObserver: ResizeObserver | null;
   private icons: QuickIcons;
   private values: Record<string, QuickValue> = {};
+  /** setChoiceOptions() is rebuilding a row: syncing must not scroll a list to its selection. */
+  private rebuilding = false;
+  /** Where the mouse pointer last was in this document (pointermove/pointerdown/pointerover), for a rebuilt keyboard list. */
+  private pointer: KeyboardPointer | null = null;
   private current: QuickPanel | null = null;
   private stopCountdown: (() => void) | null = null;
   private destroyed = false;
@@ -146,6 +178,10 @@ export class QuickSettings {
       sounds: options.keyboardSounds,
       levels: () => ({ master: Number(this.values.master ?? 100) / 100, keyboard: Number(this.values.keyboardVolume ?? 70) / 100, muted: this.values.muted === true }),
       onUse: options.onKeyboardUse,
+      fetchJson: options.keyboardFetch?.fetchJson,
+      fetchBytes: options.keyboardFetch?.fetchBytes,
+      onLoad: options.onKeyboardLoad,
+      onFail: options.onKeyboardFail,
     });
     installQuickSettingsStyles(this.doc);
 
@@ -167,6 +203,7 @@ export class QuickSettings {
       this.view.addEventListener(type, this.onWindowKey, true);
       this.root.addEventListener(type, this.onRootKey);
     }
+    for (const type of POINTER_EVENTS) this.view.addEventListener(type, this.onPointer, { capture: true, passive: true });
     const Observer = (this.view as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
     if (typeof Observer === "function") {
       this.resizeObserver = new Observer(this.onResize);
@@ -232,26 +269,36 @@ export class QuickSettings {
    * Values are then read again as on open(), so a saved keyboard id the new
    * options lack is repaired through onChange, as at construction: pass
    * settleKeyboardChoice(...).options, which always list it. False: no such row.
+   * The rebuild is not the player's doing: it plays no preview, stops none,
+   * and keeps the selection, the list's scroll position and keyboard focus
+   * (on the same option when the new list has it enabled, else the selected
+   * one). New rows that land under a resting mouse pointer preview nothing
+   * until it moves (KeyboardSoundChoices `settle`), and an open panel keeps
+   * its top where it was until it closes (holdTop), so the rows the player
+   * was aiming at stay put.
    */
   setChoiceOptions(id: string, options: readonly QuickChoiceOption[]): boolean {
     const entry = this.choiceRows.get(id);
     if (this.destroyed || entry === undefined) return false;
-    const doc = this.doc;
-    const focused = doc.activeElement !== null && entry.line.contains(doc.activeElement);
-    for (const kind of QUICK_PANELS) {
-      const at = this.rows[kind].findIndex((row) => row.kind === "choice" && row.id === id);
-      if (at < 0) continue;
-      const row: QuickChoiceRow = { ...(this.rows[kind][at] as QuickChoiceRow), options };
-      this.rows[kind][at] = row;
-      entry.fill(row);
-      break;
+    let restore = (): void => {};
+    let held: { readonly kind: QuickPanel; readonly top: number } | null = null;
+    this.rebuilding = true;
+    try {
+      for (const kind of QUICK_PANELS) {
+        const at = this.rows[kind].findIndex((row) => row.kind === "choice" && row.id === id);
+        if (at < 0) continue;
+        if (this.current === kind) held = { kind, top: this.panels[kind].box.getBoundingClientRect().top };
+        const row: QuickChoiceRow = { ...(this.rows[kind][at] as QuickChoiceRow), options };
+        this.rows[kind][at] = row;
+        restore = entry.fill(row);
+        break;
+      }
+      this.readValues();
+    } finally {
+      this.rebuilding = false;
     }
-    this.readValues();
-    // Keep keyboard focus in the row the player was moving through (the old control is gone).
-    if (focused) {
-      const line = entry.line;
-      (line.querySelector<HTMLElement>('[role="option"][tabindex="0"]') ?? line.querySelector<HTMLElement>("input:checked") ?? line.querySelector<HTMLElement>("input:not(:disabled)"))?.focus({ preventScroll: true });
-    }
+    restore();
+    if (held !== null) this.holdTop(held.kind, held.top);
     return true;
   }
 
@@ -282,6 +329,7 @@ export class QuickSettings {
       this.view.removeEventListener(type, this.onWindowKey, true);
       this.root.removeEventListener(type, this.onRootKey);
     }
+    for (const type of POINTER_EVENTS) this.view.removeEventListener(type, this.onPointer, true);
     this.resizeObserver?.disconnect();
     this.view.removeEventListener("resize", this.onResize);
     this.root.remove();
@@ -303,9 +351,38 @@ export class QuickSettings {
     if (this.blocking) event.stopPropagation();
   };
 
+  private readonly onPointer = (event: Event): void => {
+    const pointer = event as PointerEvent;
+    if (pointer.pointerType === "mouse") this.pointer = { x: pointer.clientX, y: pointer.clientY };
+  };
+
   private readonly onResize = (): void => {
     this.root.style.setProperty("--kit-qs-s", quickScale(this.root.clientHeight).toFixed(3));
+    // A new size centres the panels again.
+    for (const kind of QUICK_PANELS) this.releaseTop(kind);
   };
+
+  /**
+   * After a rebuild changed an open panel's height, keeps its top at `top`
+   * (the dialog centres it, so a longer list would move every row under the
+   * player's pointer). The panel grows or shrinks downwards and scrolls when
+   * it no longer fits. Lasts until the panel closes or the layer is resized.
+   */
+  private holdTop(kind: QuickPanel, top: number): void {
+    const { element, box } = this.panels[kind];
+    if (Math.abs(box.getBoundingClientRect().top - top) < 0.5) return;
+    const offset = Math.max(0, top - element.getBoundingClientRect().top);
+    box.style.alignSelf = "flex-start";
+    box.style.marginTop = `${offset}px`;
+    box.style.maxHeight = `calc(100% - ${offset + PANEL_EDGE_PX}px)`;
+  }
+
+  private releaseTop(kind: QuickPanel): void {
+    const { style } = this.panels[kind].box;
+    style.removeProperty("align-self");
+    style.removeProperty("margin-top");
+    style.removeProperty("max-height");
+  }
 
   private resume(): void {
     const stepMs = this.countdownStepMs();
@@ -368,6 +445,7 @@ export class QuickSettings {
     for (const cleanup of panel.cleanups.splice(0)) cleanup();
     for (const slot of panel.slots) slot.host.replaceChildren();
     panel.dialog.hide();
+    this.releaseTop(kind);
     this.corners[kind].setAttribute("aria-expanded", "false");
   }
 
@@ -487,7 +565,7 @@ export class QuickSettings {
     const body = this.el("div", "kit-qs__body");
     box.append(head, body);
     element.append(backdrop, box);
-    const panel: Panel = { element, dialog: new A11yDialog(element), syncers: [], slots: [], cleanups: [] };
+    const panel: Panel = { element, box, dialog: new A11yDialog(element), syncers: [], slots: [], cleanups: [] };
     let actions: HTMLElement | null = null;
     for (const row of this.rows[kind]) {
       if (row.kind === "button") {
@@ -577,11 +655,16 @@ export class QuickSettings {
     if (row.id === "keyboard") line.classList.add("kit-qs__row--keyboards");
     let picker: KeyboardSoundChoices | null = null;
     let sync = (): void => {};
-    // Builds the control from `current`'s options; setChoiceOptions() runs it again with new ones.
-    const fill = (current: QuickChoiceRow): void => {
+    // Builds the control from `current`'s options; setChoiceOptions() runs it again with new ones,
+    // then calls the returned function (after syncing) to put scroll and keyboard focus back.
+    const fill = (current: QuickChoiceRow): (() => void) => {
+      const before = picker?.state() ?? null;
+      const active = this.doc.activeElement;
+      const radioFocus = picker === null && active !== null && control.contains(active) ? (active as HTMLInputElement).value : null;
       if (picker !== null) {
         this.keyboardChoices.splice(this.keyboardChoices.indexOf(picker), 1);
-        picker.destroy();
+        // Replaced, not closed: a preview the player started plays on.
+        picker.destroy(false);
         picker = null;
       }
       control.replaceChildren();
@@ -589,6 +672,8 @@ export class QuickSettings {
         const made = new KeyboardSoundChoices({
           document: this.doc, options: current.options, label: current.label,
           listenIcon: this.iconUrl("hud-sound") ?? undefined,
+          // A list that replaces another settles under a resting pointer.
+          settle: before !== null ? { pointer: this.pointer } : undefined,
           onPreview: (choice, delay) => { if (this.current === "sound") this.keyboardPreview.preview(choice, delay); },
           onStop: () => this.keyboardPreview.stop(),
           onSelect: (choice) => {
@@ -601,8 +686,8 @@ export class QuickSettings {
         picker = made;
         this.keyboardChoices.push(made);
         control.append(made.element);
-        sync = () => made.sync(String(this.values[current.id]));
-        return;
+        sync = () => made.sync(String(this.values[current.id]), !this.rebuilding);
+        return () => { if (before !== null) made.adopt(before); };
       }
       const group = this.el("div", "kit-qs__opts");
       group.setAttribute("role", "radiogroup");
@@ -630,6 +715,10 @@ export class QuickSettings {
       control.append(group);
       sync = () => {
         for (const input of inputs) input.checked = input.value === this.values[current.id];
+      };
+      return () => {
+        if (radioFocus === null) return;
+        (inputs.find((input) => input.value === radioFocus && !input.disabled) ?? inputs.find((input) => input.checked && !input.disabled) ?? inputs.find((input) => !input.disabled))?.focus({ preventScroll: true });
       };
     };
     fill(row);

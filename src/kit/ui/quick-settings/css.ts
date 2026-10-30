@@ -60,6 +60,7 @@ export const QUICK_SETTINGS_CSS = `
 .kit-qs__opt input:checked+.kit-qs__chip{border-color:var(--kit-qs-accent);background:var(--kit-qs-accent);color:var(--kit-qs-accent-text)}
 .kit-qs__opt input:focus-visible+.kit-qs__chip{${ring}}
 .kit-qs__opt input:disabled+.kit-qs__chip{border-style:dashed;color:var(--kit-qs-muted)}
+.kit-qs__opt input:checked:disabled+.kit-qs__chip{border-color:var(--kit-qs-accent);background:var(--kit-qs-bg)}
 .kit-qs__note{margin-left:.35em;font-size:.82em;font-weight:400}
 .kit-qs__btn{box-sizing:border-box;min-height:${s(32)};padding:0 ${s(14)};border:1px solid var(--kit-qs-line);border-radius:${s(6)};background:var(--kit-qs-control);font-weight:700}
 .kit-qs__btn:hover{border-color:var(--kit-qs-focus)}
