@@ -25,6 +25,8 @@ export interface KeyPanel {
 }
 
 export interface RouterOptions {
+  /** A modal owns native controls: leave its events untouched. */
+  ignore?(event: KeyboardEvent): boolean;
   /** First look at every press (pause overlay, countdown, pause menu); true swallows it. */
   intercept?(event: KeyboardEvent, action: string | null, letter: string | null): boolean;
   /** The open learning panel, if any. */
@@ -35,6 +37,8 @@ export interface RouterOptions {
   fallback?(action: string): boolean;
   /** A Vietnamese input method is on (composing keys, accented letters). */
   onImeSign?(): void;
+  /** Physical typing feedback, after every pause/input guard (never a sim command). */
+  onType?(kind: "key" | "space"): void;
   /** Wall clock in ms for key commands (learning only); performance.now by default. */
   now?(): number;
 }
@@ -100,6 +104,7 @@ export function createInputRouter(target: Window, sink: CommandSink, options: Ro
   };
 
   const onKey = (event: KeyboardEvent): void => {
+    if (event.defaultPrevented || options.ignore?.(event)) return;
     if (event.ctrlKey || event.metaKey) return; // browser and OS shortcuts
     if (isComposingKey(event)) {
       options.onImeSign?.();
@@ -116,6 +121,7 @@ export function createInputRouter(target: Window, sink: CommandSink, options: Ro
     }
     if (letter !== null) {
       event.preventDefault();
+      options.onType?.("key");
       stats.letters += 1;
       stats.lastLetterAt = event.timeStamp;
       const panel = options.panel?.() ?? null;
@@ -123,7 +129,13 @@ export function createInputRouter(target: Window, sink: CommandSink, options: Ro
       else sink({ type: "key", letter: letter.charCodeAt(0) - 97, ms: now() });
       return;
     }
-    if (action === null) return;
+    if (action === null) {
+      if (event.code === "Space" && !event.altKey && !event.repeat) {
+        event.preventDefault();
+        options.onType?.("space");
+      }
+      return;
+    }
     // Tab, arrows, Enter, Backspace, Alt + digit: the page never sees them (focus, scrolling, ¡ ™ £ on a Mac).
     event.preventDefault();
     if (event.repeat && !REPEATING.has(action)) return;

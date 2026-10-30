@@ -24,7 +24,8 @@ import { RINGS, URGENT } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
 import { createLearningBridge } from "../kit/learning";
 import { safeLocalStorage } from "../kit/platform";
-import { setSpeechGate } from "../kit/speech";
+import { setSpeechGate, speakEnglish, stopSpeech } from "../kit/speech";
+import type { QuickSettings } from "../kit/ui";
 import { mmToU, uToM } from "../sim/fixed";
 import { applyCommand, createWorld, hashWorldHex, runLog, step, type World } from "../sim/world";
 import { newWordsOf } from "../typing/deck";
@@ -52,6 +53,9 @@ import { createInputRouter, type InputRouter, type KeyPanel } from "./input-rout
 import { createLearningClient, type LearningClient } from "./learning";
 import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
+import { GameKeyboard, loadGameKeyboards } from "./keyboard";
+import { createQuickSettings } from "./quick";
+import { SETTINGS_KEY, BUILT_IN_KEYS, loadSettings, applyQuick, quickValues, audioVolumes, keyboardChoice, voiceLevel } from "./settings";
 import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
 
 export interface App {
@@ -184,8 +188,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const view = doc.defaultView!;
   const dev = import.meta.env.DEV;
   const options: AppOptions = given ?? optionsFromUrl(view.location.search, dev);
+  const settings = loadSettings(safeLocalStorage.readJson(SETTINGS_KEY));
   const stage = options.stage ?? STAGE_M0;
-  const quality: Quality = options.quality ?? "high";
+  const quality: Quality = options.quality ?? settings.quality;
   const seed = options.seed ?? stage.seed;
   /** The typing speed of the next run: from ?wpm=, else unset until the speed card is answered. */
   const urlWpm = clampWpm(options.typistWpm);
@@ -219,8 +224,13 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   // Persistent services: audio, the learning bridge and client.
   const bridge = createLearningBridge({ gameId: "dragon-hold" });
-  const learning: LearningClient = createLearningClient({ bridge });
-  const audio: GameAudio = createAudio({ quality });
+  const learning: LearningClient = createLearningClient({ bridge, speak: (text) => {
+    const volume = voiceLevel(settings);
+    if (volume > 0) speakEnglish(text, { enabled: true, rate: 0.9, volume });
+  } });
+  const audio: GameAudio = createAudio({ quality, volumes: audioVolumes(settings) });
+  audio.setMuted(settings.muted);
+  audio.setKeyboardEnabled(settings.keyboard === BUILT_IN_KEYS);
   const stopMusicWatch = bridge.onSharedMusic((playing) => audio.setSharedMusic(playing));
   setSpeechGate(async (play) => {
     for (let waited = 0; audio.speechBlocked() && waited < 1500; waited += 100) await new Promise((done) => view.setTimeout(done, 100));
@@ -266,6 +276,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   let deck: WordDeck | null = null;
   let loop: Loop | null = null;
   let router: InputRouter | null = null;
+  let quick: QuickSettings | null = null;
+  let keyboard: GameKeyboard | null = null;
+  let titleOpen = false;
   let disposed = false;
   let menuOpen = false;
   let menuIndex = 0;
@@ -323,7 +336,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   // ── Commands: straight into the world, logged with their tick ──
   /** `at`: when the key was pressed (the router's last letter, or now for a command sent by the debug handle). */
   const sinkAt = (command: SimCommand, at?: number): void => {
-    if (!run) return;
+    if (!run || quick?.blocking || titleOpen) return;
     const world = run.world;
     if (world.phase === "victory" || world.phase === "defeat") return;
     applyCommand(world, command);
@@ -352,6 +365,51 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const paceItem = menuItems[2]!;
   menu.append(menuTitle, ...menuItems, menuKeys);
   overlay.append(hush, menu, veil, countdownNode);
+
+  const title = el(doc, "section", "dh-panel dh-title");
+  title.dataset.dhAvoid = "";
+  const play = uiButton(doc, "dh-title__play", () => playFromTitle());
+  play.textContent = "Play";
+  title.append(el(doc, "h1", "dh-title__name", "Dragonhold"), play);
+  setShown(title, false);
+  overlay.append(title);
+
+  function quitToTitle(): void {
+    learning.flush();
+    stopSpeech();
+    loop?.stop();
+    loop = null;
+    disposeRun();
+    router?.handlers.splice(0);
+    audio.resetRun();
+    audio.setPaused(false);
+    audioPaused = false;
+    paceCard.close();
+    menuOpen = false;
+    veilMode = "none";
+    countdownUntil = 0;
+    victoryTurn = null;
+    fastForward = false;
+    overlay!.classList.remove("is-hushed");
+    for (const node of [menu, veil, hush, countdownNode, notice2, lowEdge, hurt, seep, ffBadge]) setShown(node, false);
+    titleOpen = true;
+    ready = false;
+    setShown(title, true);
+  }
+
+  function playFromTitle(): void {
+    if (!titleOpen || quick?.blocking) return;
+    titleOpen = false;
+    setShown(title, false);
+    prelearnShown = false;
+    lossStreak = 0;
+    for (const node of [lowEdge, hurt, seep]) setShown(node, true);
+    askPace((picked, choice) => {
+      header = picked;
+      if (choice?.easy) difficulty = "easy";
+      begin();
+    });
+  }
 
   function selectMenu(index: number): void {
     menuIndex = (index + menuItems.length) % menuItems.length;
@@ -729,6 +787,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   /** Pause overlay, countdown and the pause menu see a press first. */
   const intercept = (event: KeyboardEvent, action: string | null): boolean => {
+    if (titleOpen) {
+      if (action === "enter") playFromTitle();
+      return true;
+    }
     // The speed card takes every press while it is up (letters too: nothing types under it).
     // A bare Digit 0 has no KEYS action; on the card it picks the measured row.
     if (paceCard.isOpen) {
@@ -748,7 +810,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     return false;
   };
 
-  const paused = (now: number): boolean => menuOpen || paceCard.isOpen || veilMode === "focus" || countdownUntil > now || activePanel() !== null;
+  const paused = (now: number): boolean => quick?.blocking === true || menuOpen || paceCard.isOpen || veilMode === "focus" || countdownUntil > now || activePanel() !== null;
 
   // ── Frame ──
   function frame(info: FrameInfo): void {
@@ -810,7 +872,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
     const isPaused = paused(now);
     loop?.setPaused(isPaused);
-    const wantAudioPause = menuOpen || paceCard.isOpen || veilMode === "focus";
+    const wantAudioPause = quick?.blocking === true || menuOpen || paceCard.isOpen || veilMode === "focus";
     if (wantAudioPause !== audioPaused) {
       audioPaused = wantAudioPause;
       audio.setPaused(wantAudioPause);
@@ -828,14 +890,14 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     // The notice over the learning frame: the IME first, then low HP with a potion ready.
     const potion = Object.values(world.shop.held).some((count) => count > 0) && world.tick >= world.shop.consumableReadyAt;
     const noticeText = now < imeUntil ? "Turn off Vietnamese input (Unikey, Telex) to type English" : lowHp && potion ? "Hỏa Long low on HP: press " + keyLabel("consumable-1") + " for a Small Potion" : "";
-    setShown(notice2, noticeText !== "" && !menuOpen && !paceCard.isOpen);
+    setShown(notice2, noticeText !== "" && !menuOpen && !paceCard.isOpen && !quick?.blocking);
     if (notice2.textContent !== noticeText) notice2.textContent = noticeText;
     notice2.classList.toggle("is-ime", now < imeUntil);
     const left = countdownUntil - now;
     setShown(countdownNode, left > 0);
     if (left > 0) countdownNode.textContent = String(Math.ceil(left / 1000));
     // Words stay hidden while the game stands still for the menu or the 3-2-1; a learning panel covers the frame.
-    const hushed = menuOpen || paceCard.isOpen || left > 0;
+    const hushed = quick?.blocking === true || menuOpen || paceCard.isOpen || left > 0;
     setShown(hush, hushed);
     overlay!.classList.toggle("is-hushed", hushed);
     run.frame.setCovered(activePanel() !== null);
@@ -885,13 +947,67 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     }
     ready = true;
   };
-  void learning.buildDeck(stage).then((built) => {
+  const quickReady = loadGameKeyboards().then((catalog) => {
+    if (disposed) return;
+    settings.keyboard = keyboardChoice(settings.keyboard, catalog.options);
+    safeLocalStorage.writeJson(SETTINGS_KEY, settings);
+    audio.setKeyboardEnabled(settings.keyboard === BUILT_IN_KEYS);
+    audio.setVolumes(audioVolumes(settings));
+    keyboard = new GameKeyboard(() => settings, catalog.options, () => audio.context());
+    quick = createQuickSettings({
+      host: overlay,
+      getValues: () => quickValues(settings),
+      keyboardSounds: keyboard.sounds,
+      onChange: (id, value) => {
+        if (!applyQuick(settings, id, value)) return;
+        if (id === "keyboard") keyboard?.changed();
+        keyboard?.refresh();
+        audio.setMuted(settings.muted);
+        audio.setVolumes(audioVolumes(settings));
+        audio.setKeyboardEnabled(settings.keyboard === BUILT_IN_KEYS);
+        if (id === "master" || id === "muted" || id === "voice") stopSpeech();
+        safeLocalStorage.writeJson(SETTINGS_KEY, settings);
+      },
+      onPreview: (group) => {
+        if (group === "voice") learning.speak("dragon");
+        else if (group === "keyboard" && settings.keyboard !== BUILT_IN_KEYS) keyboard?.type("key");
+        else audio.preview(group);
+      },
+      onPause: () => {
+        loop?.setPaused(true);
+        countdownUntil = 0;
+        audio.setPaused(true);
+        audioPaused = true;
+        stopSpeech();
+        overlay.classList.add("is-hushed");
+        setShown(hush, true);
+      },
+      onResume: () => {
+        loop?.setPaused(paused(view.performance.now()));
+        if (!run) {
+          audio.setPaused(false);
+          audioPaused = false;
+          overlay.classList.remove("is-hushed");
+          setShown(hush, false);
+        }
+      },
+      onQuit: quitToTitle,
+      countdownMs: () => run ? 1000 : 0,
+    }, catalog.options);
+  });
+  // The kit's capture listener must precede the game's router, including at title.
+  const preloadKeys = (): void => { void keyboard?.preload(); };
+  view.addEventListener("pointerdown", preloadKeys, { capture: true });
+  view.addEventListener("keydown", preloadKeys, { capture: true });
+  void Promise.all([learning.buildDeck(stage), quickReady]).then(([built]) => {
     if (disposed) return;
     deck = built;
     notice.remove();
     // The router first: the speed card answers to it before there is a run.
     router = createInputRouter(view, sink, {
       intercept,
+      ignore: () => quick?.blocking === true,
+      onType: (kind) => keyboard?.type(kind),
       panel: activePanel,
       locked: () => (run ? run.world.words.lock >= 0 : false),
       fallback,
@@ -1043,7 +1159,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     send: (command) => sinkAt(command, view.performance.now()),
     action: (name) => router?.dispatch(name) ?? false,
     restart,
-    panel: () => (run?.prelearn.isOpen ? "prelearn" : run?.review.isOpen ? "review" : menuOpen ? "menu" : null),
+    panel: () => (quick?.panel ?? (run?.prelearn.isOpen ? "prelearn" : run?.review.isOpen ? "review" : menuOpen ? "menu" : titleOpen ? "title" : null)),
     review: () => [...lastReview],
     events: () => ({ tally: { ...tally }, telegraphMinMs: Number.isFinite(telegraphMinMs) ? telegraphMinMs : null, byFoe: structuredClone(telegraphByFoe), slowFrames, telegraphsLive: run?.telegraphs.live ?? 0 }),
     foeSizes: () => {
@@ -1094,6 +1210,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       learning.flush();
       loop?.stop();
       router?.dispose();
+      quick?.destroy();
+      keyboard?.dispose();
+      stopSpeech();
       disposeRun();
       paceCard.dispose();
       heroes.dispose();
@@ -1105,6 +1224,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       view.removeEventListener("blur", onBlur);
       doc.removeEventListener("visibilitychange", onVisibility);
       view.removeEventListener("pointerdown", onPointerDown, { capture: true });
+      view.removeEventListener("pointerdown", preloadKeys, { capture: true });
+      view.removeEventListener("keydown", preloadKeys, { capture: true });
       canvasHost.removeEventListener("pointerdown", onCanvasDown);
       canvasHost.removeEventListener("pointerup", onCanvasUp);
       map.dispose();

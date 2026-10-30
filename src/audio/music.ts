@@ -64,6 +64,33 @@ export class MusicDirector {
     return { forest: this.layers.forest.target, wave: this.layers.wave.target, surge: this.layers.surge.target, general: this.layers.general.target };
   }
 
+  /** A short excerpt through the existing music bus, also available on title. */
+  preview(): void {
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.9, now);
+    gain.gain.setValueAtTime(0.9, now + 0.8);
+    gain.gain.linearRampToValueAtTime(0, now + 1);
+    gain.connect(this.out);
+    const file = this.bank.music("forest");
+    if (file) {
+      const source = this.ctx.createBufferSource();
+      source.buffer = file;
+      source.connect(gain);
+      source.onended = () => { source.disconnect(); gain.disconnect(); };
+      source.start(now);
+      source.stop(now + Math.min(1, file.duration));
+    } else {
+      const chord = this.song.chords[0]!;
+      for (let k = 0; k < 3; k += 1) new SynthTools(this.ctx, gain, this.noise, now + k * 0.2, 1, this.random).pluck(midiHz(chord[k % chord.length]!), 0.45, 0.2);
+      // Disconnect when the gain has finished, without leaving a repeating timer.
+      const end = this.ctx.createBufferSource();
+      end.buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      end.onended = () => { end.disconnect(); gain.disconnect(); };
+      end.start(now + 1);
+    }
+  }
+
   /** Call once a frame with the audio clock and the run's targets. */
   update(now: number, targets: MusicTargets): void {
     this.intensity = targets.intensity;

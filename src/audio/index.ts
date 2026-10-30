@@ -60,6 +60,9 @@ export interface GameAudio extends Presenter {
   unlock(): void;
   readonly unlocked: boolean;
   setMuted(muted: boolean): void;
+  context(): AudioContext;
+  setKeyboardEnabled(enabled: boolean): void;
+  preview(group: string): void;
   setVolumes(volumes: Partial<AudioVolumes>): void;
   /** Focus lost or menu open: world and music low-passed, effects down (06 §2). */
   setPaused(paused: boolean): void;
@@ -102,6 +105,7 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
   let engine: AudioEngine | null = null;
   let music: MusicDirector | null = null;
   let muted = false;
+  let keyboardEnabled = true;
   let paused = false;
   let sharedMusic = false;
   let dialogue = false;
@@ -195,7 +199,7 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
       const cues = mapper.map(batch, now(), listener);
       if (music && (mapper.phase === "victory" || mapper.phase === "defeat") && batch.some((e) => e.type === "victory" || e.type === "defeat")) music.stop(1.5);
       if (!engine) return;
-      for (const cue of cues) engine.play(cue);
+      for (const cue of cues) if (keyboardEnabled || !cue.id.startsWith("type.")) engine.play(cue);
     },
 
     frame(world: World, _info: FrameInfo) {
@@ -221,6 +225,24 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
     setMuted(value) {
       muted = value;
       mixer?.setMuted(value);
+    },
+
+    context() {
+      audio.unlock();
+      if (!ctx) throw new Error("Audio is unavailable");
+      return ctx;
+    },
+
+    setKeyboardEnabled(enabled) {
+      keyboardEnabled = enabled;
+    },
+
+    preview(group) {
+      audio.unlock();
+      if (group === "music") music?.preview();
+      else if (group === "effects" || group === "master") engine?.play({ id: "fire.cast" });
+      else if (group === "ui") audio.ui("select");
+      else if (group === "keyboard" && keyboardEnabled) engine?.play({ id: "type.key" });
     },
 
     setVolumes(next) {

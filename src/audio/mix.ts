@@ -118,6 +118,8 @@ export interface AudioVolumes {
   readonly voice: number;
   /** Learning frame sounds; the spoken word itself follows the speech volume. */
   readonly learning: number;
+  readonly ui?: number;
+  readonly keyboard?: number;
 }
 
 export const DEFAULT_VOLUMES: AudioVolumes = { master: 0.8, music: 0.6, sfx: 0.8, voice: 0.8, learning: 1 };
@@ -127,6 +129,8 @@ export function volumeFor(bus: ChildBus, volumes: AudioVolumes): number {
   if (bus === "music") return volumes.music;
   if (bus === "voice") return volumes.voice;
   if (bus === "learning") return volumes.learning;
+  if (bus === "ui") return volumes.ui ?? volumes.sfx;
+  if (bus === "typing") return volumes.keyboard ?? volumes.sfx;
   return volumes.sfx;
 }
 
