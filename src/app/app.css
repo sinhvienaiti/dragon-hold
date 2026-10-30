@@ -277,3 +277,20 @@
   background: rgba(32, 24, 17, 0.8);
   pointer-events: none;
 }
+
+
+/* Pre-router deck recovery uses the existing game panel and authored Retry art. */
+.dh-deck-notice {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(calc(460px * var(--ui)), 90vw);
+  padding: calc(24px * var(--ui));
+  pointer-events: auto;
+  z-index: 80;
+}
+.dh-deck-notice__actions { display: flex; flex-wrap: wrap; gap: calc(12px * var(--ui)); }
+.dh-deck-notice .dh-btn:focus-visible { outline: calc(2px * var(--ui)) solid var(--dh-cream); outline-offset: calc(3px * var(--ui)); }
+.dh-ff { display: flex; align-items: center; gap: calc(4px * var(--ui)); }
+.dh-ff__rate { font-size: calc(12px * var(--ui)); }

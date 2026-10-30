@@ -23,6 +23,9 @@ import { STAGE_M0 } from "../content/data/stages";
 import { RINGS, URGENT } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
 import { createPortalBridge } from "./portal";
+import { startDeckBoot } from "./deck-boot";
+import { normalizeQuality } from "./quality";
+import { createIdleSpeed, frameTimeScale } from "./idle-speed";
 import { safeLocalStorage } from "../kit/platform";
 import { setSpeechGate } from "../kit/speech";
 import { mmToU, uToM } from "../sim/fixed";
@@ -34,7 +37,7 @@ import { createPlacementUi, type PlacementUi } from "../ui/placement-ui";
 import { VICTORY_HOLD_MS, createResults } from "../ui/results";
 import { createShopStrip } from "../ui/shop-strip";
 import { createDebutCard } from "../ui/debut-card";
-import { el, installSkin, keyLabel, setShown, uiButton } from "../ui/skin";
+import { el, icon, installSkin, keyLabel, setShown, uiButton } from "../ui/skin";
 import { createTags } from "../ui/tags";
 import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
@@ -73,7 +76,6 @@ export interface AppOptions {
   readonly tagSizePct?: number;
 }
 
-const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
 const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
 /** One level easier (00 §4.10), and the levels' names (00 §4.10 table). */
 const EASIER: Readonly<Record<Difficulty, Difficulty | null>> = { hard: "normal", normal: "easy", easy: null };
@@ -99,7 +101,7 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   };
   const speed = num("speed");
   return {
-    quality: q && QUALITIES.includes(q) ? q : undefined,
+    quality: normalizeQuality(q, !dev),
     difficulty: d && DIFFICULTIES.includes(d) ? d : undefined,
     seed: num("seed"),
     // A whole WPM in 10–120: the world keeps integers only.
@@ -185,7 +187,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const dev = import.meta.env.DEV;
   const options: AppOptions = given ?? optionsFromUrl(view.location.search, dev);
   const stage = options.stage ?? STAGE_M0;
-  const quality: Quality = options.quality ?? "high";
+  const quality: Quality = normalizeQuality(options.quality, !dev) ?? "high";
   const seed = options.seed ?? stage.seed;
   /** The typing speed of the next run: from ?wpm=, else unset until the speed card is answered. */
   const urlWpm = clampWpm(options.typistWpm);
@@ -240,7 +242,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const notice2 = el(doc, "div", "dh-notice");
   notice2.setAttribute("role", "status");
   setShown(notice2, false);
-  const ffBadge = el(doc, "div", "dh-ff", "×2");
+  const ffBadge = el(doc, "div", "dh-ff");
+  ffBadge.innerHTML = icon("fast-forward");
+  const ffRate = el(doc, "small", "dh-ff__rate");
+  ffBadge.append(ffRate);
   setShown(ffBadge, false);
   /** Pause menu and 3-2-1: a plain dim layer, words and the learning frame hidden (01 §3.9 "Tạm dừng che chữ"). */
   const hush = el(doc, "div", "dh-hush");
@@ -273,6 +278,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   let veilMode: "none" | "focus" | "soft" = "none";
   let countdownUntil = 0;
   let fastForward = false;
+  const idleLatch = createIdleSpeed();
+  let idleSpeed = false;
+  let lastTimeScale = 1;
   let hurtUntil = 0;
   let seepUntil = 0;
   let seepStrong = false;
@@ -627,6 +635,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     learning.flush();
     audio.resetRun();
     fastForward = false;
+    idleLatch.reset();
+    idleSpeed = false;
     countdownUntil = 0;
     if (victoryTurn !== null) map.rig.reset();
     victoryTurn = null;
@@ -819,7 +829,11 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
     if (veilMode === "soft") setShown(veil, activePanel() === null);
     if (fastForward && !fastForwardAllowed(world)) fastForward = false;
-    setShown(ffBadge, fastForward);
+    const speedBlocked = isPaused || run.placement.mode !== "idle";
+    idleSpeed = idleLatch.update(world, now, speedBlocked);
+    setShown(ffBadge, !speedBlocked && (fastForward || idleSpeed));
+    ffRate.textContent = fastForward ? "×2" : "×1.75";
+    ffBadge.setAttribute("aria-label", fastForward ? "Fast forward ×2" : "Fast forward ×1.75: no words on screen");
     hurt.classList.toggle("is-on", now < hurtUntil);
     seep.classList.toggle("is-on", now < seepUntil);
     seep.classList.toggle("is-strong", now < seepUntil && seepStrong);
@@ -865,7 +879,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     if (!run) return 1;
     const stop = run.fx.timeScale(now);
     if (stop < 1) slowFrames += 1;
-    return stop * (fastForward ? 2 : 1) * speed;
+    const blocked = paused(now) || run.placement.mode !== "idle";
+    idleSpeed = idleLatch.update(run.world, now, blocked);
+    return lastTimeScale = frameTimeScale(stop, speed, fastForward && fastForwardAllowed(run.world), idleSpeed, blocked);
   };
 
   // ── Boot: deck, world, loop, router ──
@@ -885,7 +901,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     }
     ready = true;
   };
-  void learning.buildDeck(stage).then((built) => {
+  const deckBoot = startDeckBoot(overlay, notice, learning, stage, (built) => {
     if (disposed) return;
     deck = built;
     notice.remove();
@@ -917,7 +933,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     world: () => run!.world,
     state: () => {
       const world = run?.world;
-      if (!world) return { ready, paceCard: paceCard.isOpen };
+      if (!world) return { ready, paceCard: paceCard.isOpen, idleSpeed, timeScale: lastTimeScale };
       return {
         ready,
         pace: { ...run!.header, kPm: world.pace.kPm, marginPm: world.pace.marginPm, graceTicks: world.pace.graceTicks },
@@ -948,6 +964,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         veil: veilMode,
         countdown: countdownUntil > view.performance.now(),
         fastForward,
+        idleSpeed,
+        timeScale: lastTimeScale,
         placement: run!.placement.mode + ":" + (run!.placement.item ?? ""),
         panel: handle.panel(),
         slots: world.slots.map((slot) => (slot.item ? slot.def.id + "=" + slot.item + "@" + slot.level : null)).filter(Boolean),
@@ -1091,6 +1109,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   return {
     dispose(): void {
       disposed = true;
+      deckBoot.dispose();
       learning.flush();
       loop?.stop();
       router?.dispose();
