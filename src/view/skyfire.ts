@@ -132,6 +132,8 @@ interface Cast {
   head: THREE.Vector3;
   released: boolean;
   landed: boolean;
+  /** The 1-frame contact flash has been drawn. */
+  contact: boolean;
   releaseAge: number;
   impactAge: number;
   landAge: number;
@@ -190,7 +192,7 @@ export class SkyFire {
       this.group.add(smoke.mesh, flame.mesh);
       this.casts.push({
         active: false, age: 0, drawn: 0, radius: 4, to: new THREE.Vector3(), from: new THREE.Vector3(), ctrl: new THREE.Vector3(), ctrl2: new THREE.Vector3(), head: new THREE.Vector3(),
-        released: false, landed: false, releaseAge: 0, impactAge: 0, landAge: 0, embers: 0, rocksOut: false, rising: 0, flame, smoke,
+        released: false, landed: false, contact: false, releaseAge: 0, impactAge: 0, landAge: 0, embers: 0, rocksOut: false, rising: 0, flame, smoke,
       });
     }
   }
@@ -216,6 +218,7 @@ export class SkyFire {
     cast.to.set(x, this.host.heightAt(x, z) + 0.4, z);
     cast.released = false;
     cast.landed = false;
+    cast.contact = false;
     // A short delay (a test, a sped-up sim) keeps R before I.
     cast.impactAge = Math.max(SKY_FX.releaseS + 4 / 60, delayS);
     cast.releaseAge = Math.min(SKY_FX.releaseS, cast.impactAge - 4 / 60);
@@ -238,6 +241,32 @@ export class SkyFire {
     }
   }
 
+  private readonly dry = new THREE.Vector3();
+
+  /** The driest point near (x, z) for the crater: the hit itself, or up to 0.4 r toward the bank (a ford is water). */
+  private dryCentre(x: number, z: number, r: number): THREE.Vector3 {
+    const host = this.host;
+    let best = -1;
+    this.dry.set(x, 0, z);
+    for (let k = 0; k < 9; k += 1) {
+      const a = (k / 8) * TAU;
+      const d = k === 0 ? 0 : r * 0.4;
+      const cx = x + Math.cos(a) * d;
+      const cz = z + Math.sin(a) * d;
+      let score = 0;
+      for (let j = 0; j < 8; j += 1) {
+        const b = (j / 8) * TAU;
+        score += Math.min(1, Math.max(0, host.dryAt(cx + Math.cos(b) * r * 0.6, cz + Math.sin(b) * r * 0.6)));
+      }
+      score += Math.min(1, Math.max(0, host.dryAt(cx, cz))) * 2 - (k === 0 ? 0 : 0.5);
+      if (score > best) {
+        best = score;
+        this.dry.set(cx, 0, cz);
+      }
+    }
+    return this.dry;
+  }
+
   /** Point on a cast's arc at t (0 mouth … 1 target): a cubic through two control points. */
   private arc(cast: Cast, t: number, out: THREE.Vector3): THREE.Vector3 {
     const k = Math.max(0, Math.min(1, t));
@@ -257,7 +286,9 @@ export class SkyFire {
   private progress(cast: Cast, age: number): number {
     const s = Math.max(0, Math.min(1, (age - cast.releaseAge) / Math.max(1 / 60, cast.impactAge - cast.releaseAge)));
     // Round 7 (judge 6: the ball seemed to stall beside the mouth for 5 frames): off the mouth at near full speed.
-    return s * (0.82 + 0.18 * s);
+    // Round 10 (judge B: it slid into the foe over 5–6 frames; no crisp contact): it speeds up as it falls, so the
+    // last stretch takes 1–2 frames.
+    return Math.pow(s, 1.3);
   }
 
   /** Draws every cast at its age, then ages it. `eye`: the camera (ribbons face it; the arc leans toward it). */
@@ -450,17 +481,25 @@ export class SkyFire {
     // (fireHot × 3: the white is only its middle, ≤ 30 % of the radius, §3.5 rule 3) in an ember halo.
     // Round 3: the body is a fire ball with a dark-red rim (it boils: a new noise seed each frame), drawn for one frame (a quad dies on its second update).
     // Round 6: a saturated ember ball (a light-orange one burnt peach-white, the colour of the dais, round its heart).
+    const headLift = Math.max(0, (t - 0.55) / 0.45) * 3.0 * k;
     const ball = host.flip.pick("fireball-head");
     if (ball !== null) {
       const ahead = this.arc(cast, Math.min(1, t + 0.03), this.w).sub(head);
       // Round 9 (both judges: the meteor, ~240 px, outsized its own blast): smaller, and a little smaller still as it
       // comes down, so the blast is the bigger thing.
-      ball.spawn(head, 2.5 * k * 1.9 * (1 - 0.2 * t), { life: ONE_FRAME, frame: time * (ball.meta?.fps ?? 24), dir: ahead.lengthSq() > 1e-8 ? ahead : null, tint: HEAD_TINT, intensity: 1.1 * born, occlude: 0.85 });
+      // Round 10 (both judges: it passed behind the foe at f062–f067): drawn nearer the eye as it comes down, so it
+      // lands on the foe.
+      ball.spawn(head, 2.5 * k * 1.9 * (1 - 0.2 * t), { life: ONE_FRAME, frame: time * (ball.meta?.fps ?? 24), dir: ahead.lengthSq() > 1e-8 ? ahead : null, tint: HEAD_TINT, intensity: 1.1 * born, occlude: 0.85, lift: headLift });
     } else host.puffs.spawn(head.x, head.y, head.z, 2.5 * k, 1 / 30, FX_COLORS.ember, 0.97 * born, { fadeIn: 0.001, hold: 1 / 30, rot: host.random() * TAU, shape: PUFF_FIRE });
-    host.flares.draw(head, 1.8 * k, FX_COLORS.ember, 0.5 * born);
-    host.flares.draw(head, 1.0 * k, FX_COLORS.fireHot, 2.2 * born);
+    host.flares.draw(head, 1.8 * k, FX_COLORS.ember, 0.5 * born, 1, headLift);
+    host.flares.draw(head, 1.0 * k, FX_COLORS.fireHot, 2.2 * born, 1, headLift);
     // A white-hot heart (≤ 30 % of the ball's radius): the head glows, it is not a flat orange disc.
-    host.flares.draw(head, 0.7 * k, FX_COLORS.flashCore, 3.2 * born);
+    host.flares.draw(head, 0.7 * k, FX_COLORS.flashCore, 3.2 * born, 1, headLift);
+    // The contact: one white frame as it reaches the foe (round 10, judge B).
+    if (!cast.contact && t > 0.93) {
+      cast.contact = true;
+      host.flares.flare(head, 2.4 * k, FX_COLORS.flashCore, 3.0 * (host.reduced ? 0.6 : 1), 1 / 60, 1 / 60, 0, 1, headLift + 0.5 * k);
+    }
     // L8: embers falling from it.
     const rate = host.reduced ? 28 : 48;
     if (host.random() < rate / 60) host.sparks.spawn(head, this.s.set(this.rand(-1.5, 1.5), this.rand(-0.5, 1.5), this.rand(-1.5, 1.5)), host.random() < 0.5 ? FX_COLORS.ember : FX_COLORS.fireHot, 0.36 * k, this.rand(0.35, 0.6), { drag: 1.2, gravity: 7 });
@@ -473,8 +512,9 @@ export class SkyFire {
     // Its shadow on the target darkens and widens as it comes down (05 §6.1 "bóng báo"), and an amber light spot grows
     // in it (round 9, both judges).
     const s = Math.max(0, Math.min(1, (age - cast.releaseAge) / Math.max(1 / 60, cast.impactAge - cast.releaseAge)));
+    // Round 10 (both judges: a salmon-peach disc with a lime fringe in the target ring at the hit): no additive light
+    // disc; the ground's amber light is the point light's.
     host.marks.spawn(cast.to.x, cast.to.y - 0.32, cast.to.z, cast.radius * (0.3 + 0.7 * s), 1 / 30, FX_COLORS.scorch, 0.2 + 0.5 * s * s, { kind: 2, fadeIn: 0.001, drag: 0 });
-    host.rings.spawn(cast.to.x, cast.to.y - 0.3, cast.to.z, cast.radius * (0.2 + 0.55 * s), 1 / 30, FX_COLORS.fireDeep, 0.15 + 0.85 * s * s, { kind: 2, fadeIn: 0.001, drag: 0 });
   }
 
   /** The smoke ribbon between arc points `t0` (nearest the head) and `t1` (its tail). */
@@ -507,7 +547,6 @@ export class SkyFire {
     // L10 a white-hot core 3 frames (≤ 30 % of the blast) over a short saturated fire pop, no wide gold or peach wash.
     host.puffs.spawn(at.x, ground + 0.8, at.z, 3.6 * s * big, 7 / 60, FX_COLORS.ember, 0.92, { fadeIn: 0.001, hold: SKY_FX.flashHoldS, grow: 0.35, rot: host.random() * TAU, shape: PUFF_FIRE });
     host.flares.flare(up, 3.0 * s * big, FX_COLORS.flashCore, 5.5 * soft, SKY_FX.flashS, SKY_FX.flashHoldS, 0.2, 1, 0.8 * s);
-    host.flares.flare(up, 2.4 * s * big, FX_COLORS.ember, 0.45 * soft, 7 / 60, SKY_FX.flashHoldS, 0.3, 1, 0);
     // Warm soot behind and above the fire (dark under the bright), rising.
     for (let i = 0; i < 2; i += 1) {
       const angle = (i / 2) * TAU + host.random();
@@ -544,15 +583,21 @@ export class SkyFire {
     this.domes.dome(this.w.set(at.x, ground + 0.05, at.z), r, SKY_FX.domeGrowS, SKY_FX.domeS, host.reduced ? 0.6 : 1, SKY_FX.domeDelayS);
     // L12 (round 9, both judges: no shock wave read): a fire ring (normal blend, reads on light ground) with a dark edge
     // runs out to the rule's radius in about 6 frames, the additive hot ring over it; a few warm dust puffs roll out.
-    host.marks.spawn(at.x, ground + 0.1, at.z, r * 0.36, 12 / 60, FX_COLORS.char, 0.5 * soft, { grow: (r * 2.15) / (r * 0.36) - 1, kind: 1, thickness: 0.3, fadeIn: 0.001, drag: 0 });
-    host.marks.spawn(at.x, ground + 0.11, at.z, r * 0.3, 10 / 60, FX_COLORS.fireDeep, 0.95, { grow: (r * 2) / (r * 0.3) - 1, kind: 1, thickness: 0.2, fadeIn: 0.001, drag: 0 });
+    // Round 10 (both judges: still no ring or dome read at the rule radius): a thick fire band and its dark edge, and a
+    // warm dust ring rolling just past it, all on the ground (normal blend) and longer.
+    host.marks.spawn(at.x, ground + 0.1, at.z, r * 0.4, 16 / 60, FX_COLORS.char, 0.55 * soft, { grow: (r * 2.2) / (r * 0.4) - 1, kind: 1, thickness: 0.36, fadeIn: 0.001, drag: 0 });
+    host.marks.spawn(at.x, ground + 0.11, at.z, r * 0.35, 14 / 60, FX_COLORS.fireDeep, 0.95, { grow: (r * 2.05) / (r * 0.35) - 1, kind: 1, thickness: 0.28, fadeIn: 0.001, drag: 0 });
+    host.marks.spawn(at.x, ground + 0.09, at.z, r * 0.6, 22 / 60, FX_COLORS.dustWarm, 0.6 * soft, { grow: (r * 2.6) / (r * 0.6) - 1, kind: 1, thickness: 0.42, fadeIn: 2 / 60, drag: 0 });
     host.rings.spawn(at.x, ground + 0.14, at.z, r * 0.5, 0.3, FX_COLORS.fireHot, 1, { grow: 3, kind: 1, thickness: 0.18, fadeIn: 0.001, drag: 0 });
     for (let i = 0; i < Math.round(10 * few); i += 1) {
       const angle = (i / 10) * TAU + host.random() * 0.3;
       host.puffs.spawn(at.x + Math.cos(angle) * r * 0.35, ground + 0.35, at.z + Math.sin(angle) * r * 0.35, 1.3 * s, 0.8, FX_COLORS.smokeWarm, 0.4, { vx: Math.cos(angle) * 7.5, vz: Math.sin(angle) * 7.5, vy: 0.8, grow: 1.3, drag: 2.6, fadeIn: 2 / 60 });
     }
-    // L6 at once: a crater, a dark blast scorch at the centre under the fire (round 9, both judges).
-    if (host.dryAt(at.x, at.z) > 0.5) host.marks.spawn(at.x, ground + 0.09, at.z, r * 1.3, 6, FX_COLORS.scorch, 0.9, { kind: 5, thickness: host.random() * 0.9, fadeIn: 0.001, hold: 4, drag: 0, rot: host.random() * TAU });
+    // L6 at once: a crater (round 10, both judges: small, near gone by 2.4 s, and at a ford half of it was water): a
+    // charred blast scorch 1.6 r across with a cooling ember rim (fx.ts MARK kind 5), held 5 s, gone by 7 s, set on the
+    // driest ground near the hit.
+    const crater = this.dryCentre(at.x, at.z, r);
+    if (host.dryAt(crater.x, crater.z) > 0.4) host.marks.spawn(crater.x, host.heightAt(crater.x, crater.z) + 0.09, crater.z, r * 1.6, 7, FX_COLORS.scorch, 0.92, { kind: 5, thickness: host.random() * 0.9, fadeIn: 0.001, hold: 5, drag: 0, rot: host.random() * TAU });
     // L8: stretched sparks (f0), a few round embers among them.
     for (let i = 0; i < Math.round(SKY_FX.streaks * few); i += 1) {
       const angle = host.random() * TAU;
@@ -575,25 +620,27 @@ export class SkyFire {
     }
     // F (round 9, both judges: an opaque, still, navy-black blob for over a second): warm brown-grey smoke, alpha ≤ 0.6,
     // rising and drifting, eroding over about 85 frames; from inside the fire.
-    const roll = host.flip.pick("smoke-roll");
+    // Round 10 (both judges: a still, straight-edged band across the river): density smoke coloured in the shader,
+    // three rolling clouds from inside the blast about 6 frames before it dies, rising and widening over ~70 frames.
+    const roll = host.flip.pick("smoke-mask", "smoke-roll");
     if (roll !== null) {
-      for (let i = 0; i < 2; i += 1) {
-        const angle = host.random() * TAU;
-        roll.spawn(this.u.set(at.x + Math.cos(angle) * r * 0.25, ground + r * 0.35 + i * 0.6, at.z + Math.sin(angle) * r * 0.25), r * 1.05 * s, { rate: 2.8, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: 0.55 * soft, ground, vx: Math.cos(angle) * 0.8, vy: 2.4 * s, vz: Math.sin(angle) * 0.8, grow: 0.6, delay: (6 + 4 * i) / 60, fadeIn: 0.15, cool: 0.35, fadeOut: 0.3 });
+      for (let i = 0; i < 3; i += 1) {
+        const angle = (i / 3) * TAU + host.random() * 0.6;
+        roll.spawn(this.u.set(crater.x + Math.cos(angle) * r * 0.3, ground + r * 0.4 + i * 0.4, crater.z + Math.sin(angle) * r * 0.3), r * 0.85 * s, { rate: roll.id === "smoke-mask" ? 1 : 2.2, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground, vx: Math.cos(angle) * 0.6, vy: 2.6 * s, vz: Math.sin(angle) * 0.6, grow: 0.9, life: 1.15, delay: (26 + 4 * i) / 60, fadeIn: 0.12, cool: 0.4, fadeOut: 0.2 });
       }
     }
     for (let i = 0; i < 2; i += 1) {
       host.puffs.spawn(at.x + this.rand(-r, r) * 0.3, ground + this.rand(1.0, 1.8), at.z + this.rand(-r, r) * 0.3, r * 0.5 * s, this.rand(1.1, 1.4), FX_COLORS.soot, 0.42 * soft, { vy: this.rand(2.2, 3), grow: 1.8, spin: this.rand(-0.6, 0.6), fadeIn: (4 + i) / 60, rot: host.random() * TAU });
       host.puffs.spawn(at.x + this.rand(-r, r) * 0.4, ground + this.rand(1.8, 2.6), at.z + this.rand(-r, r) * 0.4, r * 0.5 * s, this.rand(1.2, 1.5), FX_COLORS.smokeWarm, 0.35 * soft, { vy: this.rand(2.2, 3), grow: 1.8, spin: this.rand(-0.6, 0.6), fadeIn: 0.25 });
     }
-    // L6: the fissure (cracks hot from the first frame, under the flash).
-    this.fissures.spawn(at.x, at.z, r * 1.05, host.random() * TAU, SKY_FX.fissureS, SKY_FX.coolS);
+    // L6: the fissure (cracks hot from the first frame, cooling over 1.5 s), bigger, on the same dry centre.
+    this.fissures.spawn(crater.x, crater.z, r * 1.25, host.random() * TAU, SKY_FX.fissureS, SKY_FX.coolS);
     // F (round 8): patches of fire burning on in the scorch for 2–3 s (ground-fire, a loop), never on the water.
     const burn = host.flip.pick("ground-fire");
     if (burn !== null) {
       // Up to five dry spots in the scorch's ring, out of twelve tries (at a ford most of it is water).
       let placed = 0;
-      for (let i = 0; i < 12 && placed < (host.reduced ? 3 : 5); i += 1) {
+      for (let i = 0; i < 12 && placed < (host.reduced ? 2 : 3); i += 1) {
         const angle = (i / 12) * TAU * 2.4 + this.rand(-0.3, 0.3);
         const d = r * this.rand(0.3, 0.8);
         const x = at.x + Math.cos(angle) * d;
@@ -602,7 +649,7 @@ export class SkyFire {
         placed += 1;
         const g = host.heightAt(x, z);
         // ground-fire v1: flames standing on a line, its pivot at their base: set on the ground.
-        burn.spawn(this.u.set(x, g + 0.05, z), this.rand(2.0, 3.0) * s, { life: this.rand(2.0, 3.2), frame: this.rand(0, 30), intensity: 1.05, occlude: 0.5, ground: g, delay: this.rand(6, 14) / 60, fadeIn: 0.25, fadeOut: 0.9 });
+        burn.spawn(this.u.set(x, g + 0.05, z), this.rand(1.4, 2.0) * s, { life: this.rand(2.0, 3.2), frame: this.rand(0, 30), intensity: 1.05, occlude: 0.5, ground: g, delay: this.rand(6, 14) / 60, fadeIn: 0.25, fadeOut: 0.9 });
       }
     }
     host.stunStars(at.x, at.y + 1.6, at.z, HERO_SKILLS.skyfire.stunMs / 1000, r * 0.6);

@@ -17,7 +17,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const IDS = ['charge-orb', 'muzzle-flash', 'fireball-head', 'flame-trail', 'impact-burst', 'impact-big', 'smoke-roll', 'embers', 'ground-fire', 'fire-burst'];
+// smoke-mask (round 10): white smoke filmed on black, a density mask the game colours; it replaces smoke-roll when in.
+const IDS = ['charge-orb', 'muzzle-flash', 'fireball-head', 'flame-trail', 'impact-burst', 'impact-big', 'smoke-roll', 'smoke-mask', 'embers', 'ground-fire', 'fire-burst'];
 /** What a cut's JSON may leave out, per id (the coordinator's quick fire-burst cut opens on five frames of a dot). */
 const DEFAULTS = { 'fire-burst': { start: 5 }, 'muzzle-flash': { pivot: [0.06, 0.5] } };
 /**

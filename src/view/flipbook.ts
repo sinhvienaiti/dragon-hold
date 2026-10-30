@@ -20,7 +20,7 @@ import * as THREE from "three";
 import { VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
 
 /** The Firefly ids (FIREFLY_VFX_LIST §3) and the first quick cut the coordinator made. */
-export const FLIPBOOK_IDS = ["charge-orb", "muzzle-flash", "fireball-head", "flame-trail", "impact-burst", "impact-big", "smoke-roll", "embers", "ground-fire", "fire-burst"] as const;
+export const FLIPBOOK_IDS = ["charge-orb", "muzzle-flash", "fireball-head", "flame-trail", "impact-burst", "impact-big", "smoke-roll", "smoke-mask", "embers", "ground-fire", "fire-burst"] as const;
 export type FlipbookId = (typeof FLIPBOOK_IDS)[number];
 
 /** How each id is drawn: smoke-roll is dark smoke on white (normal blend); every other is fire on black. */
@@ -32,6 +32,8 @@ export const FLIPBOOK_MODE: Readonly<Record<FlipbookId, "fire" | "smoke">> = {
   "impact-burst": "fire",
   "impact-big": "fire",
   "smoke-roll": "smoke",
+  // Round 10: white smoke filmed on black, a density mask (luminance) the shader colours.
+  "smoke-mask": "smoke",
   embers: "fire",
   "ground-fire": "fire",
   "fire-burst": "fire",
@@ -208,6 +210,7 @@ attribute vec4 iData;
 attribute vec4 iColor;
 attribute vec4 iDir;
 attribute vec3 iAge;
+attribute float iLift;
 uniform vec2 uPivot;
 uniform float uAspect;
 uniform float uHeading;
@@ -228,6 +231,8 @@ void main() {
   vGround = iColor.a;
   vOcclude = iDir.w;
   vec4 view = modelViewMatrix * vec4(iPos, 1.0);
+  // Drawn nearer the eye by iLift (depth only): a meteor that must land on a foe, not behind it.
+  view.z += iLift;
   float angle = iData.y;
   // Turned to follow a world direction on screen (a jet along the shot, a fireball along its flight).
   if (dot(iDir.xyz, iDir.xyz) > 1e-8) {
@@ -252,6 +257,7 @@ uniform float uFrames;
 uniform float uLoop;
 uniform float uSmoke;
 uniform float uHasAlpha;
+uniform float uLumaMask;
 uniform float uSoftM;
 uniform float uVignette;
 varying vec2 vUv;
@@ -279,8 +285,10 @@ void main() {
   vec2 uv = clamp(vUv, 0.004, 0.996);
   vec4 t = mix(texture2D(uMap, vxCell(f0, uv)), texture2D(uMap, vxCell(f1, uv)), f - f0);
   float border = smoothstep(0.0, 0.025, min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y)));
-  // A burst whose smoke reaches the cell's edge would show the square: round it off.
-  border *= 1.0 - uVignette * smoothstep(0.72, 1.0, length(vUv - 0.5) * 2.0);
+  // A burst whose smoke reaches the cell's edge would show the square: round it off. Ground fire (2): its flames run
+  // off the cell's sides, which showed as straight quad edges (round 9, close-light f085–f145): fade the sides.
+  if (uVignette > 1.5) border *= smoothstep(0.0, 0.22, vUv.x) * smoothstep(0.0, 0.22, 1.0 - vUv.x) * smoothstep(0.0, 0.12, 1.0 - vUv.y);
+  else border *= 1.0 - uVignette * smoothstep(0.6, 0.98, length(vUv - 0.5) * 2.0);
   float soft = vxSoftGround(vWorld, vGround, uSoftM) * border * vAlpha;
   float lum = max(t.r, max(t.g, t.b));
   // Round 9 (both judges: the fire faded through see-through mustard and olive over grass, c079–c081): from vAge.y of
@@ -289,26 +297,35 @@ void main() {
   float cool = vAge.y > 0.0 ? clamp((vAge.x - vAge.y) / max(0.05, 1.0 - vAge.y), 0.0, 1.0) : 0.0;
   float n = vxNoise(vUv * 6.0 + vec2(vAge.z * 13.1, vAge.z * 7.3)) * 0.65 + vxNoise(vUv * 15.0 - vec2(vAge.z * 5.7, 0.0)) * 0.35;
   if (uSmoke > 0.5) {
-    // Smoke filmed on white: its darkness is its alpha (or the atlas's own); the tint is its colour.
-    float a = uHasAlpha > 0.5 ? t.a : clamp((1.0 - lum) * 1.25, 0.0, 1.0);
-    a = smoothstep(0.02, 0.6, a) * smoothstep(cool * 1.1 - 0.12, cool * 1.1 + 0.08, n * 0.7 + a * 0.45);
-    gl_FragColor = vec4(vTint * (0.8 + 0.4 * lum), a * soft);
+    // Round 10 (both judges: a flat olive or khaki patch over grass, a straight-edged band): the clip is only a DENSITY
+    // mask (its alpha, its luminance for white smoke on black, or its darkness for dark smoke on white); the colour is
+    // made here. A dense warm charcoal core, a lighter warm grey top, a fire-lit underside while young; dense enough
+    // that the grass never tints it, its thin edges eaten by the noise instead of fading as a veil.
+    float d = uHasAlpha > 0.5 ? t.a : uLumaMask > 0.5 ? lum : clamp((1.0 - lum) * 1.25, 0.0, 1.0);
+    float core = smoothstep(0.3, 0.8, d);
+    float a = smoothstep(0.1, 0.42, d + (n - 0.5) * 0.22) * smoothstep(cool * 1.1 - 0.1, cool * 1.1 + 0.06, n * 0.6 + d * 0.55);
+    vec3 c = mix(vTint * 0.62, vTint * 1.18, smoothstep(0.3, 0.95, vUv.y));
+    c = mix(c, vTint * 0.42, core * 0.65);
+    float lit = (1.0 - smoothstep(0.0, 0.3, vAge.x)) * (1.0 - smoothstep(0.05, 0.55, vUv.y)) * core;
+    c += vec3(0.95, 0.38, 0.08) * lit;
+    gl_FragColor = vec4(c, a * (0.72 + 0.23 * core) * soft);
     return;
   }
   vec3 rgb = t.rgb * vTint;
   float body = smoothstep(0.02, 0.45, lum);
   if (cool > 0.0) {
-    rgb = mix(rgb, vec3(0.5, 0.07, 0.018) * (0.4 + lum), smoothstep(0.0, 0.45, cool));
-    rgb = mix(rgb, vec3(0.04, 0.036, 0.034), smoothstep(0.4, 0.95, cool));
-    float erode = smoothstep(cool * 1.05 - 0.12, cool * 1.05 + 0.06, n * 0.75 + lum * 0.4);
-    rgb *= erode;
-    body *= erode;
+    // Round 10 (both judges: the fire died as flat hard-edged red cut-outs and rust lace): it darkens through deep red,
+    // hot embers outlive it in its densest parts, and it fades softly into the smoke behind it (never an opaque rim).
+    rgb = mix(rgb, vec3(0.62, 0.09, 0.02) * (0.3 + lum), smoothstep(0.0, 0.5, cool));
+    rgb *= 1.0 - smoothstep(0.35, 1.0, cool);
+    float ember = smoothstep(0.7, 0.88, n) * smoothstep(0.25, 0.6, lum) * (1.0 - smoothstep(0.55, 0.95, cool));
+    rgb += vec3(1.5, 0.5, 0.08) * ember;
+    body *= 1.0 - smoothstep(0.1, 0.9, cool + (n - 0.5) * 0.3);
   }
   // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude. The
   // curve is steep (final check on light ground: the burst's dim flames stayed see-through and pale): a dim red flame
   // already hides most of the stone under it, so it reads deep red, the dark under-layer of the bright core.
-  // A cooled sprite keeps hiding the ground (charcoal), so nothing see-through is left when it goes.
-  gl_FragColor = vec4(rgb * soft, body * max(vOcclude, cool * 0.9) * soft);
+  gl_FragColor = vec4(rgb * soft, body * vOcclude * soft);
 }`;
 
 export interface FlipOptions {
@@ -347,6 +364,8 @@ export interface FlipOptions {
   cool?: number;
   /** Last frame a one-shot plays to (it stops there, even if the clip goes on; e.g. before an artefact). */
   until?: number;
+  /** Drawn this much nearer the eye (m, depth only). */
+  lift?: number;
 }
 
 const WHITE = new THREE.Color(1, 1, 1);
@@ -366,9 +385,10 @@ export class FlipbookPool {
   private readonly iColor: Float32Array;
   private readonly iDir: Float32Array;
   private readonly iAge: Float32Array;
+  private readonly iLift: Float32Array;
   /** x y z, vx vy vz, size, grow, rot, spin, age, life, frame, fps, alpha, drag, gravity, fadeIn, fadeOut, ground, occlude, r g b, dx dy dz, delay, cool, seed */
   private readonly state: Float32Array;
-  private static readonly STRIDE = 30;
+  private static readonly STRIDE = 31;
   private cursor = 0;
   live = 0;
 
@@ -379,6 +399,7 @@ export class FlipbookPool {
     this.iColor = new Float32Array(capacity * 4);
     this.iDir = new Float32Array(capacity * 4);
     this.iAge = new Float32Array(capacity * 3);
+    this.iLift = new Float32Array(capacity);
     this.state = new Float32Array(capacity * FlipbookPool.STRIDE);
     const base = new THREE.PlaneGeometry(1, 1);
     const geometry = new THREE.InstancedBufferGeometry();
@@ -390,6 +411,7 @@ export class FlipbookPool {
     geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(this.iColor, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iDir", new THREE.InstancedBufferAttribute(this.iDir, 4).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("iAge", new THREE.InstancedBufferAttribute(this.iAge, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("iLift", new THREE.InstancedBufferAttribute(this.iLift, 1).setUsage(THREE.DynamicDrawUsage));
     geometry.instanceCount = 0;
     const material = new THREE.ShaderMaterial({
       uniforms: {
@@ -399,8 +421,9 @@ export class FlipbookPool {
         uLoop: { value: 0 },
         uSmoke: { value: smoke ? 1 : 0 },
         uHasAlpha: { value: 0 },
+        uLumaMask: { value: id === "smoke-mask" ? 1 : 0 },
         uSoftM: { value: 0.8 },
-        uVignette: { value: id === "impact-burst" || id === "impact-big" || id === "fire-burst" || id === "smoke-roll" || id === "embers" ? 1 : 0 },
+        uVignette: { value: id === "ground-fire" ? 2 : id === "impact-burst" || id === "impact-big" || id === "fire-burst" || id === "smoke-roll" || id === "smoke-mask" || id === "embers" ? 1 : 0 },
         uPivot: { value: new THREE.Vector2(0.5, 0.5) },
         uAspect: { value: 1 },
         uHeading: { value: 0 },
@@ -478,6 +501,7 @@ export class FlipbookPool {
         dir?.x ?? 0, dir?.y ?? 0, dir?.z ?? 0,
         Math.max(0, options.delay ?? 0),
         options.cool ?? 0, (i * 0.618034) % 1,
+        options.lift ?? 0,
       ],
       i * FlipbookPool.STRIDE,
     );
@@ -523,6 +547,7 @@ export class FlipbookPool {
       this.iAge[n * 3] = k;
       this.iAge[n * 3 + 1] = st[o + 28]!;
       this.iAge[n * 3 + 2] = st[o + 29]!;
+      this.iLift[n] = st[o + 30]!;
       n += 1;
       // Then advance.
       const keep = Math.exp(-st[o + 15]! * dt);
@@ -545,6 +570,7 @@ export class FlipbookPool {
     geometry.getAttribute("iColor").needsUpdate = true;
     geometry.getAttribute("iDir").needsUpdate = true;
     geometry.getAttribute("iAge").needsUpdate = true;
+    geometry.getAttribute("iLift").needsUpdate = true;
   }
 
   /** Warm-up: one sprite of the blank atlas for the load-time frame (cleared after). */
@@ -557,7 +583,8 @@ export class FlipbookPool {
     geometry.instanceCount = 1;
     this.mesh.visible = true;
     this.iAge.set([0, 0, 0], 0);
-    for (const name of ["iPos", "iData", "iColor", "iDir", "iAge"]) geometry.getAttribute(name).needsUpdate = true;
+    this.iLift[0] = 0;
+    for (const name of ["iPos", "iData", "iColor", "iDir", "iAge", "iLift"]) geometry.getAttribute(name).needsUpdate = true;
   }
 
   clear(): void {
@@ -586,6 +613,7 @@ export class FlipbookSet {
     // Draw order: smoke behind fire (5.2), the bodies with the puffs (5), heads and flashes over them (5.8).
     const order: Record<FlipbookId, number> = {
       "smoke-roll": 4.9,
+      "smoke-mask": 4.9,
       "ground-fire": 4.95,
       "impact-burst": 5.3,
       "impact-big": 5.3,

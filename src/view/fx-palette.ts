@@ -35,6 +35,8 @@ export const FX_COLORS = {
   smokeCool: new THREE.Color("#4a4b50"),
   /** Round 9 (both judges: the smoke read as a navy-black hole or a ground shadow): a warm brown-grey charcoal. */
   smokeWarm: new THREE.Color("#7a7067"),
+  /** Round 10: a warm light dust ring at the Sky Fire impact (the old khaki dust read olive on grass). */
+  dustWarm: new THREE.Color("#c2b29c"),
   /** Round 9 (both judges: the release light washed the light dais salmon-pink): a saturated amber. */
   amber: new THREE.Color("#ffab4a"),
   dust: new THREE.Color("#a89272"),

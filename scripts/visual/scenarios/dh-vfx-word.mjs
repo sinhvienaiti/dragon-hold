@@ -78,6 +78,9 @@ const state = (page) => page.eval("window.__dh.state()");
 /** Opens the game at a held clock, models in, wave 1 running; returns the frames stepped so far. */
 export async function open(page, w, h, ground, extra = "") {
   await page.viewport(w, h, 1);
+  // Round 9 (judge B: the Sky Fire 720 play-dark run was covered by the pause card from f011): the page keeps focus
+  // whatever the desktop does, so the game never pauses on blur mid-capture.
+  await page.send("Emulation.setFocusEmulationEnabled", { enabled: true });
   // Every run starts from empty storage: the learning memory and the pace profile a run writes would change the
   // next run's deck, and so the word and foe a capture types.
   await page.send("Storage.clearDataForOrigin", { origin: new URL(BASE).origin, storageTypes: "all" });
