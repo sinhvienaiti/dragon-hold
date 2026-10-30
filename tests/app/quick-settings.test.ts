@@ -143,6 +143,13 @@ describe("192 app and shared panels", () => {
     expect(window.__dh!.state().commands).toBe(0);
     choose("deep").focus();
     press(choose("deep"), "ArrowDown");
+    expect(document.activeElement).toBe(choose("deep-amber"));
+    // PageDown/PageUp move between families in the kit's grouped list.
+    press(choose("deep-amber"), "PageDown");
+    expect(document.activeElement).toBe(choose("warm"));
+    press(choose("warm"), "PageDown");
+    expect(document.activeElement).toBe(choose("rounded"));
+    press(choose("rounded"), "PageUp");
     expect(document.activeElement).toBe(choose("warm"));
     expect(press(choose("warm"), "Tab").defaultPrevented).toBe(false);
     press(choose("warm"), "Enter");
@@ -170,10 +177,16 @@ describe("192 app and shared panels", () => {
     expect(row("master").querySelector<HTMLInputElement>("input")!.value).toBe("40");
   });
 
-  it("offers real settings only, all seven audio rows and the nine keyboard choices", () => {
+  it("offers real settings only, all seven audio rows, and Off, Dragonhold and 32 sets under seven family headings", () => {
     expect([...document.querySelectorAll<HTMLElement>('[data-row]')].map((r) => r.dataset.row)).toEqual(expect.arrayContaining(["quality", "master", "music", "effects", "keyboard", "keyboardVolume", "voice", "ui"]));
     for (const id of ["fxStyle", "fxIntensity", "fxSize", "reducedMotion", "learnMeaning", "learnIpa"]) expect(row(id)).toBeNull();
-    expect([...document.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual(["Off", "Dragonhold", "Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack"]);
+    const labels = [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
+    expect(labels).toHaveLength(34);
+    expect(labels.slice(0, 3)).toEqual(["Off", "Dragonhold", "Deep Velvet"]);
+    expect(labels).toContain("Bright Clack Velvet");
+    expect([...document.querySelectorAll(".kit-keyboards__family[id]")].map((heading) => heading.textContent)).toEqual(["Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack"]);
+    // A first launch saves the default set.
+    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).keyboard).toBe("bright-clack");
   });
 
   it("previews after 150 ms for exactly one second, cancels when closed and loads the chosen pack into gameplay", async () => {
@@ -187,7 +200,11 @@ describe("192 app and shared panels", () => {
     expect(ctx.sources).toHaveLength(1);
     expect(ctx.sources[0]!.start).toHaveBeenCalledWith(0, 0, 1);
     choose("warm").click();
-    await flush();
+    // Many-variant sets decode in batches with a timer turn between them (88 files, 16 per batch).
+    for (let batch = 0; batch < 8; batch += 1) {
+      await vi.advanceTimersByTimeAsync(1);
+      await flush();
+    }
     expect(h.audio.setKeyboardEnabled).toHaveBeenLastCalledWith(false);
     press(window, "Escape");
     expect(ctx.sources.at(-1)!.stop).toHaveBeenLastCalledWith(0.03);

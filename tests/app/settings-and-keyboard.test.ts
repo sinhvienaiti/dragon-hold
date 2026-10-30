@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GameKeyboard, KEYS_BASE, loadGameKeyboards } from "../../src/app/keyboard";
 import { SETTINGS_DEFAULTS, BUILT_IN_KEYS, applyQuick, audioVolumes, keyboardChoice, keyboardLevel, loadSettings, quickValues, voiceLevel } from "../../src/app/settings";
 import { volumeFor } from "../../src/audio/mix";
-import { keyboardFiles } from "../../src/kit/feedback/typing-fx";
+import { KEYBOARD_DECODE_BATCH_SIZE, keyboardFiles } from "../../src/kit/feedback/typing-fx";
 import { TestContext, TestGain, TestSource, flush } from "./keyboard-audio-fixture";
 
 const publicFile = (url: string) => resolve("public", url.replace(/^\//, ""));
@@ -20,7 +20,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("192 settings", () => {
   it("loads defaults, partial saves, invalid fields and all four real quality levels", () => {
     expect(loadSettings(null)).toEqual(SETTINGS_DEFAULTS);
-    expect(loadSettings({ master: NaN, music: -1, voice: 2, keyboard: "../bad", muted: 1, quality: "bad" })).toMatchObject({ master: 0.8, music: 0, voice: 1, keyboard: "deep", muted: false, quality: "high" });
+    expect(loadSettings({ master: NaN, music: -1, voice: 2, keyboard: "../bad", muted: 1, quality: "bad" })).toMatchObject({ master: 0.8, music: 0, voice: 1, keyboard: "bright-clack", muted: false, quality: "high" });
     for (const quality of ["low", "medium", "high", "ultra"]) expect(loadSettings({ quality }).quality).toBe(quality);
   });
 
@@ -56,32 +56,43 @@ describe("192 settings", () => {
 });
 
 describe("192 shipped Firefly media and player", () => {
-  it("reads Off + seven Firefly sets + Dragonhold from the kit catalogue, with lazy samples", async () => {
+  it("reads Off, Dragonhold and the 32 Firefly sets in seven families from the kit catalogue, with lazy samples", async () => {
     const catalog = await loadGameKeyboards();
     expect(catalog.state).toBe("ready");
-    expect(catalog.options.map((p) => p.value)).toEqual(["off", BUILT_IN_KEYS, "deep", "warm", "rounded", "solid", "crisp", "clear", "bright-clack"]);
+    expect(catalog.options.slice(0, 2).map((p) => p.value)).toEqual(["off", BUILT_IN_KEYS]);
+    const firefly = catalog.options.slice(2);
+    expect(firefly).toHaveLength(32);
+    // Each family is one contiguous run, so the kit list draws one heading per family.
+    expect(firefly.map((p) => p.family).filter((family, i, all) => family !== all[i - 1])).toEqual(["Deep", "Warm", "Rounded", "Solid", "Crisp", "Clear", "Bright Clack"]);
+    // The seven earlier ids stay, so a save from the first release keeps its set.
+    for (const id of ["deep", "warm", "rounded", "solid", "crisp", "clear", "bright-clack"]) expect(firefly.map((p) => p.value)).toContain(id);
     expect(fetchLocal).toHaveBeenCalledTimes(1);
-    expect(keyboardChoice("gone", catalog.options)).toBe("deep");
+    expect(loadSettings(null).keyboard).toBe("bright-clack");
+    expect(keyboardChoice("gone", catalog.options)).toBe("bright-clack");
     expect(keyboardChoice("off", catalog.options)).toBe("off");
   });
 
-  it("ships all 91 distinct key/space samples and seven previews, without WAV", async () => {
+  it("ships 70-80 key and 8 space variants and a preview per set, OGG only", async () => {
     const catalog = await loadGameKeyboards();
-    let samples = 0;
+    let keys = 0;
+    let spaces = 0;
     for (const option of catalog.options) {
       if (!option.manifest) continue;
-      const manifest = JSON.parse(readFileSync(publicFile(option.manifest), "utf8"));
-      const files = keyboardFiles(manifest, option.manifest.slice(0, option.manifest.lastIndexOf("/") + 1));
-      expect(files.key).toHaveLength(10);
-      expect(files.space).toHaveLength(3);
+      const folder = option.manifest.slice(0, option.manifest.lastIndexOf("/") + 1);
+      const files = keyboardFiles(JSON.parse(readFileSync(publicFile(option.manifest), "utf8")), folder);
+      expect(files.key.length).toBeGreaterThanOrEqual(70);
+      expect(files.key.length).toBeLessThanOrEqual(80);
+      expect(files.space).toHaveLength(8);
+      expect(new Set([...files.key, ...files.space]).size).toBe(files.key.length + files.space.length);
       for (const url of [...files.key, ...files.space, option.preview!]) {
         expect(url).toMatch(/\.ogg$/);
         expect(existsSync(publicFile(url))).toBe(true);
       }
-      expect(readdirSync(publicFile(option.manifest.slice(0, option.manifest.lastIndexOf("/"))))).not.toContain("key-01.wav");
-      samples += files.key.length + files.space.length;
+      expect(readdirSync(publicFile(folder)).filter((name) => !name.endsWith(".ogg") && name !== "keys-manifest.json")).toEqual([]);
+      keys += files.key.length;
+      spaces += files.space.length;
     }
-    expect(samples).toBe(91);
+    expect([keys, spaces]).toEqual([2396, 256]);
   });
 
   it("preloads only the saved set, plays its key/space files with variation at Master × Keyboard", async () => {
@@ -90,7 +101,7 @@ describe("192 shipped Firefly media and player", () => {
     const ctx = new TestContext();
     const keyboard = new GameKeyboard(() => settings, catalog.options, () => ctx as unknown as AudioContext);
     await keyboard.preload();
-    expect(ctx.decodeAudioData).toHaveBeenCalledTimes(13);
+    expect(ctx.decodeAudioData).toHaveBeenCalledTimes(88);
     keyboard.type("key");
     keyboard.type("key");
     keyboard.type("space");
@@ -101,6 +112,25 @@ describe("192 shipped Firefly media and player", () => {
     const voice = ctx.sources[0]!.target as TestGain;
     expect((voice.target as TestGain).gain.value).toBe(0.2);
     expect(fetchLocal.mock.calls.some(([url]) => url.includes("/deep/"))).toBe(false);
+    keyboard.dispose();
+  });
+
+  it("plays the first decoded batch while the other variants load, and drops a superseded load", async () => {
+    const catalog = await loadGameKeyboards();
+    const settings = { ...loadSettings(null), keyboard: "warm" };
+    const ctx = new TestContext();
+    const keyboard = new GameKeyboard(() => settings, catalog.options, () => ctx as unknown as AudioContext);
+    const pending = keyboard.preload();
+    await flush();
+    expect(ctx.decodeAudioData).toHaveBeenCalledTimes(KEYBOARD_DECODE_BATCH_SIZE);
+    keyboard.type("key");
+    expect(ctx.sources).toHaveLength(1);
+    expect((ctx.sources[0]!.buffer as unknown as { url: string }).url).toMatch(/\/warm\/key-\d\d.ogg$/);
+    settings.keyboard = "off";
+    keyboard.changed();
+    await pending;
+    expect(keyboard.sounds.profile).toBeNull();
+    expect(ctx.decodeAudioData).toHaveBeenCalledTimes(KEYBOARD_DECODE_BATCH_SIZE);
     keyboard.dispose();
   });
 

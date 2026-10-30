@@ -10,9 +10,13 @@ coverage/
 # No media in Git, ever: models, images, audio and video live on Google Drive
 # (parent repo `pnpm media:push`). Only code, JSON data and docs are tracked.
 public/assets/**
+# Keyboard sound manifests are data: tracked. Their OGG files stay in media.md5.
+# `!public/assets/` also overrides a local `public/assets` line in .git/info/exclude.
 !public/assets/
 !public/assets/dragon-hold/
-!public/assets/dragon-hold/**/
+!public/assets/dragon-hold/audio/
+!public/assets/dragon-hold/audio/keys/
+!public/assets/dragon-hold/audio/keys/**/
 !public/assets/dragon-hold/audio/keys/**/keys-manifest.json
 # art-src stays on Drive; only the 3D source index is tracked (media:check needs it)
 art-src/*

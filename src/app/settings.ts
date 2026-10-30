@@ -4,8 +4,8 @@ import type { QuickValue } from "../kit/ui";
 import type { Quality } from "./contracts";
 
 export const SETTINGS_KEY = "dragon-hold:settings:v1";
-/** Ticket 189: provisional until the owner chooses a default. */
-export const DEFAULT_KEYBOARD_SOUND = "deep";
+/** Owner 30/10: Bright Clack (Velvet) is the default keyboard sound in every game. */
+export const DEFAULT_KEYBOARD_SOUND = "bright-clack";
 export const BUILT_IN_KEYS = "dragonhold";
 export const QUALITY_LEVELS: readonly Quality[] = ["low", "medium", "high", "ultra"];
 
