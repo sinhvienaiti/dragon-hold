@@ -47,3 +47,25 @@ Trình duyệt (trình duyệt có sẵn của app, `dh-keys-dev` cổng 4149, c
 - Chọn Hail Stone: tải `hail-stone/keys-manifest.json`, 25 phím và 8 phím cách (34 tệp, không bộ nào khác); lựa chọn được đánh dấu và lưu (`dragon-hold:settings:v1` có `keyboard: "hail-stone"`), tải lại trang vẫn giữ.
 - Sau khi tải lại, gõ phím ở thẻ từ mới (chữ, phím cách, Enter): bộ Hail Stone được tải lại đủ 34 tệp, đều 200; console không có lỗi.
 - Ảnh chụp: `tmp/hail-stone-check/sound-panel-solid.jpg` (không vào Git).
+
+## Rà soát (Claude, 30/10 tối)
+
+Kiểm lại `10bf889` với file thật, không chỉ đọc mã:
+
+- Media: `diff -r` thư mục `hail-stone/` và `cmp` danh mục gốc với staging: giống từng byte; danh mục trước lần này giống từng byte `keys-manifest.33-sets.bak.json` trong staging. 34 dòng `media.md5` đúng bằng 34 OGG trong `hail-stone/` và khớp `md5` từng tệp; không dòng cũ nào đổi hay mất; 2.744 dòng tiếng phím, 4.813 dòng cả file, vẫn xếp theo đường dẫn. OGG bị `.gitignore` bỏ qua, chỉ `hail-stone/keys-manifest.json` nằm trong Git; không tệp âm thanh nào được theo dõi.
+- `ffprobe`: cả 34 OGG là Vorbis 48 kHz, 2 kênh; độ dài khớp `durationMs` tới mili giây (phím 90–450 ms, phím cách 331–535 ms); `preview.ogg` 1,000 giây. Cả bộ 322.790 byte. Số đo đuôi và tiếng chính đến muộn ở trên đo lại đúng từng số (`key-06` mẫu cuối −82,8 dBFS, 10 ms cuối −40,6; `space-03` 1 ms cuối −66,4, 10 ms cuối −35,1; `preview.ogg` mẫu cuối −51,2, 1 ms cuối −44,8; tiếng to đến sau `key-20` 35 ms … `key-25` 205 ms, `space-06` 245 ms).
+- Danh mục và mã: 34 mục, `order` 0–33 liền nhau; `loadKeyboardCatalog` chỉ giữ `score` khi là số hữu hạn nên `score: null` không chặn bộ; `note` không vào giao diện; bộ đủ ngưỡng "ready" của kit (ít nhất 10 phím, 3 phím cách). Mặc định vẫn `bright-clack`.
+- Giọng, kiểm chéo bằng một mô hình gõ khác (6 giọng, lấy giọng cũ nhất như `VoicePool`, mức đường bao RMS 10 ms so với đỉnh của chính mẫu, khoảng 24.000 phím mỗi tốc độ): Hail Stone 80 và 100 WPM không cắt; 120 WPM 2 lần (0,1 trên 1.000 phím, giọng bị cắt đã 376 ms tuổi trở lên, dưới đỉnh của nó 35 dB); 150 WPM 38 lần (1,6); 180 WPM 376 lần (15,7), từ 150 WPM có lần cắt đúng tiếng to đến muộn (−1,2 dB và 0 dB so với đỉnh). Cùng kết luận với mục Giọng ở trên: không cần tăng `keyVoices` cho người gõ tới khoảng 120 WPM.
+
+### Mới thấy khi rà soát: phím Hail Stone nhỏ hơn mọi bộ khác khoảng 13 dB
+
+Các bộ Firefly khác được khớp độ to (kit không chỉnh mức từng bộ hay từng mẫu: mức phát chỉ là `TYPING_SOUND_MAP` nhân âm lượng Keyboard, manifest của bộ không có trường gain). Đo RMS 20 ms to nhất của từng mẫu phím (lấy khoảng 10 phím mỗi bộ):
+
+- 32 bộ cũ: trung vị mỗi bộ từ −28,4 đến −27,1 dBFS (trung vị chung −27,8); Raindrop Tile −24,9.
+- Hail Stone: trung vị −40 đến −42 dBFS, tức nhỏ hơn bộ nhỏ nhất khoảng 12–14 dB. Trong bộ, các phím chênh nhau 30 dB (−51,7 đến −21,8; Solid Amber chênh 2 dB): `key-17` −51,7, `key-18` −50,5, `key-03` −50,2, `key-24` −48,5 gần như không nghe thấy khi game đang có nhạc và hiệu ứng.
+- Phím cách Hail Stone (trung vị −31) to hơn phím của chính nó khoảng 9 dB; ở các bộ khác phím và phím cách gần bằng nhau.
+- Bản nghe thử lại to như các bộ khác (−30,7 LUFS; Raindrop Tile −28,3, Solid Amber −31,3; RMS 20 ms to nhất −17,6 dBFS), nên rê chuột nghe thử thấy to, gõ thật thì nhỏ hơn nhiều.
+
+Không sửa trong game: media lấy nguyên từ staging, và bù mức ở game cần sửa kit (thêm gain theo bộ) ở repo cha. Chủ dự án cần nghe trong game và quyết: giữ như bản chọn, nâng mức phím trong staging (chuẩn hoá tới khoảng −28 dBFS như các bộ khác, hoặc nén chênh lệch giữa các phím) rồi chép lại, hay để kit đọc gain theo bộ.
+
+- Commit này chỉ thêm mục rà soát vào changelog. `pnpm check` sau rà soát: kit 95/95 file, 58 file test, 520 test, TypeScript và Vite build đạt. Không chạy lại trình duyệt: mã game, kit, danh mục và media không đổi so với lần kiểm trình duyệt ở trên.
