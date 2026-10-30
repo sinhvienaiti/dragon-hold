@@ -16,7 +16,8 @@
     "dh:golden:update": "tsx scripts/balance/golden.ts --update",
     "visual": "node scripts/visual/cdp-run.mjs",
     "prepare-ground": "node scripts/assets/prepare-ground.mjs",
-    "prepare-decals": "node scripts/assets/prepare-decals.mjs"
+    "prepare-decals": "node scripts/assets/prepare-decals.mjs",
+    "prepare-ui-art": "node scripts/ui-art/prepare.mjs"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "^5.3.0",

@@ -15,6 +15,7 @@ class ElementStub {
   disabled = false;
   href = "";
   target = "";
+  ariaLabel = "";
   dataset: Record<string, string> = {};
   children: ElementStub[] = [];
   private listeners = new Map<string, ((event: unknown) => void)[]>();
@@ -52,8 +53,45 @@ class DocumentStub {
   }
 }
 
-const assigned = (word: number, text: string): SimEvent => ({
+const assigned = (word: number, text: string): Extract<SimEvent, { type: "word-assigned" }> => ({
   tick: word, type: "word-assigned", word, text, kind: "enemy", group: "known", target: null, firstTier: 1,
+});
+
+describe("results UI art (194)", () => {
+  it("shows earned/unearned star images, five stat images and retry at their accepted sizes", () => {
+    const f = fixture();
+    f.results.onEvents([{ tick: 0, type: "victory", stars: 2 }], f.world);
+    f.key("Escape");
+    const stars = f.node("dh-stars").children;
+    expect(stars.map((node) => node.innerHTML.match(/star-(lit|unlit)/)?.[0])).toEqual(["star-lit", "star-lit", "star-unlit"]);
+    for (const node of stars) expect(node.innerHTML).toContain('width="46" height="46"');
+    const tiles = f.node("dh-tiles").children;
+    for (const [index, name] of ["gold", "gold", "stat-accuracy", "stat-new-words", "stat-words-seen"].entries()) {
+      expect(tiles[index]!.innerHTML).toContain(name + ".64.webp");
+      expect(tiles[index]!.innerHTML).toContain('width="25" height="25"');
+    }
+    expect(f.node("dh-retry").innerHTML).toContain("retry.64.webp");
+    expect(f.node("dh-retry").innerHTML).toContain('width="25"');
+  });
+
+  it("maps all five word statuses and labels listening without changing the visible text", () => {
+    const f = fixture();
+    const words = ["learned", "fresh", "review", "good", "miss"];
+    const events: SimEvent[] = words.map((text, word) => ({ ...assigned(word, text), type: "word-assigned", group: word < 2 ? "new" : "known" }));
+    for (const word of [0, 3, 4]) events.push({ tick: word, type: "word-complete", word, text: words[word]!, kind: "enemy", errors: word === 4 ? 1 : 0, grade: "good", hintUsed: false, keyTicks: 30, responseMs: 500, target: null, activity: "typing-enemy", scored: true });
+    events.push({ tick: 10, type: "defeat", wave: 10 });
+    f.results.onEvents(events, f.world);
+    const rows = f.node("dh-book__list").children;
+    for (const [status, name] of Object.entries({ new: "status-learned", fresh: "status-new", review: "status-review", good: "check", miss: null })) {
+      const badge = rows.flatMap((row) => row.children).find((child) => child.classList.contains("is-" + status))!;
+      if (name) { expect(badge.innerHTML).toContain(name + ".64.webp"); expect(badge.innerHTML).toContain('width="25"'); }
+      else expect(badge.innerHTML).toBe("");
+    }
+    for (const listen of rows.flatMap((row) => row.children).filter((child) => child.classList.contains("dh-listen"))) {
+      expect(listen.innerHTML).toContain("speaker.64.webp");
+      expect(listen.ariaLabel).toBe("Listen: " + rows.find((row) => row.children.includes(listen))!.children[0]!.textContent);
+    }
+  });
 });
 
 function fixture() {

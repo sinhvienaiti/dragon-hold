@@ -528,13 +528,13 @@ export function createPlacementUi(root: HTMLElement, project: Projector, sink: C
       const cost = upgradeCost(slot.item, slot.level);
       const short = cost !== null && cost > w.economy.gold ? cost - w.economy.gold : 0;
       const up = uiButton(doc, cost === null || short > 0 ? "is-poor" + (short > 0 ? " is-short" : "") : "", () => pressEdit("upgrade", menuSlot, true));
-      up.innerHTML = `<span class="dh-key">=</span>`;
+      up.innerHTML = `<span class="dh-key">=</span><span class="dh-icon">${icon("upgrade")}</span>`;
       // Short of gold: the whole row dims and says by how much, like the carry strip (test pass 27/10).
       const upLabel = menuArmed?.action === "upgrade" ? "Press again to upgrade" : cost === null ? "Max level" : "Upgrade " + (slot.level + 1) + (short > 0 ? " · need " + short + " Gold" : "");
       up.append(el(doc, "span", "", upLabel), el(doc, "span", "", cost === null ? "" : String(cost)));
       if (cost === null) up.disabled = true;
       const sell = uiButton(doc, "", () => pressEdit("sell", menuSlot, true));
-      sell.innerHTML = `<span class="dh-key">-</span>`;
+      sell.innerHTML = `<span class="dh-key">-</span><span class="dh-icon">${icon("sell")}</span>`;
       sell.append(el(doc, "span", "", menuArmed?.action === "sell" ? "Press again to sell" : "Sell"), el(doc, "span", "", "+" + sellRefund(w, menuSlot)));
       children.push(up, sell);
     }

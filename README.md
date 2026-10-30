@@ -38,3 +38,7 @@ kiểm tra lại. `src/kit/**` và manifest giữ nguyên byte.
 Hai lệnh đóng gói chỉ build và kiểm file tại máy, chưa tải media hay đưa gói
 lên máy chủ. Vite chép bản từ vựng đã ghim trong `public/vocabulary/` vào
 `dist/vocabulary/`, gồm index, manifest, 100 level và `ATTRIBUTION.md`.
+
+### Ảnh icon UI
+
+Chạy `pnpm prepare-ui-art --art-src ../dragon-hold/art-src` trong worktree để đóng gói bảng chọn `src/ui/ui-art.json` thành WebP 64/128/256 và manifest trong `public/assets/dragon-hold/ui/icons/`. Dùng thêm `--check` để kiểm nguồn, MD5 và byte mà không ghi file; `--out <dir>` đổi thư mục xuất. Đặt `ART_MAGICK=/opt/homebrew/bin/magick` trên Mac. Script chỉ thu nhỏ khi thiếu cỡ, không phóng to; ảnh dưới 35 dB PSNR được xuất lossless. Khi nhận icon thay thế, cập nhật `source` và `interim` trong bảng rồi chạy lại lệnh.

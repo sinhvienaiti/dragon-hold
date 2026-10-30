@@ -14,6 +14,7 @@ import { DIFFICULTY, LEARNING } from "../content/rules";
 import type { Difficulty, SimCommand, SimEvent } from "../content/types";
 import { LEARNING_FRAME_CLASSES, SEMANTIC_COLORS, installKitStyles } from "../kit/ui";
 import type { World } from "../sim/world";
+import { icon } from "./skin";
 import { chooseSpot, keepoutRects, zonesFor, type Rect } from "./screen-zones";
 
 /** Meaning and IPA for a word, from the loaded vocabulary. */
@@ -61,14 +62,14 @@ export interface FrameView {
   readonly ipa: string;
   readonly meaning: string;
   readonly level: WordLevel;
-  /** A typed word's "từ · nghĩa ✓" card. */
+  /** A typed word's "word · meaning · correct" card. */
   readonly done: boolean;
 }
 
 /**
  * What the frame shows (01 §6.3): the locked word (IPA unless known; meaning
  * for new and not-yet-remembered words, or after 3 wrong keys), and after a
- * word is typed its "word · meaning ✓" card: 2.5 s pinned for new and weak
+ * word is typed its "word · meaning correct" card: 2.5 s pinned for new and weak
  * words (nothing replaces it meanwhile), 0.8 s for others. Known words never
  * enter. Easy shows every meaning; Hard only a new word's.
  */
@@ -96,7 +97,7 @@ export class FrameQueue {
     if (text === undefined || this.locked?.word.text === text) this.locked = null;
   }
 
-  /** A wave ended: the "word · meaning ✓" card goes, so a Thẻ Ôn question never finds its answer pinned here. */
+  /** A wave ended: the "word · meaning correct" card goes, so a Thẻ Ôn question never finds its answer pinned here. */
   clearCard(): void {
     this.card = null;
   }
@@ -178,7 +179,21 @@ const CSS = `
 .dh-lpanel__keys { font-size: max(12px, calc(13px * var(--ui))); color: #B9AE95; }
 `;
 
-const SPEAKER = '<svg class="dh-learn__speaker" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
+/** Shared markup keeps completion and listening testable without a DOM. */
+export function speakerMarkup(): string {
+  return '<span class="dh-learn__speaker">' + icon("speaker", { box: 18 }) + '</span>';
+}
+
+export function learningWordMarkup(view: Pick<FrameView, "text" | "typed" | "done" | "level">): string {
+  return '<span class="' + LEARNING_FRAME_CLASSES.typed + '">' + escapeHtml(view.text.slice(0, view.typed)) + '</span>' + escapeHtml(view.text.slice(view.typed)) +
+    (view.done ? ' <span class="dh-learn__check">' + icon("check", { box: 18 }) + '</span>' : '') +
+    (view.level === "new" ? ' <span class="dh-learn__badge">' + icon("new-word") + ' NEW</span>' : '');
+}
+
+export function reviewMeaningMarkup(mode: ReviewQuestion["mode"], meaning: string): string {
+  return mode === "meaning" ? escapeHtml(meaning) : icon("speaker", { box: 22 });
+}
+
 
 function installStyles(doc: Document): void {
   installKitStyles(doc as unknown as Parameters<typeof installKitStyles>[0]);
@@ -217,7 +232,7 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
   el.setAttribute("role", "status");
   el.setAttribute("aria-live", "polite");
   el.innerHTML =
-    '<div class="dh-learn__top"><i class="dh-learn__dot"></i><span class="' + c.word + '"></span>' + (options.speak ? SPEAKER : "") + "</div>" +
+    '<div class="dh-learn__top"><i class="dh-learn__dot"></i><span class="' + c.word + '"></span>' + (options.speak ? speakerMarkup() : "") + "</div>" +
     '<div class="' + c.ipa + '"></div><div class="' + c.meaning + '"></div><div class="' + c.recent + '"></div>';
   root.append(el);
   const word = el.querySelector<HTMLElement>("." + c.word)!;
@@ -319,11 +334,7 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
           ipa.textContent = meaning.textContent = "";
           dot.className = "dh-learn__dot";
         } else {
-          const typed = escapeHtml(view.text.slice(0, view.typed));
-          const rest = escapeHtml(view.text.slice(view.typed));
-          word.innerHTML =
-            '<span class="' + c.typed + '">' + typed + "</span>" + rest + (view.done ? ' <span class="dh-learn__check">✓</span>' : "") +
-            (view.level === "new" ? ' <span class="dh-learn__badge">NEW</span>' : "");
+          word.innerHTML = learningWordMarkup(view);
           ipa.textContent = view.ipa;
           meaning.textContent = view.meaning;
           dot.className = "dh-learn__dot is-" + view.level;
@@ -615,7 +626,7 @@ export function createReviewCard(root: HTMLElement, hooks: PanelHooks): Learning
     box.step.textContent = (item.mode === "listen" ? "Listen and type" : "Read the meaning, type the word") + " · " + (index + 1) + " / " + items.length;
     box.word.textContent = "";
     box.ipa.textContent = "";
-    box.mean.textContent = item.mode === "meaning" ? item.vi : "🔊";
+    box.mean.innerHTML = reviewMeaningMarkup(item.mode, item.vi);
     box.answer.innerHTML = blanks(typed, item.text.length);
     box.result.textContent = "";
     box.result.className = "dh-lpanel__result";

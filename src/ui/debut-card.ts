@@ -113,7 +113,7 @@ export function createDebutCard(root: HTMLElement): Presenter {
     if (!lines || !def) return;
     showing = foe;
     until = now + DEBUT_MS;
-    mark.innerHTML = general ? icon("crown") : foeIcon(def.gait, def.show.placeholder.color);
+    mark.innerHTML = general ? icon("crown", { box: 28 }) : foeIcon(def.family, { box: 28 });
     setText(kicker, general ? "New general" : "New foe");
     setText(name, def.nameVi);
     setText(does, lines.does);
