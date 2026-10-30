@@ -1527,14 +1527,17 @@ export class FxCore {
     // fade with the cell's square edge at f079): the organic rolling parts of two cuts only, impact-big v3 frames
     // 15–23 for a strong word (before its square artefact) and impact-burst v2 frames 9–23 for a plain one, each
     // cooling through deep red to charcoal and eroding from half its life (flipbook `cool`), never a see-through veil.
-    const book = strong ? this.flip.pick("impact-big", "impact-burst", "fire-burst") : this.flip.pick("impact-burst", "fire-burst", "impact-big");
+    // Round 10 final check: impact-big's late frames keep its spiky rim (the round-9 "sticker star" at f011–f014 was
+    // still there from frame 20); both grades take impact-burst v2's organic rolling ball, the strong one bigger.
+    const book = this.flip.pick("impact-burst", "fire-burst", "impact-big");
     if (book !== null) {
       const big2 = book.id === "impact-big";
       const fill = FLIP_FILL[book.id];
       // Round 10 (judges: frames 16–18 of impact-big read as a hard 2D starburst, f060–f063): from frame 19, its round
       // rolling ball, slower, so it holds about 0.45 s and dies into the smoke (flipbook `cool`).
-      const clip = big2 ? { frame: 20, until: 23, rate: 0.75 } : { frame: 10, until: 23, rate: 2.2 };
-      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (big2 ? 1.05 : 0.95), { ...clip, rot: this.rand(-0.3, 0.3), grow: 0.3, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.9, cool: 0.3, fadeOut: 0.05 });
+      // Up to frame 19–20 only: from there the clip opens into a hollow ring, which cooled as a dark ring round the smoke.
+      const clip = big2 ? { frame: 20, until: 23, rate: 0.75 } : strong ? { frame: 11, until: 19, rate: 1.8 } : { frame: 10, until: 20, rate: 2.0 };
+      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill * (big2 ? 1.05 : strong ? 1.0 : 0.95), { ...clip, rot: this.rand(-0.3, 0.3), grow: 0.3, intensity: strong ? 1.15 : 1.05, occlude: 0.85, ground, vy: 0.9, cool: 0.3, fadeOut: 0.05 });
       book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.5, { ...clip, rate: clip.rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.6, delay: 2 / 60, cool: 0.3, fadeOut: 0.05 });
     } else {
       // Code-drawn: one main mass that swells (0.7 → 1.15 of it over its life), two smaller ones to either side on
@@ -1600,7 +1603,8 @@ export class FxCore {
     // Firefly smoke-mask v1 (a billowing cloud, 32 frames at 8 fps, its density fading over the last ten): played at
     // ×2.6, so it rolls through most of its life in ~1.1 s and thins out on its own.
     const mask = roll?.id === "smoke-mask";
-    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + 0.6 * s, hit.z), mass * (mask ? 0.62 : 0.58), { rate: 2.6, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground: this.heightOf(hit.x, hit.z), vx: ux * 0.9, vy: 3.4 * rk, vz: uz * 0.9, grow: 1.3, life: mask ? 1.1 : 1.0, delay: (mask ? 10 : 14) / 60, fadeIn: 0.1, cool: mask ? 0.6 : 0.4, fadeOut: 0.15 });
+    // With the mask: as big as the fireball, round its middle, so the dying fire goes into it.
+    if (roll !== null) roll.spawn(this.v.set(hit.x, hit.y + (mask ? 0.35 : 0.6) * s, hit.z), mass * (mask ? 1.7 : 0.58), { rate: 2.6, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground: this.heightOf(hit.x, hit.z), vx: ux * 0.9, vy: 3.4 * rk, vz: uz * 0.9, grow: mask ? 0.35 : 1.3, life: mask ? 1.1 : 1.0, delay: (mask ? 8 : 14) / 60, fadeIn: 0.1, cool: mask ? 0.6 : 0.4, fadeOut: 0.15 });
     // Code puffs only while no smoke clip is in (see-through grey discs over grass read olive).
     if (roll === null) {
       for (let k = 0; k < 3; k += 1) {

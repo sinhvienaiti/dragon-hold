@@ -323,14 +323,16 @@ void main() {
   if (cool > 0.0) {
     // Round 10 (both judges: the fire died as flat hard-edged red cut-outs and rust lace): it darkens through deep red,
     // hot embers outlive it in its densest parts, and it fades softly into the smoke behind it (never an opaque rim).
-    // Its light goes first (deep red by 0.35, near none by 0.7) while its body stays: the ground under it darkens to
-    // a smoky char (no salmon veil of dim red light over green), then the noise eats it from its thin parts.
-    rgb = mix(rgb, vec3(0.62, 0.09, 0.02) * (0.3 + lum), smoothstep(0.0, 0.35, cool));
-    rgb *= 1.0 - smoothstep(0.2, 0.7, cool);
-    float ember = smoothstep(0.7, 0.88, n) * smoothstep(0.25, 0.6, lum) * (1.0 - smoothstep(0.5, 0.9, cool));
-    rgb += vec3(1.5, 0.5, 0.08) * ember;
-    // Thin parts first (a late frame's lace of filaments goes before its dense heart).
-    body *= 1.0 - smoothstep(0.35, 1.0, cool + (n - 0.5) * 0.3 + (0.5 - min(lum, 1.0)) * 0.5);
+    // Final check (a flat orange then olive veil at f030–f036; flat red cut-outs while the saturated red channel
+    // kept every flame "dense"; a dark cut-out when the body outlived the light): it reddens, its thin parts (by
+    // luma) go first, and its light and its body go together by 0.75, inside the density smoke drawn over it.
+    float luma = dot(t.rgb, vec3(0.3, 0.59, 0.11));
+    rgb *= mix(vec3(1.0), vec3(0.85, 0.3, 0.12), smoothstep(0.0, 0.3, cool));
+    float keep = cool * 0.45;
+    float left = smoothstep(keep, keep + 0.12, luma + (n - 0.5) * 0.16) * (1.0 - smoothstep(0.2, 0.75, cool));
+    float ember = smoothstep(0.7, 0.88, n) * smoothstep(0.25, 0.6, luma) * (1.0 - smoothstep(0.5, 0.85, cool));
+    rgb = (rgb + vec3(1.5, 0.5, 0.08) * ember) * left;
+    body *= left;
   }
   // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude. The
   // curve is steep (final check on light ground: the burst's dim flames stayed see-through and pale): a dim red flame
@@ -623,8 +625,10 @@ export class FlipbookSet {
     // Draw order: smoke behind fire (5.2), the bodies with the puffs (5), heads and flashes over them (5.8).
     const order: Record<FlipbookId, number> = {
       "smoke-roll": 4.9,
-      "smoke-mask": 4.9,
-      "smoke-column": 4.9,
+      // Round 10 final check: the density smoke over the impact clips (5.3), so a dying fire goes into the smoke
+      // instead of showing as a dim red veil under it.
+      "smoke-mask": 5.35,
+      "smoke-column": 5.35,
       "ground-fire": 4.95,
       "impact-burst": 5.3,
       "impact-big": 5.3,
