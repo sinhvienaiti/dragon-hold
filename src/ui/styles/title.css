@@ -45,13 +45,21 @@
   line-height: 1.4;
 }
 .dh-title__emblem { width: 44px; height: 44px; object-fit: contain; float: right; }
+/* Icon and label share one row, so Retry (icon + label) is as tall as Start. Top alignment: an
+   inline-flex baseline comes from its first item (Retry's icon, Start's text) and would shift Retry. */
 .dh-title__menu .dh-btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  vertical-align: top;
   min-height: 44px;
   padding: 10px 24px;
   font-size: clamp(15px, 1.2vw, 22px);
   text-decoration: none;
 }
+/* The icon follows the label size, never taller than its 1.15 line (dh.css .dh-btn font). */
+.dh-title__menu .dh-btn > img.dh-art { width: 1em; height: 1em; }
 .dh-title__menu .dh-btn.is-focused {
   outline: 3px solid #fff3ce;
   outline-offset: 2px;
