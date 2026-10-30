@@ -44,9 +44,9 @@ export const QUICK_SETTINGS_CSS = `
 .kit-qs__head{display:flex;align-items:center;justify-content:space-between;gap:${s(12)};margin-bottom:${s(6)}}
 .kit-qs__title{margin:0;font-size:${s(21)};font-weight:800}
 .kit-qs__heading{margin:${s(14)} 0 ${s(4)};font-size:${s(13)};font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--kit-qs-muted)}
-.kit-qs__row{display:grid;grid-template-columns:${s(24)} minmax(7.5em,auto) minmax(0,1fr);align-items:center;gap:${s(10)};min-height:${s(36)};padding:${s(3)} 0}
+.kit-qs__row{display:grid;grid-template-columns:${s(24)} 9.5em minmax(0,1fr);align-items:center;gap:${s(10)};min-height:${s(36)};padding:${s(3)} 0}
 .kit-qs__icon{display:block;width:${s(24)};height:${s(24)};object-fit:contain}
-.kit-qs__label{font-weight:600}
+.kit-qs__label{font-weight:600;overflow-wrap:anywhere}
 .kit-qs__control{display:flex;flex-wrap:wrap;align-items:center;gap:${s(8)};min-width:0}
 .kit-qs__range{flex:1 1 8em;min-width:6em;height:${s(24)};margin:0;accent-color:var(--kit-qs-accent)}
 .kit-qs__range:focus-visible{${ring}}

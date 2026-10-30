@@ -31,6 +31,7 @@ import { defaultSettingsRows, defaultSoundRows, type QuickDefaultsOptions } from
 import {
   QUICK_PANELS,
   type QuickButtonRow,
+  type QuickChoiceOption,
   type QuickChoiceRow,
   type QuickIconName,
   type QuickIcons,
@@ -60,7 +61,7 @@ export type QuickSettingsOptions = QuickDefaultsOptions & {
   /** Gameplay sound player: catalogue selection loads samples into this same instance. */
   readonly keyboardSounds?: TypingSounds;
   /** Game-owned choice without a catalogue manifest (e.g. Relay). Apply it here. */
-  readonly onKeyboardUse?: (choice: import("./types").QuickChoiceOption) => void;
+  readonly onKeyboardUse?: (choice: QuickChoiceOption) => void;
   /** A panel opened from play: freeze the game. */
   readonly onPause?: () => void;
   /** The countdown after closing ended: unfreeze. */
@@ -113,7 +114,8 @@ export class QuickSettings {
   private readonly doc: Document;
   private readonly view: Window;
   private readonly uid: string;
-  private readonly rows: Readonly<Record<QuickPanel, readonly QuickRow[]>>;
+  /** setChoiceOptions() replaces a choice row here. */
+  private readonly rows: Record<QuickPanel, QuickRow[]>;
   private readonly corners: Readonly<Record<QuickPanel, HTMLButtonElement>>;
   private readonly panels: Readonly<Record<QuickPanel, Panel>>;
   private readonly count: HTMLElement;
@@ -122,6 +124,8 @@ export class QuickSettings {
   private readonly previews: KeyedThrottle;
   private readonly keyboardPreview: KeyboardSoundPreview;
   private readonly keyboardChoices: KeyboardSoundChoices[] = [];
+  /** Each choice row's line and the function that rebuilds its control from new options. */
+  private readonly choiceRows = new Map<string, { readonly line: HTMLElement; readonly fill: (row: QuickChoiceRow) => void }>();
   private readonly resizeObserver: ResizeObserver | null;
   private icons: QuickIcons;
   private values: Record<string, QuickValue> = {};
@@ -136,7 +140,7 @@ export class QuickSettings {
     const host = options.host ?? this.doc.body;
     this.uid = `kit-qs-${++instances}`;
     this.icons = { ...options.icons };
-    this.rows = { settings: options.settingsRows ?? defaultSettingsRows(options), sound: options.soundRows ?? defaultSoundRows(options) };
+    this.rows = { settings: [...(options.settingsRows ?? defaultSettingsRows(options))], sound: [...(options.soundRows ?? defaultSoundRows(options))] };
     this.previews = createKeyedThrottle((group) => this.options.onPreview?.(group), QUICK_PREVIEW_THROTTLE_MS);
     this.keyboardPreview = new KeyboardSoundPreview({
       sounds: options.keyboardSounds,
@@ -219,6 +223,36 @@ export class QuickSettings {
   /** Reads getValues() again (e.g. after the game changed a value elsewhere). */
   refresh(): void {
     if (!this.destroyed) this.readValues();
+  }
+
+  /**
+   * Replaces the options of choice row `id` and redraws it in place, open or
+   * not: the keyboard sets once the Typing Feel catalogue arrives, after a panel
+   * built at once with pendingKeyboardChoices() (TYPING_FEEL_SERVICE.md §5.1).
+   * Values are then read again as on open(), so a saved keyboard id the new
+   * options lack is repaired through onChange, as at construction: pass
+   * settleKeyboardChoice(...).options, which always list it. False: no such row.
+   */
+  setChoiceOptions(id: string, options: readonly QuickChoiceOption[]): boolean {
+    const entry = this.choiceRows.get(id);
+    if (this.destroyed || entry === undefined) return false;
+    const doc = this.doc;
+    const focused = doc.activeElement !== null && entry.line.contains(doc.activeElement);
+    for (const kind of QUICK_PANELS) {
+      const at = this.rows[kind].findIndex((row) => row.kind === "choice" && row.id === id);
+      if (at < 0) continue;
+      const row: QuickChoiceRow = { ...(this.rows[kind][at] as QuickChoiceRow), options };
+      this.rows[kind][at] = row;
+      entry.fill(row);
+      break;
+    }
+    this.readValues();
+    // Keep keyboard focus in the row the player was moving through (the old control is gone).
+    if (focused) {
+      const line = entry.line;
+      (line.querySelector<HTMLElement>('[role="option"][tabindex="0"]') ?? line.querySelector<HTMLElement>("input:checked") ?? line.querySelector<HTMLElement>("input:not(:disabled)"))?.focus({ preventScroll: true });
+    }
+    return true;
   }
 
   /** Adds or replaces icon URLs (an undefined URL removes one: the button turns back to text). */
@@ -540,52 +574,67 @@ export class QuickSettings {
 
   private renderChoice(row: QuickChoiceRow, panel: Panel): HTMLElement {
     const { line, label, control } = this.shell(row, "span");
-    if (row.id === "keyboard") {
-      line.classList.add("kit-qs__row--keyboards");
-      const picker = new KeyboardSoundChoices({
-        document: this.doc, options: row.options, label: row.label,
-        listenIcon: this.iconUrl("hud-sound") ?? undefined,
-        onPreview: (choice, delay) => { if (this.current === "sound") this.keyboardPreview.preview(choice, delay); },
-        onStop: () => this.keyboardPreview.stop(),
-        onSelect: (choice) => {
-          this.change(row.id, choice.value);
-          this.keyboardPreview.select(choice);
-          // Legacy game-owned sounds have no preview URL and keep their existing callback.
-          if (!choice.preview && choice.value !== "off" && row.preview) this.previews.call(row.preview);
-        },
-      });
-      this.keyboardChoices.push(picker);
-      control.append(picker.element);
-      panel.syncers.push(() => picker.sync(String(this.values[row.id])));
-      return line;
-    }
-    const group = this.el("div", "kit-qs__opts");
-    group.setAttribute("role", "radiogroup");
-    group.setAttribute("aria-labelledby", label.id);
-    const inputs: HTMLInputElement[] = [];
-    for (const option of row.options) {
-      const wrap = this.el("label", "kit-qs__opt");
-      const input = this.el("input", "kit-qs__radio");
-      input.type = "radio";
-      input.name = `${this.uid}-${row.id}`;
-      input.value = option.value;
-      input.disabled = option.disabled === true;
-      const chip = this.el("span", "kit-qs__chip", option.label);
-      const note = option.note ?? (option.disabled === true ? TEXT.pending : undefined);
-      if (note !== undefined) chip.append(" ", this.el("small", "kit-qs__note", note));
-      input.addEventListener("change", () => {
-        if (!input.checked) return;
-        this.change(row.id, option.value);
-        if (row.preview !== undefined) this.previews.call(row.preview);
-      });
-      wrap.append(input, chip);
-      group.append(wrap);
-      inputs.push(input);
-    }
-    control.append(group);
-    panel.syncers.push(() => {
-      for (const input of inputs) input.checked = input.value === this.values[row.id];
-    });
+    if (row.id === "keyboard") line.classList.add("kit-qs__row--keyboards");
+    let picker: KeyboardSoundChoices | null = null;
+    let sync = (): void => {};
+    // Builds the control from `current`'s options; setChoiceOptions() runs it again with new ones.
+    const fill = (current: QuickChoiceRow): void => {
+      if (picker !== null) {
+        this.keyboardChoices.splice(this.keyboardChoices.indexOf(picker), 1);
+        picker.destroy();
+        picker = null;
+      }
+      control.replaceChildren();
+      if (current.id === "keyboard") {
+        const made = new KeyboardSoundChoices({
+          document: this.doc, options: current.options, label: current.label,
+          listenIcon: this.iconUrl("hud-sound") ?? undefined,
+          onPreview: (choice, delay) => { if (this.current === "sound") this.keyboardPreview.preview(choice, delay); },
+          onStop: () => this.keyboardPreview.stop(),
+          onSelect: (choice) => {
+            this.change(current.id, choice.value);
+            this.keyboardPreview.select(choice);
+            // Legacy game-owned sounds have no preview URL and keep their existing callback.
+            if (!choice.preview && choice.value !== "off" && current.preview) this.previews.call(current.preview);
+          },
+        });
+        picker = made;
+        this.keyboardChoices.push(made);
+        control.append(made.element);
+        sync = () => made.sync(String(this.values[current.id]));
+        return;
+      }
+      const group = this.el("div", "kit-qs__opts");
+      group.setAttribute("role", "radiogroup");
+      group.setAttribute("aria-labelledby", label.id);
+      const inputs: HTMLInputElement[] = [];
+      for (const option of current.options) {
+        const wrap = this.el("label", "kit-qs__opt");
+        const input = this.el("input", "kit-qs__radio");
+        input.type = "radio";
+        input.name = `${this.uid}-${current.id}`;
+        input.value = option.value;
+        input.disabled = option.disabled === true;
+        const chip = this.el("span", "kit-qs__chip", option.label);
+        const note = option.note ?? (option.disabled === true ? TEXT.pending : undefined);
+        if (note !== undefined) chip.append(" ", this.el("small", "kit-qs__note", note));
+        input.addEventListener("change", () => {
+          if (!input.checked) return;
+          this.change(current.id, option.value);
+          if (current.preview !== undefined) this.previews.call(current.preview);
+        });
+        wrap.append(input, chip);
+        group.append(wrap);
+        inputs.push(input);
+      }
+      control.append(group);
+      sync = () => {
+        for (const input of inputs) input.checked = input.value === this.values[current.id];
+      };
+    };
+    fill(row);
+    panel.syncers.push(() => sync());
+    this.choiceRows.set(row.id, { line, fill });
     return line;
   }
 

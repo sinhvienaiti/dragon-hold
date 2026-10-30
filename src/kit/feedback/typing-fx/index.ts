@@ -11,8 +11,10 @@ export { DEFAULT_PALETTE, FxCanvas, mixHex, toneColors, type TypingFxAtlas, type
 export { injectTypingFxCss, TYPING_FX_CSS } from "./css";
 export { FocusStrip, type FocusStripOptions } from "./strip";
 export {
-  KEYBOARD_DECODE_BATCH_SIZE, KEYBOARD_PROFILES, keyboardFiles, profileGaps, TYPING_SOUND_EVENTS, TYPING_SOUND_MAP, TYPING_SOUND_SET, TYPING_SOUND_SETS, TypingSounds, VariantPicker, VoicePool,
+  KEYBOARD_DECODE_BATCH_SIZE, KEYBOARD_FIRST_BATCH_SPACES, KEYBOARD_PROFILES, keyboardFiles, profileGaps, TYPING_SOUND_EVENTS, TYPING_SOUND_MAP, TYPING_SOUND_SET, TYPING_SOUND_SETS, TypingSounds, VariantPicker, VoicePool,
   type KeyboardLoad, type SoundStandIn, type TypingSoundEvent, type TypingSoundProfile, type TypingSoundSet, type TypingSoundsOptions,
 } from "./audio";
 
 export { loadKeyboardCatalog, KeyboardSoundPreview, keyboardPreviewGain, KEYBOARD_PREVIEW_DELAY_MS, KEYBOARD_PREVIEW_SECONDS, KEYBOARD_PREVIEW_FADE_SECONDS, type KeyboardCatalog, type KeyboardSoundChoice, type KeyboardPreviewLevels } from "./audio";
+// Typing Feel data step (TYPING_FEEL_SERVICE.md §4.6): timed catalogue fetch, saved-choice rule, keys base from the build's origin.
+export { KEYBOARD_CATALOG_TIMEOUT_MS, pendingKeyboardChoices, settleKeyboardChoice, timedJson, typingFeelKeysBase, type KeyboardSettlement } from "./audio";

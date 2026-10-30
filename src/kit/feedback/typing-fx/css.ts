@@ -15,7 +15,7 @@ export const TYPING_FX_CSS = `
 .tfx-rim.is-gold{border-color:#fff3cf;box-shadow:0 0 calc(var(--tfx-size)*.6) var(--tfx-gold),inset 0 0 calc(var(--tfx-size)*.3) var(--tfx-gold)}
 .tfx-warn{border:2px solid var(--tfx-warn);box-shadow:0 0 calc(var(--tfx-size)*.3) var(--tfx-warn)}
 .tfx-flash{inset:0;background:radial-gradient(ellipse at 50% 40%,var(--tfx-hot),rgba(255,255,255,0) 72%)}
-.tfx-layer{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;white-space:nowrap;visibility:hidden;transform-origin:50% 40%}
+.tfx-layer{position:absolute;left:0;top:0;width:max-content;display:flex;flex-direction:column;align-items:center;white-space:nowrap;visibility:hidden;transform-origin:50% 40%}
 .tfx-layer.is-on{visibility:visible}
 .tfx-row{position:relative;font-size:var(--tfx-size);font-weight:var(--tfx-weight,800);line-height:1.2;letter-spacing:.02em;padding:.02em .34em 0}
 .tfx-g{position:relative;display:inline-block}
