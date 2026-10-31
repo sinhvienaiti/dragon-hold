@@ -522,16 +522,14 @@
 }
 
 /*
- * Keyboard sound rows are 162 plates too (quick.ts QUICK_SKIN.listRow, the chosen row on the button-active art), drawn
- * at 30/433 of the art's size; quick.ts LIST_ROW_VARS pulls the art's transparent margins outside each row, so 2 px of
- * air stays between plates. The chosen row is lit with an ember glow like an active button.
+ * Keyboard sound rows are the 245 list-row plates (quick.ts QUICK_SKIN.listRow), the chosen row the 245 active plate
+ * (ember rim, lit gem) with gold lettering, both drawn as painted: no filter stands in for the active art. The plate is
+ * 30 px tall in the 34 px row at one scale (30/256, quick.ts LIST_ROW_VARS), so 2 px of air stays above and below.
  */
-.dh-quick.kit-qs.kit-qs--skin-list .kit-keyboards button.kit-keyboards__option[aria-selected="true"] {
-  --kit-qs-glow-filter: brightness(1.15) saturate(1.2) drop-shadow(0 0 1px var(--kit-qs-glow))
-    drop-shadow(0 0 1px var(--kit-qs-glow)) drop-shadow(0 0 4px var(--kit-qs-glow));
-}
-.dh-quick.kit-qs.kit-qs--skin-list .kit-keyboards button.kit-keyboards__option[aria-selected="true"]::before {
-  filter: brightness(1.15) saturate(1.2) drop-shadow(0 0 4px rgba(255, 140, 40, 0.75));
+
+/* Close is the 245 art button (QuickSkin.close): hover lights it with the ember glow of the other plates. */
+.dh-quick.kit-qs.kit-qs--skin-close .kit-qs__head .kit-qs__close--icon:hover {
+  filter: brightness(1.2) drop-shadow(0 0 calc(5px * var(--kit-qs-s)) rgba(255, 150, 50, 0.9));
 }
 /*
  * Keyboard sound: the list starts under its label and spans the label and control columns (judges 31/10: the label

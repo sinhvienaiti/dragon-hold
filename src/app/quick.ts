@@ -24,25 +24,34 @@ export const QUICK_ICON_FILES: Readonly<Record<string, string>> = {
 export const ICON_PX = 128;
 export const QUICK_ICONS: QuickIcons = Object.fromEntries(Object.entries(QUICK_ICON_FILES).map(([name, stem]) => [name, `${UI_BASE}${stem}.${ICON_PX}.png`]));
 /**
- * The 162 button art (2172 x 724) as a nine-slice plate: its visible plate is 2102 x 433 at (35, 143), and the
- * corner ornaments reach 195 px across and 185 px down inside it. The cuts hold the margin plus the ornament, so the
- * ornaments keep their shape and only the band and the slate between them stretch.
+ * The 162 button art (2172 x 724) as a nine-slice plate for buttons and chips (app.css): its visible plate is
+ * 2102 x 433 at (35, 143), and the corner ornaments reach 195 px across and 185 px down inside it. The cuts hold the
+ * margin plus the ornament, so the ornaments keep their shape and only the band and the slate between them stretch.
  */
 export const PLATE_SLICE = [328, 230, 333, 230] as const;
 /** Transparent margins of the button art (top, right, bottom, left), in source px. */
 export const PLATE_MARGIN = [143, 35, 148, 35] as const;
-/** Keyboard sound rows (34 px): the visible plate is 30 px tall, so the art is drawn at 30 / 433 of its size. */
-const ROW_SCALE = 30 / 433;
-const px = (n: number): number => Math.round(n * ROW_SCALE * 10) / 10;
 /**
- * Frame, button and slider art (tickets 162, 225 knob, 241 groove, 244 fill). At 1080p the groove is drawn about 15
- * CSS px tall and the knob box 42 px, so the 1024 x 64 groove and the 128 px knob stay sharp on a 2x screen.
+ * Keyboard sound rows (ticket 245, accepted 31/10): `list-row.png`, the chosen row `list-row-active.png`. Both are
+ * 1536 x 256 with no transparent margin and share one cut, from their list-row.json: 48 px top and bottom, 200 px each
+ * side, so the forged ends and their gems stay whole and only the slate between them stretches.
+ */
+export const LIST_ROW_SIZE = [1536, 256] as const;
+export const LIST_ROW_SLICE = [48, 200, 48, 200] as const;
+/** The plate is drawn 30 px tall in the 34 px row (2 px of air above and below), every cut at that one scale. */
+export const LIST_PLATE_H = 30;
+const listPx = (n: number): number => Math.round((n * LIST_PLATE_H * 10) / LIST_ROW_SIZE[1]) / 10;
+const LIST_EDGE = LIST_ROW_SLICE.map(listPx);
+/**
+ * Frame, button, slider, list and Close art (tickets 162, 225 knob, 241 groove, 244 fill, 245 rows and Close). At
+ * 1080p the groove is drawn about 15 CSS px tall and the knob box 42 px, so the 1024 x 64 groove and the 128 px knob
+ * stay sharp on a 2x screen.
  * - The fill layer: the empty part is the 241 groove (`sliderEmpty`), the filled part left of the knob the 244 ember
  *   fill (`sliderFill`, accepted 31/10; its ends match the groove's to the pixel, so both share the 0 64 cut). Both
  *   are drawn as painted, with no filter.
- * - Keyboard sound rows are 162 button plates, the chosen row the 162 button-active plate (`buttonActive`);
- *   LIST_ROW_VARS pulls the art's transparent margins outside each row. The 245 list-row art drops in here (with its
- *   own cut in LIST_ROW_VARS).
+ * - Keyboard sound rows are the 245 list-row plates, the chosen row the 245 active plate (ember rim, lit gem), drawn
+ *   as painted; LIST_ROW_VARS sets their cut at the panel's scale.
+ * - Close is the 245 Close button from the 128 px file (ICON_PX, like the row icons): 32 px at 720p, 48 at 1080p.
  */
 export const QUICK_SKIN: QuickSkin = {
   panel: UI_BASE + "panel-large.alpha.png",
@@ -52,20 +61,22 @@ export const QUICK_SKIN: QuickSkin = {
   sliderThumb: UI_BASE + "slider-thumb.128.png",
   sliderEmpty: UI_BASE + "slider-track.png",
   sliderFill: UI_BASE + "slider-fill.png",
-  listRow: { slice: PLATE_SLICE, edge: PLATE_SLICE.map(px) },
+  listRow: { url: UI_BASE + "list-row.png", slice: LIST_ROW_SLICE, edge: LIST_EDGE },
+  listRowActive: { url: UI_BASE + "list-row-active.png", slice: LIST_ROW_SLICE, edge: LIST_EDGE },
+  close: `${UI_BASE}close.${ICON_PX}.png`,
 };
 /**
  * The keyboard rows' plate at the panel's scale (app.css scales the 34 px rows by --kit-qs-s; the kit's own values are
- * these at scale 1): edges, the art's margins pulled outside each row with 2 px of air above and below (inset: top,
- * right, bottom, left) and the label clear of the corner ornaments.
+ * these at scale 1): edges, 2 px of air above and below each plate and none aside (the art has no margin to pull out),
+ * and the label clear of the forged ends.
  */
 const scaled = (n: number): string => `calc(${Math.round(n * 10) / 10}px * var(--kit-qs-s))`;
-const ROW_EDGE = PLATE_SLICE.map((n) => scaled(px(n))).join(" ");
+const ROW_EDGE = LIST_EDGE.map(scaled).join(" ");
 export const LIST_ROW_VARS: Readonly<Record<string, string>> = {
   "--kit-qs-list-edge": ROW_EDGE,
   "--kit-qs-list-active-edge": ROW_EDGE,
-  "--kit-qs-list-inset": [2 - px(PLATE_MARGIN[0]), -px(PLATE_MARGIN[1]), 2 - px(PLATE_MARGIN[2]), -px(PLATE_MARGIN[3])].map(scaled).join(" "),
-  "--kit-qs-list-text-x": scaled(Math.max(px(PLATE_SLICE[1]), px(PLATE_SLICE[3])) + 4),
+  "--kit-qs-list-inset": `${scaled((34 - LIST_PLATE_H) / 2)} 0px`,
+  "--kit-qs-list-text-x": scaled(Math.max(LIST_EDGE[1]!, LIST_EDGE[3]!) + 4),
 };
 /** Art the kit's skin has no field for, passed to app.css as variables on the layer: the 180 muted speaker for the Master row. */
 export const QUICK_ART_VARS: Readonly<Record<string, string>> = {

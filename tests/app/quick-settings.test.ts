@@ -60,12 +60,13 @@ vi.mock("../../src/app/loop", () => ({ createLoop: (hooks: { step(): void }) => 
 } }));
 
 import { startApp, type App } from "../../src/app/app";
-import { ICON_PX, LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICON_FILES, QUICK_ICONS } from "../../src/app/quick";
+import { ICON_PX, LIST_PLATE_H, LIST_ROW_SIZE, LIST_ROW_SLICE, LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICON_FILES, QUICK_ICONS, QUICK_SKIN } from "../../src/app/quick";
 import { QUICK_ICON_NAMES } from "../../src/kit/ui";
 
 const UI_DIR = "/assets/dragon-hold/ui/quick-settings/";
 const PUBLIC_QS = "public/assets/dragon-hold/ui/quick-settings";
 const SELECTED_QS = "art-src/ui/quick-settings/selected";
+const FRAMES = "art-src/ui/frames";
 
 let app: App | null = null;
 let ctx: TestContext;
@@ -375,28 +376,40 @@ describe("192 app and shared panels", () => {
     expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__chip")).toContain("display: inline-flex;");
   });
 
-  it("keyboard sound rows are 162 plates, the chosen row the lit button-active plate in gold; the list scales with the panel", () => {
+  it("keyboard sound rows are the 245 list-row plates, the chosen row the 245 active plate as painted, in gold; the list scales with the panel", () => {
     const root = document.querySelector<HTMLElement>(".dh-quick")!;
     expect(root.classList.contains("kit-qs--skin-list")).toBe(true);
     // Real active art exists, so the kit does not tint the row plate.
     expect(root.classList.contains("kit-qs--list-tint")).toBe(false);
-    expect(root.style.getPropertyValue("--kit-qs-list-row")).toContain("/assets/dragon-hold/ui/quick-settings/button.alpha.png");
-    expect(root.style.getPropertyValue("--kit-qs-list-row-active")).toContain("/assets/dragon-hold/ui/quick-settings/button-active.alpha.png");
-    expect(root.style.getPropertyValue("--kit-qs-list-slice")).toBe(PLATE_SLICE.join(" "));
+    // The 245 art, not the 162 button plates (the fallback before 245 was accepted).
+    expect(root.style.getPropertyValue("--kit-qs-list-row")).toBe(`url("${UI_DIR}list-row.png")`);
+    expect(root.style.getPropertyValue("--kit-qs-list-row-active")).toBe(`url("${UI_DIR}list-row-active.png")`);
+    expect(QUICK_SKIN.listRow?.url).toBe(`${UI_DIR}list-row.png`);
+    expect(QUICK_SKIN.listRowActive?.url).toBe(`${UI_DIR}list-row-active.png`);
+    for (const name of ["--kit-qs-list-row", "--kit-qs-list-row-active"]) expect(root.style.getPropertyValue(name), name).not.toContain("button");
+    // One cut for both plates, the list-row.json cut (48 top and bottom, 200 each side).
+    expect(LIST_ROW_SLICE).toEqual([48, 200, 48, 200]);
+    expect(root.style.getPropertyValue("--kit-qs-list-slice")).toBe("48 200 48 200");
+    expect(root.style.getPropertyValue("--kit-qs-list-active-slice")).toBe("48 200 48 200");
     for (const [name, value] of Object.entries(LIST_ROW_VARS)) expect(root.style.getPropertyValue(name), name).toBe(value);
-    // The art's margins pulled outside each row: inset + margin at the row's scale leaves 2 px above and below, 0 aside.
-    const k = 30 / 433;
-    const inset = [...LIST_ROW_VARS["--kit-qs-list-inset"]!.matchAll(/calc\((-?[\d.]+)px \* var\(--kit-qs-s\)\)/g)].map((m) => Number(m[1]));
-    expect(inset).toHaveLength(4);
-    PLATE_MARGIN.forEach((margin, side) => expect(inset[side]! + margin * k, String(side)).toBeCloseTo(side % 2 === 0 ? 2 : 0, 0));
+    // Every edge at one scale, 30/256: the 256 px plate fills 30 px of the 34 px row, the end gems keep their shape.
+    const lengths = (value: string) => [...value.matchAll(/calc\((-?[\d.]+)px \* var\(--kit-qs-s\)\)/g)].map((m) => Number(m[1]));
+    const edge = lengths(LIST_ROW_VARS["--kit-qs-list-edge"]!);
+    expect(edge).toHaveLength(4);
+    LIST_ROW_SLICE.forEach((cut, side) => expect(edge[side]!, String(side)).toBeCloseTo((cut * LIST_PLATE_H) / LIST_ROW_SIZE[1], 1));
+    expect(LIST_ROW_VARS["--kit-qs-list-active-edge"]).toBe(LIST_ROW_VARS["--kit-qs-list-edge"]);
+    // No transparent margin to pull out: 2 px of air above and below, none aside; the label clears the forged end.
+    expect(LIST_ROW_VARS["--kit-qs-list-inset"]).toBe("calc(2px * var(--kit-qs-s)) 0px");
+    expect(lengths(LIST_ROW_VARS["--kit-qs-list-text-x"]!)).toEqual([27.4]);
     press(window, "F2");
     const selected = document.querySelector('[role="option"][aria-selected="true"]');
     expect(selected?.textContent).toBe("Bright Clack Velvet");
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
     expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-list-pad: calc(8px * var(--kit-qs-s));");
+    // The active art is drawn as painted: the lit filter that stood in for it on the button plate is gone.
     const chosen = '.dh-quick.kit-qs.kit-qs--skin-list .kit-keyboards button.kit-keyboards__option[aria-selected="true"]';
-    expect(rules.get(`${chosen}::before`)).toMatch(/filter: brightness\(1\.15\) saturate\(1\.2\) drop-shadow\(/);
-    expect(rules.get(chosen)).toMatch(/--kit-qs-glow-filter: brightness\(1\.15\) saturate\(1\.2\) drop-shadow\(/);
+    expect(rules.get(`${chosen}::before`)).toBeUndefined();
+    expect(rules.get(chosen)).toBeUndefined();
     // Rows, headings and listen icons scale; 7.5 rows show, so the panel fits its frame; touch keeps 44 px.
     expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards")).toContain("max-height: calc(218px * var(--kit-qs-s));");
     const rowsRule = rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards button") ?? "";
@@ -442,6 +455,46 @@ describe("192 app and shared panels", () => {
       expect(md5(file), name).toBe(md5(`${SELECTED_QS}/${stem}.${ICON_PX}.png`));
     }
     for (const file of ["slider-fill.png", "slider-track.png"]) expect(md5(`${PUBLIC_QS}/${file}`), file).toBe(md5(`art-src/ui/quick-settings/sliders/${file}`));
+  });
+
+  // The 245 art (accepted 31/10): byte copies in public, and the plates' size and cut as their slice files give them.
+  it.skipIf(!existsSync(PUBLIC_QS) || !existsSync(FRAMES))("the 245 list rows and Close in public are byte copies of the accepted art, cut as its slice files say", () => {
+    const md5 = (file: string) => createHash("md5").update(readFileSync(file)).digest("hex");
+    for (const file of ["list-row.png", "list-row-active.png", `close.${ICON_PX}.png`, "close.256.png"]) {
+      expect(existsSync(`${PUBLIC_QS}/${file}`), file).toBe(true);
+      expect(md5(`${PUBLIC_QS}/${file}`), file).toBe(md5(`${FRAMES}/${file}`));
+    }
+    for (const stem of ["list-row", "list-row-active"]) {
+      const data = JSON.parse(readFileSync(`${FRAMES}/${stem}.json`, "utf8")) as { size: number[]; slice: Record<"top" | "right" | "bottom" | "left", number> };
+      expect(data.size, stem).toEqual([...LIST_ROW_SIZE]);
+      expect([data.slice.top, data.slice.right, data.slice.bottom, data.slice.left], stem).toEqual([...LIST_ROW_SLICE]);
+    }
+  });
+
+  it("Close is the 245 art button named Close; a click and Esc still close the panel, Tab still reaches it", () => {
+    const root = document.querySelector<HTMLElement>(".dh-quick")!;
+    expect(root.classList.contains("kit-qs--skin-close")).toBe(true);
+    expect(QUICK_SKIN.close).toBe(`${UI_DIR}close.128.png`);
+    for (const panel of ["settings", "sound"] as const) {
+      press(window, panel === "settings" ? "F1" : "F2");
+      const close = document.querySelector<HTMLButtonElement>(`.kit-qs__dialog[data-panel="${panel}"] .kit-qs__close`)!;
+      expect(close.classList.contains("kit-qs__close--icon"), panel).toBe(true);
+      // Not on the button plate, no text: the art is the button.
+      expect(close.classList.contains("kit-qs__btn"), panel).toBe(false);
+      expect(close.textContent, panel).toBe("");
+      expect(close.querySelector("img")!.getAttribute("src"), panel).toBe(`${UI_DIR}close.128.png`);
+      expect(close.querySelector("img")!.getAttribute("alt"), panel).toBe("");
+      expect(close.getAttribute("aria-label"), panel).toBe("Close");
+      expect(close.title, panel).toBe("Close (Esc)");
+      expect(close.tabIndex, panel).toBe(0);
+      close.click();
+      expect(window.__dh!.panel(), panel).toBeNull();
+      press(window, panel === "settings" ? "F1" : "F2");
+      press(window, "Escape");
+      expect(window.__dh!.panel(), panel).toBeNull();
+    }
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    expect(rules.get(".dh-quick.kit-qs.kit-qs--skin-close .kit-qs__head .kit-qs__close--icon:hover")).toMatch(/filter: brightness\(1\.2\) drop-shadow\(/);
   });
 
   it("Reduced motion stops the screen shake and stills the pulsing UI at once, and is saved; unsaved, it follows the system", async () => {
