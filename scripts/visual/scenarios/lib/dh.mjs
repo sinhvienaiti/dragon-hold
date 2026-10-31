@@ -86,6 +86,7 @@ export async function boot(page, query = "", { width, height } = {}) {
   }
   const wpm = /^\d+$/.test(process.env.WPM ?? "") ? process.env.WPM : "35";
   if (!/(^|&)wpm=/.test(query)) query = query ? query + "&wpm=" + wpm : "wpm=" + wpm;
+  query = "title=0" + (query ? "&" + query : "");
   await page.goto(BASE + "/" + "?" + query, { settle: 300 });
   for (let wait = 0; wait < 120; wait += 1) {
     const ready = await page.eval("window.__dh?.ready === true");

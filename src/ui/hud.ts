@@ -241,10 +241,12 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   goldStat.append(goldValue, goldFloat);
   goldStat.title = "Gold";
   const waveStat = el(doc, "div", "dh-stat");
+  waveStat.innerHTML = `<span class="dh-icon">${icon("wave-horn")}</span>`;
   waveStat.append(el(doc, "span", "dh-label", "Wave"));
   const waveValue = el(doc, "b", "", "0/0");
   waveStat.append(waveValue);
   const chainStat = el(doc, "div", "dh-stat dh-stat--chain");
+  chainStat.innerHTML = `<span class="dh-icon">${icon("chain")}</span>`;
   chainStat.append(el(doc, "span", "dh-label", "Chain"));
   const chainValue = el(doc, "b", "", "0");
   const chainMult = el(doc, "span", "dh-chain-mult");
@@ -258,12 +260,14 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   const pauseButton = uiButton(doc, "dh-pause", () => options.onPause?.());
   pauseButton.innerHTML = icon("pause") + `<span class="dh-key">Esc</span>`;
   pauseButton.title = "Pause (Esc)";
+  pauseButton.ariaLabel = pauseButton.title;
   setShown(pauseButton, Boolean(options.onPause));
   system.append(pauseButton);
   if (options.onCameraReset) {
     const cameraButton = uiButton(doc, "dh-camera", () => options.onCameraReset?.());
     cameraButton.innerHTML = icon("camera") + `<span class="dh-key">${keyLabel("camera-reset")}</span>`;
     cameraButton.title = "Reset camera (" + keyLabel("camera-reset") + ")";
+    cameraButton.ariaLabel = cameraButton.title;
     system.prepend(cameraButton);
   }
 
@@ -329,7 +333,8 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
   );
 
   const rage = el(doc, "div", "dh-rage");
-  const rageLabel = el(doc, "span", "dh-label", "Dragon Rage");
+  const rageLabel = el(doc, "span", "dh-label");
+  rageLabel.innerHTML = icon("dragon-rage") + " Dragon Rage";
   const rageBar = el(doc, "div", "dh-rage__bar");
   const rageFill = el(doc, "div", "dh-rage__fill");
   rageBar.append(rageFill);
@@ -361,8 +366,13 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     }
     toastNode.style.bottom = Math.round(hud.getBoundingClientRect().bottom - box.top + TOAST_GAP_PX) + "px";
   };
-  const toast = (text: string): void => {
-    setText(toastNode, text);
+  const toast = (text: string, rejected = false): void => {
+    toastNode.textContent = text;
+    if (rejected) {
+      const mark = el(doc, "span", "dh-icon");
+      mark.innerHTML = icon("deny");
+      toastNode.prepend(mark);
+    }
     setClass(toastNode, "is-on", true);
     toastOn = true;
     placeToast();
@@ -430,6 +440,8 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
     } else if (phase === "wave") line = `Defending · wave <b>${w.wave}</b>`;
     else if (phase === "victory") line = "Stage cleared";
     else line = "Dragon Platform lost";
+    const phaseIcon = phase === "prep" ? "phase-prep" : phase === "warning" || phase === "wave" ? "phase-fight" : phase === "break" ? "phase-break" : null;
+    if (phaseIcon) line = icon(phaseIcon) + " " + line;
     if (phaseLine.innerHTML !== line) phaseLine.innerHTML = line;
 
     // The toast sits just above the strip, which folds outside prep and breaks (CSS fallback; placeToast measures).
@@ -506,7 +518,7 @@ export function createHud(root: HTMLElement, sink: CommandSink, options: HudOpti
           if (event.reason !== "start") goldDelta += event.delta;
           break;
         case "rejected":
-          toast(rejectText(event.command, event.reason));
+          toast(rejectText(event.command, event.reason), true);
           break;
         case "hit":
           if (event.target.kind === "hero") {

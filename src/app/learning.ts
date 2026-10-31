@@ -9,12 +9,13 @@
  */
 import { ECONOMY, LEARNING } from "../content/rules";
 import type { ActivityType, DeckWord, SimEvent, StageDef, WordDeck } from "../content/types";
-import { buildCombatLearningEvent, createLearningBridge, normalizeLearningEntityId, type LearningBridge, type LearningEvent } from "../kit/learning";
+import { buildCombatLearningEvent, normalizeLearningEntityId, type LearningBridge, type LearningEvent } from "../kit/learning";
 import { createRng, safeLocalStorage } from "../kit/platform";
 import { speakEnglish } from "../kit/speech";
-import { filterVocabularyEntries, loadVocabularyIndex, loadVocabularyLevel, textHasBlockedWord, type VocabularyEntry } from "../kit/vocab";
+import { clearVocabularyRuntimeCache, filterVocabularyEntries, loadVocabularyIndex, loadVocabularyLevel, textHasBlockedWord, type VocabularyEntry } from "../kit/vocab";
 import { buildWordDeck, isDeckText, type DeckCandidate } from "../typing/deck";
 import type { Gloss } from "../ui/learning-frame";
+import { createPortalBridge } from "./portal";
 
 const GAME_ID = LEARNING.gameId;
 /** Recall activities: always sent (01 §6.6), and a right answer without a hint counts toward hiding the meaning (01 §6.3). */
@@ -117,6 +118,16 @@ export interface ReviewItem {
   readonly ipa: string;
   /** "listen": hear then type; "meaning": read the meaning then type. */
   readonly mode: "listen" | "meaning";
+}
+
+export type DeckFailureReason = "load-failed" | "empty" | "too-small";
+
+/** A failed stage deck never reaches world creation. Count is the usable deck size. */
+export class DeckBuildError extends Error {
+  constructor(readonly reason: DeckFailureReason, readonly count: number) {
+    super("dragon-hold: vocabulary " + reason + " (" + count + " words)");
+    this.name = "DeckBuildError";
+  }
 }
 
 export interface LearningClient {
@@ -233,7 +244,15 @@ async function defaultEntries(levels: readonly number[], excludeMature: boolean)
   const lists = await Promise.all(
     levels
       .filter((level) => index.levels.some((item) => item.level === level))
-      .map(async (level) => (await loadVocabularyLevel(level, index, { excludeMature })).map((entry) => ({ ...entry, level }))),
+      .map(async (level) => {
+        try {
+          return (await loadVocabularyLevel(level, index, { excludeMature })).map((entry) => ({ ...entry, level }));
+        } catch (error) {
+          // The kit rejects an empty document; preserve the app's empty-vs-network distinction.
+          if (error instanceof Error && error.message === "Vocabulary level " + level + " has no valid entries.") return [];
+          throw error;
+        }
+      }),
   );
   return lists.flat();
 }
@@ -243,7 +262,7 @@ const browser = typeof window !== "undefined";
 export function createLearningClient(options: LearningClientOptions = {}): LearningClient {
   const now = options.now ?? (() => Date.now());
   const storage = options.storage ?? safeLocalStorage;
-  const bridge = options.bridge ?? createLearningBridge({ gameId: GAME_ID });
+  const bridge = options.bridge ?? createPortalBridge();
   const excludeMature = options.excludeMature ?? false;
   const mode: PronounceMode = options.pronounce ?? "new-weak";
   const speakNow = options.speak ?? ((text: string) => (browser ? speakEnglish(text, { enabled: true, rate: 0.9, volume: 1 }) : undefined));
@@ -318,7 +337,17 @@ export function createLearningClient(options: LearningClientOptions = {}): Learn
       try {
         entries = await (options.loadEntries ? options.loadEntries(levels) : defaultEntries(levels, excludeMature));
       } catch (error) {
+        deck = null;
+        if (!options.loadEntries) clearVocabularyRuntimeCache();
         console.warn("dragon-hold: vocabulary did not load", error);
+        throw new DeckBuildError("load-failed", 0);
+      }
+      if (entries.length === 0) {
+        deck = null;
+        if (!options.loadEntries) clearVocabularyRuntimeCache();
+        const error = new DeckBuildError("empty", 0);
+        console.warn("dragon-hold: vocabulary did not load", error);
+        throw error;
       }
       for (const entry of entries) {
         const text = normalizeLearningEntityId(entry.en);
@@ -341,6 +370,14 @@ export function createLearningClient(options: LearningClientOptions = {}): Learn
       deck = buildWordDeck(candidatesFrom(entries, records, excludeMature), level, (min, max) => rng.words.int(min, max), {
         newMax: stageDef.type === "boss" ? LEARNING.newPerBossStage : LEARNING.newPerStage,
       });
+      if (deck.words.length < LEARNING.deckSize[0]) {
+        const error = new DeckBuildError("too-small", deck.words.length);
+        deck = null;
+        // A repaired server response must be fetched again by Retry, including successful short loads.
+        if (!options.loadEntries) clearVocabularyRuntimeCache();
+        console.warn("dragon-hold: vocabulary did not load", error);
+        throw error;
+      }
       byText.clear();
       for (const word of deck.words) byText.set(word.text, word);
       stage.clear();

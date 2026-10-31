@@ -1,6 +1,6 @@
 import { QuickSettings, QUICK_ICON_NAMES, defaultSoundRows, type QuickIcons, type QuickRow, type QuickSettingsOptions } from "../kit/ui";
 import type { KeyboardSoundChoice } from "../kit/feedback/typing-fx";
-import { QUALITY_LEVELS } from "./settings";
+import { allowedQualities } from "./quality";
 import { manifestJson, sampleBytes } from "./keyboard";
 
 const UI_BASE = `${import.meta.env.BASE_URL}assets/dragon-hold/ui/quick-settings/`;
@@ -9,7 +9,8 @@ export const QUICK_ICONS: QuickIcons = Object.fromEntries(QUICK_ICON_NAMES.map((
 export function settingsRows(): QuickRow[] {
   return [
     { kind: "heading", id: "graphicsHeading", label: "Graphics" },
-    { kind: "choice", id: "quality", label: "Quality (next launch)", options: QUALITY_LEVELS.map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) })), default: "high" },
+    // The release build never offers Low (195 quality floor); dev keeps all four.
+    { kind: "choice", id: "quality", label: "Quality (next launch)", options: allowedQualities(import.meta.env.PROD).map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) })), default: "high" },
     { kind: "button", id: "resume", label: "Resume", action: "resume", primary: true },
     { kind: "button", id: "quit", label: "Quit to title", action: "quit" },
   ];

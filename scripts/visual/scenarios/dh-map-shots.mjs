@@ -20,7 +20,7 @@ export default async function (page) {
   if (!process.env.OUT_DIR) process.env.OUT_DIR = join("tmp/map-pilot", TAG);
   const out = outDir("map-pilot/" + TAG);
   const size = page.width + "x" + page.height;
-  await page.goto(BASE + "/?view=terrain&hud=0&q=" + Q + EXTRA, { settle: 300 });
+  await page.goto(BASE + "/?title=0&view=terrain&hud=0&q=" + Q + EXTRA, { settle: 300 });
   let ready = false;
   for (let i = 0; i < 300 && !ready; i += 1) {
     ready = (await page.eval("window.__dhTerrain?.info().ready === true")) === true;

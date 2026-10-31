@@ -84,39 +84,6 @@ body {
   user-select: none;
 }
 
-/* Moss clumps along the top edge of every panel. */
-.dh-panel::before {
-  content: "";
-  position: absolute;
-  left: 7%;
-  right: 14%;
-  top: calc(-4px * var(--ui));
-  height: calc(8px * var(--ui));
-  background:
-    radial-gradient(ellipse 9% 100% at 4% 70%, var(--dh-moss-hi) 0 45%, transparent 55%),
-    radial-gradient(ellipse 14% 90% at 16% 60%, var(--dh-moss) 0 50%, transparent 58%),
-    radial-gradient(ellipse 7% 80% at 27% 70%, #7a9a58 0 45%, transparent 55%),
-    radial-gradient(ellipse 16% 70% at 58% 75%, var(--dh-moss) 0 50%, transparent 58%),
-    radial-gradient(ellipse 6% 90% at 71% 60%, var(--dh-moss-hi) 0 45%, transparent 55%),
-    radial-gradient(ellipse 10% 70% at 92% 75%, #4f6a3e 0 50%, transparent 58%);
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6));
-  pointer-events: none;
-}
-
-/* A moss tuft on the lower left corner. */
-.dh-panel::after {
-  content: "";
-  position: absolute;
-  left: calc(-3px * var(--ui));
-  bottom: calc(-3px * var(--ui));
-  width: calc(22px * var(--ui));
-  height: calc(14px * var(--ui));
-  background:
-    radial-gradient(ellipse 50% 60% at 30% 70%, var(--dh-moss) 0 60%, transparent 66%),
-    radial-gradient(ellipse 35% 45% at 70% 80%, #4f6a3e 0 60%, transparent 66%);
-  pointer-events: none;
-}
-
 .dh-title {
   font-family: var(--dh-font-title);
   /* Cormorant's old-style figures read "1/10" as "I/IO": lining figures for every number in a title. */
@@ -158,11 +125,31 @@ body {
 }
 
 .dh-icon > svg,
-.dh-btn svg {
+.dh-btn svg,
+.dh-icon > img,
+.dh-btn img {
   display: block;
   width: 100%;
   height: 100%;
 }
+
+.dh-art {
+  display: inline-block;
+  width: calc(var(--dh-art-box, 20px) * var(--ui));
+  height: calc(var(--dh-art-box, 20px) * var(--ui));
+  object-fit: contain;
+  vertical-align: middle;
+  flex: none;
+}
+.dh-art[hidden] { display: none; }
+.dh-btn > img.dh-art {
+  width: calc(var(--dh-art-box, 20px) * var(--ui));
+  height: calc(var(--dh-art-box, 20px) * var(--ui));
+}
+.dh-phase > .dh-art, .dh-rage > .dh-label > .dh-art { margin-right: calc(4px * var(--ui)); }
+.dh-toast > .dh-icon { margin-right: calc(6px * var(--ui)); vertical-align: middle; }
+.dh-tile > .dh-art { margin-bottom: calc(3px * var(--ui)); }
+.dh-wstatus { display: inline-flex; align-items: center; gap: calc(4px * var(--ui)); }
 
 /* ── Buttons: carved wood, never focused ──────────────────────────────── */
 
@@ -1504,20 +1491,6 @@ body {
   height: calc(46px * var(--ui));
 }
 
-.dh-star svg {
-  width: 100%;
-  height: 100%;
-  fill: #2a1e14;
-  stroke: #6b4f36;
-  stroke-width: 1.2;
-}
-
-.dh-star.is-on svg {
-  fill: var(--dh-ember-hi);
-  stroke: #7a2a12;
-  filter: drop-shadow(0 0 calc(6px * var(--ui)) rgba(246, 179, 122, 0.6));
-}
-
 .dh-star.is-on {
   animation: dh-star-in 0.45s ease-out backwards;
 }
@@ -1670,8 +1643,8 @@ body {
 }
 
 .dh-word .dh-btn {
-  width: calc(26px * var(--ui));
-  height: calc(24px * var(--ui));
+  width: calc(28px * var(--ui));
+  height: calc(28px * var(--ui));
   padding: calc(4px * var(--ui));
 }
 

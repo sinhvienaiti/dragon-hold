@@ -22,7 +22,10 @@ import { MAPS } from "../content/data/maps";
 import { STAGE_M0 } from "../content/data/stages";
 import { RINGS, URGENT } from "../content/rules";
 import type { Difficulty, FoeId, MapDef, SimCommand, SimEvent, StageDef, WordDeck } from "../content/types";
-import { createLearningBridge } from "../kit/learning";
+import { createPortalBridge } from "./portal";
+import { createDeckLoader, startDeckBoot } from "./deck-boot";
+import { normalizeQuality } from "./quality";
+import { createIdleSpeed, frameTimeScale } from "./idle-speed";
 import { safeLocalStorage } from "../kit/platform";
 import { setSpeechGate, speakEnglish, stopSpeech } from "../kit/speech";
 import type { QuickSettings } from "../kit/ui";
@@ -35,7 +38,8 @@ import { createPlacementUi, type PlacementUi } from "../ui/placement-ui";
 import { VICTORY_HOLD_MS, createResults } from "../ui/results";
 import { createShopStrip } from "../ui/shop-strip";
 import { createDebutCard } from "../ui/debut-card";
-import { el, installSkin, keyLabel, setShown, uiButton } from "../ui/skin";
+import { el, icon, installSkin, keyLabel, setShown, uiButton } from "../ui/skin";
+import { createTitle, type Title } from "../ui/title";
 import { createTags } from "../ui/tags";
 import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
@@ -74,13 +78,14 @@ export interface AppOptions {
   readonly speed?: number;
   /** Show Học trước before the first setup (default true). */
   readonly prelearn?: boolean;
+  /** False only for automated scenarios that bypass the title. */
+  readonly title?: boolean;
   /** Word tag size, 80–150 % (01 §3.1; the settings screen comes later). */
   readonly tagSizePct?: number;
   /** The Typing Feel keys base; default KEYS_BASE (the build's VITE_TYPING_FEEL_ORIGIN). Tests point it at a sample host. */
   readonly keysBase?: string | null;
 }
 
-const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
 const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
 /** One level easier (00 §4.10), and the levels' names (00 §4.10 table). */
 const EASIER: Readonly<Record<Difficulty, Difficulty | null>> = { hard: "normal", normal: "easy", easy: null };
@@ -96,7 +101,7 @@ const PICK_PX = 44;
 /** Word zone (01 §2.1, rules RINGS), sim u: fast-forward stays off while a foe is inside it. */
 const WORD_ZONE_U = mmToU(RINGS.wordZoneMm);
 
-/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?tagsize=80–150, and in dev ?speed=. */
+/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?title=0, ?tagsize=80–150, and in dev ?speed=. */
 export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   const params = new URLSearchParams(search);
   const q = params.get("q") as Quality | null;
@@ -108,13 +113,14 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   };
   const speed = num("speed");
   return {
-    quality: q && QUALITIES.includes(q) ? q : undefined,
+    quality: normalizeQuality(q, !dev),
     difficulty: d && DIFFICULTIES.includes(d) ? d : undefined,
     seed: num("seed"),
     // A whole WPM in 10–120: the world keeps integers only.
     typistWpm: clampWpm(num("wpm")),
     speed: dev && speed !== undefined ? Math.min(16, Math.max(0.25, speed)) : undefined,
     prelearn: params.get("prelearn") !== "0",
+    title: params.get("title") !== "0",
     tagSizePct: num("tagsize"),
   };
 }
@@ -208,7 +214,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   /** The keyboard catalogue loads beside everything else; nothing waits on it (parent TYPING_FEEL_SERVICE.md §5.1–5.2). */
   const keyboardFeed = requestKeyboardCatalogue(options.keysBase === undefined ? KEYS_BASE : options.keysBase);
   const stage = options.stage ?? STAGE_M0;
-  const quality: Quality = options.quality ?? settings.quality;
+  // A release build never runs or offers Low (195): a saved Low reads as Medium, so the Settings row shows the tier in use.
+  settings.quality = normalizeQuality(settings.quality, !dev) ?? "high";
+  /** ?q= (or the given option) first, else the saved Settings quality; both through the release floor. */
+  const quality: Quality = normalizeQuality(options.quality, !dev) ?? settings.quality;
   const seed = options.seed ?? stage.seed;
   /** The typing speed of the next run: from ?wpm=, else unset until the speed card is answered. */
   const urlWpm = clampWpm(options.typistWpm);
@@ -225,8 +234,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   if (!overlay || !canvasHost) throw new Error("app: #dh-overlay or #dh-canvas missing from index.html");
   overlay.replaceChildren();
 
-  const notice = el(doc, "div", "dh-boot", "Dragonhold · " + stage.nameVi + " · loading words…");
-  overlay.append(notice);
+  // Detached legacy notice anchor for the title=0 deck-error/Retry path.
+  const notice = el(doc, "div");
 
   const foundMap = MAPS[stage.mapId];
   if (!foundMap) throw new Error("app: stage " + stage.id + " names unknown map " + stage.mapId);
@@ -241,7 +250,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   map.useModels(models);
 
   // Persistent services: audio, the learning bridge and client.
-  const bridge = createLearningBridge({ gameId: "dragon-hold" });
+  const bridge = createPortalBridge();
   const learning: LearningClient = createLearningClient({ bridge, speak: (text) => {
     const volume = voiceLevel(settings);
     if (volume > 0) speakEnglish(text, { enabled: true, rate: 0.9, volume });
@@ -268,7 +277,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const notice2 = el(doc, "div", "dh-notice");
   notice2.setAttribute("role", "status");
   setShown(notice2, false);
-  const ffBadge = el(doc, "div", "dh-ff", "×2");
+  const ffBadge = el(doc, "div", "dh-ff");
+  ffBadge.innerHTML = icon("fast-forward");
+  const ffRate = el(doc, "small", "dh-ff__rate");
+  ffBadge.append(ffRate);
   setShown(ffBadge, false);
   /** Pause menu and 3-2-1: a plain dim layer, words and the learning frame hidden (01 §3.9 "Tạm dừng che chữ"). */
   const hush = el(doc, "div", "dh-hush");
@@ -296,7 +308,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   let router: InputRouter | null = null;
   let quick: QuickSettings | null = null;
   let keyboard: GameKeyboard | null = null;
-  let titleOpen = false;
+  /** The 197 title screen: shown at boot (unless ?title=0) and again by Quit to title. */
+  let title: Title | null = null;
   let disposed = false;
   let menuOpen = false;
   let menuIndex = 0;
@@ -304,6 +317,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   let veilMode: "none" | "focus" | "soft" = "none";
   let countdownUntil = 0;
   let fastForward = false;
+  const idleLatch = createIdleSpeed();
+  let idleSpeed = false;
+  let lastTimeScale = 1;
   let hurtUntil = 0;
   let seepUntil = 0;
   let seepStrong = false;
@@ -354,7 +370,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   // ── Commands: straight into the world, logged with their tick ──
   /** `at`: when the key was pressed (the router's last letter, or now for a command sent by the debug handle). */
   const sinkAt = (command: SimCommand, at?: number): void => {
-    if (!run || quick?.blocking || titleOpen) return;
+    if (!run || quick?.blocking || title?.isOpen) return;
     const world = run.world;
     if (world.phase === "victory" || world.phase === "defeat") return;
     applyCommand(world, command);
@@ -384,14 +400,6 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   menu.append(menuTitle, ...menuItems, menuKeys);
   overlay.append(hush, menu, veil, countdownNode);
 
-  const title = el(doc, "section", "dh-panel dh-title");
-  title.dataset.dhAvoid = "";
-  const play = uiButton(doc, "dh-title__play", () => playFromTitle());
-  play.textContent = "Play";
-  title.append(el(doc, "h1", "dh-title__name", "Dragonhold"), play);
-  setShown(title, false);
-  overlay.append(title);
-
   function quitToTitle(): void {
     learning.flush();
     stopSpeech();
@@ -408,25 +416,15 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     countdownUntil = 0;
     victoryTurn = null;
     fastForward = false;
+    idleLatch.reset();
+    idleSpeed = false;
     overlay!.classList.remove("is-hushed");
     for (const node of [menu, veil, hush, countdownNode, notice2, lowEdge, hurt, seep, ffBadge]) setShown(node, false);
-    titleOpen = true;
     ready = false;
-    setShown(title, true);
-  }
-
-  function playFromTitle(): void {
-    if (!titleOpen || quick?.blocking) return;
-    titleOpen = false;
-    setShown(title, false);
-    prelearnShown = false;
-    lossStreak = 0;
-    for (const node of [lowEdge, hurt, seep]) setShown(node, true);
-    askPace((picked, choice) => {
-      header = picked;
-      if (choice?.easy) difficulty = "easy";
-      begin();
-    });
+    quitOnce = true;
+    // The 197 title, made now when the boot skipped it (?title=0), back with every source settled.
+    title ??= createTitle(overlay!, { onStart: startFromTitle });
+    title.reopen();
   }
 
   function selectMenu(index: number): void {
@@ -703,6 +701,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     learning.flush();
     audio.resetRun();
     fastForward = false;
+    idleLatch.reset();
+    idleSpeed = false;
     countdownUntil = 0;
     if (victoryTurn !== null) map.rig.reset();
     victoryTurn = null;
@@ -805,10 +805,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
   /** Pause overlay, countdown and the pause menu see a press first. */
   const intercept = (event: KeyboardEvent, action: string | null): boolean => {
-    if (titleOpen) {
-      if (action === "enter") playFromTitle();
-      return true;
-    }
+    // The 197 title (also after Quit to title); the Settings/Sound panels see a press first (the router ignores keys while one is open).
+    if (title?.isOpen) return title.handleAction(action);
     // The speed card takes every press while it is up (letters too: nothing types under it).
     // A bare Digit 0 has no KEYS action; on the card it picks the measured row.
     if (paceCard.isOpen) {
@@ -899,7 +897,11 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
 
     if (veilMode === "soft") setShown(veil, activePanel() === null);
     if (fastForward && !fastForwardAllowed(world)) fastForward = false;
-    setShown(ffBadge, fastForward);
+    const speedBlocked = isPaused || run.placement.mode !== "idle";
+    idleSpeed = idleLatch.update(world, now, speedBlocked);
+    setShown(ffBadge, !speedBlocked && (fastForward || idleSpeed));
+    ffRate.textContent = fastForward ? "×2" : "×1.75";
+    ffBadge.setAttribute("aria-label", fastForward ? "Fast forward ×2" : "Fast forward ×1.75: no words on screen");
     hurt.classList.toggle("is-on", now < hurtUntil);
     seep.classList.toggle("is-on", now < seepUntil);
     seep.classList.toggle("is-strong", now < seepUntil && seepStrong);
@@ -949,7 +951,9 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     if (!run) return 1;
     const stop = run.fx.timeScale(now);
     if (stop < 1) slowFrames += 1;
-    return stop * (fastForward ? 2 : 1) * speed;
+    const blocked = paused(now) || run.placement.mode !== "idle";
+    idleSpeed = idleLatch.update(run.world, now, blocked);
+    return lastTimeScale = frameTimeScale(stop, speed, fastForward && fastForwardAllowed(run.world), idleSpeed, blocked);
   };
 
   // ── Boot: deck, world, loop, router ──
@@ -1084,32 +1088,68 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       begin();
     },
   }, { signal: keyboardStartup.signal });
-  void learning.buildDeck(stage).then((built) => {
+  /**
+   * Start from the title (197): the speed card first unless ?wpm= gave the speed. After Quit to
+   * title (192) the stage starts fresh and the card asks again. begin() still waits for the
+   * keyboard sound (B4 gate, 1.5 s at most).
+   */
+  let quitOnce = false;
+  const startFromTitle = (): void => {
+    if (quitOnce) {
+      prelearnShown = false;
+      lossStreak = 0;
+      for (const node of [lowEdge, hurt, seep]) setShown(node, true);
+    } else if (header !== null) {
+      begin();
+      return;
+    }
+    askPace((picked, choice) => {
+      header = picked;
+      if (choice?.easy) difficulty = "easy";
+      begin();
+    });
+  };
+  // Title path: the 195 loader without its panel; the title shows the error and Retry.
+  const titleDeck = options.title === false ? null : createDeckLoader(learning, stage, {
+    ready: (built) => {
+      if (disposed) return;
+      deck = built;
+      title?.settle("words");
+    },
+    failed: (error) => { if (!disposed) title?.settle("words", error.reason); },
+  });
+  const bootTitle = titleDeck ? createTitle(overlay, { onStart: startFromTitle, onRetry: () => titleDeck.load() }) : null;
+  title = bootTitle;
+  // R2: attach the map camera with title.onShow/onHide and title.setBackdrop("live").
+  bootTitle?.show();
+  // Moved before buildDeck: the title receives keys while all four sources load. After the Settings/Sound
+  // panels (created above), so the kit's capture listener sees F1, F2 and Esc first, on the title too.
+  router = createInputRouter(view, sink, {
+    intercept,
+    ignore: () => quick?.blocking === true,
+    onType: (kind) => keyboard?.type(kind),
+    panel: activePanel,
+    locked: () => (run ? run.world.words.lock >= 0 : false),
+    fallback,
+    // A notice over the learning frame, held until a letter reaches the game (test pass 27/10: an 11 px toast in a corner).
+    onImeSign: () => {
+      if (run) imeUntil = view.performance.now() + 8000;
+    },
+    now: () => view.performance.now(),
+  });
+  const deckBoot = titleDeck ?? startDeckBoot(overlay, notice, learning, stage, (built) => {
     if (disposed) return;
     deck = built;
-    notice.remove();
-    // The router first: the speed card answers to it before there is a run.
-    router = createInputRouter(view, sink, {
-      intercept,
-      ignore: () => quick?.blocking === true,
-      onType: (kind) => keyboard?.type(kind),
-      panel: activePanel,
-      locked: () => (run ? run.world.words.lock >= 0 : false),
-      fallback,
-      // A notice over the learning frame, held until a letter reaches the game (test pass 27/10: an 11 px toast in a corner).
-      onImeSign: () => {
-        if (run) imeUntil = view.performance.now() + 8000;
-      },
-      now: () => view.performance.now(),
-    });
-    if (header !== null) begin();
-    else
-      askPace((picked, choice) => {
-        header = picked;
-        if (choice?.easy) difficulty = "easy";
-        begin();
-      });
+    startFromTitle();
   });
+  if (bootTitle) {
+    titleDeck?.load();
+    for (const [source, promise] of [["models", models.ready], ["ground", map.groundBaked], ["dragons", heroes.ready]] as const) {
+      void Promise.resolve(promise).catch((error: unknown) => {
+        if (!disposed) console.warn("title: load failed", source, error);
+      }).then(() => { if (!disposed) bootTitle.settle(source); });
+    }
+  }
 
   const handle: DebugHandle = {
     get ready() {
@@ -1118,9 +1158,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     world: () => run!.world,
     state: () => {
       const world = run?.world;
-      if (!world) return { ready, paceCard: paceCard.isOpen };
+      if (!world) return { ready, title: title?.state ?? "started", paceCard: paceCard.isOpen, idleSpeed, timeScale: lastTimeScale };
       return {
         ready,
+        title: title?.state ?? "started",
         pace: { ...run!.header, kPm: world.pace.kPm, marginPm: world.pace.marginPm, graceTicks: world.pace.graceTicks },
         paceCard: paceCard.isOpen,
         phase: world.phase,
@@ -1149,6 +1190,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         veil: veilMode,
         countdown: countdownUntil > view.performance.now(),
         fastForward,
+        idleSpeed,
+        timeScale: lastTimeScale,
         placement: run!.placement.mode + ":" + (run!.placement.item ?? ""),
         panel: handle.panel(),
         slots: world.slots.map((slot) => (slot.item ? slot.def.id + "=" + slot.item + "@" + slot.level : null)).filter(Boolean),
@@ -1244,7 +1287,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     send: (command) => sinkAt(command, view.performance.now()),
     action: (name) => router?.dispatch(name) ?? false,
     restart,
-    panel: () => (quick?.panel ?? (run?.prelearn.isOpen ? "prelearn" : run?.review.isOpen ? "review" : menuOpen ? "menu" : titleOpen ? "title" : null)),
+    panel: () => (quick?.panel ?? (run?.prelearn.isOpen ? "prelearn" : run?.review.isOpen ? "review" : menuOpen ? "menu" : title?.isOpen ? "title" : null)),
     review: () => [...lastReview],
     events: () => ({ tally: { ...tally }, telegraphMinMs: Number.isFinite(telegraphMinMs) ? telegraphMinMs : null, byFoe: structuredClone(telegraphByFoe), slowFrames, telegraphsLive: run?.telegraphs.live ?? 0 }),
     foeSizes: () => {
@@ -1296,6 +1339,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   return {
     dispose(): void {
       disposed = true;
+      deckBoot.dispose();
+      title?.dispose();
       learning.flush();
       loop?.stop();
       router?.dispose();

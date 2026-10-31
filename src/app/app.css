@@ -307,23 +307,24 @@
   backdrop-filter: blur(5px);
 }
 
-.dh-title {
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
-  width: min(520px, calc(100vw - 32px));
-  padding: 64px;
-  text-align: center;
-  z-index: 44;
-  background: #14161b url('/assets/dragon-hold/ui/quick-settings/panel-large.alpha.png') center / 100% 100% no-repeat;
-}
-
-.dh-title::after { display: none; }
-.dh-title__name { font: 700 44px/1.1 var(--dh-font-title); }
-.dh-title__play { min-width: 120px; min-height: 44px; background: url('/assets/dragon-hold/ui/quick-settings/button.alpha.png') center / 100% 100% no-repeat; }
-
 @media (max-width: 600px) {
   .dh-quick .kit-qs__panel { padding: 44px 30px; }
   .dh-quick .kit-qs__row { grid-template-columns: 24px minmax(0, 1fr); }
   .dh-quick .kit-qs__control { grid-column: 1 / -1; }
 }
+
+/* Pre-router deck recovery uses the existing game panel and authored Retry art. */
+.dh-deck-notice {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(calc(460px * var(--ui)), 90vw);
+  padding: calc(24px * var(--ui));
+  pointer-events: auto;
+  z-index: 80;
+}
+.dh-deck-notice__actions { display: flex; flex-wrap: wrap; gap: calc(12px * var(--ui)); }
+.dh-deck-notice .dh-btn:focus-visible { outline: calc(2px * var(--ui)) solid var(--dh-cream); outline-offset: calc(3px * var(--ui)); }
+.dh-ff { display: flex; align-items: center; gap: calc(4px * var(--ui)); }
+.dh-ff__rate { font-size: calc(12px * var(--ui)); }

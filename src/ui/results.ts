@@ -236,7 +236,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   const stars = el(doc, "div", "dh-stars");
   const starNodes = [0, 1, 2].map(() => {
     const node = el(doc, "span", "dh-star");
-    node.innerHTML = icon("star");
+    node.innerHTML = icon("star-unlit", { box: 46 });
     stars.append(node);
     return node;
   });
@@ -252,14 +252,18 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   const foot = el(doc, "div", "dh-results__foot");
   const buttons = el(doc, "div", "dh-results__actions");
   const retryButton = uiButton(doc, "dh-retry", () => actions.retry());
-  const portalButton = el(doc, "a", "dh-btn dh-results__portal");
-  portalButton.href = portalHome(import.meta.env.VITE_PORTAL_ORIGINS);
-  portalButton.target = "_top";
-  portalButton.tabIndex = -1;
-  portalButton.addEventListener("mousedown", (event) => event.preventDefault());
-  portalButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>Back to portal`;
   // Keep focus in the window key router, as uiButton does elsewhere.
-  const resultButtons = [retryButton, portalButton] as const;
+  const resultButtons: HTMLElement[] = [retryButton];
+  const home = portalHome(import.meta.env.VITE_PORTAL_URL);
+  if (home) {
+    const portalButton = el(doc, "a", "dh-btn dh-results__portal");
+    portalButton.href = home;
+    portalButton.target = "_top";
+    portalButton.tabIndex = -1;
+    portalButton.addEventListener("mousedown", (event) => event.preventDefault());
+    portalButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>Back to portal`;
+    resultButtons.push(portalButton);
+  }
   let focusedAction = 0;
   const focusAction = (index: number): void => {
     focusedAction = index;
@@ -292,8 +296,9 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
   /** A won stage waiting for its panel: stars, wave, and when (−1: set at the next frame). */
   let pending: { stars: 0 | 1 | 2 | 3; wave: number; at: number } | null = null;
 
-  const tile = (value: string, label: string, money = false): HTMLElement => {
+  const tile = (value: string, label: string, artName: string, money = false): HTMLElement => {
     const node = el(doc, "div", "dh-tile" + (money ? " is-money" : ""));
+    node.innerHTML = icon(artName, { box: 25 });
     node.append(el(doc, "b", "", value), el(doc, "span", "", label));
     return node;
   };
@@ -312,15 +317,18 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     const s = summary;
     setText(title, s.outcome === "victory" ? "Stage cleared" : "Dragon Platform lost");
     setText(sub, world.stage.nameVi + " · " + (s.outcome === "victory" ? s.waves + "/" + s.waves + " waves" : "lost at wave " + s.wave + "/" + s.waves));
-    starNodes.forEach((node, index) => setClass(node, "is-on", index < s.stars));
+    starNodes.forEach((node, index) => {
+      setClass(node, "is-on", index < s.stars);
+      node.innerHTML = icon(index < s.stars ? "star-lit" : "star-unlit", { box: 46 });
+    });
     setShown(stars, s.outcome === "victory");
     setText(hint, starHint(s));
     tiles.replaceChildren(
-      tile(String(s.goldLeft), "Gold left", true),
-      tile(String(s.goldEarned), "Gold earned", true),
-      tile(s.accuracyPct === null ? "—" : s.accuracyPct + "%", "Accuracy"),
-      tile(s.newLearned + "/" + s.newMet, "New learned"),
-      tile(String(s.met), "Words seen"),
+      tile(String(s.goldLeft), "Gold left", "gold", true),
+      tile(String(s.goldEarned), "Gold earned", "gold", true),
+      tile(s.accuracyPct === null ? "—" : s.accuracyPct + "%", "Accuracy", "stat-accuracy"),
+      tile(s.newLearned + "/" + s.newMet, "New learned", "stat-new-words"),
+      tile(String(s.met), "Words seen", "stat-words-seen"),
     );
     list = log.list();
     setText(bookCount, list.length + " words · " + s.mistyped + " mistyped");
@@ -329,11 +337,15 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
         const row = el(doc, "li", "dh-word");
         const status = wordStatus(record);
         const g = actions.gloss?.(record.text) ?? null;
+        const badge = el(doc, "span", "dh-wstatus is-" + status);
+        const statusIcon = status === "new" ? "status-learned" : status === "fresh" ? "status-new" : status === "review" ? "status-review" : status === "good" ? "check" : null;
+        badge.innerHTML = statusIcon ? icon(statusIcon, { box: 25 }) : "";
+        badge.append(STATUS_VI[status] + (record.errors > 0 ? " · " + record.errors + " errors" : ""));
         row.append(
           el(doc, "span", "dh-word__text", record.text),
           el(doc, "span", "dh-word__ipa", g?.ipa ?? ""),
           el(doc, "span", "dh-word__vi", g?.vi ?? ""),
-          el(doc, "span", "dh-wstatus is-" + status, STATUS_VI[status] + (record.errors > 0 ? " · " + record.errors + " errors" : "")),
+          badge,
         );
         if (actions.listen) {
           const listen = uiButton(doc, "dh-listen", () => {
@@ -341,6 +353,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
             actions.listen?.(record.text);
           });
           listen.title = "Listen: " + record.text;
+          listen.ariaLabel = listen.title;
           listen.innerHTML = icon("speaker");
           row.append(listen);
         } else row.append(el(doc, "span"));
@@ -349,13 +362,13 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
       }),
     );
     if (list.length === 0) bookList.append(el(doc, "li", "dh-book__empty", "No words typed this stage."));
-    retryButton.innerHTML = `<span class="dh-key">${keyLabel("enter")}</span>` + (s.outcome === "victory" ? "Replay" : "Retry");
+    retryButton.innerHTML = icon("retry", { box: 25 }) + `<span class="dh-key">${keyLabel("enter")}</span>` + (s.outcome === "victory" ? "Replay" : "Retry");
     const easier = s.outcome === "defeat" ? (actions.easierOffer?.() ?? null) : null;
     offerEasier = easier !== null;
     setShown(easierButton, offerEasier);
     if (easier !== null) easierButton.innerHTML = `<span class="dh-key">${keyLabel("call-early")}</span>Lost twice: retry on ${easier}`;
     keys.innerHTML =
-      `<span class="dh-key">${keyLabel("rotate-left")}</span><span class="dh-key">${keyLabel("rotate-right")}</span> buttons · ` +
+      (resultButtons.length > 1 ? `<span class="dh-key">${keyLabel("rotate-left")}</span><span class="dh-key">${keyLabel("rotate-right")}</span> buttons · ` : "") +
       `<span class="dh-key">${keyLabel("tilt-up")}</span><span class="dh-key">${keyLabel("tilt-down")}</span> words` +
       (actions.listen ? ` · <span class="dh-key">${keyLabel("replay")}</span> listen` : "");
     focusAction(0);
@@ -417,7 +430,7 @@ export function createResults(root: HTMLElement, actions: ResultsActions): Prese
     }
     if (!summary) return false;
     if (action === "enter") resultButtons[focusedAction]!.click();
-    else if (action === "rotate-left" || action === "rotate-right") focusAction(1 - focusedAction);
+    else if (action === "rotate-left" || action === "rotate-right") focusAction((focusedAction + 1) % resultButtons.length);
     else if (action === "call-early" && offerEasier) actions.easier?.();
     else if (action === "tilt-up") select(selected - 1);
     else if (action === "tilt-down") select(selected + 1);

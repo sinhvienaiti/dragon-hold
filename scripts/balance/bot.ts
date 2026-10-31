@@ -8,7 +8,7 @@
  * (a system that does nothing yet: the report says which).
  * Owner: bot-balance (LANES.md).
  */
-import { createRng } from "../../src/kit/platform";
+import { createRng, type RngStream } from "../../src/kit/platform";
 import { RECOGNIZE, STANDARD_BOTS, TARGET_MIX, type BotSpec as KitBotSpec, type PaceSummary } from "../../src/kit/balance";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import { FLOW } from "../../src/content/rules";
@@ -19,10 +19,18 @@ import { BASE_LATENCY_MS, Hands, type HandsSpec } from "./hands";
 import type { Arrival } from "./load";
 import { Meter, type RunMetrics } from "./meter";
 import { Plan, type PolicySpec } from "./policy";
-import { readTyping, type Aim } from "./reader";
+import { readTyping, type Aim, type TypingView } from "./reader";
 import { Typist, type TargetMix, type TypistStats } from "./typist";
 
 export const TICK_MS = 1000 / 60;
+
+export interface BotTypist {
+  readonly busy: boolean;
+  readonly stats: TypistStats;
+  hold(nowMs: number, ms: number): void;
+  act(view: TypingView, nowMs: number, world: World, commands: readonly SimCommand[]): SimCommand | null;
+  observe?(world: World, events: readonly SimEvent[], commands: readonly SimCommand[]): void;
+}
 
 export interface BotSpec {
   readonly name: string;
@@ -37,6 +45,8 @@ export interface BotSpec {
   readonly directorOff?: boolean;
   /** BALANCE.md §6 id this bot stands for in the B gates (with "@good", "@poor", "@off" variants). */
   readonly standard?: string;
+  /** Opt-in typist; absent preserves the original dice and typing path. */
+  readonly typist?: (rng: RngStream) => BotTypist;
 }
 
 /** A human-like typist (BALANCE.md §6): raw E (slips cost key time), a, CV, recognition by familiarity, crowd drop, drops a lock now and then. */
@@ -195,7 +205,7 @@ export function createBotWorld(spec: BotSpec, options: RunOptions): World {
 export function runBot(spec: BotSpec, options: RunOptions): BotRun {
   const world = createBotWorld(spec, options);
   const dice = createRng((options.seed ^ nameSeed(spec.name)) >>> 0);
-  const typist = spec.hands === null ? null : new Typist(new Hands(spec.hands, dice.ai), spec.mix ?? null);
+  const typist: BotTypist | null = spec.typist ? spec.typist(dice.ai) : spec.hands === null ? null : new Typist(new Hands(spec.hands, dice.ai), spec.mix ?? null);
   const plan = new Plan(spec.policy);
   const meter = new Meter(world);
   const maxTicks = options.maxTicks ?? DEFAULT_MAX_TICKS;
@@ -222,7 +232,7 @@ export function runBot(spec: BotSpec, options: RunOptions): BotRun {
     view.nowMs = world.tick * TICK_MS;
     plan.tick(view);
     if (typist && world.phase !== "prep") {
-      const key = typist.act(readTyping(world, spec.aim, pair), view.nowMs);
+      const key = typist.act(readTyping(world, spec.aim, pair), view.nowMs, world, queue);
       if (key) queue.push(key);
     }
     const commands = queue.splice(0);
@@ -238,6 +248,7 @@ export function runBot(spec: BotSpec, options: RunOptions): BotRun {
       if (event.type === "wave-end") wavesEnded += 1;
       if (event.type === "victory") stars = event.stars;
     }
+    typist?.observe?.(world, events, commands);
     meter.read(world, events);
     meter.scan(world, typist?.busy ?? false, typist?.stats.releases ?? 0);
     options.onTick?.(world, events, typist?.busy ?? false);

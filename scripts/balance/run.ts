@@ -25,12 +25,13 @@ import { M0_GATES } from "../../src/content/rules";
 import type { Difficulty } from "../../src/content/types";
 import { BAND_MODES, type BandMode } from "../../src/kit/balance";
 import { BAND_MODE } from "../../src/sim/director";
+import { findBot, type HumanBotName } from "./human";
 import { BOT_NAMES, BOTS, M0_BOTS, createBotWorld, runBot, type BotName, type BotRun } from "./bot";
 import { pacedStage } from "./variants";
 import { bandGates, m0Gates, mapNotes, markdown, planRows, readiness, summarize, type BotSummary } from "./report";
 
 interface Task {
-  readonly bot: BotName;
+  readonly bot: BotName | HumanBotName;
   readonly seed: number;
   readonly difficulty: Difficulty;
 }
@@ -53,7 +54,7 @@ const num = (name: string, fallback: number): number => {
 
 /** One run with its log dropped (reports never need it). */
 function runTask(task: Task, maxTicks: number, pace: number): BotRun & { difficulty: Difficulty } {
-  return { ...runBot(BOTS[task.bot], { seed: task.seed, maxTicks, timeSteps: true, stage: pacedStage(STAGE_M0, pace), difficulty: task.difficulty }), difficulty: task.difficulty };
+  return { ...runBot(findBot(task.bot)!, { seed: task.seed, maxTicks, timeSteps: true, stage: pacedStage(STAGE_M0, pace), difficulty: task.difficulty }), difficulty: task.difficulty };
 }
 
 const trace = arg("trace");
@@ -69,8 +70,8 @@ if (args.includes("--worker")) {
   });
 } else if (trace) {
   const [bot, seed] = trace.split(":") as [BotName, string?];
-  if (!(bot in BOTS)) throw new Error("không có bot " + bot + "; có: " + BOT_NAMES.join(", "));
-  const run = runBot(BOTS[bot], { seed: Number(seed ?? STAGE_M0.seed), maxTicks: Math.round(num("max-minutes", 60) * 3600), timeSteps: true });
+  if (!findBot(bot)) throw new Error("không có bot " + bot + "; có: " + BOT_NAMES.join(", "));
+  const run = runBot(findBot(bot)!, { seed: Number(seed ?? STAGE_M0.seed), maxTicks: Math.round(num("max-minutes", 60) * 3600), timeSteps: true });
   const { arrivals, log, hashes, ...rest } = run;
   console.log(JSON.stringify({ ...rest, arrivals: arrivals.length, w: arrivals.reduce((sum, a) => sum + a.w, 0) }, null, 1));
 } else {
@@ -87,9 +88,9 @@ async function main(): Promise<void> {
   const pace = num("pace", 1);
   const modes = (arg("modes")?.split(",") ?? [...BAND_MODES]).filter((mode): mode is BandMode => (BAND_MODES as readonly string[]).includes(mode));
   // Every bot by default: the M0 gate bots and BALANCE.md §6's set with the B6, B7 variants (`--set=m0`: the gate bots only).
-  const bots = (arg("bots")?.split(",") ?? (arg("set") === "m0" ? [...M0_BOTS] : BOT_NAMES)).filter((name): name is BotName => {
-    if (!(name in BOTS)) console.error("không có bot " + name + "; có: " + BOT_NAMES.join(", "));
-    return name in BOTS;
+  const bots = (arg("bots")?.split(",") ?? (arg("set") === "m0" ? [...M0_BOTS] : BOT_NAMES)).filter((name): name is BotName | HumanBotName => {
+    if (!findBot(name)) console.error("không có bot " + name + "; có: " + BOT_NAMES.join(", "));
+    return !!findBot(name);
   });
   const tasks: Task[] = modes.flatMap((mode) =>
     bots.flatMap((bot) => bases.flatMap((first) => Array.from({ length: seeds }, (_, k) => ({ bot, seed: first + k, difficulty: DIFFICULTY_OF[mode] })))),

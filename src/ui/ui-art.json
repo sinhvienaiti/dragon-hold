@@ -1,0 +1,742 @@
+{
+  "version": 1,
+  "icons": [
+    {
+      "name": "wave-horn",
+      "keys": [],
+      "alt": "Wave horn",
+      "source": "ui/icons/wave-horn",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "chain",
+      "keys": [],
+      "alt": "Chain",
+      "source": "ui/icons/chain",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "dragon-rage",
+      "keys": [],
+      "alt": "Dragon rage",
+      "source": "ui/icons/dragon-rage",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "shield",
+      "keys": [],
+      "alt": "Shield",
+      "source": "ui/icons/shield",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "phase-prep",
+      "keys": [],
+      "alt": "Preparation",
+      "source": "ui/icons/phase-prep",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "phase-fight",
+      "keys": [],
+      "alt": "Battle",
+      "source": "ui/icons/phase-fight",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "phase-break",
+      "keys": [],
+      "alt": "Break",
+      "source": "ui/icons/phase-break",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "fast-forward",
+      "keys": [],
+      "alt": "Fast forward",
+      "source": "ui/icons/fast-forward",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "137",
+      "interim": false
+    },
+    {
+      "name": "pause",
+      "keys": [],
+      "alt": "Pause",
+      "source": "ui/icons/pause",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "camera-reset",
+      "keys": [
+        "camera"
+      ],
+      "alt": "Reset camera",
+      "source": "ui/icons/camera-reset",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "keyboard",
+      "keys": [],
+      "alt": "Keyboard",
+      "source": "ui/icons/keyboard",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "speaker",
+      "keys": [],
+      "alt": "Speaker",
+      "source": "ui/icons/speaker",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "check",
+      "keys": [],
+      "alt": "Correct",
+      "source": "ui/icons/check",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "new-word",
+      "keys": [],
+      "alt": "New word",
+      "source": "ui/icons/new-word",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "deny",
+      "keys": [],
+      "alt": "Unavailable",
+      "source": "ui/icons/deny",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "lock",
+      "keys": [],
+      "alt": "Lock",
+      "source": "ui/icons/lock",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "upgrade",
+      "keys": [],
+      "alt": "Upgrade",
+      "source": "ui/icons/upgrade",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "sell",
+      "keys": [],
+      "alt": "Sell",
+      "source": "ui/icons/sell",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "138",
+      "interim": false
+    },
+    {
+      "name": "lane-bridge",
+      "keys": [],
+      "alt": "Lane bridge",
+      "source": "ui/icons/lane-bridge",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "lane-stream",
+      "keys": [],
+      "alt": "Lane stream",
+      "source": "ui/icons/lane-stream",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "lane-sky",
+      "keys": [
+        "wing"
+      ],
+      "alt": "Lane sky",
+      "source": "ui/icons/lane-sky",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "slot-trap",
+      "keys": [
+        "bar"
+      ],
+      "alt": "Slot trap",
+      "source": "ui/icons/slot-trap",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "slot-house",
+      "keys": [
+        "rune"
+      ],
+      "alt": "Slot house",
+      "source": "ui/icons/slot-house",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "slot-hold",
+      "keys": [
+        "flag"
+      ],
+      "alt": "Slot hold",
+      "source": "ui/icons/slot-hold",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "seal-lit",
+      "keys": [],
+      "alt": "Seal lit",
+      "source": "ui/icons/seal-lit",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "seal-unlit",
+      "keys": [],
+      "alt": "Seal unlit",
+      "source": "ui/icons/seal-unlit",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "edge-arrow",
+      "keys": [],
+      "alt": "Edge arrow",
+      "source": "ui/icons/edge-arrow",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "139",
+      "interim": false
+    },
+    {
+      "name": "star-lit",
+      "keys": [],
+      "alt": "Earned star",
+      "source": "ui/icons/star-lit",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "star-unlit",
+      "keys": [],
+      "alt": "Unearned star",
+      "source": "ui/icons/star-unlit",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "stat-accuracy",
+      "keys": [],
+      "alt": "Accuracy",
+      "source": "ui/icons/stat-accuracy",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "stat-new-words",
+      "keys": [],
+      "alt": "New words learned",
+      "source": "ui/icons/stat-new-words",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "stat-words-seen",
+      "keys": [],
+      "alt": "Words seen",
+      "source": "ui/icons/stat-words-seen",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "retry",
+      "keys": [],
+      "alt": "Retry",
+      "source": "ui/icons/retry",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "status-learned",
+      "keys": [],
+      "alt": "Learned",
+      "source": "ui/icons/status-learned",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "status-review",
+      "keys": [],
+      "alt": "Review",
+      "source": "ui/icons/status-review",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "status-new",
+      "keys": [],
+      "alt": "New",
+      "source": "ui/icons/status-new",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": "140",
+      "interim": false
+    },
+    {
+      "name": "gold",
+      "keys": [
+        "coin"
+      ],
+      "alt": "Gold",
+      "source": "icons/normalized/gold",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "skill-fire-breath",
+      "keys": [
+        "breath"
+      ],
+      "alt": "Skill fire breath",
+      "source": "icons/normalized/skill-fire-breath",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "skill-sky-fire",
+      "keys": [
+        "skyfire"
+      ],
+      "alt": "Skill sky fire",
+      "source": "icons/normalized/skill-sky-fire",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "skill-roar",
+      "keys": [
+        "roar"
+      ],
+      "alt": "Skill roar",
+      "source": "icons/normalized/015-skill-roar",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "skill-ultimate",
+      "keys": [
+        "inferno"
+      ],
+      "alt": "Skill ultimate",
+      "source": "icons/normalized/skill-ultimate",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "potion-small",
+      "keys": [
+        "potion",
+        "small-potion"
+      ],
+      "alt": "Potion small",
+      "source": "icons/normalized/potion-small",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "spikes",
+      "keys": [],
+      "alt": "Spikes",
+      "source": "icons/normalized/spikes",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "pine-bomb",
+      "keys": [],
+      "alt": "Pine bomb",
+      "source": "icons/normalized/pine-bomb",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "net-launcher",
+      "keys": [],
+      "alt": "Net launcher",
+      "source": "icons/normalized/net-launcher",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "moss-warden",
+      "keys": [],
+      "alt": "Moss warden",
+      "source": "icons/normalized/moss-warden",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "herb-hut",
+      "keys": [],
+      "alt": "Herb hut",
+      "source": "icons/normalized/herb-hut",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "dragon-heart",
+      "keys": [],
+      "alt": "Dragon heart",
+      "source": "icons/normalized/dragon-heart",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "hard-scale",
+      "keys": [],
+      "alt": "Hard scale",
+      "source": "icons/normalized/hard-scale",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "enemy-general",
+      "keys": [
+        "crown"
+      ],
+      "alt": "Enemy general",
+      "source": "icons/normalized/enemy-general",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "family-moss",
+      "keys": [],
+      "alt": "Moss family",
+      "source": "icons/normalized/family-moss",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "family-beast",
+      "keys": [],
+      "alt": "Beast family",
+      "source": "icons/normalized/family-beast",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    },
+    {
+      "name": "family-bug",
+      "keys": [],
+      "alt": "Bug family",
+      "source": "icons/normalized/family-bug",
+      "sizes": [
+        64,
+        128,
+        256
+      ],
+      "accepted": null,
+      "interim": true
+    }
+  ],
+  "art": [
+    {
+      "name": "title-backdrop",
+      "alt": "Dragonhold mountain stronghold at dawn",
+      "source": "ui/title-epic/title-backdrop",
+      "width": 1536,
+      "accepted": null
+    },
+    {
+      "name": "logo",
+      "alt": "Dragonhold",
+      "source": "ui/title-epic/logo.alpha",
+      "width": 1024,
+      "accepted": null
+    },
+    {
+      "name": "emblem",
+      "alt": "Dragonhold emblem",
+      "source": "ui/title-epic/emblem.alpha",
+      "width": 512,
+      "accepted": null
+    }
+  ]
+}

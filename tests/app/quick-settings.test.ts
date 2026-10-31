@@ -90,7 +90,9 @@ const decodeAll = async (): Promise<void> => {
     await flush();
   }
 };
-const boot = async (given: Record<string, unknown> = { typistWpm: 35, prelearn: false, keysBase: FEEL_BASE }) => {
+/** Straight into a run (?title=0) unless a test boots the 197 title itself. */
+const IN_RUN = { typistWpm: 35, prelearn: false, keysBase: FEEL_BASE, title: false };
+const boot = async (given: Record<string, unknown> = IN_RUN) => {
   app = startApp(document, given);
   await flush();
   await decodeAll();
@@ -307,7 +309,9 @@ describe("192 app and shared panels", () => {
     document.querySelector<HTMLButtonElement>('[data-action="quit"]')!.click();
     expect(window.__dh!.panel()).toBe("title");
     expect(h.loops[0]!.stop).toHaveBeenCalled();
-    expect(document.querySelector<HTMLElement>(".dh-title")!.hidden).toBe(false);
+    // ?title=0 skipped the 197 title at boot: Quit to title makes it, ready, with Start focused.
+    expect(document.querySelector<HTMLElement>(".dh-title-screen")!.hidden).toBe(false);
+    expect(window.__dh!.state().title).toBe("ready");
     corner("sound").click();
     expect(window.__dh!.panel()).toBe("sound");
     press(window, "Escape");
@@ -321,9 +325,78 @@ describe("192 app and shared panels", () => {
   });
 });
 
+describe("the 197 title hosts the shared panels, Quit to title and the keyboard gate", () => {
+  const screen = () => document.querySelector<HTMLElement>(".dh-title-screen")!;
+  const titleBoot = async (route?: (url: string) => Promise<Response> | Response | undefined) => {
+    app?.dispose();
+    app = null;
+    h.loops.length = 0;
+    fetched = [];
+    feelHost(route);
+    await boot({ typistWpm: 35, prelearn: false, keysBase: FEEL_BASE });
+  };
+
+  it("opens on the title with the gear and speaker; Esc closes a panel back to the title; Start runs; Quit to title brings the same title back", async () => {
+    await titleBoot();
+    expect(screen().hidden).toBe(false);
+    expect(window.__dh!.state().title).toBe("ready");
+    expect(window.__dh!.panel()).toBe("title");
+    expect(window.__dh!.ready).toBe(false);
+    expect(h.loops).toHaveLength(0);
+    corner("settings").click();
+    expect(window.__dh!.panel()).toBe("settings");
+    press(window, "Escape");
+    expect(window.__dh!.panel()).toBe("title");
+    press(window, "F2");
+    expect(window.__dh!.panel()).toBe("sound");
+    // Enter belongs to the open panel, not to the title's Start.
+    press(window, "Enter");
+    expect(screen().hidden).toBe(false);
+    press(window, "Escape");
+    expect(window.__dh!.panel()).toBe("title");
+    // ?wpm= gave the speed: Start begins the run (197).
+    press(window, "Enter");
+    await flush();
+    expect(screen().hidden).toBe(true);
+    expect(window.__dh!.ready).toBe(true);
+    expect(h.loops).toHaveLength(1);
+    press(window, "F1");
+    document.querySelector<HTMLButtonElement>('[data-action="quit"]')!.click();
+    expect(h.loops[0]!.stop).toHaveBeenCalled();
+    expect(document.querySelectorAll(".dh-title-screen")).toHaveLength(1);
+    expect(screen().hidden).toBe(false);
+    expect(window.__dh!.panel()).toBe("title");
+    expect(window.__dh!.state().title).toBe("ready");
+    expect(window.__dh!.ready).toBe(false);
+    // After Quit to title the speed card asks again (192).
+    press(window, "Enter");
+    expect(document.querySelector<HTMLElement>(".dh-pacecard")!.hidden).toBe(false);
+    press(window, "Enter");
+    await flush();
+    expect(window.__dh!.ready).toBe(true);
+    expect(h.loops).toHaveLength(2);
+  });
+
+  it("Start on the title before the keyboard sound is playable: the run begins at the 1.5 s gate (B4)", async () => {
+    let answer!: () => void;
+    const held = new Promise<void>((resolve) => { answer = resolve; });
+    await titleBoot((url) => (url === FEEL_BASE + "keys-manifest.json" ? held.then(() => respond(url, serve(url, catalogue()))) : undefined));
+    expect(window.__dh!.state().title).toBe("ready");
+    press(window, "Enter");
+    await flush();
+    expect(screen().hidden).toBe(true);
+    expect(window.__dh!.ready).toBe(false);
+    await vi.advanceTimersByTimeAsync(KEYBOARD_GATE_MS);
+    expect(window.__dh!.ready).toBe(true);
+    expect(h.loops).toHaveLength(1);
+    answer();
+    await decodeAll();
+  });
+});
+
 describe("Typing Feel keyboard sounds in the app (parent TYPING_FEEL_SERVICE.md §5.1–5.3)", () => {
   /** Boots again on a fresh page: the save, then the host (`route` answers first). */
-  const reboot = async (save: Record<string, unknown> | null, route?: (url: string) => Promise<Response> | Response | undefined, given: Record<string, unknown> = { typistWpm: 35, prelearn: false, keysBase: FEEL_BASE }) => {
+  const reboot = async (save: Record<string, unknown> | null, route?: (url: string) => Promise<Response> | Response | undefined, given: Record<string, unknown> = IN_RUN) => {
     app?.dispose();
     app = null;
     localStorage.clear();
@@ -377,7 +450,7 @@ describe("Typing Feel keyboard sounds in the app (parent TYPING_FEEL_SERVICE.md 
   });
 
   it("no origin: nothing is fetched from a feel host; Off and Dragonhold, which plays; no notice", async () => {
-    await reboot(null, undefined, { typistWpm: 35, prelearn: false, keysBase: null });
+    await reboot(null, undefined, { ...IN_RUN, keysBase: null });
     expect(feelUrls()).toEqual([]);
     expect(window.__dh!.ready).toBe(true);
     expect(window.__dh!.keyboard()).toMatchObject({ base: null, state: "missing", id: "dragonhold", standIn: null, notice: "none" });
@@ -394,7 +467,7 @@ describe("Typing Feel keyboard sounds in the app (parent TYPING_FEEL_SERVICE.md 
       ["no origin", undefined, null, "off"],
     ];
     for (const [name, route, keysBase, pick] of cases) {
-      await reboot({ music: 0.5 }, route, { typistWpm: 35, prelearn: false, keysBase });
+      await reboot({ music: 0.5 }, route, { ...IN_RUN, keysBase });
       press(window, "F2");
       row("master").querySelector<HTMLButtonElement>("button")!.click();
       slide("keyboardVolume", 40);
