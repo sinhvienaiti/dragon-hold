@@ -209,7 +209,16 @@ describe("192 settings", () => {
     expect(quickValues(restored)).toMatchObject({ master: 25, music: 30, effects: 40, keyboardVolume: 50, voice: 60, ui: 70, keyboard: "warm", muted: true, quality: "low" });
     expect(applyQuick(settings, "master", "50")).toBe(false);
     expect(applyQuick(settings, "master", NaN)).toBe(false);
-    expect(applyQuick(settings, "reducedMotion", true)).toBe(false);
+    // No typing-effect rows in Dragonhold (its letter pops have no style, strength or size): none is taken.
+    for (const [id, value] of Object.entries({ fxStyle: "flare", fxIntensity: "high", fxSize: "huge" })) expect(applyQuick(settings, id, value), id).toBe(false);
+    // The Settings switches: Reduced motion and the two Learning switches, booleans only, kept in the save.
+    expect(loadSettings(null)).toMatchObject({ reducedMotion: false, learnMeaning: true, learnIpa: true });
+    for (const [id, value] of Object.entries({ reducedMotion: true, learnMeaning: false, learnIpa: false })) {
+      expect(applyQuick(settings, id, "yes"), id).toBe(false);
+      expect(applyQuick(settings, id, value), id).toBe(true);
+    }
+    expect(quickValues(loadSettings(JSON.parse(JSON.stringify(settings))))).toMatchObject({ reducedMotion: true, learnMeaning: false, learnIpa: false });
+    expect(loadSettings({ reducedMotion: 1, learnMeaning: "no", learnIpa: null })).toMatchObject({ reducedMotion: false, learnMeaning: true, learnIpa: true });
   });
 
   it("maps Master, Music, Effects, Voice, Interface and original keys to independent buses", () => {

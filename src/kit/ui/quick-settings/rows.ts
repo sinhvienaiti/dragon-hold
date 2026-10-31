@@ -64,7 +64,7 @@ export type QuickDefaultsOptions = {
 /** Sound panel rows in the spec's order (§2). Values 0–100; `muted` is a boolean. Every row names an icon. */
 export function defaultSoundRows(options: QuickDefaultsOptions = {}): QuickRow[] {
   return [
-    { kind: "slider", id: "master", label: "Master", icon: "vol-master", preview: "master", toggle: { id: "muted", label: "Mute" } },
+    { kind: "slider", id: "master", label: "Master", icon: "vol-master", mutedIcon: "hud-sound-muted", preview: "master", toggle: { id: "muted", label: "Mute", pressedLabel: "Unmute" } },
     { kind: "slider", id: "music", label: "Music", icon: "vol-music", preview: "music" },
     { kind: "slider", id: "effects", label: "Effects", icon: "vol-effects", preview: "effects" },
     { kind: "choice", id: "keyboard", label: "Keyboard sound", icon: "vol-keyboard", options: options.keyboardProfiles ?? DEFAULT_KEYBOARD_PROFILES, default: (options.keyboardProfiles ?? DEFAULT_KEYBOARD_PROFILES).find((p) => p.value !== "off" && !p.disabled)?.value ?? "off", preview: "keyboard" },

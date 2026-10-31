@@ -6,8 +6,9 @@ import { manifestJson, sampleBytes } from "./keyboard";
 const UI_BASE = `${import.meta.env.BASE_URL}assets/dragon-hold/ui/quick-settings/`;
 /**
  * Accepted icon art per row icon name, as file stems in public (each a byte copy of
- * art-src/ui/quick-settings/selected/<stem>.64.png): the 180 set, with the 244 redraws (r2) for Keyboard sound,
- * Voice and Interface, and the 244 Keyboard volume icon. Graphics rows have no accepted icon yet.
+ * art-src/ui/quick-settings/selected/<stem>.<ICON_PX>.png): the 180 set, with the 244 redraws (r2) for Keyboard sound,
+ * Voice and Interface, and the 244 Keyboard volume icon. The Graphics and Learning rows (gfx-quality, gfx-motion,
+ * learn-meaning, learn-ipa) have no accepted icon yet: their cells stay empty at full width.
  */
 export const QUICK_ICON_FILES: Readonly<Record<string, string>> = {
   ...Object.fromEntries(QUICK_ICON_NAMES.map((name) => [name, name])),
@@ -16,7 +17,12 @@ export const QUICK_ICON_FILES: Readonly<Record<string, string>> = {
   "vol-interface": "vol-interface.r2",
   "vol-keyboard-volume": "vol-keyboard-volume",
 };
-export const QUICK_ICONS: QuickIcons = Object.fromEntries(Object.entries(QUICK_ICON_FILES).map(([name, stem]) => [name, UI_BASE + stem + ".64.png"]));
+/**
+ * The 128 px files: row icons are drawn 32 px at 720p and 48 px at 1080p, the corner gear and speaker 44 and 66 px, so
+ * a 2x screen at 1080p wants 96 and 132 device px (the 64 px files were upscaled and soft there).
+ */
+export const ICON_PX = 128;
+export const QUICK_ICONS: QuickIcons = Object.fromEntries(Object.entries(QUICK_ICON_FILES).map(([name, stem]) => [name, `${UI_BASE}${stem}.${ICON_PX}.png`]));
 /**
  * The 162 button art (2172 x 724) as a nine-slice plate: its visible plate is 2102 x 433 at (35, 143), and the
  * corner ornaments reach 195 px across and 185 px down inside it. The cuts hold the margin plus the ornament, so the
@@ -63,16 +69,25 @@ export const LIST_ROW_VARS: Readonly<Record<string, string>> = {
 };
 /** Art the kit's skin has no field for, passed to app.css as variables on the layer: the 180 muted speaker for the Master row. */
 export const QUICK_ART_VARS: Readonly<Record<string, string>> = {
-  "--dh-qs-icon-muted": UI_BASE + "hud-sound-muted.64.png",
+  "--dh-qs-icon-muted": `${UI_BASE}hud-sound-muted.${ICON_PX}.png`,
 };
 const cssUrl = (url: string): string => `url(${JSON.stringify(url)})`;
 
+/**
+ * Settings in the spec's order (IN_GAME_SETTINGS.md §3), real settings only: Graphics (Reduced motion, Quality) and
+ * Learning (the meaning and IPA switches), then Resume and Quit to title. The kit's Typing effects rows (letter style,
+ * strength, word size) wait for the kit's focus strip in Dragonhold: its own letter pops have none of those settings.
+ * Learning comes last, so on the title (no Resume, no Quit) the panel ends on a switch, not a radio group.
+ */
 export function settingsRows(): QuickRow[] {
   return [
-    // "next launch" sits in the heading, so the row's label stays one short word and the chips one line.
-    { kind: "heading", id: "graphicsHeading", label: "Graphics · next launch" },
-    // The release build never offers Low (195 quality floor); dev keeps all four.
-    { kind: "choice", id: "quality", label: "Quality", options: allowedQualities(import.meta.env.PROD).map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) })), default: "high" },
+    { kind: "heading", id: "graphicsHeading", label: "Graphics" },
+    { kind: "toggle", id: "reducedMotion", label: "Reduced motion", icon: "gfx-motion", default: false },
+    // The release build never offers Low (195 quality floor); dev keeps all four. A new quality takes the next launch.
+    { kind: "choice", id: "quality", label: "Quality", icon: "gfx-quality", options: allowedQualities(import.meta.env.PROD).map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) })), default: "high" },
+    { kind: "heading", id: "learningHeading", label: "Learning" },
+    { kind: "toggle", id: "learnMeaning", label: "Vietnamese meaning", icon: "learn-meaning", default: true },
+    { kind: "toggle", id: "learnIpa", label: "Pronunciation", icon: "learn-ipa", default: true },
     { kind: "button", id: "resume", label: "Resume", action: "resume", primary: true },
     { kind: "button", id: "quit", label: "Quit to title", action: "quit" },
   ];

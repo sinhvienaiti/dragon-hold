@@ -15,6 +15,7 @@ import A11yDialog from "a11y-dialog";
 import { KeyboardSoundPreview, type KeyboardLoad, type TypingSounds } from "../../feedback/typing-fx/audio";
 import { KeyboardSoundChoices, type KeyboardPointer } from "./keyboard-choices";
 import { cssUrl, installQuickSettingsStyles } from "./css";
+import { nextStop, tabStops } from "./focus";
 import {
   QUICK_KEYS,
   createKeyedThrottle,
@@ -180,13 +181,16 @@ export class QuickSettings {
   private readonly corners: Readonly<Record<QuickPanel, HTMLButtonElement>>;
   private readonly panels: Readonly<Record<QuickPanel, Panel>>;
   private readonly count: HTMLElement;
-  private readonly rowIcons: { readonly name: QuickIconKey; readonly holder: HTMLElement }[] = [];
+  /** Each row's icon cell; `muted` swaps in another icon while `silent()` (a muted Master). */
+  private readonly rowIcons: { readonly name: QuickIconKey; readonly holder: HTMLElement; readonly muted?: { readonly name: QuickIconKey; readonly silent: () => boolean } }[] = [];
   /** QuickSkin.close: Close is drawn as this icon while it loads. */
   private closeArt: string | null = null;
   private readonly failedIcons = new Set<string>();
   private readonly previews: KeyedThrottle;
   private readonly keyboardPreview: KeyboardSoundPreview;
   private readonly keyboardChoices: KeyboardSoundChoices[] = [];
+  /** The keyboard set whose preview sounds now (its Listen button is lit), or null. */
+  private sounding: string | null = null;
   /** Each choice row's line and the function that rebuilds its control from new options (it returns what puts focus and scroll back once synced). */
   private readonly choiceRows = new Map<string, { readonly line: HTMLElement; readonly fill: (row: QuickChoiceRow) => () => void }>();
   private readonly resizeObserver: ResizeObserver | null;
@@ -220,6 +224,10 @@ export class QuickSettings {
       fetchBytes: options.keyboardFetch?.fetchBytes,
       onLoad: options.onKeyboardLoad,
       onFail: options.onKeyboardFail,
+      onPlaying: (choice) => {
+        this.sounding = choice?.value ?? null;
+        for (const picker of this.keyboardChoices) picker.playing(this.sounding);
+      },
     });
     installQuickSettingsStyles(this.doc);
 
@@ -392,6 +400,14 @@ export class QuickSettings {
 
   private readonly onWindowKey = (event: Event): void => {
     const key = event as KeyboardEvent;
+    if (event.type === "keydown" && key.key === "Tab" && this.current !== null && !key.ctrlKey && !key.metaKey && !key.altKey) {
+      // Tab goes round the open panel's controls (focus.ts), from anywhere, ahead of a11y-dialog's trap.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const { box } = this.panels[this.current];
+      nextStop(tabStops(box), this.doc.activeElement, box, key.shiftKey)?.focus();
+      return;
+    }
     const inside = isNode(event.target) && this.root.contains(event.target);
     const decision = routeQuickKey({ panel: this.current, blocking: this.blocking }, { type: event.type, key: key.key, repeat: key.repeat, inside });
     if (decision.swallow) {
@@ -525,6 +541,7 @@ export class QuickSettings {
     for (const kind of QUICK_PANELS) for (const sync of this.panels[kind].syncers) sync();
     this.root.classList.toggle("kit-qs--still", this.values.reducedMotion === true);
     this.paintCorners();
+    this.paintRowIcons();
   }
 
   /**
@@ -573,8 +590,8 @@ export class QuickSettings {
   }
 
   private paintRowIcons(): void {
-    for (const { name, holder } of this.rowIcons) {
-      const url = this.iconUrl(name);
+    for (const { name, holder, muted } of this.rowIcons) {
+      const url = (muted?.silent() === true ? this.iconUrl(muted.name) : null) ?? this.iconUrl(name);
       if (url === null) holder.replaceChildren();
       else if (holder.firstElementChild?.getAttribute("src") !== url) holder.replaceChildren(this.image(url, "kit-qs__icon"));
     }
@@ -736,7 +753,7 @@ export class QuickSettings {
     }
   }
 
-  private shell(row: RowHead, labelTag: "label" | "span"): { line: HTMLElement; label: HTMLElement; control: HTMLElement } {
+  private shell(row: RowHead, labelTag: "label" | "span", muted?: { readonly name: QuickIconKey; readonly silent: () => boolean }): { line: HTMLElement; label: HTMLElement; control: HTMLElement } {
     const line = this.el("div", "kit-qs__row");
     line.dataset.row = row.id;
     // The cell keeps its width when empty, so labels line up.
@@ -744,7 +761,7 @@ export class QuickSettings {
     icon.setAttribute("aria-hidden", "true");
     if (row.icon !== undefined) {
       icon.dataset.icon = row.icon;
-      this.rowIcons.push({ name: row.icon, holder: icon });
+      this.rowIcons.push({ name: row.icon, holder: icon, ...(muted !== undefined ? { muted } : {}) });
     }
     const label = this.el(labelTag, "kit-qs__label", row.label);
     label.id = `${this.uid}-${row.id}-label`;
@@ -760,9 +777,12 @@ export class QuickSettings {
    * goes to the row's `.kit-qs__aside` column after the number.
    */
   private renderSlider(row: QuickSliderRow, panel: Panel): HTMLElement {
-    const { line, label, control } = this.shell(row, "label");
-    control.classList.add("kit-qs__control--slider");
     const { min, max, step } = sliderBounds(row);
+    // Silent: the toggle pressed (Mute) or the value at its minimum.
+    const pressed = (): boolean => row.toggle !== undefined && this.values[row.toggle.id] === true;
+    const silent = (): boolean => pressed() || Number(this.values[row.id]) <= min;
+    const { line, label, control } = this.shell(row, "label", row.mutedIcon !== undefined ? { name: row.mutedIcon, silent } : undefined);
+    control.classList.add("kit-qs__control--slider");
     const slider = this.el("div", "kit-qs__slider");
     const groove = this.el("span", "kit-qs__groove");
     const fill = this.el("span", "kit-qs__fill");
@@ -793,13 +813,22 @@ export class QuickSettings {
     const aside = panel.aside ? this.el("span", "kit-qs__aside") : null;
     if (aside !== null) control.append(aside);
     if (row.toggle !== undefined) {
-      const { id, label: text } = row.toggle;
+      const { id, label: text, pressedLabel } = row.toggle;
       const button = this.button("kit-qs__btn", text);
       button.dataset.toggle = id;
       button.addEventListener("click", () => this.change(id, this.values[id] !== true));
       (aside ?? control).append(button);
-      panel.syncers.push(() => button.setAttribute("aria-pressed", String(this.values[id] === true)));
+      panel.syncers.push(() => {
+        const on = this.values[id] === true;
+        button.setAttribute("aria-pressed", String(on));
+        const shown = on ? (pressedLabel ?? text) : text;
+        if (button.textContent !== shown) button.textContent = shown;
+      });
     }
+    panel.syncers.push(() => {
+      line.classList.toggle("kit-qs__row--muted", pressed());
+      if (row.mutedIcon !== undefined) line.classList.toggle("kit-qs__row--silent", silent());
+    });
     return line;
   }
 
@@ -837,6 +866,7 @@ export class QuickSettings {
           },
         });
         picker = made;
+        made.playing(this.sounding);
         this.keyboardChoices.push(made);
         control.append(made.element);
         sync = () => made.sync(String(this.values[current.id]), !this.rebuilding);

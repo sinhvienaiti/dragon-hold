@@ -29,7 +29,7 @@ vi.mock("../../src/app/loop", () => ({ createLoop: vi.fn(() => ({ start: h.start
 vi.mock("../../src/app/input-router", () => ({ createInputRouter: vi.fn(() => ({ handlers: [], stats: {}, dispose() {} })) }));
 vi.mock("../../src/view/stage", () => ({ createMapStage: () => ({
   stage: { layers: { ground: { children: [] }, actors: { children: [] }, fx: { children: [] } } },
-  groundBaked: undefined, rig: {}, render() {}, useModels() {}, dispose() {},
+  groundBaked: undefined, rig: { configure() {} }, render() {}, useModels() {}, dispose() {},
 }) }));
 vi.mock("../../src/view/models", () => ({ loadCrowdModels: () => ({ ...h.presenter, ready: undefined }) }));
 vi.mock("../../src/view/heroes", () => ({ createHeroes: () => ({ ...h.presenter, ready: undefined }) }));

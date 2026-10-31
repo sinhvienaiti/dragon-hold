@@ -78,9 +78,22 @@ export type QuickSliderRow = {
    * A pressed/unpressed button in the same row, e.g. Master's mute (`muted`).
    * It sits in a fixed column after the number (`.kit-qs__aside`, width
    * --kit-qs-aside-w); every slider row of that panel keeps the column, so all
-   * grooves have one length.
+   * grooves have one length. Pressed, the row reads as off: it takes
+   * `kit-qs__row--muted` (the slider dims through --kit-qs-muted-filter, the
+   * number is struck) and the button reads `pressedLabel`.
    */
-  readonly toggle?: { readonly id: string; readonly label: string };
+  readonly toggle?: {
+    readonly id: string;
+    readonly label: string;
+    /** The button's text while pressed (Master: "Unmute"); unset: `label`. */
+    readonly pressedLabel?: string;
+  };
+  /**
+   * The row's icon while it is silent: its toggle pressed or the value at
+   * `min` (Master: "hud-sound-muted", the corner's muted speaker). The row
+   * then also takes `kit-qs__row--silent`. Unset or without art: `icon`.
+   */
+  readonly mutedIcon?: QuickIconKey;
 };
 
 export type QuickChoiceOption = {

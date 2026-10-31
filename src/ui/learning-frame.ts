@@ -211,6 +211,8 @@ const escapeHtml = (text: string): string => text.replace(/[&<>"]/g, (ch) => ({ 
 export interface LearningFrameOptions {
   /** Plays a word (the learning client's speak); the speaker icon only shows with it. */
   readonly speak?: (text: string) => void;
+  /** The player's Learning switches (Settings), read every frame: the meaning (also in the Learned line) and the IPA line. */
+  readonly show?: () => { readonly meaning: boolean; readonly ipa: boolean };
 }
 
 /** The frame, and a cover for while a learning panel asks: its words and the Vừa học line would give the answers away. */
@@ -317,7 +319,9 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
 
     frame(world: World, info: FrameInfo): void {
       const q = ensure(world);
-      const view = q.view(info.now);
+      const shown = q.view(info.now);
+      const show = options.show?.() ?? { meaning: true, ipa: true };
+      const view = shown && { ...shown, ipa: show.ipa ? shown.ipa : "", meaning: show.meaning ? shown.meaning : "" };
       // With no word up there is nothing to lock: in a wave the frame waits quietly; prep and breaks point to the shop.
       const resting = world.phase === "prep" || world.phase === "break";
       const anyWord = world.words.live.some((item) => item !== null);
@@ -343,7 +347,7 @@ export function createLearningFrame(root: HTMLElement, gloss: Gloss, options: Le
       // "small (nhỏ) · big (to, lớn)": HTML collapses runs of spaces, so entries need a visible separator.
       // At 720p the line holds two words whole; the third was cut to "city (…" (test pass 26/10).
       const room = (el.ownerDocument.defaultView?.innerHeight ?? 1080) < 820 ? 2 : LEARNING.recentNewWords;
-      const recentNext = q.recent.slice(0, room).map((item) => item.text + " (" + shortMeaning(item.vi) + ")").join(" · ");
+      const recentNext = q.recent.slice(0, room).map((item) => (show.meaning ? item.text + " (" + shortMeaning(item.vi) + ")" : item.text)).join(" · ");
       if (recentNext !== recentKey) {
         recentKey = recentNext;
         recent.textContent = recentNext === "" ? "" : "Learned: " + recentNext;

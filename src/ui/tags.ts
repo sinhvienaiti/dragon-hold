@@ -546,6 +546,7 @@ const CSS = `
 .dh-spark.is-on { animation: dh-spark 520ms ease-out forwards; }
 @keyframes dh-spark { 0% { opacity: 1; translate: 0 0; scale: 1.15; } 100% { opacity: 0; translate: var(--dx) var(--dy); scale: 0.6; } }
 @media (prefers-reduced-motion: reduce) { .dh-spark.is-on { animation-duration: 1ms; } }
+.dh-still .dh-spark.is-on { animation-duration: 1ms; }
 .dh-dot { position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255, 244, 214, 0.45); }
 @keyframes dh-tag-pop { 0% { transform: scale(0.6); } 70% { transform: scale(1.06); } 100% { transform: scale(1); } }
 @keyframes dh-tag-shake { 0%, 100% { translate: 0 0; } 20% { translate: -5px 0; } 50% { translate: 5px 0; } 80% { translate: -3px 0; } }
@@ -554,6 +555,7 @@ const CSS = `
 @keyframes dh-tag-done { 0% { opacity: 1; } 45% { opacity: 0.3; } 100% { opacity: 0; translate: 0 -14px; } }
 @keyframes dh-tag-fold { to { opacity: 0; transform: scale(0.6, 0.2); } }
 @media (prefers-reduced-motion: reduce) { .dh-tag__body, .dh-tag__word .j { animation: none !important; } }
+.dh-still .dh-tag__body, .dh-still .dh-tag__word .j { animation: none !important; }
 `;
 
 /** Word font size at this viewport (01 §3.1: 20 px at 1080p, at least 16 px at 720p), times the player's 80–150 %. */
