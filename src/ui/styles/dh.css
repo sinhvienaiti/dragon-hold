@@ -895,11 +895,24 @@ body {
   color: var(--dh-muted);
 }
 
+/* How to play, on wave 1's card while the player deploys (moved off the title, judges 01/11). */
+.dh-wave-card__howto {
+  padding-top: calc(2px * var(--ui));
+  font: 600 max(12px, calc(13px * var(--ui))) / 1.3 var(--dh-font);
+  color: var(--dh-parchment);
+}
+
+.dh-wave-card__howto p {
+  margin: calc(2px * var(--ui)) 0 0;
+}
+
 /* Placement and edit mode fold the card to its head and foot (placement-ui sets data-placing). */
 [data-placing="place"] .dh-wave-card .dh-lanes,
 [data-placing="place"] .dh-wave-card .dh-beat,
+[data-placing="place"] .dh-wave-card .dh-wave-card__howto,
 [data-placing="edit"] .dh-wave-card .dh-lanes,
-[data-placing="edit"] .dh-wave-card .dh-beat {
+[data-placing="edit"] .dh-wave-card .dh-beat,
+[data-placing="edit"] .dh-wave-card .dh-wave-card__howto {
   display: none;
 }
 

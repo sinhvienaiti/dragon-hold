@@ -261,3 +261,69 @@ describe("title menu buttons keep icon and label in one row (235 browser nit)", 
     });
   });
 });
+
+describe("title Start, prompt and scrim (judges 01/11)", () => {
+  const screen: Node = { tag: "section", classes: ["dh-title-screen", "dh-title"] };
+  const menu: Node = { tag: "div", classes: ["dh-title__menu"] };
+  const start = [screen, menu, { tag: "button", classes: ["dh-btn", "dh-title__start"] }];
+  const status = [screen, menu, { tag: "p", classes: ["dh-title__status"] }];
+  /** A length at a --ui value: "calc(Npx * var(--ui))", "max(Apx, calc(Npx * var(--ui)))" or "Npx". */
+  const px = (value: string | undefined, ui: number): number => {
+    const text = value ?? "";
+    const max = /^max\(([\d.]+)px,\s*(.+)\)$/.exec(text);
+    if (max) return Math.max(Number(max[1]), px(max[2], ui));
+    const scaled = /^calc\(([\d.]+)px \* var\(--ui\)\)$/.exec(text);
+    if (scaled) return Number(scaled[1]) * ui;
+    const plain = /^([\d.]+)px$/.exec(text);
+    if (plain) return Number(plain[1]);
+    throw new Error("unparsed length: " + text);
+  };
+  const UI_720 = 0.8, UI_1080 = 1.2; // kit uiScale: min(w / 1600, h / 900), clamped 0.8..1.2
+
+  it("draws Start on the Settings panel's plate, nine-sliced, in the title's Cormorant, at least 200 x 64 at 1080p", () => {
+    for (const sheets of [SHEETS, [...SHEETS].reverse()]) {
+      const decls = computed(start, sheets);
+      // The 162 plate: cuts 328 230 333 230 with the art's margins (143 35 148 35) pushed outside the box.
+      expect(decls["border-image"]).toMatch(/^var\(--dh-title-plate\) 328 230 333 230 fill \//);
+      expect(decls["border-image"]).toContain("calc(143 * var(--dh-plate-k)) calc(35 * var(--dh-plate-k)) calc(148 * var(--dh-plate-k)) stretch");
+      expect(decls["--dh-plate-k"]).toBe("calc(var(--dh-plate-h) / 433)");
+      expect(pick(decls, ["background", "box-shadow", "border-radius"])).toEqual({ background: "none", "box-shadow": "none", "border-radius": "0" });
+      expect(decls.font).toMatch(/var\(--dh-font-title\)$/);
+      const height = (ui: number) => px(decls["--dh-plate-h"], ui);
+      expect(decls["min-height"]).toBe("var(--dh-plate-h)");
+      expect(height(UI_1080)).toBeGreaterThanOrEqual(64);
+      expect(px(decls["min-width"], UI_1080)).toBeGreaterThanOrEqual(200);
+      // 720p is the same box at 720/1080 of the size.
+      expect(height(UI_720) / height(UI_1080)).toBeCloseTo(720 / 1080, 5);
+      expect(px(decls["min-width"], UI_720) / px(decls["min-width"], UI_1080)).toBeCloseTo(720 / 1080, 5);
+    }
+    // The states keep the plate: the selected button and a press wear the active plate; hover and press glow.
+    const rules = parseCss("src/ui/styles/title.css");
+    const rule = (selector: string) => rules.find(r => r.selectors.includes(selector))?.decls ?? {};
+    const btn = ".dh-title-screen .dh-title__menu .dh-btn";
+    expect(rule(btn + ".is-focused:not(:disabled)")["border-image-source"]).toBe("var(--dh-title-plate-active, var(--dh-title-plate))");
+    expect(rule(btn + ":active:not(:disabled)")["border-image-source"]).toBe("var(--dh-title-plate-active, var(--dh-title-plate))");
+    expect(rule(btn + ":active:not(:disabled)").translate).toBeTruthy();
+    expect(rule(btn + ":hover:not(:disabled)").filter).toMatch(/drop-shadow/);
+    expect(rule(btn + ":disabled").filter).toMatch(/brightness/);
+  });
+
+  it("makes the one prompt line the menu's largest text, never under 16 px at 720p", () => {
+    for (const sheets of [SHEETS, [...SHEETS].reverse()]) {
+      const prompt = computed(status, sheets);
+      const menuText = computed([screen, menu], sheets);
+      expect(px(prompt["font-size"], UI_720)).toBeGreaterThanOrEqual(16);
+      expect(px(menuText["font-size"], UI_720)).toBeGreaterThanOrEqual(16);
+      expect(px(prompt["font-size"], UI_720)).toBeGreaterThan(px(menuText["font-size"], UI_720));
+    }
+    const css = readFileSync("src/ui/styles/title.css", "utf8");
+    expect(css).not.toMatch(/dh-title__help|dh-title__emblem/);
+  });
+
+  it("darkens the lower-left under the menu with a soft scrim that catches no pointer", () => {
+    const scrim = declsFor("div", ["dh-title__scrim"]);
+    expect(pick(scrim, ["position", "left", "bottom", "pointer-events"])).toEqual({ position: "absolute", left: "0", bottom: "0", "pointer-events": "none" });
+    expect(scrim.background).toMatch(/^radial-gradient\(/);
+    expect(scrim.background).toMatch(/rgba\(10, 7, 4, 0\) 100%\)$/);
+  });
+});

@@ -221,12 +221,21 @@ describe("192 app and shared panels", () => {
   it("the Sound panel is 720 px wide and both panels share one label column, so the grooves take the free width (judges 31/10)", () => {
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
     expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="sound"] .kit-qs__panel')).toContain("width: min(calc(720px * var(--kit-qs-s)), calc(100% - 32px));");
-    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__panel')).toContain("width: min(calc(640px * var(--kit-qs-s)), calc(100% - 32px));");
+    // 700 px: the four Quality chips (333 px at scale 1) fit the control column on one row (Ultra wrapped at 640, judges 01/11).
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__panel')).toContain("width: min(calc(700px * var(--kit-qs-s)), calc(100% - 32px));");
     // One grid on every row of both panels: the icon, a label column as wide as the longest label, the controls.
     expect(rules.get(".dh-quick .kit-qs__row")).toContain("grid-template-columns: var(--kit-qs-icon-size) var(--dh-qs-label-w) minmax(0, 1fr);");
     expect(rules.get(".dh-quick.kit-qs")).toContain("--dh-qs-label-w: calc(158px * var(--kit-qs-s));");
     expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row')).toBeUndefined();
     expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="sound"]')).toContain("--dh-qs-label-w: calc(138px * var(--kit-qs-s));");
+  });
+
+  it("the corner gear and speaker keep a dark edge at rest, on hover and on keyboard focus (title sky, judges 01/11)", () => {
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    const corner = ".dh-quick.kit-qs .kit-qs__bar .kit-qs__corner.has-icon";
+    expect(rules.get(corner)).toContain("drop-shadow(0 0 1px rgba(10, 6, 3, 0.95))");
+    expect(rules.get(corner)).toContain("filter: var(--dh-qs-corner-edge);");
+    for (const state of [":hover", ":focus-visible"]) expect(rules.get(corner + state), state).toMatch(/filter: var\(--dh-qs-corner-edge\) /);
   });
 
   it("the frame's stone is one picture: the stretched centre covers the edge slices' inner stone, the corners keep their claws (judges 31/10)", () => {

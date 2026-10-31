@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MAP_L2_CAU } from "../../src/content/data/maps";
 import { STAGE_M0 } from "../../src/content/data/stages";
 import type { StageDef, WaveDef } from "../../src/content/types";
-import { bannerText, shortFoeName, summarizeWave } from "../../src/ui/wave-card";
+import { bannerText, cardHint, HOW_TO_PLAY, shortFoeName, summarizeWave } from "../../src/ui/wave-card";
 
 const wave = (n: number, groups: WaveDef["groups"], generals: WaveDef["generals"] = []): WaveDef => ({
   n,
@@ -72,5 +72,20 @@ describe("ui wave card summary (02 §5.6)", () => {
     const m0 = summarizeWave(STAGE_M0, MAP_L2_CAU, 5)!;
     expect(m0.generals).toEqual(["moss-banner"]);
     expect(m0.waves).toBe(10);
+  });
+});
+
+describe("ui wave card how to play (moved off the title, judges 01/11)", () => {
+  it("shows the three how-to lines only in wave 1's prep, in place of the prep hint", () => {
+    expect(HOW_TO_PLAY).toEqual([
+      "Type the word over a foe and Hỏa Long breathes fire on it.",
+      "Place traps, units and houses on the lanes during breaks.",
+      "Keep Hỏa Long standing until the last wave ends.",
+    ]);
+    expect(cardHint("prep", 1)).toEqual({ hint: "", howTo: HOW_TO_PLAY });
+    expect(cardHint("prep", 2)).toEqual({ hint: "Place traps, units, houses first", howTo: [] });
+    expect(cardHint("warning", 1)).toEqual({ hint: "Foes will enter along the lit lanes", howTo: [] });
+    expect(cardHint("break", 2)).toEqual({ hint: "", howTo: [] });
+    expect(cardHint("wave", 1)).toEqual({ hint: "", howTo: [] });
   });
 });

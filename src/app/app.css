@@ -293,6 +293,23 @@
   width: calc(44px * var(--kit-qs-s));
   height: calc(44px * var(--kit-qs-s));
 }
+/*
+ * The gear and speaker art has no dark edge: on the title it sat on the brightest sky beside the sun (judges 01/11).
+ * A dark outline and a soft shadow lift both off any background; hover and keyboard focus keep that edge under
+ * their ember glow. The selectors outrank the kit's (it installs its sheet after this one).
+ */
+.dh-quick.kit-qs .kit-qs__bar .kit-qs__corner.has-icon {
+  --dh-qs-corner-edge: drop-shadow(0 0 1px rgba(10, 6, 3, 0.95)) drop-shadow(0 0 calc(2px * var(--kit-qs-s)) rgba(10, 6, 3, 0.85))
+    drop-shadow(0 calc(2px * var(--kit-qs-s)) calc(6px * var(--kit-qs-s)) rgba(0, 0, 0, 0.7));
+  filter: var(--dh-qs-corner-edge);
+}
+.dh-quick.kit-qs .kit-qs__bar .kit-qs__corner.has-icon:hover {
+  filter: var(--dh-qs-corner-edge) brightness(1.15) drop-shadow(0 0 calc(4px * var(--kit-qs-s)) var(--kit-qs-glow));
+}
+.dh-quick.kit-qs .kit-qs__bar .kit-qs__corner.has-icon:focus-visible {
+  outline: none;
+  filter: var(--dh-qs-corner-edge) var(--kit-qs-glow-filter);
+}
 
 /*
  * Frame (162 panel-large, 1254 px square) as a 9-slice at one scale, 0.4 at 720p: the 312 px corners of its slice data
@@ -471,11 +488,12 @@
 }
 
 /*
- * Settings is 640 px wide (scaled; the kit's 560): four Quality chips stay on one line beside the label column. The
- * Sound panel is 720 px: the free width goes to the grooves (260 px at 720p, 187.5 before), every row alike.
+ * Settings is 700 px wide (scaled; the kit's 560): the four Quality chips need 333 px at scale 1 in the 18 px serif,
+ * and at 640 the control column had 306, so Ultra wrapped (judges 01/11); at 700 it has 366. The Sound panel is
+ * 720 px: the free width goes to the grooves (260 px at 720p, 187.5 before), every row alike.
  */
 .dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__panel {
-  width: min(calc(640px * var(--kit-qs-s)), calc(100% - 32px));
+  width: min(calc(700px * var(--kit-qs-s)), calc(100% - 32px));
 }
 .dh-quick .kit-qs__dialog[data-panel="sound"] .kit-qs__panel {
   width: min(calc(720px * var(--kit-qs-s)), calc(100% - 32px));

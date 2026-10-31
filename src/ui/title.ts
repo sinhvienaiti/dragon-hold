@@ -1,5 +1,6 @@
 import "./styles/title.css";
 import { portalHome } from "../app/portal";
+import { QUICK_SKIN } from "../app/quick";
 import { el, icon, uiButton } from "./skin";
 import table from "./ui-art.json";
 import { initialTitleState, reopenTitle, retryTitle, settleTitle, titleAction, wantsRetry, type TitleDeckError, type TitleSource, type TitleStatus } from "./title-state";
@@ -24,6 +25,13 @@ export interface Title {
   dispose(): void;
 }
 
+const cssUrl = (url: string): string => `url(${JSON.stringify(url)})`;
+/** The Settings panel's button plates (QUICK_SKIN, ticket 162) as variables on the title root; title.css draws them. */
+export const TITLE_PLATE_STYLE = [
+  ["--dh-title-plate", QUICK_SKIN.button],
+  ["--dh-title-plate-active", QUICK_SKIN.buttonActive ?? QUICK_SKIN.button],
+].flatMap(([name, url]) => (url ? [`${name}: ${cssUrl(url)}`] : [])).join("; ");
+
 /** onRetry reloads the words after a deck error; it returns false when no load started. */
 export function createTitle(root: HTMLElement, options: { onStart(): void; onRetry?(): boolean | void; art?: TitleArtTable }): Title {
   const doc = root.ownerDocument;
@@ -42,6 +50,8 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; onRet
   screen.hidden = true;
   screen.dataset.backdrop = "art";
   screen.setAttribute("aria-label", "Dragonhold");
+  // Title buttons wear the Settings panel's plates (title.css nine-slices them): one button set across the game.
+  screen.setAttribute("style", TITLE_PLATE_STYLE);
   const logoText = el(doc, "h1", "dh-title__logo-text", "Dragonhold");
   const image = (name: string, cls: string, fail?: () => void, optional = false): HTMLImageElement | null => {
     const entry = art.art?.find(entry => entry.name === name && entry.accepted !== null);
@@ -58,7 +68,6 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; onRet
   const logo = image("logo", "dh-title__logo", () => { logoText.hidden = false; });
   logoText.hidden = logo !== null;
   const menu = el(doc, "div", "dh-title__menu");
-  const emblem = image("emblem", "dh-title__emblem");
   const start = uiButton(doc, "dh-title__start", () => { if (primary() === start) { select(0); act("enter"); } });
   start.textContent = "Start";
   // The 195 recovery on the title: shown while words are blocked or reloading.
@@ -71,16 +80,12 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; onRet
   progress.setAttribute("aria-label", "Loading progress");
   const error = el(doc, "p", "dh-title__error", "Words could not load");
   error.hidden = true;
-  const help = el(doc, "div", "dh-title__help");
-  for (const line of [
-    "Type the word over a foe and Hỏa Long breathes fire on it.",
-    "Place traps, units and houses on the lanes during breaks.",
-    "Keep Hỏa Long standing until the last wave ends.",
-  ]) help.append(el(doc, "p", "", line));
-  if (emblem) menu.append(emblem);
+  // One prompt line under the buttons; the how-to-play lines live on the first wave's card (wave-card.ts HOW_TO_PLAY).
+  // No emblem: the 119 crest (still accepted in ui-art.json) repeats the backdrop in miniature and floated as a marker
+  // beside or under Start (judges 01/11, captures in the 2026-11-01-title-119 changelog).
   menu.append(start);
   if (retryButton) menu.append(retryButton);
-  menu.append(error, status, progress, help);
+  menu.append(error, status, progress);
   const portal = home ? el(doc, "a", "dh-btn dh-title__portal", "Back to portal") : null;
   if (portal && home) {
     portal.href = home; portal.target = "_top"; portal.tabIndex = -1;
@@ -88,10 +93,12 @@ export function createTitle(root: HTMLElement, options: { onStart(): void; onRet
     menu.append(portal);
   }
   const quickSlot = el(doc, "div", "dh-title__quick");
+  // A soft dark scrim under the menu column, so its text reads over the busy forest.
+  const scrim = el(doc, "div", "dh-title__scrim");
   if (backdrop) screen.append(backdrop);
   if (loading) screen.append(loading);
   if (logo) screen.append(logo);
-  screen.append(logoText, menu, quickSlot); root.append(screen);
+  screen.append(logoText, scrim, menu, quickSlot); root.append(screen);
 
   /** Slot 0: Retry while words are blocked or reloading, else Start; slot 1: the portal. */
   const primary = (): HTMLButtonElement => retryButton && (state.status === "blocked" || retrying) ? retryButton : start;

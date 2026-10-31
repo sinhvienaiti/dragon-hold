@@ -21,7 +21,8 @@ vi.mock("../../src/app/portal", async original => ({ ...await original<typeof im
   lookup: async () => { throw Error("offline"); }, requestFocus() {}, onSharedMusic: () => () => {}, dispose() {},
 }) }));
 // Settings/Sound panels (192) need a real DOM; quick-settings.test.ts covers them with happy-dom.
-vi.mock("../../src/app/quick", () => ({ createQuickSettings: () => ({ blocking: false, panel: null, destroy() {}, setChoiceOptions() {} }) }));
+// The real module for its art constants (the title's button plates read QUICK_SKIN); only the panels are stubbed.
+vi.mock("../../src/app/quick", async original => ({ ...await original<typeof import("../../src/app/quick")>(), createQuickSettings: () => ({ blocking: false, panel: null, destroy() {}, setChoiceOptions() {} }) }));
 // Quit and dispose stop speech (192); the kit's stopSpeech reads window, which this node stub has not.
 vi.mock("../../src/kit/speech", async original => ({ ...await original<typeof import("../../src/kit/speech")>(), stopSpeech: vi.fn() }));
 vi.mock("../../src/app/pace-card", () => ({ createPaceCard: () => ({ ...h.presenter, open: h.openPace }) }));

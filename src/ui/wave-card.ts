@@ -132,6 +132,19 @@ export function bannerText(summary: WaveSummary): string {
   return parts.join(" · ");
 }
 
+/** How to play, on the first wave's card while the player deploys (moved off the title, judges 01/11). */
+export const HOW_TO_PLAY: readonly string[] = [
+  "Type the word over a foe and Hỏa Long breathes fire on it.",
+  "Place traps, units and houses on the lanes during breaks.",
+  "Keep Hỏa Long standing until the last wave ends.",
+];
+
+/** The card's foot hint and how-to lines: the how-to only in wave 1's prep, where it also says what the hint says. */
+export function cardHint(phase: World["phase"], n: number): { readonly hint: string; readonly howTo: readonly string[] } {
+  if (phase === "prep" && n === 1) return { hint: "", howTo: HOW_TO_PLAY };
+  return { hint: phase === "warning" ? "Foes will enter along the lit lanes" : phase === "prep" ? "Place traps, units, houses first" : "", howTo: [] };
+}
+
 // ── The card ────────────────────────────────────────────────────────────────
 
 export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter & ActionHandler {
@@ -154,7 +167,10 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
   const startButton = uiButton(doc, "dh-start", () => start());
   const hint = el(doc, "span", "dh-wave-card__hint");
   foot.append(startButton, callButton, hint, when);
-  card.append(head, lanesNode, beat, foot);
+  const howTo = el(doc, "div", "dh-wave-card__howto");
+  for (const line of HOW_TO_PLAY) howTo.append(el(doc, "p", "", line));
+  setShown(howTo, false);
+  card.append(head, lanesNode, beat, foot, howTo);
 
   const banner = el(doc, "div", "dh-panel dh-banner");
   banner.dataset.keepout = "";
@@ -368,9 +384,10 @@ export function createWaveCard(root: HTMLElement, sink: CommandSink): Presenter 
       const callHtml = `<span class="dh-key">${keyLabel("call-early")}</span>Call early` + (gains.length > 0 ? " " + gains.join(" · ") : "");
       if (callButton.innerHTML !== callHtml) callButton.innerHTML = callHtml;
     }
-    const hintText = phase === "warning" ? "Foes will enter along the lit lanes" : phase === "prep" ? "Place traps, units, houses first" : "";
+    const { hint: hintText, howTo: howToLines } = cardHint(phase, n);
     setText(hint, hintText);
     setShown(hint, hintText !== "");
+    setShown(howTo, howToLines.length > 0);
     place();
   };
 
