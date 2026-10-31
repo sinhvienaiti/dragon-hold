@@ -54,6 +54,10 @@ export const QUICK_SETTINGS_VARS = {
   "--kit-qs-list-active-filter": "brightness(1.3) saturate(1.25)",
   /** A list row's plate under the pointer: brighter, with the glow. */
   "--kit-qs-list-hover-filter": "brightness(1.3) drop-shadow(0 0 calc(5px * var(--kit-qs-s)) var(--kit-qs-glow))",
+  /** A slider row whose toggle is pressed (a muted Master): its groove layers and knob. */
+  "--kit-qs-muted-filter": "grayscale(.7) brightness(.6)",
+  /** The keyboard list's thin scrollbar thumb (no grey OS bar inside the panel art); its track is clear. */
+  "--kit-qs-scroll-thumb": "var(--kit-qs-line)",
   /** The icon Close; --kit-qs-close-x / --kit-qs-close-y move it (e.g. onto the frame's corner). */
   "--kit-qs-close-size": "calc(32px * var(--kit-qs-s))",
 } as const;
@@ -104,6 +108,8 @@ export const QUICK_SETTINGS_CSS = `
 .kit-qs__range:focus-visible{${ring}}
 .kit-qs__num{flex:0 0 2.4em;min-width:2.4em;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .kit-qs__aside{flex:0 0 var(--kit-qs-aside-w);display:flex;min-width:0}
+.kit-qs__row--muted .kit-qs__slider{filter:var(--kit-qs-muted-filter)}
+.kit-qs__row--muted .kit-qs__num{opacity:.55;text-decoration:line-through;text-decoration-thickness:${s(2)}}
 .kit-qs__aside>.kit-qs__btn{width:100%}
 .kit-qs__opts{display:flex;flex-wrap:wrap;gap:${s(6)}}
 .kit-qs__opt{position:relative;display:inline-flex}

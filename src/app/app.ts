@@ -33,7 +33,7 @@ import { mmToU, uToM } from "../sim/fixed";
 import { applyCommand, createWorld, hashWorldHex, runLog, step, type World } from "../sim/world";
 import { newWordsOf } from "../typing/deck";
 import { createHud, type Hud } from "../ui/hud";
-import { createLearningFrame, createPrelearn, createReviewCard, type LearningFramePresenter, type LearningPanel, type PanelWord } from "../ui/learning-frame";
+import { createLearningFrame, createPrelearn, createReviewCard, type Gloss, type LearningFramePresenter, type LearningPanel, type PanelWord } from "../ui/learning-frame";
 import { createPlacementUi, type PlacementUi } from "../ui/placement-ui";
 import { VICTORY_HOLD_MS, createResults } from "../ui/results";
 import { createShopStrip } from "../ui/shop-strip";
@@ -235,6 +235,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   const options: AppOptions = given ?? optionsFromUrl(view.location.search, dev);
   const savedSettings = safeLocalStorage.readJson(SETTINGS_KEY);
   const settings = loadSettings(savedSettings);
+  // Reduced motion follows the system until the player sets it in Settings.
+  if (typeof (savedSettings as { reducedMotion?: unknown } | null)?.reducedMotion !== "boolean") {
+    settings.reducedMotion = view.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+  }
   /** The save's own keyboard sound, read before the hard default (Bright Clack) fills it in: the Typing Feel catalogue settles it (keyboard.ts). */
   const savedKeyboard = savedKeyboardId(savedSettings);
   /** Whether the save holds a keyboard sound: only then is it written (storedSettings; a repair or the player's pick makes it so). */
@@ -276,6 +280,15 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   if (options.bloom !== undefined) map.stage.setBloom(options.bloom);
   if (options.dusk) dimToDusk(map);
   map.render();
+  /** Settings › Reduced motion: no screen shake (the rig's trauma) and the pulsing and flying UI stills (`dh-still`). */
+  const applyMotion = (): void => {
+    map.rig.configure({ reducedMotion: settings.reducedMotion });
+    overlay.classList.toggle("dh-still", settings.reducedMotion);
+  };
+  applyMotion();
+  /** Settings › Learning: meanings and IPA as the player's switches allow (Học trước and Thẻ Ôn always show theirs). */
+  const shownGloss: Gloss = (text) => (settings.learnMeaning ? learning.gloss(text) : null);
+  const learningShown = (): { meaning: boolean; ipa: boolean } => ({ meaning: settings.learnMeaning, ipa: settings.learnIpa });
 
   // The Dragons live as long as the app: a retry resets them instead of loading and decoding the GLBs again.
   const heroes = createHeroes(map.stage, mapDef, { terrain: map.terrain });
@@ -644,12 +657,12 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       foeBlows: options.foeBlows,
     });
     const tags = createTags(overlay!, map.stage.project, {
-      gloss: learning.gloss,
+      gloss: shownGloss,
       sizePct: options.tagSizePct === undefined ? undefined : Math.min(150, Math.max(80, options.tagSizePct)),
       // Thẻ Ôn opens on the last kill of a wave: that word's leaving tag and letter sparks would show the answer.
       quiet: () => run !== null && (run.review.isOpen || run.prelearn.isOpen),
     });
-    const frame = createLearningFrame(overlay!, learning.gloss, { speak: learning.speak });
+    const frame = createLearningFrame(overlay!, learning.gloss, { speak: learning.speak, show: learningShown });
     const placement = createPlacementUi(overlay!, map.stage.project, sink, { onSlots: (visible, highlight) => map.paths.showSlots(visible, highlight) });
     const hud = createHud(overlay!, sink, {
       onPause: openMenu,
@@ -1093,6 +1106,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
         keyboardStartup.abort();
         keyboard?.changed();
       }
+      if (id === "reducedMotion") applyMotion();
       applyAudio();
       if (id === "master" || id === "muted" || id === "voice") stopSpeech();
       saveSettings();
@@ -1427,6 +1441,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       canvasHost.removeEventListener("pointerdown", onCanvasDown);
       canvasHost.removeEventListener("pointerup", onCanvasUp);
       map.dispose();
+      overlay.classList.remove("dh-still");
       overlay.replaceChildren();
       if (view.__dh === handle) delete view.__dh;
     },

@@ -820,6 +820,8 @@ export class KeyboardSoundPreview {
   private source: AudioBufferSourceNode | null = null;
   private gain: GainNode | null = null;
   private silentAt = 0;
+  /** The choice whose preview sounds now (onPlaying). */
+  private sounding: KeyboardSoundChoice | null = null;
   private disposed = false;
 
   constructor(private readonly options: {
@@ -838,6 +840,8 @@ export class KeyboardSoundPreview {
     readonly onFail?: (choice: KeyboardSoundChoice) => void;
     /** Game-specific already registered sounds (e.g. Relay). */
     readonly onUse?: (choice: KeyboardSoundChoice) => void;
+    /** A preview started sounding (its choice) or ended, was stopped or replaced (null). */
+    readonly onPlaying?: (choice: KeyboardSoundChoice | null) => void;
   }) {
     this.sounds = options.sounds ?? new TypingSounds();
   }
@@ -864,6 +868,13 @@ export class KeyboardSoundPreview {
     }
     this.source = null;
     this.gain = null;
+    this.setSounding(null);
+  }
+
+  private setSounding(choice: KeyboardSoundChoice | null): void {
+    if (this.sounding === choice) return;
+    this.sounding = choice;
+    this.options.onPlaying?.(choice);
   }
 
   /** First fetch happens only after the hover/focus dwell, or an explicit listen/select. */
@@ -871,12 +882,13 @@ export class KeyboardSoundPreview {
     this.stop();
     if (this.disposed || choice.disabled || !choice.preview || keyboardPreviewGain(this.options.levels()) <= 0) return;
     const generation = this.generation;
-    const play = (): void => { this.timer = null; void this.playPreview(choice.preview!, generation); };
+    const play = (): void => { this.timer = null; void this.playPreview(choice, generation); };
     if (delayMs <= 0) play();
     else this.timer = setTimeout(play, delayMs);
   }
 
-  private async playPreview(url: string, generation: number): Promise<void> {
+  private async playPreview(choice: KeyboardSoundChoice, generation: number): Promise<void> {
+    const url = choice.preview!;
     try {
       const ctx = this.sounds.resume();
       if (!this.buffers.has(url)) {
@@ -898,12 +910,13 @@ export class KeyboardSoundPreview {
       source.onended = () => {
         source.disconnect();
         gain.disconnect();
-        if (this.source === source) { this.source = null; this.gain = null; }
+        if (this.source === source) { this.source = null; this.gain = null; this.setSounding(null); }
       };
       source.start(start, 0, KEYBOARD_PREVIEW_SECONDS);
       source.stop(start + KEYBOARD_PREVIEW_SECONDS);
       this.source = source;
       this.gain = gain;
+      this.setSounding(choice);
     } catch { /* Missing/blocked audio is silent; a later gesture may retry. */ }
   }
 

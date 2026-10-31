@@ -33,12 +33,15 @@ ${OPTION}:disabled::before,${OPTION}[aria-selected="true"]:disabled::before{filt
 ${OPTION}:focus-visible{outline:none}
 ${OPTION}[aria-selected]:focus-visible::before{filter:var(--kit-qs-glow-filter)}
 .kit-qs.kit-qs--list-tint .kit-keyboards button.kit-keyboards__option[aria-selected="true"]:focus-visible::before{filter:var(--kit-qs-list-active-filter) var(--kit-qs-glow-filter)}
-${PLATE} .kit-keyboards__listen:hover:not(:disabled){background:transparent;filter:brightness(1.18)}
+${PLATE} .kit-keyboards__listen:hover:not(:disabled){background:transparent;filter:brightness(1.2) var(--kit-qs-glow-filter)}
 ${PLATE} .kit-keyboards__listen:focus-visible{outline:none;filter:var(--kit-qs-glow-filter)}
 `;
 
 /**
- * Kept separate from TF2's quick-settings/css.ts. 9 × 34 px at 720p, independently scrollable.
+ * Kept separate from TF2's quick-settings/css.ts. 9 × 34 px at 720p, independently scrollable, with
+ * a thin scrollbar in --kit-qs-scroll-thumb on a clear track (no grey OS bar inside the panel art).
+ * Listen icons scale with the panel (--kit-qs-s), shrink while pressed, and are lit (`is-playing`)
+ * while their sample sounds (playing()).
  * Rows and family headings snap to the top (proximity), past a fade of 10 px (scaled) at an edge
  * the list has more rows beyond (data-more-above / data-more-below), so no half plate ends hard.
  * The selected option keeps its accent fill under the pointer (a dark inset ring marks the hover);
@@ -46,7 +49,7 @@ ${PLATE} .kit-keyboards__listen:focus-visible{outline:none;filter:var(--kit-qs-g
  * dark ground with an accent bar, so every state stays readable (≥ 4.5:1, see keyboard-panel.test.ts).
  */
 export const KEYBOARD_CHOICES_CSS = `
-.kit-keyboards{--kit-kb-fade:calc(10px * var(--kit-qs-s,1));--kit-kb-fade-top:0px;--kit-kb-fade-bottom:0px;display:grid;grid-template-columns:minmax(0,1fr) auto;max-height:306px;overflow:auto;overscroll-behavior:contain;scroll-snap-type:y proximity;scroll-padding-block:var(--kit-kb-fade);width:100%;border:1px solid var(--kit-qs-line,#4A505C);border-radius:6px;background:var(--kit-qs-control,#232731);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 var(--kit-kb-fade-top),#000 calc(100% - var(--kit-kb-fade-bottom)),transparent);mask-image:linear-gradient(to bottom,transparent,#000 var(--kit-kb-fade-top),#000 calc(100% - var(--kit-kb-fade-bottom)),transparent)}
+.kit-keyboards{--kit-kb-fade:calc(10px * var(--kit-qs-s,1));--kit-kb-fade-top:0px;--kit-kb-fade-bottom:0px;display:grid;grid-template-columns:minmax(0,1fr) auto;max-height:306px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--kit-qs-scroll-thumb,var(--kit-qs-line,#4A505C)) transparent;scroll-snap-type:y proximity;scroll-padding-block:var(--kit-kb-fade);width:100%;border:1px solid var(--kit-qs-line,#4A505C);border-radius:6px;background:var(--kit-qs-control,#232731);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 var(--kit-kb-fade-top),#000 calc(100% - var(--kit-kb-fade-bottom)),transparent);mask-image:linear-gradient(to bottom,transparent,#000 var(--kit-kb-fade-top),#000 calc(100% - var(--kit-kb-fade-bottom)),transparent)}
 .kit-keyboards[data-more-above]{--kit-kb-fade-top:var(--kit-kb-fade)}
 .kit-keyboards[data-more-below]{--kit-kb-fade-bottom:var(--kit-kb-fade)}
 .kit-keyboards__list .kit-keyboards__option,.kit-keyboards__list .kit-keyboards__family{scroll-snap-align:start}
@@ -60,7 +63,9 @@ export const KEYBOARD_CHOICES_CSS = `
 .kit-keyboards button:disabled{color:var(--kit-qs-muted,#C3C9D3);cursor:not-allowed}
 .kit-keyboards button[aria-selected="true"]:disabled{background:var(--kit-qs-bg,#14161B);color:var(--kit-qs-muted,#C3C9D3);box-shadow:inset 4px 0 0 var(--kit-qs-accent,#8FD3FF)}
 .kit-keyboards__listen{min-width:44px;text-align:center!important}
-.kit-keyboards__listen img{display:block;width:24px;height:24px;object-fit:contain;pointer-events:none}
+.kit-keyboards__listen img{display:block;width:calc(24px * var(--kit-qs-s,1));height:calc(24px * var(--kit-qs-s,1));object-fit:contain;pointer-events:none;transition:transform .08s,filter .08s}
+.kit-keyboards__listen:active:not(:disabled) img{transform:scale(.84)}
+.kit-keyboards__listen.is-playing img{filter:brightness(1.35) drop-shadow(0 0 calc(4px * var(--kit-qs-s,1)) var(--kit-qs-glow,var(--kit-qs-focus,#FFD166)))}
 .kit-keyboards__family{box-sizing:border-box;height:28px;min-height:28px;flex:0 0 28px;padding:4px 10px;font-size:.82em;font-weight:700;color:var(--kit-qs-muted,#C3C9D3)}
 .kit-keyboards__note{font-size:.82em;margin-left:.35em}
 .kit-keyboards__spacer{height:34px;flex:0 0 34px}
@@ -341,6 +346,11 @@ export class KeyboardSoundChoices {
     const el = this.element;
     el.toggleAttribute("data-more-above", el.scrollTop > 0.5);
     el.toggleAttribute("data-more-below", el.scrollTop + el.clientHeight < el.scrollHeight - 0.5);
+  }
+
+  /** Lights the Listen button of `value` (`is-playing`) while its preview sounds; null: none. */
+  playing(value: string | null): void {
+    for (const listen of this.listens) listen.classList.toggle("is-playing", value !== null && listen.dataset.listen === value);
   }
 
   setListenIcon(url?: string): void {

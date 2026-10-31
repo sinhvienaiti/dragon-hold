@@ -13,6 +13,10 @@ const h = vi.hoisted(() => ({
   audio: { setVolumes: vi.fn(), setMuted: vi.fn(), setKeyboardEnabled: vi.fn(), setPaused: vi.fn(), preview: vi.fn(), resetRun: vi.fn() },
   context: null as unknown as AudioContext,
   loops: [] as { paused: boolean; advance(): void; stop: ReturnType<typeof vi.fn> }[],
+  configure: vi.fn(),
+  /** The options the app gave the run's word tags and learning frame. */
+  tags: null as null | { gloss?: (text: string) => { vi: string; ipa: string } | null },
+  frame: null as null | { show?: () => { meaning: boolean; ipa: boolean } },
 }));
 // No gesture reaches this audio: the keyboard set decodes on prepare()'s context (suspended until a gesture, parent
 // TYPING_FEEL_SERVICE.md §5.4) as soon as the catalogue settles; context() is the gesture path that builds the mixer.
@@ -30,7 +34,7 @@ vi.mock("../../src/kit/speech", () => ({ setSpeechGate() {}, speakEnglish: vi.fn
 vi.mock("../../src/view/stage", () => ({ createMapStage: () => ({
   stage: { layers: { ground: { children: [] }, actors: { children: [] }, fx: { children: [] } } }, terrain: {}, paths: {},
   render() {}, update() {}, dispose() {}, useModels() {},
-  rig: { ...h.presenter(), target: { x: 0, z: 0 }, yawDeg: 0, reset() {}, setView() {}, shake() {} },
+  rig: { ...h.presenter(), target: { x: 0, z: 0 }, yawDeg: 0, reset() {}, setView() {}, shake() {}, configure: h.configure },
 }) }));
 vi.mock("../../src/view/heroes", () => ({ createHeroes: () => ({ ...h.presenter(), reset() {}, setLocator() {} }) }));
 vi.mock("../../src/view/models", () => ({ loadCrowdModels: () => ({ dispose() {} }) }));
@@ -41,8 +45,8 @@ vi.mock("../../src/view/hpbars", () => ({ createHpBars: h.presenter }));
 // The VFX rounds seed the effects through fx.ts seededRandom (VFX_STANDARD §3.1 rule 4).
 vi.mock("../../src/view/fx", () => ({ createFx: h.presenter, seededRandom: () => () => 0.5 }));
 vi.mock("../../src/view/lane-cue", () => ({ createLaneCue: h.presenter }));
-vi.mock("../../src/ui/tags", () => ({ createTags: h.presenter }));
-vi.mock("../../src/ui/learning-frame", () => ({ createLearningFrame: () => ({ ...h.presenter(), setCovered() {} }), createPrelearn: () => ({ ...h.presenter(), isOpen: false }), createReviewCard: () => ({ ...h.presenter(), isOpen: false }) }));
+vi.mock("../../src/ui/tags", () => ({ createTags: (_root: unknown, _project: unknown, options: typeof h.tags) => { h.tags = options; return h.presenter(); } }));
+vi.mock("../../src/ui/learning-frame", () => ({ createLearningFrame: (_root: unknown, _gloss: unknown, options: typeof h.frame) => { h.frame = options; return { ...h.presenter(), setCovered() {} }; }, createPrelearn: () => ({ ...h.presenter(), isOpen: false }), createReviewCard: () => ({ ...h.presenter(), isOpen: false }) }));
 vi.mock("../../src/ui/hud", () => ({ createHud: h.presenter }));
 vi.mock("../../src/ui/placement-ui", () => ({ createPlacementUi: h.presenter }));
 vi.mock("../../src/ui/wave-card", () => ({ createWaveCard: h.presenter }));
@@ -56,7 +60,7 @@ vi.mock("../../src/app/loop", () => ({ createLoop: (hooks: { step(): void }) => 
 } }));
 
 import { startApp, type App } from "../../src/app/app";
-import { LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICON_FILES, QUICK_ICONS } from "../../src/app/quick";
+import { ICON_PX, LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICON_FILES, QUICK_ICONS } from "../../src/app/quick";
 import { QUICK_ICON_NAMES } from "../../src/kit/ui";
 
 const UI_DIR = "/assets/dragon-hold/ui/quick-settings/";
@@ -145,7 +149,7 @@ afterEach(async () => {
 
 describe("192 app and shared panels", () => {
   it("opens/switches/closes with mouse, F1, F2 and Esc; uses the real 180 images and a tag keepout", () => {
-    expect(corner("settings").querySelector("img")!.getAttribute("src")).toContain("hud-settings.64.png");
+    expect(corner("settings").querySelector("img")!.getAttribute("src")).toContain("hud-settings.128.png");
     expect(corner("sound").closest("[data-keepout]")).not.toBeNull();
     corner("settings").click();
     expect(window.__dh!.panel()).toBe("settings");
@@ -213,9 +217,15 @@ describe("192 app and shared panels", () => {
     expect(heads.filter((head) => head.includes("::-webkit-") && head.includes("::-moz-"))).toEqual([]);
   });
 
-  it("the Sound panel is 640 px wide, so the grooves take the room Mute's column costs", () => {
+  it("the Sound panel is 720 px wide and both panels share one label column, so the grooves take the free width (judges 31/10)", () => {
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
-    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="sound"] .kit-qs__panel')).toContain("width: min(calc(640px * var(--kit-qs-s)), calc(100% - 32px));");
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="sound"] .kit-qs__panel')).toContain("width: min(calc(720px * var(--kit-qs-s)), calc(100% - 32px));");
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__panel')).toContain("width: min(calc(640px * var(--kit-qs-s)), calc(100% - 32px));");
+    // One grid on every row of both panels: the icon, a label column as wide as the longest label, the controls.
+    expect(rules.get(".dh-quick .kit-qs__row")).toContain("grid-template-columns: var(--kit-qs-icon-size) var(--dh-qs-label-w) minmax(0, 1fr);");
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--dh-qs-label-w: calc(158px * var(--kit-qs-s));");
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row')).toBeUndefined();
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="sound"]')).toContain("--dh-qs-label-w: calc(138px * var(--kit-qs-s));");
   });
 
   it("the frame's stone is one picture: the stretched centre covers the edge slices' inner stone, the corners keep their claws (judges 31/10)", () => {
@@ -268,7 +278,7 @@ describe("192 app and shared panels", () => {
 
   it("muted, the Master row dims and strikes its number, shows the muted speaker and the button reads Unmute", async () => {
     const root = document.querySelector<HTMLElement>(".dh-quick")!;
-    expect(root.style.getPropertyValue("--dh-qs-icon-muted")).toContain("/assets/dragon-hold/ui/quick-settings/hud-sound-muted.64.png");
+    expect(root.style.getPropertyValue("--dh-qs-icon-muted")).toContain("/assets/dragon-hold/ui/quick-settings/hud-sound-muted.128.png");
     // The button-active plate now comes through the kit's skin field.
     expect(root.classList.contains("kit-qs--skin-button-active")).toBe(true);
     expect(root.style.getPropertyValue("--kit-qs-skin-button-active")).toContain("/assets/dragon-hold/ui/quick-settings/button-active.alpha.png");
@@ -358,11 +368,10 @@ describe("192 app and shared panels", () => {
   it("Quality is one short label with its chips on one line, on the plates, the chosen one on the active plate", () => {
     press(window, "F1");
     const settings = document.querySelector<HTMLElement>('.kit-qs__dialog[data-panel="settings"]')!;
-    expect(settings.querySelector(".kit-qs__heading")!.textContent).toBe("Graphics · next launch");
+    expect(settings.querySelector(".kit-qs__heading")!.textContent).toBe("Graphics");
     expect(row("quality").querySelector(".kit-qs__label")!.textContent).toBe("Quality");
     expect([...row("quality").querySelectorAll(".kit-qs__chip")].map((chip) => chip.textContent)).toEqual(["Low", "Medium", "High", "Ultra"]);
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
-    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row')).toContain("grid-template-columns: var(--kit-qs-icon-size) auto minmax(0, 1fr);");
     expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__chip")).toContain("display: inline-flex;");
   });
 
@@ -389,7 +398,7 @@ describe("192 app and shared panels", () => {
     expect(rules.get(`${chosen}::before`)).toMatch(/filter: brightness\(1\.15\) saturate\(1\.2\) drop-shadow\(/);
     expect(rules.get(chosen)).toMatch(/--kit-qs-glow-filter: brightness\(1\.15\) saturate\(1\.2\) drop-shadow\(/);
     // Rows, headings and listen icons scale; 7.5 rows show, so the panel fits its frame; touch keeps 44 px.
-    expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards")).toContain("max-height: calc(252px * var(--kit-qs-s));");
+    expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards")).toContain("max-height: calc(218px * var(--kit-qs-s));");
     const rowsRule = rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards button") ?? "";
     expect(rowsRule).toContain("height: calc(34px * var(--kit-qs-s));");
     expect(rowsRule).toContain("height: max(44px, calc(34px * var(--kit-qs-s)));");
@@ -397,22 +406,29 @@ describe("192 app and shared panels", () => {
     expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards__listen img")).toContain("width: calc(24px * var(--kit-qs-s));");
   });
 
-  it("every Sound row has its accepted icon (244 r2 for Keyboard sound, Voice, Interface; 244 Keyboard volume), the Quality cell stays empty, and the title is in Cormorant", () => {
+  it("every Sound row has its accepted icon (244 r2 for Keyboard sound, Voice, Interface; 244 Keyboard volume) from the 128 px files at 32 px, the Graphics and Learning cells stay empty, and the title is in Cormorant", () => {
     press(window, "F2");
     const icon = (id: string) => row(id).querySelector(".kit-qs__icon")?.getAttribute("src") ?? null;
     const expected: Record<string, string> = { master: "vol-master", music: "vol-music", effects: "vol-effects", keyboard: "vol-keyboard.r2", keyboardVolume: "vol-keyboard-volume", voice: "vol-voice.r2", ui: "vol-interface.r2" };
-    for (const [id, stem] of Object.entries(expected)) expect(icon(id), id).toMatch(new RegExp(`/assets/dragon-hold/ui/quick-settings/${stem.replace(".", "\\.")}\\.64\\.png$`));
+    expect(ICON_PX).toBe(128);
+    for (const [id, stem] of Object.entries(expected)) expect(icon(id), id).toMatch(new RegExp(`/assets/dragon-hold/ui/quick-settings/${stem.replace(".", "\\.")}\\.128\\.png$`));
     // Every row has its own picture: no two Sound rows share one.
     expect(new Set(Object.keys(expected).map(icon)).size).toBe(Object.keys(expected).length);
     // Every URL is an accepted file the game copies into public (QUICK_ICON_FILES), and the corner icons stay the 180 set.
-    for (const [name, url] of Object.entries(QUICK_ICONS)) expect(url, name).toBe(`${UI_DIR}${QUICK_ICON_FILES[name]}.64.png`);
+    for (const [name, url] of Object.entries(QUICK_ICONS)) expect(url, name).toBe(`${UI_DIR}${QUICK_ICON_FILES[name]}.128.png`);
     for (const name of ["hud-settings", "hud-sound", "hud-sound-muted"]) expect(QUICK_ICON_FILES[name], name).toBe(name);
     for (const name of QUICK_ICON_NAMES) expect(QUICK_ICON_FILES[name], name).toBeDefined();
-    // No graphics icon is accepted yet: the cell keeps its width and holds nothing.
+    // No Graphics or Learning icon is accepted yet: each row names its kit icon, the cell keeps its width and holds nothing.
     press(window, "F1");
-    const cell = row("quality").querySelector(".kit-qs__icon-cell")!;
-    expect(cell.children).toHaveLength(0);
+    for (const [id, name] of Object.entries({ reducedMotion: "gfx-motion", quality: "gfx-quality", learnMeaning: "learn-meaning", learnIpa: "learn-ipa" })) {
+      const cell = row(id).querySelector<HTMLElement>(".kit-qs__icon-cell")!;
+      expect(cell.dataset.icon, id).toBe(name);
+      expect(cell.children, id).toHaveLength(0);
+      expect(QUICK_ICONS[name], id).toBeUndefined();
+    }
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    // Row icons at 32 px (24 blurred the painted icons), the grid's first column with them.
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-icon-size: calc(32px * var(--kit-qs-s));");
     expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-title-font: var(--dh-font-title);");
     expect(rules.get(".dh-quick .kit-qs__title")).toContain("color: #f2c14e;");
   });
@@ -421,11 +437,77 @@ describe("192 app and shared panels", () => {
   it.skipIf(!existsSync(PUBLIC_QS) || !existsSync(SELECTED_QS))("each icon file in public is a byte copy of its accepted source in art-src", () => {
     const md5 = (file: string) => createHash("md5").update(readFileSync(file)).digest("hex");
     for (const [name, stem] of Object.entries(QUICK_ICON_FILES)) {
-      const file = `${PUBLIC_QS}/${stem}.64.png`;
+      const file = `${PUBLIC_QS}/${stem}.${ICON_PX}.png`;
       expect(existsSync(file), file).toBe(true);
-      expect(md5(file), name).toBe(md5(`${SELECTED_QS}/${stem}.64.png`));
+      expect(md5(file), name).toBe(md5(`${SELECTED_QS}/${stem}.${ICON_PX}.png`));
     }
     for (const file of ["slider-fill.png", "slider-track.png"]) expect(md5(`${PUBLIC_QS}/${file}`), file).toBe(md5(`art-src/ui/quick-settings/sliders/${file}`));
+  });
+
+  it("Reduced motion stops the screen shake and stills the pulsing UI at once, and is saved; unsaved, it follows the system", async () => {
+    press(window, "F1");
+    const overlay = document.querySelector<HTMLElement>("#dh-overlay")!;
+    const motion = row("reducedMotion").querySelector<HTMLButtonElement>('[role="switch"]')!;
+    expect(motion.getAttribute("aria-checked")).toBe("false");
+    expect(h.configure).toHaveBeenLastCalledWith({ reducedMotion: false });
+    expect(overlay.classList.contains("dh-still")).toBe(false);
+    motion.click();
+    expect(motion.getAttribute("aria-checked")).toBe("true");
+    expect(h.configure).toHaveBeenLastCalledWith({ reducedMotion: true });
+    expect(overlay.classList.contains("dh-still")).toBe(true);
+    // The kit's own layer stills its countdown too.
+    expect(document.querySelector(".dh-quick")!.classList.contains("kit-qs--still")).toBe(true);
+    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).reducedMotion).toBe(true);
+    // Every reduced-motion rule of the game's sheets has a .dh-still twin.
+    for (const file of ["src/app/app.css", "src/ui/styles/dh.css", "src/ui/tags.ts"]) {
+      const source = readFileSync(file, "utf8");
+      const media = [...source.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?\})\s*\}/g)].map((m) => m[1]!);
+      for (const body of media) {
+        for (const selector of body.replace(/\{[^}]*\}/g, ",").split(",").map((part) => part.trim()).filter((part) => part.startsWith(".dh-") && !part.startsWith(".dh-quick"))) {
+          expect(source, `${file}: ${selector}`).toContain(`.dh-still ${selector}`);
+        }
+      }
+    }
+    // A save without the field follows prefers-reduced-motion.
+    app!.dispose();
+    localStorage.clear();
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(prefers-reduced-motion: reduce)", media: query, addEventListener() {}, removeEventListener() {} }));
+    await boot();
+    expect(h.configure).toHaveBeenLastCalledWith({ reducedMotion: true });
+    expect(document.querySelector<HTMLElement>("#dh-overlay")!.classList.contains("dh-still")).toBe(true);
+  });
+
+  it("the Learning switches hide the Vietnamese meaning (tags and frame) and the IPA (frame) at once, and are saved", () => {
+    press(window, "F1");
+    expect(h.frame?.show?.()).toEqual({ meaning: true, ipa: true });
+    // Tags read the meaning through the gloss the app gives them; the test client knows no word, so it answers null.
+    const gloss = h.tags!.gloss!;
+    expect(gloss("bridge")).toBeNull();
+    row("learnMeaning").querySelector<HTMLButtonElement>('[role="switch"]')!.click();
+    expect(h.frame!.show!()).toEqual({ meaning: false, ipa: true });
+    row("learnIpa").querySelector<HTMLButtonElement>('[role="switch"]')!.click();
+    expect(h.frame!.show!()).toEqual({ meaning: false, ipa: false });
+    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!))).toMatchObject({ learnMeaning: false, learnIpa: false });
+    expect(readFileSync("src/app/app.ts", "utf8")).toContain("const shownGloss: Gloss = (text) => (settings.learnMeaning ? learning.gloss(text) : null);");
+  });
+
+  it("numbers are in the panel's serif, the countdown is a gold digit over a dimmed screen, the keyboard list spans the label column, Listen answers the pointer, the list scrollbar is thin gold", () => {
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    for (const selector of [".dh-quick .kit-qs__num", ".dh-quick .kit-qs__digit"]) {
+      const body = rules.get(selector) ?? "";
+      expect(body, selector).toContain("font-family: var(--dh-font-title);");
+      expect(body, selector).toContain("font-variant-numeric: lining-nums tabular-nums;");
+    }
+    const count = rules.get(".dh-quick .kit-qs__count") ?? "";
+    expect(count).toMatch(/background: radial-gradient\(/);
+    expect(count).toContain("align-items: flex-start;");
+    expect(rules.get(".dh-quick .kit-qs__digit")).toContain("color: #f2c14e;");
+    for (const part of [".kit-qs__label", ".kit-qs__control"]) expect(rules.get(`.dh-quick .kit-qs__row--keyboards ${part}`), part).toContain("grid-column: 2 / -1;");
+    // The kit (fc7f4a11) draws the thin scrollbar and the Listen hover, press and playing light; the game gives the colours.
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-scroll-thumb: rgba(242, 193, 78, 0.55);");
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-glow: #ffc14d;");
+    // Switches take Mute's plate width, so On and Off line up.
+    expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__switch")).toContain("min-width: calc(90px * var(--kit-qs-s));");
   });
 
   it("pauses immediately, preserves the word/hash, blocks letters and counts 3–2–1 before another tick", () => {
@@ -455,7 +537,7 @@ describe("192 app and shared panels", () => {
     expect(window.__dh!.state().commands).toBe(1);
   });
 
-  it("leaves modal controls and Tab native, and blocks their letters from the simulation", () => {
+  it("leaves modal controls native, takes Tab round the panel (kit ba2b4d65), and blocks their letters from the simulation", () => {
     press(window, "F2");
     const input = row("master").querySelector("input")!;
     expect(press(input, "ArrowRight").defaultPrevented).toBe(false);
@@ -471,7 +553,12 @@ describe("192 app and shared panels", () => {
     expect(document.activeElement).toBe(choose("raindrop-tile"));
     press(choose("raindrop-tile"), "PageUp");
     expect(document.activeElement).toBe(choose("solid"));
-    expect(press(choose("solid"), "Tab").defaultPrevented).toBe(false);
+    // The kit takes Tab while a panel is open: from the list to its row's Listen button, then on to Keyboard volume.
+    expect(press(choose("solid"), "Tab").defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(document.querySelector('[data-listen="solid"]'));
+    press(document.activeElement!, "Tab");
+    expect(document.activeElement).toBe(row("keyboardVolume").querySelector("input"));
+    choose("solid").focus();
     press(choose("solid"), "Enter");
     expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).keyboard).toBe("solid");
   });
@@ -481,7 +568,7 @@ describe("192 app and shared panels", () => {
     for (const [id, value] of Object.entries({ master: 40, music: 30, effects: 20, keyboardVolume: 50, voice: 60, ui: 70 })) slide(id, value);
     expect(h.audio.setVolumes).toHaveBeenLastCalledWith(expect.objectContaining({ master: 0.4, music: 0.3, sfx: 0.2, voice: 0.6, ui: 0.7 }));
     slide("master", 0);
-    expect(corner("sound").querySelector("img")!.getAttribute("src")).toContain("hud-sound-muted.64.png");
+    expect(corner("sound").querySelector("img")!.getAttribute("src")).toContain("hud-sound-muted.128.png");
     slide("master", 40);
     row("master").querySelector<HTMLButtonElement>("button")!.click();
     expect(h.audio.setMuted).toHaveBeenLastCalledWith(true);
@@ -499,7 +586,11 @@ describe("192 app and shared panels", () => {
 
   it("offers real settings only, all seven audio rows, and Off, Dragonhold and the Typing Feel sets under their family headings", () => {
     expect([...document.querySelectorAll<HTMLElement>('[data-row]')].map((r) => r.dataset.row)).toEqual(expect.arrayContaining(["quality", "master", "music", "effects", "keyboard", "keyboardVolume", "voice", "ui"]));
-    for (const id of ["fxStyle", "fxIntensity", "fxSize", "reducedMotion", "learnMeaning", "learnIpa"]) expect(row(id)).toBeNull();
+    // Settings: Graphics (Reduced motion, Quality), then Learning (meaning, IPA); no typing-effect rows (Dragonhold's
+    // letter pops have no style, strength or size to set).
+    const settings = document.querySelector<HTMLElement>('.kit-qs__dialog[data-panel="settings"]')!;
+    expect([...settings.querySelectorAll<HTMLElement>(".kit-qs__heading, [data-row]")].map((r) => r.dataset.row ?? r.textContent)).toEqual(["Graphics", "reducedMotion", "quality", "Learning", "learnMeaning", "learnIpa"]);
+    for (const id of ["fxStyle", "fxIntensity", "fxSize", "fxPreview"]) expect(row(id)).toBeNull();
     const labels = [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
     expect(labels).toEqual(["Off", "Dragonhold", "Deep Velvet", "Deep Amber", "Solid Velvet", "Hail Stone", "Raindrop Tile", "Bright Clack Velvet", "Bright Clack Amber"]);
     expect([...document.querySelectorAll(".kit-keyboards__family[id]")].map((heading) => heading.textContent)).toEqual(["Deep", "Solid", "Crisp", "Bright Clack"]);
@@ -689,6 +780,35 @@ describe("the 197 title hosts the shared panels, Quit to title and the keyboard 
     expect(window.__dh!.panel()).toBe("settings");
     expect(shown("resume")).toBe(false);
     expect(shown("quit")).toBe(false);
+  });
+
+  it("on the title, Settings ends on a switch, not a radio group: the dialog's Tab wrap has a control to wrap from (judges 31/10)", async () => {
+    await titleBoot();
+    press(window, "F1");
+    const box = document.querySelector<HTMLElement>('.kit-qs__dialog[data-panel="settings"] .kit-qs__panel')!;
+    // a11y-dialog 8.1.5 wraps from the last focusable in DOM order, every radio included; Tab leaves a radio group
+    // from its checked radio, so a panel ending on Quality (High checked, Ultra last) let Tab walk out to <body>.
+    const focusable = [...box.querySelectorAll<HTMLElement>("button, input")].filter((el) => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && el.closest("[hidden]") === null);
+    const last = focusable.at(-1)!;
+    expect(last.getAttribute("role")).toBe("switch");
+    expect(last.closest<HTMLElement>("[data-row]")!.dataset.row).toBe("learnIpa");
+    expect(focusable.filter((el) => (el as HTMLInputElement).type === "radio").every((radio) => (radio.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0)).toBe(true);
+    // And the kit takes Tab round the panel (ba2b4d65): 10 Tabs and 10 Shift+Tabs from the opened dialog stay inside,
+    // on both panels, never on a hidden Resume or Quit.
+    for (const panel of ["settings", "sound"] as const) {
+      if (window.__dh!.panel() !== panel) press(window, panel === "settings" ? "F1" : "F2");
+      expect(window.__dh!.panel()).toBe(panel);
+      const dialog = document.querySelector<HTMLElement>(`.kit-qs__dialog[data-panel="${panel}"]`)!;
+      for (const shiftKey of [false, true]) {
+        dialog.focus();
+        for (let i = 0; i < 10; i += 1) {
+          document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey, bubbles: true, cancelable: true }));
+          const at = document.activeElement as HTMLElement;
+          expect(dialog.querySelector(".kit-qs__panel")!.contains(at), `${panel} ${shiftKey ? "Shift+" : ""}Tab ${i + 1}`).toBe(true);
+          expect(at.closest("[hidden]"), `${panel} ${i + 1}`).toBeNull();
+        }
+      }
+    }
   });
 
   it("Start on the title before the keyboard sound is playable: the run begins at the 1.5 s gate (B4)", async () => {

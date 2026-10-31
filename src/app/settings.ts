@@ -22,6 +22,12 @@ export interface Settings {
   voice: number;
   ui: number;
   quality: Quality;
+  /** Settings › Graphics: no screen shake and no pulsing or flying UI (app.ts applyMotion). */
+  reducedMotion: boolean;
+  /** Settings › Learning: the Vietnamese meaning on word tags and in the learning frame (app.ts shownGloss). */
+  learnMeaning: boolean;
+  /** Settings › Learning: the IPA line in the learning frame. */
+  learnIpa: boolean;
 }
 
 export const SETTINGS_DEFAULTS: Readonly<Settings> = Object.freeze({
@@ -34,6 +40,9 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = Object.freeze({
   voice: DEFAULT_VOLUMES.voice,
   ui: DEFAULT_VOLUMES.sfx,
   quality: "high",
+  reducedMotion: false,
+  learnMeaning: true,
+  learnIpa: true,
 });
 
 const level = (raw: unknown, fallback: number): number => typeof raw === "number" && Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : fallback;
@@ -50,8 +59,14 @@ export function loadSettings(raw: unknown): Settings {
     voice: level(s.voice, SETTINGS_DEFAULTS.voice),
     ui: level(s.ui, SETTINGS_DEFAULTS.ui),
     quality: QUALITY_LEVELS.includes(s.quality as Quality) ? s.quality as Quality : SETTINGS_DEFAULTS.quality,
+    reducedMotion: typeof s.reducedMotion === "boolean" ? s.reducedMotion : SETTINGS_DEFAULTS.reducedMotion,
+    learnMeaning: typeof s.learnMeaning === "boolean" ? s.learnMeaning : SETTINGS_DEFAULTS.learnMeaning,
+    learnIpa: typeof s.learnIpa === "boolean" ? s.learnIpa : SETTINGS_DEFAULTS.learnIpa,
   };
 }
+
+/** The Settings panel's switches (boolean settings besides `muted`). */
+export const SETTING_SWITCHES = ["reducedMotion", "learnMeaning", "learnIpa"] as const;
 
 /**
  * What goes into the save. The keyboard sound is written only once the save
@@ -77,6 +92,7 @@ export function applyQuick(s: Settings, id: string, value: QuickValue): boolean 
   } else if (id === "muted" && typeof value === "boolean") s.muted = value;
   else if (id === "keyboard" && typeof value === "string" && /^[a-z0-9][a-z0-9-]{0,31}$/.test(value)) s.keyboard = value;
   else if (id === "quality" && QUALITY_LEVELS.includes(value as Quality)) s.quality = value as Quality;
+  else if ((SETTING_SWITCHES as readonly string[]).includes(id) && typeof value === "boolean") Object.assign(s, { [id]: value });
   else return false;
   return true;
 }
