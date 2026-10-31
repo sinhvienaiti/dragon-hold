@@ -102,6 +102,17 @@ Dev port 3005, host `dragon.typing-game.local`.
   1.5 s at most; a set that cannot sound has Dragonhold stand in, unsaved.
   Tests use the sample host in
   `tests/app/feel-fixture.ts`. See `docs/changelog/2026-10-31-typing-feel-keys.md`.
+- State (01/11, quality rescue wave 1, branch `dh-wave1`, parent
+  `docs/games/QUALITY_RESCUE_2026-11-01.md` D1–D4): `map-pilot` and
+  `dh-models` merged (the build loads ground tiles and decals; model tiers);
+  High and Ultra sample foliage at mip bias 0.5 / 0 (`FOLIAGE_MAP_BIAS`), stone
+  and cliff paint is a 0.3 tint over the albedo (`STONE_PAINT_MIX`), every GLB
+  map is filtered 8x / 16x (`MODEL_ANISOTROPY`; `?aniso=`, `?leafbias=` for
+  perf splits); a new Quality says "Restart to apply" and reloads the page.
+  `dh-bench` 1080p dpr 1: Ultra 7.1–7.9 → 11.5–13.2 ms mean (no gate),
+  High 4.5 → 6.85 ms (gate 8 ms: pass). Not judged by C yet.
+  The tier media are not on Drive until the coordinator copies and pushes
+  them. See `docs/changelog/2026-11-01-wave1.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
