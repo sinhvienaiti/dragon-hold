@@ -579,6 +579,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
   // ?lod=<m> overrides the switch distance (perf split and tuning; 0 draws the tier mesh everywhere).
   const lodSwitch = mapSwitch("lod");
   const lodM = lodSwitch !== null && Number.isFinite(Number(lodSwitch)) ? Number(lodSwitch) : PROP_LOD_M[quality];
+  // ?leafbias=<x> overrides the foliage mip bias (perf split and tuning).
+  const leafSwitch = mapSwitch("leafbias");
+  const leafBias = leafSwitch !== null && Number.isFinite(Number(leafSwitch)) ? Number(leafSwitch) : FOLIAGE_MAP_BIAS[quality];
   let unhook: (() => void) | null = null;
   let used = false;
   const field = terrain.field;
@@ -677,7 +680,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         ...(spec.wind > 0 ? { wind: spec.wind } : {}),
         dither: spec.kind !== "rock" && spec.kind !== "dress",
         // Foliage a mip softer: leaf masses like the reference, less pixel noise (MAP_PLAN 2.4 clutter).
-        ...(spec.kind !== "rock" && spec.kind !== "dress" && FOLIAGE_MAP_BIAS[quality] > 0 ? { mapBias: FOLIAGE_MAP_BIAS[quality] } : {}),
+        ...(spec.kind !== "rock" && spec.kind !== "dress" && leafBias > 0 ? { mapBias: leafBias } : {}),
       });
       const geometry = model.geometry;
       // Small clutter and the far ring cast no shadow (MAP_FACTORY 4.2).

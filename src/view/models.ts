@@ -28,6 +28,7 @@ import { ModelLibrary, loadModel, pickModelTier, resolveModelUrl, type ModelKind
 import type { Quality } from "../app/contracts";
 import type { Crowd, CrowdLayerSource } from "./crowd";
 import { bakeRig, rigOf, skinWeights, smoothNormals, type BakedRig, type Rig } from "./crowd-rig";
+import { mapSwitch } from "./paint";
 import { BRIDGE_MODEL, KIT3_MANIFEST_URL, M0B_MANIFEST_URL, MODEL_SPECS, PROP_SPECS, modelLayerKey, type ModelSpec } from "./model-specs";
 
 export interface ModelLayer {
@@ -314,7 +315,9 @@ export function loadCrowdModels(quality: Quality, options: { manifest?: string; 
   const extras = enabled ? extraFiles(manifestUrls) : Promise.resolve(new Map<string, ExtraFiles>());
   // The hull only pays where the body is heavier than the Medium mesh it is made of.
   const hulls = quality === "high" || quality === "ultra";
-  const anisotropy = MODEL_ANISOTROPY[quality];
+  // ?aniso=<n> overrides it (perf split and tuning, as ?lod=).
+  const anisoSwitch = Number(mapSwitch("aniso") ?? Number.NaN);
+  const anisotropy = Number.isFinite(anisoSwitch) && anisoSwitch >= 1 ? anisoSwitch : MODEL_ANISOTROPY[quality];
   const wanted = (key: string): boolean => options.only === undefined || options.only.includes(key);
 
   const fetchRoot = async (manifestKey: string): Promise<THREE.Object3D | null> => {
