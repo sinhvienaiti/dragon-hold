@@ -52,6 +52,8 @@ export interface BenchOptions {
   readonly bloom?: boolean;
   /** Hỏa Long's mouth light in the effects (unset: the tier's default, fx.ts FX_MOUTH_LIGHT). */
   readonly mouthLight?: boolean;
+  /** The foes' blows at the ring (VFX step 3, paused; unset: off like play, foe-fx.ts FOE_BLOWS_DEFAULT). */
+  readonly foeBlows?: boolean;
 }
 
 export interface BenchResult {
@@ -632,8 +634,8 @@ export class BenchEffects {
   private meteorClock = 2;
   private bombClock = 0.5;
 
-  constructor(private readonly stage: Stage, crowd: BenchCrowd, private readonly random: () => number, mouthLight?: boolean) {
-    this.core = new FxCore(stage.quality, { locator: crowd, random, heightAt: crowd.heightAt, mouthLight });
+  constructor(private readonly stage: Stage, crowd: BenchCrowd, private readonly random: () => number, mouthLight?: boolean, foeBlows?: boolean) {
+    this.core = new FxCore(stage.quality, { locator: crowd, random, heightAt: crowd.heightAt, mouthLight, foeBlows });
     this.core.setMouth(this.mouth);
     stage.layers.fx.add(this.core.group);
     this.core.warm(stage.renderer, stage.scene, stage.camera, () => stage.render());
@@ -798,7 +800,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   const random = benchRandom(20_261_023);
   const crowd = new BenchCrowd(stage, options.count, random, MAP_L2_CAU, painted?.heightAt ?? (() => 0), models);
   const fxOn = options.fx !== false;
-  const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77), options.mouthLight) : null;
+  const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77), options.mouthLight, options.foeBlows) : null;
   if (options.bloom !== undefined) painted?.stage.setBloom(options.bloom);
   const gpu = new GpuTimer(stage.renderer.getContext() as WebGL2RenderingContext);
   // Every material compiled before the clock starts.

@@ -77,7 +77,8 @@ export async function runFoeShowcase(host: HTMLElement, quality: Quality = "high
   const terrain = { group: new THREE.Group(), heightAt: painted.heightAt, dispose: () => {} };
   const heroes = createHeroes(stage, MAP_L2_CAU, { locator: crowd, terrain });
   const telegraphs = createTelegraphs(stage, terrain, { locator: crowd });
-  const fx = createFx(stage, { locator: crowd, terrain, heroes, shake: (px) => painted.rig.shake(px) });
+  // The showcase is where the paused foe blows are looked at: on here, off in play (FOE_BLOWS_DEFAULT).
+  const fx = createFx(stage, { locator: crowd, terrain, heroes, shake: (px) => painted.rig.shake(px), foeBlows: true });
   await heroes.ready;
   const list: ({ serial: number; foe: EnemyId; x: number; z: number } | undefined)[] = [];
   const world = { tick: 0, map: MAP_L2_CAU, enemies: { list }, units: { list: [] }, houses: { list: [] }, traps: { list: [] } } as unknown as World;

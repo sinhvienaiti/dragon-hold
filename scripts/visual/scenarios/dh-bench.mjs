@@ -66,10 +66,12 @@ export default async function (page) {
   // BLOOM=0|1 (painted ground) and MOUTHLIGHT=0|1 (the effects' mouth light); unset: the tier's defaults.
   const bloom = process.env.BLOOM === undefined ? undefined : process.env.BLOOM === "1";
   const mouthLight = process.env.MOUTHLIGHT === undefined ? undefined : process.env.MOUTHLIGHT === "1";
+  // FOEBLOWS=1: the paused foe blows at the ring (VFX step 3); unset: off, as in play.
+  const foeBlows = process.env.FOEBLOWS === "1" ? true : undefined;
   // WARMUP=s: seconds before the clock starts (bench default 1.5). Uncapped, the last load hitch (models and
   // shaders coming in) can land after 1.5 s and stand as the run's max.
   const warmup = process.env.WARMUP === undefined ? undefined : Number(process.env.WARMUP);
-  const tag = quality + "-" + page.width + "x" + page.height + "@" + page.dpr + (fx ? "" : "-nofx") + (ground === "painted" ? "-painted" : "") + (bones ? "-bones" : "") + (bloom === undefined ? "" : bloom ? "-bloom" : "-nobloom") + (mouthLight === undefined ? "" : mouthLight ? "-light" : "-nolight");
+  const tag = quality + "-" + page.width + "x" + page.height + "@" + page.dpr + (fx ? "" : "-nofx") + (ground === "painted" ? "-painted" : "") + (bones ? "-bones" : "") + (bloom === undefined ? "" : bloom ? "-bloom" : "-nobloom") + (mouthLight === undefined ? "" : mouthLight ? "-light" : "-nolight") + (foeBlows ? "-foeblows" : "");
   mkdirSync(OUT, { recursive: true });
   await page.goto(base + "/?title=0&bench=crowd&q=" + quality + "&count=" + count, { settle: 600 });
   // Start the bench unless the app already did (integrator route).
@@ -77,7 +79,7 @@ export default async function (page) {
     "(async () => { if (window.__dhBenchStop) return 'app'; const bench = await import('/src/view/bench.ts');" +
       " const host = document.createElement('div'); host.id = 'dh-bench'; host.style.cssText = 'position:fixed;inset:0;z-index:50;background:#a9c2cf';" +
       " document.body.append(host); bench.runCrowdBench(host, " +
-      JSON.stringify({ count, quality, seconds, fx, ground, bones, bloom, mouthLight, warmup }) +
+      JSON.stringify({ count, quality, seconds, fx, ground, bones, bloom, mouthLight, foeBlows, warmup }) +
       "); return 'scenario'; })()",
   );
   let result = null;

@@ -90,6 +90,8 @@ export interface AppOptions {
   readonly bloom?: boolean;
   /** Dev only: Hỏa Long's mouth light (fx.ts) on or off; unset keeps the tier's default. */
   readonly mouthLight?: boolean;
+  /** Dev only: the foes' blows (VFX step 3, paused unjudged, foe-fx.ts); unset keeps them off. */
+  readonly foeBlows?: boolean;
 }
 
 const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
@@ -125,7 +127,7 @@ function dimToDusk(map: MapStage): void {
   map.renderer.setClearColor(mist, 1);
 }
 
-/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?title=0, ?tagsize=80–150, and in dev ?speed=, ?dusk=1, ?bloom=0|1, ?mouthlight=0|1. */
+/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?title=0, ?tagsize=80–150, and in dev ?speed=, ?dusk=1, ?bloom=0|1, ?mouthlight=0|1, ?foeblows=1. */
 export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   const params = new URLSearchParams(search);
   const q = params.get("q") as Quality | null;
@@ -142,6 +144,7 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
     // The Ultra bloom opt-in is the player's (no settings screen yet): read outside dev too; only Ultra builds the pass.
     bloom: params.get("bloom") === null ? undefined : params.get("bloom") === "1",
     mouthLight: flag("mouthlight"),
+    foeBlows: flag("foeblows"),
     quality: normalizeQuality(q, !dev),
     difficulty: d && DIFFICULTIES.includes(d) ? d : undefined,
     seed: num("seed"),
@@ -638,6 +641,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       kick: (dx, dy, px) => map.rig.kick(dx, dy, px),
       random: seededRandom(seed ^ 0x5eed),
       mouthLight: options.mouthLight,
+      foeBlows: options.foeBlows,
     });
     const tags = createTags(overlay!, map.stage.project, {
       gloss: learning.gloss,

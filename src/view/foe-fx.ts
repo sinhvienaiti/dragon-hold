@@ -142,6 +142,9 @@ export const FOE_FX = {
   spawnS: 0.55,
 } as const;
 
+/** The foes' blows (step 3, WIP, never judged) stay off unless asked for (dev ?foeblows=1, the foe showcase). */
+export const FOE_BLOWS_DEFAULT = false;
+
 export class FoeFx {
   private readonly windups: Windup[] = [];
   private readonly flights: Flight[] = [];
@@ -158,7 +161,11 @@ export class FoeFx {
   impacts = 0;
   spawns = 0;
 
-  constructor(private readonly host: FoeFxHost) {
+  /**
+   * Step 3 is paused unjudged (fd08e01, round 7 changelog §4): off in play by default (FOE_BLOWS_DEFAULT), so a run
+   * never shows half-made foe blows. Off, windup, strike and spawn draw nothing; the showcase (?bench=foes) turns it on.
+   */
+  constructor(private readonly host: FoeFxHost, readonly enabled = FOE_BLOWS_DEFAULT) {
     for (let i = 0; i < MAX_WINDUPS; i += 1) this.windups.push({ active: false, serial: -1, slot: -1, blow: "slash", age: 0, duration: 0.5, h: 1.4, x: 0, y: 0, z: 0, tx: 0, tz: 0, dust: 0, motes: 0 });
     for (let i = 0; i < MAX_FLIGHTS; i += 1) this.flights.push({ active: false, left: 0, blow: "arrow", victim: "dragon", at: new THREE.Vector3(), dirX: 0, dirZ: 1, edge: null });
   }
@@ -180,6 +187,7 @@ export class FoeFx {
 
   /** A foe starts its swing (sim `attack` wind-up); `durationMs` from its telegraph, else the content's. */
   windup(slot: number, serial: number, foe: string, x: number, z: number, tx: number, tz: number, durationMs = foeWindupMs(foe)): void {
+    if (!this.enabled) return;
     let w = this.windups.find((item) => item.active && item.serial === serial);
     if (w === undefined) w = this.windups.find((item) => !item.active);
     if (w === undefined) w = this.windups.reduce((a, b) => (b.age > a.age ? b : a));
@@ -255,6 +263,7 @@ export class FoeFx {
   // ── R, T, I: the strike ───────────────────────────────────────────────
 
   strike(s: FoeStrike): void {
+    if (!this.enabled) return;
     this.cancel(s.serial);
     const host = this.host;
     const blow = foeBlow(s.foe);
@@ -377,6 +386,7 @@ export class FoeFx {
 
   /** A foe comes in at (x, z) (sim `spawn`); `y` its drawn height (a flyer's altitude). */
   spawn(foe: string, x: number, y: number, z: number): void {
+    if (!this.enabled) return;
     if (this.spawnsThisFrame >= SPAWNS_PER_FRAME) return;
     this.spawnsThisFrame += 1;
     this.spawns += 1;

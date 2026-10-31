@@ -32,7 +32,7 @@ import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
 import { SkyFire } from "./skyfire";
-import { FoeFx, type FoeVictim } from "./foe-fx";
+import { FOE_BLOWS_DEFAULT, FoeFx, type FoeVictim } from "./foe-fx";
 import { blankTexture, ShellPool, Streak, StreakSparks, VFX_FLAME_GLSL, VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
 import { cellRect, FlipbookSet, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
 
@@ -834,6 +834,8 @@ export interface FxCoreOptions {
   mouthLight?: boolean;
   /** Reduced motion (VFX_STANDARD §3.8): flashes softer and smaller, fewer embers. */
   reduced?: boolean;
+  /** The foes' blows (VFX step 3, paused unjudged; foe-fx.ts): default off (FOE_BLOWS_DEFAULT). */
+  foeBlows?: boolean;
 }
 
 /**
@@ -999,7 +1001,7 @@ export class FxCore {
     this.group.add(this.flip.group);
     this.sky = new SkyFire(this, 3, quality);
     this.group.add(this.sky.group);
-    this.foes = new FoeFx(this);
+    this.foes = new FoeFx(this, options.foeBlows ?? FOE_BLOWS_DEFAULT);
     for (let k = 0; k < MAX_EMITTERS; k += 1) {
       this.emitters.push({ active: false, kind: "burn", left: 0, total: 0, target: null, x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: 0, radius: 0, mark: -1 });
     }
@@ -2339,6 +2341,8 @@ export interface FxOptions {
   mouthLight?: boolean;
   /** Reduced motion; unset: the system setting (prefers-reduced-motion). */
   reduced?: boolean;
+  /** The foes' blows (VFX step 3, paused unjudged); unset: off (FOE_BLOWS_DEFAULT). */
+  foeBlows?: boolean;
 }
 
 /** The camera kick of a strong word's release (VFX_STANDARD §5.3 part 1: 1–2 px, T3 only). */
@@ -2396,7 +2400,7 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   // Continuous: 0 at the water's edge, 1 a little way up the bank (decals fade along the bank's own contour).
   // Round 10 (judges: the Sky Fire crater was near invisible at a ford): the ramp starts 0.15 m from the edge.
   const dryAt = waterLevel === undefined ? undefined : (x: number, z: number) => Math.min((heightAt(x, z) - waterLevel - 0.04) / 0.3, edgeOf === null ? 1 : (edgeOf(x, z) - 0.15) / 0.6);
-  const core = new FxCore(stage.quality, { heightAt, wetAt, dryAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });
+  const core = new FxCore(stage.quality, { heightAt, wetAt, dryAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced, foeBlows: options.foeBlows });
   // The Firefly atlases (round 8): loaded once a page; each pool takes its atlas when it arrives.
   void flipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, stage.quality === "ultra");
   const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
@@ -2689,8 +2693,9 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
             } else if (target.kind === "hero" || target.kind === "guide") {
               addTrauma(0.12);
               if (!options.shake) trauma.kick(0, 1, 4);
-            } else if (event.source.kind !== "enemy") {
-              // A foe's blow on our side is drawn by its strike (foe-fx.ts, in the foes' crimson), not here in fire.
+            } else if (event.source.kind !== "enemy" || !core.foes.enabled) {
+              // With the foes' blows on, a foe's blow on our side is drawn by its strike (foe-fx.ts, in the foes'
+              // crimson), not here in fire; with them off (the default) it keeps main's small impact.
               at.set(event.x, heightAt(event.x, event.z) + 1, event.z);
               core.impact(at, 1, 0, 1, false);
             }
