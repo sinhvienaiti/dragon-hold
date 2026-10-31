@@ -10,7 +10,7 @@
  * Owner: map spike.
  */
 import * as THREE from "three";
-import type { PropModel } from "./models";
+import { surfaceParams, type PropModel } from "./models";
 import { DH_GLSL, type PaintLook } from "./terrain";
 
 /** Bake elevation (degrees above the horizon) and the cell size in texels. */
@@ -66,7 +66,8 @@ export function bakeImpostors(
   renderer.setScissorTest(true);
   const materials: THREE.Material[] = [];
   props.forEach((prop, index) => {
-    const material = new THREE.MeshLambertMaterial({ map: prop.map });
+    // The tier's normal map bakes into the cell too (Medium and up), so the far ring keeps the near trees' relief.
+    const material = new THREE.MeshLambertMaterial(surfaceParams(prop));
     paint[prop.manifest]?.(material);
     materials.push(material);
     const mesh = new THREE.Mesh(prop.geometry, material);

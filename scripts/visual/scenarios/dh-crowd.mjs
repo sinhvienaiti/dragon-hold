@@ -39,6 +39,7 @@
 // bounce; and Thiên Hỏa cast, frames measured, no page exception.
 // GUARD (round 3, default 0 = off): below GUARD % Dragon HP the bot types every
 // word, as dh-scale's does (with GUARD=50 the crowd never formed in 60 s).
+// Q=low|medium|high|ultra boots the game at that quality (default: the game's own, high).
 // Pictures: tmp/shots/readability/ (OUT_DIR overrides).
 // Owner: view lane (round 2 readability).
 import { join } from "node:path";
@@ -275,8 +276,9 @@ const kindResult = (s) => ({ frames: s.frames, over30: s.over30, over40: s.over4
 
 export default async function (page) {
   const out = outDir("readability");
-  const res = { size: `${W}x${H}`, seed: SEED, hold: HOLD, wpm: process.env.WPM ?? "35", waves: [3, 2 + WAVES], covers: [] };
-  await boot(page, "prelearn=0&seed=" + SEED, { width: W, height: H });
+  const res = { size: `${W}x${H}`, seed: SEED, hold: HOLD, wpm: process.env.WPM ?? "35", waves: [3, 2 + WAVES], quality: process.env.Q ?? "high", covers: [] };
+  // Q (model tiers lane, 29/10): the game's quality (default high, the game's own default).
+  await boot(page, "prelearn=0&seed=" + SEED + (process.env.Q ? "&q=" + process.env.Q : ""), { width: W, height: H });
   await press(page, "Digit4"); await page.sleep(150); await press(page, "Enter"); await page.sleep(250);
   res.started = await startWave(page);
   void page.eval(BOT).catch(() => {});

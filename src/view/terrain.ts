@@ -400,7 +400,31 @@ export interface PaintOptions {
   readonly mask?: boolean;
   /** Mip bias of the colour map (map pilot: foliage reads as painted leaf masses, not leaf noise). */
   readonly mapBias?: number;
+  /**
+   * Model tiers (MODEL_QUALITY §2b): a sun glint from the model's roughness map (grey, .g, the colour map's
+   * uv) over the ramp, so the surface does not read as one even plastic; `floor` keeps foliage from shining.
+   */
+  readonly gloss?: { readonly map: THREE.Texture; readonly floor: number; readonly strength: number };
 }
+
+/** Roughness-map glint (paintMaterial `gloss`): normalised Blinn-Phong from each direct light, shadowed like the ramp. */
+const GLOSS_PARS = /* glsl */ `
+uniform sampler2D uDhGloss;
+uniform float uDhGlossFloor;
+uniform float uDhGlossK;
+float dhRough = 1.0;
+`;
+const GLOSS_DIRECT = /* glsl */ `
+#ifdef DH_GLOSS
+{
+  vec3 dhH = normalize(directLight.direction + geometryViewDir);
+  float dhShine = mix(48.0, 6.0, dhRough);
+  float dhSmooth = (1.0 - dhRough) * (1.0 - dhRough);
+  reflectedLight.directSpecular += directLight.color * saturate(dot(geometryNormal, directLight.direction)) * pow(saturate(dot(geometryNormal, dhH)), dhShine) * (dhShine + 2.0) * 0.125 * dhSmooth * uDhGlossK;
+}
+#endif
+`;
+const LAMBERT_DIFFUSE = "reflectedLight.directDiffuse += irradiance * BRDF_Lambert( material.diffuseColor );";
 
 const RAMP_GLSL = /* glsl */ `
 // Three soft light bands (art-pipeline 4): shadow, mid, lit, a little smooth light kept.
@@ -468,8 +492,12 @@ export function paintMaterial<T extends THREE.MeshLambertMaterial>(material: T, 
   material.fog = false;
   const lambert = THREE.ShaderChunk.lights_lambert_pars_fragment;
   if (!lambert.includes(LAMBERT_DOT)) console.warn("view/terrain: three's lambert chunk changed; ramp lighting is off");
+  const gloss = options.gloss;
+  if (gloss && !lambert.includes(LAMBERT_DIFFUSE)) console.warn("view/terrain: three's lambert chunk changed; the roughness glint is off");
+  if (gloss) material.defines = { ...(material.defines ?? {}), DH_GLOSS: "" };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, look.uniforms, options.uniforms ?? {});
+    if (gloss) Object.assign(shader.uniforms, { uDhGloss: { value: gloss.map }, uDhGlossFloor: { value: gloss.floor }, uDhGlossK: { value: gloss.strength } });
     const sphere = options.sphere;
     let vertex = shader.vertexShader
       .replace(
@@ -502,9 +530,17 @@ export function paintMaterial<T extends THREE.MeshLambertMaterial>(material: T, 
     let fragment = shader.fragmentShader
       .replace(
         "#include <common>",
-        "#include <common>\n" + DH_GLSL + RAMP_GLSL + "\nvarying vec3 vDhWorld;\nvarying vec3 vDhNormal;\nvarying vec3 vDhLocal;\n" + (options.mask ? "varying vec4 vDhMask;\n" : "") + (options.fragmentPars ?? ""),
+        "#include <common>\n" + DH_GLSL + RAMP_GLSL + (gloss ? GLOSS_PARS : "") + "\nvarying vec3 vDhWorld;\nvarying vec3 vDhNormal;\nvarying vec3 vDhLocal;\n" + (options.mask ? "varying vec4 vDhMask;\n" : "") + (options.fragmentPars ?? ""),
       )
-      .replace("#include <lights_lambert_pars_fragment>", lambert.replace(LAMBERT_DOT, "float dotNL = dhRamp( dot( geometryNormal, directLight.direction ) );"));
+      .replace(
+        "#include <lights_lambert_pars_fragment>",
+        lambert.replace(LAMBERT_DOT, "float dotNL = dhRamp( dot( geometryNormal, directLight.direction ) );").replace(LAMBERT_DIFFUSE, LAMBERT_DIFFUSE + (gloss ? GLOSS_DIRECT : "")),
+      );
+    if (gloss) {
+      fragment = fragment
+        .replace("#include <lights_fragment_begin>", "#ifdef USE_MAP\ndhRough = max(texture2D(uDhGloss, vMapUv).g, uDhGlossFloor);\n#endif\n#include <lights_fragment_begin>")
+        .replace("#include <opaque_fragment>", "outgoingLight += reflectedLight.directSpecular;\n#include <opaque_fragment>");
+    }
     if (options.dither) {
       Object.assign(shader.uniforms, look.occlusion);
       fragment = fragment

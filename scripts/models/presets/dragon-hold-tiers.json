@@ -1,0 +1,153 @@
+{
+ "version": 1,
+ "rule": "docs/games/MODEL_QUALITY.md (parent repo) §2 and §2b, owner 29/10: Ultra the whole Tripo original with colour, normal and roughness maps; High the §2 floor and at most the original, colour and normal map (plus a small roughness map: §2.3 forbids one flat roughness); Medium about half of High's triangles, colour 1024 and a normal map; never under 2,000 triangles at Ultra, High or Medium. Low draws no 3D (the kit's primitives), unchanged. Orientation, size, pivot, sockets and cuts come from dragon-hold-m0b.json. Build: node scripts/models/m0b-tiers.mjs",
+ "floor": 2000,
+ "classes": {
+  "character": {
+   "note": "foes, the general, the warden, traps: §2 keeps the original up to 20,000 triangles; textures as characters (2048 at High)",
+   "high": "source",
+   "medium": 0.5,
+   "textures": {
+    "ultra": {
+     "color": 2048,
+     "normal": 2048,
+     "roughness": 1024
+    },
+    "high": {
+     "color": 2048,
+     "normal": 1024,
+     "roughness": 512
+    },
+    "medium": {
+     "color": 1024,
+     "normal": 512
+    }
+   },
+   "hull": "medium"
+  },
+  "building": {
+   "note": "the hut, the bridge, the jetty: §2 keeps the original up to 25,000 triangles; textures as houses (2048 at High)",
+   "high": "source",
+   "medium": 0.5,
+   "textures": {
+    "ultra": {
+     "color": 2048,
+     "normal": 2048,
+     "roughness": 1024
+    },
+    "high": {
+     "color": 2048,
+     "normal": 1024,
+     "roughness": 512
+    },
+    "medium": {
+     "color": 1024,
+     "normal": 512
+    }
+   },
+   "hull": "medium"
+  },
+  "tree": {
+   "note": "big trees: §2 floor 8,000 at High; textures 1024 at High (§2.3 gives 2048 to characters, houses and landmarks only)",
+   "high": 8000,
+   "medium": 0.5,
+   "textures": {
+    "ultra": {
+     "color": 2048,
+     "normal": 2048,
+     "roughness": 1024
+    },
+    "high": {
+     "color": 1024,
+     "normal": 1024,
+     "roughness": 512
+    },
+    "medium": {
+     "color": 1024,
+     "normal": 512
+    }
+   },
+   "far": "medium"
+  },
+  "small": {
+   "note": "bushes, rocks, stumps, logs, fences, lanterns, cliff blocks: §2 floor 2,500 at High",
+   "high": 2500,
+   "medium": 0.5,
+   "textures": {
+    "ultra": {
+     "color": 2048,
+     "normal": 2048,
+     "roughness": 1024
+    },
+    "high": {
+     "color": 1024,
+     "normal": 1024,
+     "roughness": 512
+    },
+    "medium": {
+     "color": 1024,
+     "normal": 512
+    }
+   },
+   "far": "m0b"
+  },
+  "cover": {
+   "note": "grass, flowers, reeds (dense, instanced): §2 row 1,500, lifted to the 2,000 floor at every tier",
+   "high": 2000,
+   "medium": 0.5,
+   "textures": {
+    "ultra": {
+     "color": 2048,
+     "normal": 2048,
+     "roughness": 1024
+    },
+    "high": {
+     "color": 1024,
+     "normal": 1024,
+     "roughness": 512
+    },
+    "medium": {
+     "color": 1024,
+     "normal": 512
+    }
+   },
+   "far": "m0b"
+  }
+ },
+ "models": {
+  "enemies/moss-grunt": "character",
+  "enemies/blight-wolf": "character",
+  "enemies/moss-banner": "character",
+  "enemies/moss-archer": "character",
+  "enemies/tusk-boar": "character",
+  "enemies/thorn-wasp": "character",
+  "enemies/thorn-ant": "character",
+  "units/moss-warden": "character",
+  "props/spikes": "character",
+  "props/pine-bomb": "character",
+  "props/net-launcher": "character",
+  "props/herb-hut": "building",
+  "props/pine-river-bridge-old": "building",
+  "props/pine-river-wooden-jetty": "building",
+  "props/pine-river-pine-tall": "tree",
+  "props/pine-river-pine-round": "tree",
+  "props/pine-river-pine-young": "tree",
+  "props/pine-river-tree-violet": "tree",
+  "props/pine-river-bush-moss": "small",
+  "props/pine-river-bush-blossom": "small",
+  "props/pine-river-rock-boulder": "small",
+  "props/pine-river-rock-slab": "small",
+  "props/pine-river-river-stones": "small",
+  "props/pine-river-stump": "small",
+  "props/pine-river-log": "small",
+  "props/pine-river-lantern-post": "small",
+  "props/pine-river-rail-fence": "small",
+  "props/pine-river-cliff-rock-a": "small",
+  "props/pine-river-cliff-rock-b": "small",
+  "props/pine-river-reed-clump": "cover",
+  "props/pine-river-wildflower-clump": "cover",
+  "props/pine-river-grass-tuft": "cover"
+ },
+ "farNote": "Scatter classes also ship a far LOD, geometry only, drawn with the tier's maps beyond PROP_LOD_M from the camera (view/scatter.ts; MODEL_QUALITY §3 step 2): trees their Medium mesh (the M0b cut read as faceted crowns at the game camera), small props and ground cover today's M0b cut (dragon-hold-m0b.json triangles).",
+ "hullNote": "Crowd classes (character, building) also ship a hull: the Medium mesh, geometry only; on High and Ultra the crowd draws its outline and ghost passes with it while the body keeps the tier mesh (view/crowd.ts; MODEL_QUALITY §3 step 2)."
+}

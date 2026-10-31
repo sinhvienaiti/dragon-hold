@@ -17,7 +17,7 @@
  */
 import * as THREE from "three";
 import type { MapDef, SlotKind, Vec2 } from "../content/types";
-import type { PropModel } from "./models";
+import { PROP_GLOSS, surfaceParams, type PropModel } from "./models";
 import { catmullRom, DH_GLSL, hash2, mergeSimple, paintMaterial, Polyline, type BridgeSpan, type PaintedTerrain } from "./terrain";
 
 export interface PathsView {
@@ -488,7 +488,12 @@ export function buildPaths(map: MapDef, terrain: PaintedTerrain): PathsView {
     },
     useBridge(prop: PropModel | null): void {
       if (prop === null || bridge === null || terrain.field.bridges.length === 0) return;
-      const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: prop.map }), look, { key: "bridge-model", rim: 0.08 });
+      // Model tiers (MODEL_QUALITY §2b): the normal map from Medium up, the roughness glint on High and Ultra.
+      const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", ...surfaceParams(prop) }), look, {
+        key: "bridge-model",
+        rim: 0.08,
+        ...(prop.roughnessMap ? { gloss: { map: prop.roughnessMap, ...PROP_GLOSS.solid } } : {}),
+      });
       const model = bridgeModel(prop, terrain.field.bridges, material);
       bridge.visible = false;
       group.add(model);

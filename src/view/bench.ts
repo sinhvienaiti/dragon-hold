@@ -74,8 +74,9 @@ export interface BenchResult {
   readonly gpuMeanMs: number | null;
   readonly gpuNote: string | null;
   readonly maxMs: number;
-  /** Frames over 50 ms while measuring: when (s since start), how long, and what Sky Fire was drawing (hitch traces). */
-  readonly longFrames: readonly { t: number; ms: number; sky: string | null; skyFrame: number }[];
+  /** Frames over 50 ms (at most 40), warm-up included so first-use stalls show: when (s since start), how long,
+   * whether still warming up, and what Sky Fire was drawing (hitch traces). */
+  readonly longFrames: readonly { t: number; ms: number; warm: boolean; sky: string | null; skyFrame: number }[];
   readonly fps: number;
   readonly count: number;
   readonly quality: Quality;
@@ -818,7 +819,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   };
   const warmup = options.warmup ?? 1.5;
   const intervals: number[] = [];
-  const longFrames: { t: number; ms: number; sky: string | null; skyFrame: number }[] = [];
+  const longFrames: { t: number; ms: number; warm: boolean; sky: string | null; skyFrame: number }[] = [];
   const cpu: number[] = [];
   let calls = 0;
   let triangles = 0;
@@ -845,6 +846,10 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
     fx?.update(dt, now / 1000, crowd);
     const elapsed = (now - start) / 1000;
     const measuring = !finished && elapsed > warmup;
+    if (interval > 50 && longFrames.length < 40) {
+      const sky = fx?.core.skyDebug();
+      longFrames.push({ t: round2(elapsed), ms: round2(interval), warm: elapsed <= warmup, sky: sky?.phase ?? null, skyFrame: sky?.frame ?? -1 });
+    }
     const query = gpu.begin();
     stage.render();
     gpu.end(query, measuring);
@@ -852,10 +857,6 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
     const spent = performance.now() - t0;
     if (!measuring) return;
     intervals.push(interval);
-    if (interval > 50) {
-      const sky = fx?.core.skyDebug();
-      longFrames.push({ t: round2(elapsed), ms: round2(interval), sky: sky?.phase ?? null, skyFrame: sky?.frame ?? -1 });
-    }
     cpu.push(spent);
     const stats = painted?.stage.stats();
     calls = stats?.drawCalls ?? stage.renderer.info.render.calls;

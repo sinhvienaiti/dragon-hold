@@ -10,6 +10,10 @@
  *
  *   node scripts/models/m0b-strip.mjs [--only <kind>/<id>,…]
  *
+ * Superseded for the runtime files on 29/10 by m0b-tiers.mjs (MODEL_QUALITY §2b:
+ * Ultra, High and Medium tiers from the originals, maps kept); kept as the record
+ * of the M0b cut, which the owner allows on Low (Low draws no 3D today).
+ *
  * Build time only; gltf-transform and meshoptimizer come from Space Typing's
  * node_modules (the parent repo's model tools resolve them the same way).
  * Writes in place: art-src/models is this game's own processed copy, never
