@@ -10074,6 +10074,16 @@ e68729eb48c1e9f9806311f88b587ed4  public/assets/dragon-hold/ui/quick-settings/vo
 1e2ca6a743c192c57601467107f8c147  public/assets/dragon-hold/ui/quick-settings/vol-voice.64.png
 0452fe62837531da5a9602d03e468915  public/assets/dragon-hold/ui/quick-settings/vol-voice.r2.128.png
 9ad49c451995f74d4c3f60a04e09abbc  public/assets/dragon-hold/ui/quick-settings/vol-voice.r2.64.png
+457e431e618f5aa8cd004c9a573010f4  public/assets/dragon-hold/vfx/fire-c/kenney/flare_01.png
+122c3584f6c09634f5a73bb89c06155d  public/assets/dragon-hold/vfx/fire-c/kenney/scorch_01.png
+af398c7e09d9f586f88a5c08ac704846  public/assets/dragon-hold/vfx/fire-c/kenney/scorch_02.png
+4af623130313a84d41b17b274dcc9949  public/assets/dragon-hold/vfx/fire-c/kenney/smoke_04.png
+31d0c4c2e6c230114341cbeecd8b2bd9  public/assets/dragon-hold/vfx/fire-c/kenney/smoke_07.png
+8e3dba6fa59bc869b76e9fb5cabbd47c  public/assets/dragon-hold/vfx/fire-c/kenney/smoke_08.png
+91104ee56d746790dcf782c67f13a8d2  public/assets/dragon-hold/vfx/fire-c/manifest.json
+da93fb0f83fa3764cc46ddae26087bbf  public/assets/dragon-hold/vfx/fire-c/scorch-c.webp
+998690ecdfcde327f5cc14dbbc7768b7  public/assets/dragon-hold/vfx/fire-c/smoke-c.webp
+89d58617ecf31b8f79c0cad6386f97ca  public/assets/dragon-hold/vfx/fire-c/sparks-c.webp
 fe6633c7449b0813a436a4b31a553f0d  public/assets/dragon-hold/vfx/firefly/charge-orb.webp
 b685389120614e523a56ada23e312418  public/assets/dragon-hold/vfx/firefly/embers.webp
 a839a4bc5991c9408beedb4d4a6da55e  public/assets/dragon-hold/vfx/firefly/fireball-head.webp
