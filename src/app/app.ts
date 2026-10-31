@@ -401,6 +401,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   overlay.append(hush, menu, veil, countdownNode);
 
   function quitToTitle(): void {
+    // Quit from the title's own panel (still loading or blocked) has no run: leave the title as it is.
+    const hadRun = run !== null;
     learning.flush();
     stopSpeech();
     loop?.stop();
@@ -422,9 +424,10 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     for (const node of [menu, veil, hush, countdownNode, notice2, lowEdge, hurt, seep, ffBadge]) setShown(node, false);
     ready = false;
     quitOnce = true;
+    beginWhenPlayable = false;
     // The 197 title, made now when the boot skipped it (?title=0), back with every source settled.
     title ??= createTitle(overlay!, { onStart: startFromTitle });
-    title.reopen();
+    if (hadRun) title.reopen();
   }
 
   function selectMenu(index: number): void {
