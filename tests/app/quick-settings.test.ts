@@ -169,16 +169,67 @@ describe("192 app and shared panels", () => {
       expect(at(track), track).toContain("background: none;");
       expect(at(track), track).toContain("border-image: var(--kit-qs-skin-track) 0 64 fill / 0 calc(10px * var(--kit-qs-s)) stretch;");
     }
-    // The knob box is 28 px (about 20 px of knob, twice the groove), centred on the 10 px groove; the range box holds it.
+    // The knob box is 32 px (about 22 px of knob at 720p), centred on the 10 px groove; the range box holds it.
     for (const thumb of ["::-webkit-slider-thumb", "::-moz-range-thumb"]) {
       expect(at(thumb), thumb).toContain("background-color: transparent;");
-      expect(at(thumb), thumb).toContain("width: calc(28px * var(--kit-qs-s));");
-      expect(at(thumb), thumb).toContain("height: calc(28px * var(--kit-qs-s));");
+      expect(at(thumb), thumb).toContain("width: calc(32px * var(--kit-qs-s));");
+      expect(at(thumb), thumb).toContain("height: calc(32px * var(--kit-qs-s));");
     }
-    expect(at("::-webkit-slider-thumb")).toContain("margin-top: calc(-9px * var(--kit-qs-s));");
-    expect(at("")).toContain("height: calc(28px * var(--kit-qs-s));");
+    expect(at("::-webkit-slider-thumb")).toContain("margin-top: calc(-11px * var(--kit-qs-s));");
+    expect(at("")).toContain("height: calc(32px * var(--kit-qs-s));");
     // One unknown pseudo-element drops a whole rule: WebKit and Gecko never share one.
     expect(heads.filter((head) => head.includes("::-webkit-") && head.includes("::-moz-"))).toEqual([]);
+  });
+
+  it("the knob answers hover, press and keyboard focus with its own light, and the range shows a hand", () => {
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    const at = (state: string) => rules.get(`.dh-quick.kit-qs--skin-slider .kit-qs__range${state}`) ?? "";
+    expect(at("")).toContain("cursor: pointer;");
+    expect(at(":active")).toContain("cursor: grabbing;");
+    // The kit's flat 2 px box around the whole range gives way to a gold ring of light on the knob and a warm groove.
+    expect(at(":focus-visible")).toContain("outline: none;");
+    for (const [thumb, track] of [["::-webkit-slider-thumb", "::-webkit-slider-runnable-track"], ["::-moz-range-thumb", "::-moz-range-track"]] as const) {
+      expect(at(`:hover${thumb}`), thumb).toMatch(/filter: brightness\(1\.15\) drop-shadow\(/);
+      expect(at(`:active${thumb}`), thumb).toContain("transform: scale(1.08);");
+      expect(at(`:focus-visible${thumb}`), thumb).toContain("drop-shadow(0 0 1px #ffd166) drop-shadow(0 0 1px #ffd166)");
+      expect(at(`:focus-visible${track}`), track).toContain("filter: drop-shadow(");
+    }
+  });
+
+  it("muted, the Master row dims and strikes its number, shows the muted speaker and the button reads Unmute", async () => {
+    const root = document.querySelector<HTMLElement>(".dh-quick")!;
+    expect(root.style.getPropertyValue("--dh-qs-icon-muted")).toContain("/assets/dragon-hold/ui/quick-settings/hud-sound-muted.64.png");
+    expect(root.style.getPropertyValue("--dh-qs-button-active")).toContain("/assets/dragon-hold/ui/quick-settings/button-active.alpha.png");
+    press(window, "F2");
+    const master = row("master");
+    const mute = master.querySelector<HTMLButtonElement>('[data-toggle="muted"]')!;
+    expect(mute.textContent).toBe("Mute");
+    expect(master.classList.contains("dh-quick__row--muted")).toBe(false);
+    mute.click();
+    await flush();
+    expect(mute.getAttribute("aria-pressed")).toBe("true");
+    expect(mute.textContent).toBe("Unmute");
+    expect(master.classList.contains("dh-quick__row--muted")).toBe(true);
+    expect(master.classList.contains("dh-quick__row--silent")).toBe(true);
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!).muted).toBe(true);
+    mute.click();
+    await flush();
+    expect(mute.textContent).toBe("Mute");
+    expect(master.classList.contains("dh-quick__row--muted")).toBe(false);
+    expect(master.classList.contains("dh-quick__row--silent")).toBe(false);
+    // Master at 0 is silent too (the corner speaker shows muted then), without the dimmed groove.
+    slide("master", 0);
+    await flush();
+    expect(master.classList.contains("dh-quick__row--silent")).toBe(true);
+    expect(master.classList.contains("dh-quick__row--muted")).toBe(false);
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    expect(rules.get(".dh-quick .dh-quick__row--muted .kit-qs__range")).toContain("filter: grayscale(0.7) brightness(0.6);");
+    expect(rules.get(".dh-quick .dh-quick__row--muted .kit-qs__num")).toContain("text-decoration: line-through;");
+    expect(rules.get(".dh-quick .dh-quick__row--silent .kit-qs__icon-cell")).toContain("background: var(--dh-qs-icon-muted) center / contain no-repeat;");
+    expect(rules.get(".dh-quick .dh-quick__row--silent .kit-qs__icon")).toContain("opacity: 0;");
+    // One width for "Mute" and "Unmute", and the groove wraps only below its 6em minimum: Mute stays beside the groove.
+    expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__btn[data-toggle]")).toContain("min-width: calc(90px * var(--kit-qs-s));");
+    expect(rules.get(".dh-quick .kit-qs__control .kit-qs__range")).toContain("flex-basis: 6em;");
   });
 
   it("frame and buttons show only their art; Resume and a pressed Mute read gold; values keep off the frame's gold edge", () => {
@@ -191,17 +242,38 @@ describe("192 app and shared panels", () => {
     expect(mute.getAttribute("aria-pressed")).toBe("true");
     mute.click();
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
-    expect(rules.get(".dh-quick.kit-qs--skin-panel .kit-qs__panel")).toContain("background-color: transparent;");
+    // The frame is a 9-slice of the 162 slice data (312 px corners, edges round) at one scale; the centre is one
+    // stretched copy of the art's middle (1254/630), clipped inside the gold edge, never tiled.
+    const panel = rules.get(".dh-quick.kit-qs--skin-panel .kit-qs__panel") ?? "";
+    expect(panel).toContain("border: calc(42px * var(--kit-qs-s)) solid transparent;");
+    expect(panel).toContain("border-image: var(--kit-qs-skin-panel) 312 / calc(125px * var(--kit-qs-s)) / 0 round;");
+    expect(panel).toContain("background: var(--kit-qs-skin-panel) center / calc(max(100% - 166px * var(--kit-qs-s), 1px) * 1.9905)");
+    expect(panel).toContain("no-repeat padding-box transparent;");
     const button = rules.get(".dh-quick.kit-qs--skin-button .kit-qs__btn") ?? "";
     expect(button).toContain("background-color: transparent;");
     expect(button).toContain("border-color: transparent;");
     for (const state of ["--primary", '[aria-pressed="true"]', '[aria-checked="true"]']) {
       expect(rules.get(`.dh-quick.kit-qs--skin-button .kit-qs__btn${state}`), state).toContain("color: #f2c14e;");
     }
-    // The stretched frame's inner gold edge is about 8.5 % in from each side and 10.7 % up from the bottom.
+    for (const state of ['[aria-pressed="true"]', '[aria-checked="true"]']) {
+      expect(rules.get(`.dh-quick.kit-qs--skin-button .kit-qs__btn${state}`), state).toContain("background-image: var(--dh-qs-button-active, var(--kit-qs-skin-button));");
+    }
+    // With the gold edge at 42 px, these paddings keep the content where the stretched frame had it (52/62/64 px).
     expect(rules.get(".dh-quick .kit-qs__panel")).toContain(
-      "padding: calc(52px * var(--kit-qs-s)) calc(62px * var(--kit-qs-s)) calc(64px * var(--kit-qs-s));",
+      "padding: calc(10px * var(--kit-qs-s)) calc(20px * var(--kit-qs-s)) calc(22px * var(--kit-qs-s));",
     );
+  });
+
+  it("Quality is one short label with its chips on one line, on the button art, the chosen one on the active plate", () => {
+    press(window, "F1");
+    const settings = document.querySelector<HTMLElement>('.kit-qs__dialog[data-panel="settings"]')!;
+    expect(settings.querySelector(".kit-qs__heading")!.textContent).toBe("Graphics · next launch");
+    expect(row("quality").querySelector(".kit-qs__label")!.textContent).toBe("Quality");
+    expect([...row("quality").querySelectorAll(".kit-qs__chip")].map((chip) => chip.textContent)).toEqual(["Low", "Medium", "High", "Ultra"]);
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row')).toContain("grid-template-columns: calc(24px * var(--kit-qs-s)) auto minmax(0, 1fr);");
+    expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__chip")).toContain("background: var(--kit-qs-skin-button) center / 100% 100% no-repeat transparent;");
+    expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__opt input:checked + .kit-qs__chip")).toContain("background: var(--dh-qs-button-active, var(--kit-qs-skin-button)) center / 100% 100% no-repeat transparent;");
   });
 
   it("pauses immediately, preserves the word/hash, blocks letters and counts 3–2–1 before another tick", () => {
