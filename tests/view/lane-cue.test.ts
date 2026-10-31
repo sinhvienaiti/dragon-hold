@@ -46,8 +46,8 @@ describe("lane cue", () => {
     const suoi = mesh("dh-lane-cue-suoi");
     const sky = mesh("dh-sky-troi");
     expect(cau.visible).toBe(false);
-    // Before any cue the sky lane looks as it always did (terrain preview, bench).
-    expect(sky.material.uniforms.uOpacity!.value).toBeCloseTo(0.55, 6);
+    // Before any cue the sky lane is quiet (map pilot A3: no white arrow on the meadow in the preview).
+    expect(sky.material.uniforms.uOpacity!.value).toBeCloseTo(0.12, 6);
     paths.cueLanes(["cau"], true);
     for (let k = 0; k < 15; k += 1) paths.update(1 / 60);
     expect(cau.visible).toBe(true);
@@ -55,7 +55,7 @@ describe("lane cue", () => {
     expect(suoi.visible).toBe(false);
     // Wave 1 has no flyer: the sky lane dims to its quiet look and its chevrons hold still.
     const flow = sky.material.uniforms.uFlow!.value as number;
-    expect(sky.material.uniforms.uOpacity!.value).toBeCloseTo(0.2, 6);
+    expect(sky.material.uniforms.uOpacity!.value).toBeCloseTo(0.12, 6);
     paths.update(1 / 60);
     expect(sky.material.uniforms.uFlow!.value).toBe(flow);
     paths.cueLanes(["cau", "troi"], false);

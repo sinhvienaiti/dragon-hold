@@ -16,6 +16,9 @@ import { DH_GLSL, type PaintLook } from "./terrain";
 /** Bake elevation (degrees above the horizon) and the cell size in texels. */
 export const IMPOSTOR = { elevationDeg: 55, cellPx: 256, columns: 4 } as const;
 
+/** A3: the title camera's set (12–20° up): baked once on first use, sharper cells for the near band. */
+export const IMPOSTOR_LOW = { elevationDeg: 16, cellPx: 512 } as const;
+
 export interface ImpostorCell {
   /** Atlas rectangle (u, v, width, height in uv). */
   readonly rect: THREE.Vector4;
@@ -32,8 +35,14 @@ export interface ImpostorAtlas {
 }
 
 /** Renders each prop into one atlas cell (the renderer's state is restored afterwards). */
-export function bakeImpostors(renderer: THREE.WebGLRenderer, props: readonly PropModel[], paint: Readonly<Record<string, (material: THREE.MeshLambertMaterial) => void>> = {}): ImpostorAtlas {
-  const { cellPx, columns } = IMPOSTOR;
+export function bakeImpostors(
+  renderer: THREE.WebGLRenderer,
+  props: readonly PropModel[],
+  paint: Readonly<Record<string, (material: THREE.MeshLambertMaterial) => void>> = {},
+  view: { readonly elevationDeg: number; readonly cellPx: number } = IMPOSTOR,
+): ImpostorAtlas {
+  const { columns } = IMPOSTOR;
+  const { cellPx } = view;
   const rows = Math.max(1, Math.ceil(props.length / columns));
   const target = new THREE.WebGLRenderTarget(cellPx * columns, cellPx * rows, { type: THREE.UnsignedByteType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
   target.texture.colorSpace = THREE.SRGBColorSpace;
@@ -43,7 +52,7 @@ export function bakeImpostors(renderer: THREE.WebGLRenderer, props: readonly Pro
   sun.position.set(-0.4, 1, 0.8);
   scene.add(sun);
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
-  const elevation = (IMPOSTOR.elevationDeg * Math.PI) / 180;
+  const elevation = (view.elevationDeg * Math.PI) / 180;
   const cells = new Map<string, ImpostorCell>();
   const previous = { target: renderer.getRenderTarget(), clear: renderer.getClearColor(new THREE.Color()), alpha: renderer.getClearAlpha(), autoClear: renderer.autoClear, viewport: new THREE.Vector4(), scissor: new THREE.Vector4(), scissorTest: renderer.getScissorTest(), shadows: renderer.shadowMap.enabled, toneMapping: renderer.toneMapping };
   renderer.getViewport(previous.viewport);

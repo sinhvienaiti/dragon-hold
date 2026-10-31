@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 const FORMATS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+/** The game's runtime pick list (view/paint.ts loads exactly these keys). */
+const PICK_FILE = join(ROOT, 'src/view/ground-pick.json');
 const md5 = (bytes) => createHash('md5').update(bytes).digest('hex');
 
 function magick(args, input) {
@@ -20,6 +22,22 @@ function magick(args, input) {
 function contains(parent, child) {
   const path = relative(parent, child);
   return path === '' || (!isAbsolute(path) && path !== '..' && !path.startsWith('../'));
+}
+
+/** A pick list (key `<kit>/<name>` -> source file under the input folder) replaces the folder scan. */
+function sourcesPicked(input, pick) {
+  const sources = [];
+  for (const key of Object.keys(pick).sort()) {
+    const [kit, name, ...rest] = key.split('/');
+    const from = pick[key];
+    if (rest.length > 0 || !NAME.test(kit ?? '') || !NAME.test(name ?? '')) throw new Error('Bad pick key: ' + key);
+    if (typeof from !== 'string' || !FORMATS.has(extname(from).toLowerCase())) throw new Error('Bad pick source for ' + key);
+    const file = resolve(input, from);
+    if (!contains(input, file)) throw new Error('Pick source outside the input folder: ' + from);
+    sources.push({ key, kit, name, file });
+  }
+  if (sources.length === 0) throw new Error('Empty pick list');
+  return sources;
 }
 
 async function sourcesIn(input) {
@@ -45,7 +63,8 @@ async function sourcesIn(input) {
 }
 
 /** Max dimension 1024 by default; preserve aspect, alpha and small originals. */
-export async function prepareTextures({ kind = 'ground', input, out, size = 1024, quality = 90 } = {}) {
+/** `pick`: optional { "<kit>/<name>": "<kit>/<file>" } (the game's runtime list); without it every plain name is taken. */
+export async function prepareTextures({ kind = 'ground', input, out, size = 1024, quality = 90, pick } = {}) {
   if (kind !== 'ground' && kind !== 'decals') throw new Error('Unknown texture kind: ' + kind);
   if (!Number.isInteger(size) || size < 1 || size > 16383) throw new Error('size must be an integer from 1 to 16383');
   if (!Number.isInteger(quality) || quality < 1 || quality > 100) throw new Error('quality must be an integer from 1 to 100');
@@ -53,7 +72,7 @@ export async function prepareTextures({ kind = 'ground', input, out, size = 1024
   out = resolve(out ?? join(ROOT, 'public/assets/dragon-hold', kind));
   if (contains(input, out) || contains(out, input)) throw new Error('Input and output directories must not overlap');
 
-  const sources = await sourcesIn(input);
+  const sources = pick ? sourcesPicked(input, pick) : await sourcesIn(input);
   const manifest = { version: 1, kind, textures: {} };
   const pending = [];
   // Finish every conversion before replacing any output or the previous manifest.
@@ -85,8 +104,10 @@ export async function prepareTextures({ kind = 'ground', input, out, size = 1024
 }
 
 export async function runPrepare(kind, args = process.argv.slice(2)) {
-  const usage = `node scripts/assets/prepare-${kind}.mjs [--input <dir>] [--out <dir>] [--size <px>] [--quality <1..100>]
+  const usage = `node scripts/assets/prepare-${kind}.mjs [--input <dir>] [--out <dir>] [--size <px>] [--quality <1..100>] [--pick <json>|all]
 Input: art-src/${kind}/<kit>/<name>.{png,jpg,jpeg,webp}
+Pick: the "${kind}" list of src/view/ground-pick.json (the files the game loads) by default when
+--input is not given; --pick all (or any --input without --pick) scans every plain name instead.
 Output: public/assets/dragon-hold/${kind}/<kit>/<name>.webp and ${kind}/manifest.json
 Defaults: --size 1024 (no upscale), --quality 90. Set ART_MAGICK for ImageMagick 7.
 JSON sidecars, prompts and review tries are excluded; manifest contains runtime images only.`;
@@ -98,12 +119,16 @@ JSON sidecars, prompts and review tries are excluded; manifest contains runtime 
   const seen = new Set();
   for (let i = 0; i < args.length; i += 2) {
     const flag = args[i];
-    if (!['--input', '--out', '--size', '--quality'].includes(flag) || seen.has(flag)
+    if (!['--input', '--out', '--size', '--quality', '--pick'].includes(flag) || seen.has(flag)
       || !args[i + 1] || args[i + 1].startsWith('--')) throw new Error('Invalid option: ' + flag + '\n' + usage);
     seen.add(flag);
     const key = flag.slice(2);
     options[key] = key === 'size' || key === 'quality' ? Number(args[i + 1]) : args[i + 1];
   }
+  // The game's runtime list unless a folder is given or `--pick all` asks for the scan.
+  const pickFile = options.pick ?? (options.input ? 'all' : PICK_FILE);
+  delete options.pick;
+  if (pickFile !== 'all') options.pick = JSON.parse(await readFile(resolve(pickFile), 'utf8'))[kind];
   const manifest = await prepareTextures(options);
   console.log(kind + ': ' + Object.keys(manifest.textures).length + ' textures; manifest md5=' +
     md5(await readFile(resolve(options.out ?? join(ROOT, 'public/assets/dragon-hold', kind), 'manifest.json'))));

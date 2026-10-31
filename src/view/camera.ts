@@ -343,3 +343,76 @@ export function createCameraRig(camera: PerspectiveCamera, map: MapDef, dom: HTM
   Object.assign(now, goal);
   return rig;
 }
+
+/**
+ * A3 (ART_DIRECTION_2026-10-28 §3.5): the title screen's camera, low over the map
+ * (pitch 12–20°, easing up and down) and orbiting it slowly, so the sky and the
+ * far ridges show behind the valley. Only the title screen and the terrain
+ * preview (`?cam=title`) drive it; the free camera of a wave never moves by itself.
+ */
+export const TITLE_ORBIT = {
+  pitchDeg: [12, 20] as const,
+  /** One pitch swing (low → high → low), seconds. */
+  pitchPeriodS: 48,
+  degPerS: 2.4,
+  distanceM: 100,
+  /** The mist reads distance from the camera here (terrain dhMist uMistCam): (distance − offset) × scale. */
+  mist: { offsetM: 88, scale: 0.55 },
+  /** Look-at height: a little above the dais, so more of the frame is valley and sky. */
+  lookY: 7,
+  startYawDeg: 20,
+} as const;
+
+export interface TitleOrbit {
+  readonly yawDeg: number;
+  readonly pitchDeg: number;
+  update(dt: number): void;
+  /** Holds a view (captures) or, with `hold: false`, lets the orbit run on from it. */
+  set(view: { yawDeg?: number; pitchDeg?: number; hold?: boolean }): void;
+  /** Reduced motion: the orbit stands still. */
+  reducedMotion: boolean;
+}
+
+export function createTitleOrbit(camera: PerspectiveCamera, map: MapDef): TitleOrbit {
+  const T = TITLE_ORBIT;
+  const [cx, cz] = map.dais.center;
+  let time = 0;
+  let yaw: number = T.startYawDeg;
+  let pitch: number = (T.pitchDeg[0] + T.pitchDeg[1]) / 2;
+  let held = false;
+  const place = (): void => {
+    const p = pitch * DEG;
+    const y = yaw * DEG;
+    const flat = Math.cos(p) * T.distanceM;
+    camera.position.set(cx + Math.sin(y) * flat, T.lookY + Math.sin(p) * T.distanceM, cz + Math.cos(y) * flat);
+    camera.lookAt(cx, T.lookY, cz);
+    camera.updateMatrixWorld();
+  };
+  const orbit: TitleOrbit = {
+    reducedMotion: false,
+    get yawDeg() {
+      return yaw;
+    },
+    get pitchDeg() {
+      return pitch;
+    },
+    update(dt: number): void {
+      if (!held && !orbit.reducedMotion) {
+        time += clamp(dt, 0, 0.1);
+        yaw = T.startYawDeg + time * T.degPerS;
+        const mid = (T.pitchDeg[0] + T.pitchDeg[1]) / 2;
+        pitch = mid - ((T.pitchDeg[1] - T.pitchDeg[0]) / 2) * Math.cos((2 * Math.PI * time) / T.pitchPeriodS);
+      }
+      place();
+    },
+    set(view): void {
+      if (view.yawDeg !== undefined) yaw = view.yawDeg;
+      if (view.pitchDeg !== undefined) pitch = clamp(view.pitchDeg, T.pitchDeg[0], T.pitchDeg[1]);
+      held = view.hold ?? true;
+      if (!held) time = (yaw - T.startYawDeg) / T.degPerS;
+      place();
+    },
+  };
+  place();
+  return orbit;
+}

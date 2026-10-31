@@ -20,8 +20,8 @@ import type { Quality } from "../app/contracts";
 import type { MapDef } from "../content/types";
 import { PROP_SPECS, type PropSpec, type ScatterKind } from "./model-specs";
 import type { PropModel } from "./models";
-import { homeViewUv, LAYOUT_RULES, type LayoutItem } from "./layout";
-import { bakeImpostors, farRing, type FarItem, type ImpostorAtlas } from "./impostor";
+import { homeViewUv, LAYOUT_RULES, onAnyFrameEdge, type LayoutItem } from "./layout";
+import { bakeImpostors, farRing, IMPOSTOR_LOW, type FarItem, type ImpostorAtlas } from "./impostor";
 import { mapSwitch } from "./paint";
 import { hash2, Polyline, paintMaterial, seededRandom, type HeightField, type PaintedTerrain } from "./terrain";
 
@@ -29,6 +29,11 @@ export interface ScatterView {
   readonly group: THREE.Group;
   /** Swaps the near items for the owner's GLB props (M0b); a prop that did not load keeps its primitives. Once. */
   useProps(prop: (manifest: string) => PropModel | null, renderer?: THREE.WebGLRenderer): void;
+  /**
+   * A3: the far ring for a low camera (title orbit): true swaps in impostors baked at 16° (one bake on the
+   * first call, same one draw call), false brings back the 55° ring of the play views.
+   */
+  setLowView(on: boolean): void;
   /** Triangles of one drawing of the scatter (no shadow pass), and how many items are GLB props. */
   stats(): { triangles: number; props: number; primitives: number };
   dispose(): void;
@@ -62,9 +67,12 @@ export const FAR_FROM_M = 42;
 const STONE_PAINT =
   "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.43, 0.425, 0.41) * clamp(0.35 + dhL * 1.8, 0.42, 1.0); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
 
-/** Map pilot A2: cliff blocks pale warm stone; the dark sides lift (floor 0.55), the face darker toward its foot. */
+/** Map pilot A2: cliff blocks pale warm stone; the dark sides lift (floor 0.55), the face darker toward its foot; A3 (FB-10): up-facing tops a step brighter, the sides a step darker, so each tier reads as a flat lit top over a shaded edge. */
 const CLIFF_PAINT =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.5, 0.49, 0.465) * clamp(0.45 + dhL * 1.7, 0.55, 1.05); dhG *= mix(0.72, 1.05, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); diffuseColor.rgb = dhG;";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.44, 0.43, 0.41) * clamp(0.4 + dhL * 1.8, 0.5, 1.05); dhG *= mix(0.62, 1.04, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); float dhUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)); dhG *= mix(0.78, 1.16, smoothstep(0.35, 0.85, dhUp)); diffuseColor.rgb = dhG;";
+/** The wide block's texture is near charcoal on its sides: its stone lifts further, so both blocks read as one rock. */
+const CLIFF_PAINT_B =
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.44, 0.43, 0.41) * clamp(0.55 + dhL * 2.4, 0.68, 1.05); dhG *= mix(0.62, 1.04, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); float dhUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)); dhG *= mix(0.78, 1.16, smoothstep(0.35, 0.85, dhUp)); diffuseColor.rgb = dhG;";
 
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
@@ -84,7 +92,7 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
   // Map pilot A2 (FB-10): the Tripo round 3 cliff blocks pale stone, a step lighter than the scatter stones
   // (cliff-rock-b's texture is near charcoal on its sides).
   "props/pine-river-cliff-rock-a": CLIFF_PAINT,
-  "props/pine-river-cliff-rock-b": CLIFF_PAINT,
+  "props/pine-river-cliff-rock-b": CLIFF_PAINT_B,
   // Reed plumes beige as the picture (Tripo made them grey-white), leaves a step lighter and yellower.
   "props/pine-river-reed-clump":
     "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhS = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) - min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b); float dhPlume = smoothstep(0.1, 0.25, dhL) * (1.0 - smoothstep(0.05, 0.14, dhS)); diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.08, 1.18, 0.82) * 1.25, vec3(0.62, 0.5, 0.33) * (0.55 + dhL * 1.1), dhPlume * 0.85);",
@@ -100,12 +108,12 @@ const PROP_PAINT: Readonly<Record<string, string>> = {
  * ΔE2000 ≥ 20 from #FF4A4A, #FFB020, #FFC83A and the withered #C8D24A (darker and less saturated).
  */
 const WARM_CROWN =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhOrange = smoothstep(0.38, 0.62, dhNoise(vDhWorld.xz * 0.05 + 3.0)); vec3 dhDark = mix(vec3(0.2, 0.035, 0.018), vec3(0.24, 0.052, 0.016), dhOrange); vec3 dhLight = mix(vec3(0.42, 0.075, 0.035), vec3(0.45, 0.105, 0.033), dhOrange); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.3, dhL)), dhLeaf);";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); float dhLeaf = smoothstep(-0.01, 0.05, diffuseColor.g - diffuseColor.r); float dhOrange = smoothstep(0.38, 0.62, dhNoise(vDhWorld.xz * 0.05 + 3.0)); vec3 dhDark = mix(vec3(0.19, 0.045, 0.024), vec3(0.22, 0.06, 0.022), dhOrange); vec3 dhLight = mix(vec3(0.39, 0.095, 0.045), vec3(0.42, 0.115, 0.04), dhOrange); diffuseColor.rgb = mix(diffuseColor.rgb, mix(dhDark, dhLight, smoothstep(0.03, 0.3, dhL)), dhLeaf);";
 
 
 
 /** Mip bias of foliage colour maps (map pilot; A2: a step softer, leaf masses over leaf noise). */
-const FOLIAGE_MAP_BIAS = 2.7;
+const FOLIAGE_MAP_BIAS = 3.1;
 
 /** A placed placeholder, metres. `size`: height for pines, crown radius for round trees and bushes, rock radius. */
 export interface ScatterItem {
@@ -163,19 +171,20 @@ const CELLS: Readonly<Record<Quality, { tree: number; bush: number; rock: number
   ultra: { tree: 2.4, bush: 2.0, rock: 3.6, reach: 102 },
 };
 
-const PINE_GREENS = ["#3f6e5c", "#4a7b5e", "#35605a", "#557f57"] as const;
+// A3 (ART_DIRECTION 3.3): deep pine and olive greens, a step under the storybook greens of A2.
+const PINE_GREENS = ["#35614f", "#3f6c53", "#30574f", "#4a714d"] as const;
 /** Pine blue and violet crowns, only far from the paths (05 §2.2). */
 const PINE_FAR = ["#4d6b7d", "#57648a", "#4a6a77"] as const;
-const CROWN_NEAR = ["#6f9a4f", "#5a8a5c", "#82a656", "#4f7f60"] as const;
+const CROWN_NEAR = ["#668c4b", "#527d57", "#7a9550", "#4a755b"] as const;
 const CROWN_FAR = ["#8e7cc3", "#6c8fd1", "#7d7fb8", "#8a82b4"] as const;
 /** Props too small to cast a useful shadow (MAP_FACTORY 4.2: clutter casts none). */
 const SMALL_PROPS = new Set(["props/pine-river-river-stones", "props/pine-river-stump", "props/pine-river-log", "props/pine-river-rock-slab", "props/pine-river-grass-tuft", "props/pine-river-wildflower-clump"]);
-/** Map spike: share of forest-ring crowns (≥ 9 m off a lane edge) that turn violet (M0b 0.4; spike 0.18; FB-08, A2: ≤ 0.08). */
-const FAR_CROWN_SHARE = 0.07;
+/** Map spike: share of forest-ring crowns (≥ 9 m off a lane edge) that turn violet (M0b 0.4; spike 0.18; A2 0.07; FB-08, A3: none). */
+const FAR_CROWN_SHARE = 0;
 /** FB-08 (A2): violet crowns this far apart (and from the layout's), so the accent never repeats at every angle. */
 const VIOLET_GAP_M = 26;
 /** FB-09 (A2): warm crowns at the forest edge this far from each other and from a violet crown, and from the sky lane. */
-const WARM_GAP_M = 16;
+const WARM_GAP_M = 15;
 const WARM_VIOLET_GAP_M = 16;
 const WARM_SKY_M = 10;
 const WARM_EDGE_MAX = 6;
@@ -184,7 +193,21 @@ const FRINGE_M = 10;
 const FRINGE_SKIP = 0.55;
 /** Far crown colours the GLB violet crown (K04) takes over. */
 const FAR_COLORS = CROWN_FAR;
-const BUSH = ["#5d8f4f", "#6f9d55", "#4d7f5a", "#7aa35e"] as const;
+/**
+ * A3 (ART_DIRECTION 3.3): leaf masses instead of toy blocks, within the kit models and their maps: clumps a
+ * step darker in the hollows (world noise, so neighbours never repeat), a darker crown base, lit tips leaning
+ * olive and gold, shade leaning pine blue. Appended to each foliage prop's paint (vDhLocal: model units, base 0).
+ */
+const FOLIAGE_BREAKUP = /* glsl */ `
+{
+  float dhClump = dhFbm(vDhWorld.xz * 0.85 + vec2(vDhWorld.y * 0.6, -vDhWorld.y * 0.4));
+  float dhLit = smoothstep(0.35, 0.68, dhClump);
+  float dhUp = smoothstep(0.12, 0.9, vDhLocal.y);
+  diffuseColor.rgb *= mix(0.74, 1.06, dhLit) * mix(0.7, 1.04, dhUp);
+  diffuseColor.rgb *= mix(vec3(0.9, 0.97, 1.03), vec3(1.05, 1.02, 0.88), dhLit * dhUp);
+}
+`;
+const BUSH = ["#5a844c", "#6a8c50", "#4a7553", "#72925a"] as const;
 const ROCK = ["#9a95a8", "#8b8698", "#a7a2ad"] as const;
 
 const pick = <T>(list: readonly T[], random: () => number): T => list[Math.floor(random() * list.length) % list.length]!;
@@ -247,7 +270,7 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   const violetSpots: { x: number; z: number }[] = layout.trees.filter((tree) => tree.proto.endsWith("violet")).map((tree) => ({ x: tree.x, z: tree.z }));
   const underHud = (x: number, y: number, z: number): boolean => {
     const uv = homeViewUv(map, x, y, z);
-    return uv !== null && LAYOUT_RULES.warm.hud.some(([u0, v0, u1, v1]) => uv[0] >= u0 && uv[0] <= u1 && uv[1] >= v0 && uv[1] <= v1);
+    return (uv !== null && LAYOUT_RULES.warm.hud.some(([u0, v0, u1, v1]) => uv[0] >= u0 && uv[0] <= u1 && uv[1] >= v0 && uv[1] <= v1)) || onAnyFrameEdge(map, x, y, z);
   };
   const warmCandidates: number[] = [];
   const inClearing = (x: number, z: number, pad: number): boolean => layout.clearings.some((c) => Math.hypot(c.x - x, c.z - z) < c.r + pad);
@@ -273,8 +296,9 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
     if (inside && skyDist(x, z) < SCATTER_CLEAR.skyLane) return;
     const far = laneGap > 9 && r > play - 4;
     const yaw = random() * Math.PI * 2;
-    // Round crowns light the forest edge (the reference's broadleaf rim); pines deeper in.
-    if (random() < (inside || fringe ? 0.7 : r < edge + 14 ? 0.45 : 0.3)) {
+    // Round crowns light the forest edge (the reference's broadleaf rim); pines deeper in. A3 (ART_DIRECTION 3.1):
+    // the dark pine forest climbs the valley slopes, so past the fringe pines take over.
+    if (random() < (inside || fringe ? 0.66 : r < edge + 16 ? 0.4 : 0.18)) {
       const size = inside ? 1.3 + random() * 0.9 : 1.8 + random() * 1.3;
       let color = far && random() < FAR_CROWN_SHARE ? pick(CROWN_FAR, random) : pick(CROWN_NEAR, random);
       if ((CROWN_FAR as readonly string[]).includes(color)) {
@@ -306,7 +330,8 @@ export function planScatter(field: HeightField, quality: Quality): ScatterPlan {
   {
     const score = (c: ScatterItem): number => {
       const uv = homeViewUv(map, c.x, c.size * 2.2, c.z);
-      const shown = uv !== null && uv[0] > 0.08 && uv[0] < 0.92 && uv[1] > 0.06 && uv[1] < 0.75 ? 1 : 0;
+      const [u0, v0, u1, v1] = LAYOUT_RULES.warm.frame;
+      const shown = uv !== null && uv[0] > u0 && uv[0] < u1 && uv[1] > v0 && uv[1] < v1 ? 1 : 0;
       return shown + hash2(Math.round(c.x * 5), Math.round(c.z * 5), 0x3a7) * 0.5;
     };
     const order = warmCandidates.map((index) => ({ index, score: score(crowns[index]!) })).sort((a, b) => b.score - a.score || a.index - b.index);
@@ -485,6 +510,11 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
   const [cx, cz] = map.dais.center;
 
   let atlas: ImpostorAtlas | null = null;
+  let lowAtlas: ImpostorAtlas | null = null;
+  let ring: THREE.InstancedMesh | null = null;
+  let lowRing: THREE.InstancedMesh | null = null;
+  /** What the low ring needs, kept from useProps (null until the far ring exists). */
+  let lowJob: { renderer: THREE.WebGLRenderer; models: PropModel[]; items: FarItem[] } | null = null;
   const useProps = (prop: (manifest: string) => PropModel | null, renderer?: THREE.WebGLRenderer): void => {
     if (used) return;
     used = true;
@@ -557,7 +587,9 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     for (const { spec, model, band, warm, items } of placed.values()) {
       if (items.length === 0) continue;
       const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "");
-      const paint = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
+      const foliage = spec.kind !== "rock" && spec.kind !== "dress";
+      const base = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
+      const paint = foliage ? (base ?? "") + FOLIAGE_BREAKUP : base;
       const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", map: model.map }), look, {
         key: "prop-" + name + (band === "mid" ? "-mid" : ""),
         ...(paint ? { paint } : {}),
@@ -582,8 +614,8 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         matrix.compose(position.set(item.x, item.y - sink, item.z), quaternion, scale.set(k * (item.stretch ?? 1), k, k));
         mesh.setMatrixAt(index, matrix);
         // A little brightness spread so a grove never looks stamped; layout items carry their own tint.
-        // A2: a narrower spread (0.93–1.03): neighbouring crowns differ less, the forest reads as masses (clutter).
-        const spread = 0.93 + hash2(index, items.length, 7) * 0.1;
+        // A2: a narrower spread: neighbouring crowns differ less, the forest reads as masses (clutter); A3 (FB-03): a step lighter (0.97–1.07).
+        const spread = 0.97 + hash2(index, items.length, 7) * 0.1;
         if (item.tint) tint.setRGB(item.tint[0], item.tint[1], item.tint[2]);
         else tint.setScalar(spread);
         mesh.setColorAt(index, tint);
@@ -596,17 +628,36 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     }
     if (renderer && farItems.length > 0) {
       const used = [...new Set(farItems.map((item) => item.manifest))];
-      atlas = bakeImpostors(renderer, used.map((key) => loaded.find((entry) => entry.spec.manifest === key)!.model));
-      const ring = farRing(atlas, farItems, look);
+      const models = used.map((key) => loaded.find((entry) => entry.spec.manifest === key)!.model);
+      atlas = bakeImpostors(renderer, models);
+      ring = farRing(atlas, farItems, look);
       group.add(ring);
       propMeshes.push(ring);
       materials.push(ring.material as THREE.Material);
+      lowJob = { renderer, models, items: farItems };
+      if (wantLow) setLowView(true);
     }
+  };
+
+  let wantLow = false;
+  const setLowView = (on: boolean): void => {
+    wantLow = on;
+    if (on && !lowRing && lowJob) {
+      lowAtlas = bakeImpostors(lowJob.renderer, lowJob.models, {}, IMPOSTOR_LOW);
+      lowRing = farRing(lowAtlas, lowJob.items, look);
+      lowRing.name = "dh-far-ring-low";
+      group.add(lowRing);
+      propMeshes.push(lowRing);
+      materials.push(lowRing.material as THREE.Material);
+    }
+    if (lowRing) lowRing.visible = on;
+    if (ring) ring.visible = !on || !lowRing;
   };
 
   return {
     group,
     useProps,
+    setLowView,
     stats() {
       // Hidden primitives (zero scale) still go through the vertex stage: they count.
       let triangles = 0;
@@ -619,6 +670,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       group.removeFromParent();
       for (const item of [...geometries, ...materials, ...meshes, ...propMeshes]) item.dispose();
       atlas?.dispose();
+      lowAtlas?.dispose();
     },
   };
 }

@@ -803,8 +803,9 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77), options.mouthLight, options.foeBlows) : null;
   if (options.bloom !== undefined) painted?.stage.setBloom(options.bloom);
   const gpu = new GpuTimer(stage.renderer.getContext() as WebGL2RenderingContext);
-  // Every material compiled before the clock starts.
+  // Every material compiled before the clock starts, and (map pilot) drawn once with culling off.
   stage.renderer.compile(stage.scene, stage.camera);
+  painted?.warm();
   const onResize = (): void => stage.resize();
   window.addEventListener("resize", onResize);
   // The painted stage's camera rig drives the camera unless a preset took it.
