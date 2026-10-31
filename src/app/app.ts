@@ -655,6 +655,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       random: seededRandom(seed ^ 0x5eed),
       mouthLight: options.mouthLight,
       foeBlows: options.foeBlows,
+      // Settings › Reduced motion (follows the system until set): softer, smaller flashes and fewer embers (§3.8).
+      reduced: settings.reducedMotion,
     });
     const tags = createTags(overlay!, map.stage.project, {
       gloss: shownGloss,
