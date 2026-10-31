@@ -22,7 +22,11 @@ export const QUICK_SETTINGS_COLORS = {
 
 /**
  * Sizes and effects a game sets on the layer (`.kit-qs`), with their defaults.
- * --kit-qs-title-font has no default: the title then uses the panel's font.
+ * Fonts have no default (each part then uses the panel's font):
+ * --kit-qs-title-font (panel title), --kit-qs-button-font (buttons, chips,
+ * keyboard rows), --kit-qs-label-font (row labels, section and family
+ * headings); small notes stay in --kit-qs-note-font (default the kit's
+ * battle font, Be Vietnam Pro).
  */
 export const QUICK_SETTINGS_VARS = {
   /** Focus glow colour on skinned buttons, chips, list rows, knobs and Close. */
@@ -48,6 +52,8 @@ export const QUICK_SETTINGS_VARS = {
   "--kit-qs-empty-filter": "none",
   /** The chosen list row when no active plate art exists. */
   "--kit-qs-list-active-filter": "brightness(1.3) saturate(1.25)",
+  /** A list row's plate under the pointer: brighter, with the glow. */
+  "--kit-qs-list-hover-filter": "brightness(1.3) drop-shadow(0 0 calc(5px * var(--kit-qs-s)) var(--kit-qs-glow))",
   /** The icon Close; --kit-qs-close-x / --kit-qs-close-y move it (e.g. onto the frame's corner). */
   "--kit-qs-close-size": "calc(32px * var(--kit-qs-s))",
 } as const;
@@ -86,11 +92,11 @@ export const QUICK_SETTINGS_CSS = `
 .kit-qs--skin-panel .kit-qs__panel{border-color:transparent;background-image:var(--kit-qs-skin-panel);background-size:100% 100%;background-repeat:no-repeat}
 .kit-qs__head{display:flex;align-items:center;justify-content:space-between;gap:${s(12)};margin-bottom:${s(6)}}
 .kit-qs__title{margin:0;font-family:var(--kit-qs-title-font,inherit);font-size:${s(21)};font-weight:800}
-.kit-qs__heading{margin:${s(14)} 0 ${s(4)};font-size:${s(13)};font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--kit-qs-muted)}
+.kit-qs__heading{margin:${s(14)} 0 ${s(4)};font-family:var(--kit-qs-label-font,inherit);font-size:${s(13)};font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--kit-qs-muted)}
 .kit-qs__row{display:grid;grid-template-columns:var(--kit-qs-icon-size) 9.5em minmax(0,1fr);align-items:center;gap:${s(10)};min-height:${s(36)};padding:${s(3)} 0}
 .kit-qs__icon-cell{display:block;width:var(--kit-qs-icon-size);height:var(--kit-qs-icon-size)}
 .kit-qs__icon{display:block;width:100%;height:100%;object-fit:contain}
-.kit-qs__label{font-weight:600;overflow-wrap:anywhere}
+.kit-qs__label{font-family:var(--kit-qs-label-font,inherit);font-weight:600;overflow-wrap:anywhere}
 .kit-qs__control{display:flex;flex-wrap:wrap;align-items:center;gap:${s(8)};min-width:0}
 .kit-qs__control--slider{flex-wrap:nowrap}
 .kit-qs__slider{position:relative;display:flex;align-items:center;flex:1 1 0;min-width:4em}
@@ -111,6 +117,9 @@ export const QUICK_SETTINGS_CSS = `
 .kit-qs__opt input:disabled+.kit-qs__chip{border-style:dashed;color:var(--kit-qs-muted)}
 .kit-qs__opt input:checked:disabled+.kit-qs__chip{border-color:var(--kit-qs-accent);background:var(--kit-qs-bg)}
 .kit-qs__note{margin-left:.35em;font-size:.82em;font-weight:400}
+.kit-qs .kit-qs__btn,.kit-qs .kit-qs__chip,.kit-qs .kit-qs__corner,.kit-qs .kit-keyboards button.kit-keyboards__option{font-family:var(--kit-qs-button-font,inherit)}
+.kit-qs .kit-keyboards .kit-keyboards__family{font-family:var(--kit-qs-label-font,inherit)}
+.kit-qs .kit-qs__note,.kit-qs .kit-keyboards__note{font-family:var(--kit-qs-note-font,var(--kit-font-battle,"Be Vietnam Pro","Segoe UI",system-ui,sans-serif))}
 .kit-qs__btn{box-sizing:border-box;min-height:${s(32)};padding:0 ${s(14)};border:1px solid var(--kit-qs-line);border-radius:${s(6)};background:var(--kit-qs-control);font-weight:700}
 .kit-qs__btn:hover{border-color:var(--kit-qs-focus)}
 .kit-qs__btn:focus-visible{${ring}}
@@ -134,7 +143,8 @@ export const QUICK_SETTINGS_CSS = `
 .kit-qs--skin-slider .kit-qs__range:focus-visible::-webkit-slider-thumb{filter:var(--kit-qs-glow-filter)}
 .kit-qs--skin-slider .kit-qs__range:focus-visible::-moz-range-thumb{filter:var(--kit-qs-glow-filter)}
 .kit-qs__groove,.kit-qs__fill{display:none}
-.kit-qs--slider-fill .kit-qs__groove,.kit-qs--slider-fill .kit-qs__fill{display:block;position:absolute;left:0;right:0;top:calc(50% - var(--kit-qs-groove-h) / 2);height:var(--kit-qs-groove-h);box-sizing:border-box;border:0 solid transparent;pointer-events:none}
+.kit-qs--slider-fill .kit-qs__groove,.kit-qs--slider-fill .kit-qs__fill{display:block;position:absolute;z-index:0;left:0;right:0;top:calc(50% - var(--kit-qs-groove-h) / 2);height:var(--kit-qs-groove-h);box-sizing:border-box;border:0 solid transparent;pointer-events:none}
+.kit-qs--slider-fill .kit-qs__range{position:relative;z-index:1}
 .kit-qs--slider-fill .kit-qs__groove{border-image:var(--kit-qs-skin-empty,none) var(--kit-qs-groove-slice) fill / 0 var(--kit-qs-groove-cap) / 0 stretch;filter:var(--kit-qs-empty-filter)}
 .kit-qs--slider-fill .kit-qs__fill{border-image:var(--kit-qs-skin-fill,none) var(--kit-qs-fill-slice,var(--kit-qs-groove-slice)) fill / 0 var(--kit-qs-fill-cap,var(--kit-qs-groove-cap)) / 0 stretch;filter:var(--kit-qs-fill-filter);clip-path:${fillClip}}
 .kit-qs.kit-qs--slider-fill .kit-qs__slider .kit-qs__range::-webkit-slider-runnable-track{border:0;border-image:none;background:transparent}

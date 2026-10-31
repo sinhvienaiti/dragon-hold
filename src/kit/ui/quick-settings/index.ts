@@ -16,6 +16,7 @@ export {
   QUICK_PANELS,
   QUICK_ROW_ICON_NAMES,
   type QuickButtonRow,
+  type QuickContext,
   type QuickChoiceOption,
   type QuickChoiceRow,
   type QuickHeadingRow,

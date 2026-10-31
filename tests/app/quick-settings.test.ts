@@ -156,15 +156,16 @@ describe("192 app and shared panels", () => {
     expect(window.__dh!.panel()).toBeNull();
   });
 
-  it("sliders draw the 241 groove as an empty part and a lit fill clipped at the 225 knob, every groove one length", () => {
+  it("sliders draw the 241 groove as the empty part and the 244 ember fill clipped at the 225 knob, every groove one length", () => {
     const root = document.querySelector<HTMLElement>(".dh-quick")!;
     expect(root.classList.contains("kit-qs--skin-slider")).toBe(true);
-    // The fill layer is on before the 244 fill art: the empty part is the 241 groove, the fill falls back to it.
+    // The fill layer runs on real art: the 241 groove right of the knob, the 244 fill (accepted 31/10) left of it.
     expect(root.classList.contains("kit-qs--slider-fill")).toBe(true);
-    expect(root.classList.contains("kit-qs--fill-art")).toBe(false);
-    for (const name of ["--kit-qs-skin-track", "--kit-qs-skin-empty", "--kit-qs-skin-fill"]) {
+    expect(root.classList.contains("kit-qs--fill-art")).toBe(true);
+    for (const name of ["--kit-qs-skin-track", "--kit-qs-skin-empty"]) {
       expect(root.style.getPropertyValue(name), name).toContain("/assets/dragon-hold/ui/quick-settings/slider-track.png");
     }
+    expect(root.style.getPropertyValue("--kit-qs-skin-fill")).toContain("/assets/dragon-hold/ui/quick-settings/slider-fill.png");
     expect(root.style.getPropertyValue("--kit-qs-skin-thumb")).toContain("/assets/dragon-hold/ui/quick-settings/slider-thumb.128.png");
     press(window, "F2");
     // Every slider row: the range over the groove and fill layers, and the Mute column after the number (empty but for
@@ -183,8 +184,8 @@ describe("192 app and shared panels", () => {
       slide("music", value);
       expect(music.style.getPropertyValue("--kit-qs-v"), String(value)).toBe(v);
     }
-    // A DOM stub has no cascade: read the sheet. Knob 32 px, the 64 px chevron caps 10 px, Mute's column 90 px; the
-    // empty part dim and grey, the fill lit with an ember glow.
+    // A DOM stub has no cascade: read the sheet. Knob 32 px, the 64 px chevron caps 10 px (groove and fill share the
+    // cut), Mute's column 90 px; both parts drawn as painted, no filter standing in for art.
     const { rules, heads } = cssRules(readFileSync("src/app/app.css", "utf8"));
     const layer = rules.get(".dh-quick.kit-qs") ?? "";
     for (const line of [
@@ -192,9 +193,9 @@ describe("192 app and shared panels", () => {
       "--kit-qs-groove-slice: 0 64;",
       "--kit-qs-groove-cap: calc(10px * var(--kit-qs-s));",
       "--kit-qs-aside-w: calc(90px * var(--kit-qs-s));",
-      "--kit-qs-empty-filter: grayscale(0.8) brightness(0.5);",
-      "--kit-qs-fill-filter: brightness(1.35) saturate(1.4) drop-shadow(",
     ]) expect(layer, line).toContain(line);
+    expect(layer).not.toContain("--kit-qs-empty-filter");
+    expect(layer).not.toContain("--kit-qs-fill-filter");
     const at = (pseudo: string) => rules.get(`.dh-quick.kit-qs--skin-slider .kit-qs__range${pseudo}`) ?? "";
     // The knob art only: the kit's --kit-qs-text square under it is cleared.
     for (const thumb of ["::-webkit-slider-thumb", "::-moz-range-thumb"]) expect(at(thumb), thumb).toContain("background-color: transparent;");
@@ -211,6 +212,36 @@ describe("192 app and shared panels", () => {
     expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="sound"] .kit-qs__panel')).toContain("width: min(calc(640px * var(--kit-qs-s)), calc(100% - 32px));");
   });
 
+  it("the frame's stone is one picture: the stretched centre covers the edge slices' inner stone, the corners keep their claws (judges 31/10)", () => {
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    const panel = rules.get(".dh-quick.kit-qs--skin-panel .kit-qs__panel") ?? "";
+    expect(panel).toContain("isolation: isolate;");
+    expect(panel).toContain("background: var(--dh-qs-stone);");
+    const stone = rules.get(".dh-quick.kit-qs--skin-panel .kit-qs__panel::before") ?? "";
+    // One square copy of the art scaled by the width (its middle 630 of 1254 px across the box): never squashed per
+    // axis, so the frame's own gold band never lands inside a short panel.
+    expect(stone).toContain("background: var(--kit-qs-skin-panel) center / 199.05% auto no-repeat transparent;");
+    expect(stone).toContain("z-index: -1;");
+    expect(stone).toContain("pointer-events: none;");
+    // A cross: full height between the corners (bar the bottom band's 10 px deeper gold) and full width between them,
+    // so only the 83 px corner squares (125 - 42 px of the drawn edge, inside the gold) show the frame's own slices.
+    expect(stone).toContain("mask: linear-gradient(#000 0 0) center top / calc(100% - 166px * var(--kit-qs-s)) calc(100% - 10px * var(--kit-qs-s)) no-repeat, linear-gradient(#000 0 0) center / 100% calc(100% - 166px * var(--kit-qs-s)) no-repeat;");
+  });
+
+  it("labels, headings, buttons, chips and keyboard rows are in Cormorant; numbers and notes keep Be Vietnam Pro; a hovered keyboard row lights", () => {
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    const layer = rules.get(".dh-quick.kit-qs") ?? "";
+    for (const line of [
+      "--kit-qs-button-font: var(--dh-font-title);",
+      "--kit-qs-label-font: var(--dh-font-title);",
+      "--kit-qs-note-font: var(--dh-font);",
+      "--kit-qs-list-hover-filter: brightness(1.3) drop-shadow(",
+    ]) expect(layer, line).toContain(line);
+    expect(rules.get(".dh-quick .kit-qs__label")).toContain("font-size: calc(19px * var(--kit-qs-s));");
+    expect(rules.get(".dh-quick .kit-qs__btn")).toContain("font-size: calc(18px * var(--kit-qs-s));");
+    expect(rules.get(".dh-quick .kit-qs__chip")).toContain("font-size: calc(18px * var(--kit-qs-s));");
+  });
+
   it("the knob answers hover, press and keyboard focus with its own light, and the range shows a hand", () => {
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
     const at = (state: string) => rules.get(`.dh-quick.kit-qs--skin-slider .kit-qs__range${state}`) ?? "";
@@ -225,8 +256,8 @@ describe("192 app and shared panels", () => {
       expect(at(`:focus-visible${thumb}`), thumb).toContain("filter: brightness(1.12) var(--kit-qs-glow-filter);");
     }
     const warm = rules.get(".dh-quick .kit-qs__slider:has(.kit-qs__range:focus-visible)") ?? "";
-    expect(warm).toMatch(/--kit-qs-empty-filter: grayscale\(0\.8\) brightness\(0\.5\) drop-shadow\(/);
-    expect(warm).toMatch(/--kit-qs-fill-filter: brightness\(1\.45\) saturate\(1\.4\) drop-shadow\(/);
+    expect(warm).toMatch(/--kit-qs-empty-filter: drop-shadow\(/);
+    expect(warm).toMatch(/--kit-qs-fill-filter: brightness\(1\.1\) drop-shadow\(/);
   });
 
   it("muted, the Master row dims and strikes its number, shows the muted speaker and the button reads Unmute", async () => {
@@ -611,6 +642,32 @@ describe("the 197 title hosts the shared panels, Quit to title and the keyboard 
     await flush();
     expect(window.__dh!.ready).toBe(true);
     expect(h.loops).toHaveLength(2);
+  });
+
+  it("Settings on the title shows no Resume and no Quit to title; in a run both are back (judges 31/10)", async () => {
+    await titleBoot();
+    const settings = () => document.querySelector<HTMLElement>('.kit-qs__dialog[data-panel="settings"]')!;
+    const shown = (action: string) => !settings().querySelector<HTMLButtonElement>(`[data-action="${action}"]`)!.hidden;
+    press(window, "F1");
+    expect(window.__dh!.panel()).toBe("settings");
+    expect(document.querySelector<HTMLElement>(".dh-quick")!.dataset.context).toBe("title");
+    expect(shown("resume")).toBe(false);
+    expect(shown("quit")).toBe(false);
+    // Tab never lands on a hidden button: the Settings rows and Close only.
+    expect(settings().contains(document.activeElement)).toBe(true);
+    press(window, "Escape");
+    press(window, "Enter");
+    await flush();
+    expect(window.__dh!.ready).toBe(true);
+    press(window, "F1");
+    expect(document.querySelector<HTMLElement>(".dh-quick")!.dataset.context).toBe("play");
+    expect(shown("resume")).toBe(true);
+    expect(shown("quit")).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-action="quit"]')!.click();
+    press(window, "F1");
+    expect(window.__dh!.panel()).toBe("settings");
+    expect(shown("resume")).toBe(false);
+    expect(shown("quit")).toBe(false);
   });
 
   it("Start on the title before the keyboard sound is playable: the run begins at the 1.5 s gate (B4)", async () => {

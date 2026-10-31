@@ -11,7 +11,8 @@ let nextGroupId = 0;
  * each option draws its plate on ::before (nine-slice, inset by
  * --kit-qs-list-inset so plates stand apart), hover brightens the plate, the
  * chosen row wears the active plate, and keyboard focus is a glow hugging the
- * plate (--kit-qs-glow-filter). `overflow: clip` with a clip margin keeps the
+ * plate (--kit-qs-glow-filter), hover brightens it with the glow
+ * (--kit-qs-list-hover-filter). `overflow: clip` with a clip margin keeps the
  * label's ellipsis and lets the glow out. The `.kit-qs` prefix outranks every
  * plain state rule above.
  */
@@ -23,7 +24,7 @@ ${PLATE} button{background:transparent;box-shadow:none}
 ${OPTION}{position:relative;isolation:isolate;overflow:clip;overflow-clip-margin:8px;padding:0 var(--kit-qs-list-text-x,16px);background:transparent;box-shadow:none;color:var(--kit-qs-text,#F3F4F6)}
 ${OPTION}::before{content:"";position:absolute;inset:var(--kit-qs-list-inset,2px 0);z-index:-1;box-sizing:border-box;border:0 solid transparent;border-image:var(--kit-qs-list-row,none) var(--kit-qs-list-slice,0) fill / var(--kit-qs-list-edge,12px) / 0 stretch;pointer-events:none}
 ${OPTION}:hover:not(:disabled){background:transparent;box-shadow:none}
-${OPTION}:hover:not(:disabled)::before{filter:brightness(1.15)}
+${OPTION}:hover:not(:disabled)::before{filter:var(--kit-qs-list-hover-filter,brightness(1.3) drop-shadow(0 0 calc(5px * var(--kit-qs-s,1)) var(--kit-qs-glow,#FFD166)))}
 ${OPTION}[aria-selected="true"],${OPTION}[aria-selected="true"]:hover:not(:disabled){background:transparent;box-shadow:none;color:var(--kit-qs-active-text,var(--kit-qs-text,#F3F4F6))}
 ${OPTION}[aria-selected="true"]::before{border-image:var(--kit-qs-list-row-active,none) var(--kit-qs-list-active-slice,0) fill / var(--kit-qs-list-active-edge,12px) / 0 stretch}
 .kit-qs.kit-qs--list-tint .kit-keyboards button.kit-keyboards__option[aria-selected="true"]::before{filter:var(--kit-qs-list-active-filter)}
@@ -38,12 +39,17 @@ ${PLATE} .kit-keyboards__listen:focus-visible{outline:none;filter:var(--kit-qs-g
 
 /**
  * Kept separate from TF2's quick-settings/css.ts. 9 × 34 px at 720p, independently scrollable.
+ * Rows and family headings snap to the top (proximity), past a fade of 10 px (scaled) at an edge
+ * the list has more rows beyond (data-more-above / data-more-below), so no half plate ends hard.
  * The selected option keeps its accent fill under the pointer (a dark inset ring marks the hover);
  * a selected option that is also disabled ("Saved sound · unavailable") is muted ink on the panel's
  * dark ground with an accent bar, so every state stays readable (≥ 4.5:1, see keyboard-panel.test.ts).
  */
 export const KEYBOARD_CHOICES_CSS = `
-.kit-keyboards{display:grid;grid-template-columns:minmax(0,1fr) auto;max-height:306px;overflow:auto;overscroll-behavior:contain;width:100%;border:1px solid var(--kit-qs-line,#4A505C);border-radius:6px;background:var(--kit-qs-control,#232731)}
+.kit-keyboards{--kit-kb-fade:calc(10px * var(--kit-qs-s,1));--kit-kb-fade-top:0px;--kit-kb-fade-bottom:0px;display:grid;grid-template-columns:minmax(0,1fr) auto;max-height:306px;overflow:auto;overscroll-behavior:contain;scroll-snap-type:y proximity;scroll-padding-block:var(--kit-kb-fade);width:100%;border:1px solid var(--kit-qs-line,#4A505C);border-radius:6px;background:var(--kit-qs-control,#232731);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 var(--kit-kb-fade-top),#000 calc(100% - var(--kit-kb-fade-bottom)),transparent);mask-image:linear-gradient(to bottom,transparent,#000 var(--kit-kb-fade-top),#000 calc(100% - var(--kit-kb-fade-bottom)),transparent)}
+.kit-keyboards[data-more-above]{--kit-kb-fade-top:var(--kit-kb-fade)}
+.kit-keyboards[data-more-below]{--kit-kb-fade-bottom:var(--kit-kb-fade)}
+.kit-keyboards__list .kit-keyboards__option,.kit-keyboards__list .kit-keyboards__family{scroll-snap-align:start}
 .kit-keyboards__list,.kit-keyboards__listens,.kit-keyboards__group{display:flex;flex-direction:column;min-width:0}
 .kit-keyboards button{box-sizing:border-box;display:block;flex:0 0 34px;height:34px;min-height:34px;margin:0;border:0;border-radius:0;padding:0 10px;font:inherit;text-align:left;background:transparent;color:var(--kit-qs-text,#F3F4F6);cursor:pointer}
 .kit-keyboards__option{width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -127,6 +133,7 @@ export class KeyboardSoundChoices {
     const listens = doc.createElement("div");
     listens.className = "kit-keyboards__listens";
     root.append(list, listens);
+    root.addEventListener("scroll", () => this.edges(), { passive: true });
     // A move away from where the pointer rested ends the settling (a catch-up move at the same point does not).
     if (this.settling) root.addEventListener("pointermove", (event) => { this.still(event); }, { passive: true });
     let parent = list;
@@ -221,6 +228,7 @@ export class KeyboardSoundChoices {
         listen.className = "kit-keyboards__listen";
         listen.dataset.listen = choice.value;
         listen.setAttribute("aria-label", `Listen to ${choice.label}`);
+        listen.tabIndex = -1;
         listen.title = `Listen to ${choice.label}`;
         // Touch must not start a focus/hover preview as well as the explicit one.
         listen.addEventListener("click", () => config.onPreview(choice, 0));
@@ -254,8 +262,11 @@ export class KeyboardSoundChoices {
     return false;
   }
 
+  /** One option is tabbable (the focused, else the selected one), and only that row's Listen button after it. */
   private rove(index: number): void {
     this.buttons.forEach((button, i) => { button.tabIndex = i === index ? 0 : -1; });
+    const value = this.buttons[index]?.dataset.value;
+    for (const listen of this.listens) listen.tabIndex = value !== undefined && listen.dataset.listen === value ? 0 : -1;
   }
 
   /**
@@ -273,19 +284,63 @@ export class KeyboardSoundChoices {
     queueMicrotask(() => {
       if (!this.destroyed && this.element.isConnected) {
         const button = this.buttons.find((b) => b.getAttribute("aria-selected") === "true");
-        if (button) this.scrollTo(button);
+        if (button) this.scrollTo(button, true);
+        this.edges();
       }
     });
   }
 
-  /** Scroll only this control, keeping the surrounding settings panel stationary. */
-  private scrollTo(button: HTMLButtonElement): void {
-    const box = this.element.getBoundingClientRect();
-    const target = button.getBoundingClientRect();
-    const top = box.top + this.element.clientTop;
-    const bottom = top + this.element.clientHeight;
-    if (target.top < top) this.element.scrollTop += target.top - top;
-    else if (target.bottom > bottom) this.element.scrollTop += target.bottom - bottom;
+  /**
+   * Scroll only this control, keeping the surrounding settings panel
+   * stationary. A row the fade or the edge hides comes into view: `center`
+   * (the selection when the panel opens) puts it in the middle; otherwise the
+   * list moves as little as it can and stops on a row's snap position (its
+   * top past the fade), so proximity snapping leaves it there. The first row
+   * of a family brings its heading along when it scrolls up.
+   */
+  private scrollTo(button: HTMLButtonElement, center = false): void {
+    const el = this.element;
+    const top = el.getBoundingClientRect().top + el.clientTop;
+    const view = el.clientHeight;
+    const fade = this.fade();
+    const at = el.scrollTop;
+    const rect = button.getBoundingClientRect();
+    const y0 = rect.top - top + at;
+    const y1 = rect.bottom - top + at;
+    if (y0 >= at + fade - 0.5 && y1 <= at + view - fade + 0.5) return;
+    let next: number;
+    if (center) next = (y0 + y1) / 2 - view / 2;
+    else if (y0 < at + fade) {
+      const heading = button.previousElementSibling;
+      const lead = heading?.classList.contains("kit-keyboards__family") ? heading.getBoundingClientRect() : null;
+      next = (lead !== null && lead.height > 0 ? lead.top - top + at : y0) - fade;
+    } else {
+      const want = y1 - view + fade;
+      // The nearest snap position at or below `want` keeps the row in view.
+      const snaps = [...el.querySelectorAll<HTMLElement>(".kit-keyboards__list .kit-keyboards__option, .kit-keyboards__list .kit-keyboards__family")]
+        .map((item) => item.getBoundingClientRect())
+        .filter((box) => box.height > 0)
+        .map((box) => box.top - top + at - fade)
+        .filter((snap) => snap >= want - 0.5 && snap <= y0 - fade + 0.5);
+      next = snaps.length > 0 ? Math.min(...snaps) : want;
+    }
+    el.scrollTop = Math.max(0, Math.round(next));
+    this.edges();
+  }
+
+  /** The fade at the list's edges in px (its scroll-padding), 0 where styles are not computed. */
+  private fade(): number {
+    const view = this.config.document.defaultView;
+    const value = view ? parseFloat(view.getComputedStyle(this.element).scrollPaddingTop) : NaN;
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  /** Marks the edges with rows beyond them, which turns the fade on there (QuickSettings calls it on a resize too). */
+  edges(): void {
+    if (this.destroyed) return;
+    const el = this.element;
+    el.toggleAttribute("data-more-above", el.scrollTop > 0.5);
+    el.toggleAttribute("data-more-below", el.scrollTop + el.clientHeight < el.scrollHeight - 0.5);
   }
 
   setListenIcon(url?: string): void {
@@ -321,6 +376,7 @@ export class KeyboardSoundChoices {
   adopt(state: KeyboardChoicesState): void {
     if (this.destroyed) return;
     this.element.scrollTop = state.scrollTop;
+    this.edges();
     if (state.focus === null) return;
     const { value, listen } = state.focus;
     const target = (listen ? this.listens.find((button) => button.dataset.listen === value) : undefined)

@@ -33,6 +33,7 @@ import {
   type QuickButtonRow,
   type QuickChoiceOption,
   type QuickChoiceRow,
+  type QuickContext,
   type QuickIconKey,
   type QuickIcons,
   type QuickMount,
@@ -102,6 +103,12 @@ export type QuickSettingsOptions = QuickDefaultsOptions & {
   readonly countdownMs?: number | (() => number);
   /** z-index of the layer; default 100. */
   readonly zIndex?: number;
+  /**
+   * Where the panels open (default "play"). On "title" the Resume and Quit to
+   * title buttons are hidden. A function is read on each open() and refresh();
+   * setContext() changes it at once.
+   */
+  readonly context?: QuickContext | (() => QuickContext);
 };
 
 const TEXT = {
@@ -132,6 +139,9 @@ type Panel = {
   /** Some slider row has a toggle: every slider row keeps the column after the number, so grooves match. */
   readonly aside: boolean;
   readonly close: HTMLButtonElement;
+  /** Resume and quit buttons (hidden on the title) and the action rows that hold them. */
+  readonly playOnly: HTMLButtonElement[];
+  readonly actions: HTMLElement[];
 };
 
 type RowHead = { readonly id: string; readonly label: string; readonly icon?: QuickIconKey };
@@ -187,11 +197,14 @@ export class QuickSettings {
   /** Where the mouse pointer last was in this document (pointermove/pointerdown/pointerover), for a rebuilt keyboard list. */
   private pointer: KeyboardPointer | null = null;
   private current: QuickPanel | null = null;
+  private contextSource: QuickContext | (() => QuickContext);
+  private shownContext: QuickContext = "play";
   private stopCountdown: (() => void) | null = null;
   private destroyed = false;
 
   constructor(options: QuickSettingsOptions) {
     this.options = options;
+    this.contextSource = options.context ?? "play";
     this.doc = options.host?.ownerDocument ?? document;
     this.view = this.doc.defaultView ?? window;
     const host = options.host ?? this.doc.body;
@@ -238,6 +251,7 @@ export class QuickSettings {
       this.view.addEventListener("resize", this.onResize);
     }
     this.onResize();
+    this.paintContext();
     this.readValues();
     this.paintRowIcons();
     this.paintClose();
@@ -253,6 +267,11 @@ export class QuickSettings {
     return this.current;
   }
 
+  /** Where the panels open now ("title" hides Resume and Quit to title). */
+  get context(): QuickContext {
+    return this.shownContext;
+  }
+
   /** A panel is open or the resume countdown runs: the game must ignore typing and stay paused. */
   get blocking(): boolean {
     return this.current !== null || this.stopCountdown !== null;
@@ -265,6 +284,7 @@ export class QuickSettings {
     this.cancelCountdown();
     if (this.current !== null) this.hidePanel(this.current);
     this.current = panel;
+    this.paintContext();
     this.readValues();
     this.showPanel(panel);
     if (!wasBlocking) this.options.onPause?.();
@@ -283,9 +303,18 @@ export class QuickSettings {
     else this.open(panel);
   }
 
-  /** Reads getValues() again (e.g. after the game changed a value elsewhere). */
+  /** Reads getValues() again (e.g. after the game changed a value elsewhere), and the context when it is a function. */
   refresh(): void {
-    if (!this.destroyed) this.readValues();
+    if (this.destroyed) return;
+    this.paintContext();
+    this.readValues();
+  }
+
+  /** The title screen or play: the game calls it when the title shows and when a run starts (or passes a function). */
+  setContext(context: QuickContext | (() => QuickContext)): void {
+    if (this.destroyed) return;
+    this.contextSource = context;
+    this.paintContext();
   }
 
   /**
@@ -386,6 +415,7 @@ export class QuickSettings {
     this.root.style.setProperty("--kit-qs-s", quickScale(this.root.clientHeight).toFixed(3));
     // A new size centres the panels again.
     for (const kind of QUICK_PANELS) this.releaseTop(kind);
+    for (const picker of this.keyboardChoices) picker.edges();
   };
 
   /**
@@ -495,6 +525,27 @@ export class QuickSettings {
     for (const kind of QUICK_PANELS) for (const sync of this.panels[kind].syncers) sync();
     this.root.classList.toggle("kit-qs--still", this.values.reducedMotion === true);
     this.paintCorners();
+  }
+
+  /**
+   * Hides Resume and Quit to title on the title (and an action row left
+   * empty). Focus on a button that hides moves to the panel's Close.
+   */
+  private paintContext(): void {
+    const source = this.contextSource;
+    const read = typeof source === "function" ? source() : source;
+    const context: QuickContext = read === "title" ? "title" : "play";
+    this.shownContext = context;
+    this.root.dataset.context = context;
+    for (const kind of QUICK_PANELS) {
+      const panel = this.panels[kind];
+      for (const button of panel.playOnly) {
+        const hide = context === "title";
+        if (hide && this.doc.activeElement === button) panel.close.focus({ preventScroll: true });
+        button.hidden = hide;
+      }
+      for (const row of panel.actions) row.hidden = [...row.children].every((child) => (child as HTMLElement).hidden);
+    }
   }
 
   private iconUrl(name: QuickIconKey): string | null {
@@ -643,15 +694,18 @@ export class QuickSettings {
     box.append(head, body);
     element.append(backdrop, box);
     const aside = this.rows[kind].some((row) => row.kind === "slider" && row.toggle !== undefined);
-    const panel: Panel = { element, box, dialog: new A11yDialog(element), syncers: [], slots: [], cleanups: [], aside, close };
+    const panel: Panel = { element, box, dialog: new A11yDialog(element), syncers: [], slots: [], cleanups: [], aside, close, playOnly: [], actions: [] };
     let actions: HTMLElement | null = null;
     for (const row of this.rows[kind]) {
       if (row.kind === "button") {
         if (actions === null) {
           actions = this.el("div", "kit-qs__actions");
           body.append(actions);
+          panel.actions.push(actions);
         }
-        actions.append(this.renderButton(row));
+        const button = this.renderButton(row);
+        if (row.action === "resume" || row.action === "quit") panel.playOnly.push(button);
+        actions.append(button);
       } else {
         actions = null;
         body.append(this.renderRow(row, panel));

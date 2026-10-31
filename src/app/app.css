@@ -301,37 +301,84 @@
  * the frame image is 125 px wide and covers the band beyond it. The centre is one stretched copy of the art's middle
  * (630 px of 1254, so the art is drawn 1254/630 = 1.9905 times the area inside the frame), clipped inside the gold edge:
  * the stone never repeats in tiles. Paddings keep the content where the stretched frame had it (52/62/64 px).
+ *
+ * The edge slices also hold 83 px of inner stone (art 104..312), which "round" repeated in blocks down the left column
+ * and along the top (judges 31/10). Cutting at the band (104) would push the corner claws (to 290 px along the band,
+ * 190 px inward) into the repeating edges, so the cut stays and ::before lays one copy of the art's middle over those
+ * strips: the stone inside the gold edge is one picture, the band still repeats, and the four corners (83 px squares
+ * inside the gold) keep their claws. ::before sits under the content (isolation on the panel, z-index -1).
+ * Its copy keeps the art square, scaled by the width (the middle 630 px span the box: 1254/630 = 199.05 %): the
+ * panel's own centre is scaled per axis, and on the short Settings panel ((194 - 166) / 630 tall) it squashed the
+ * whole frame into a 55 px strip whose gold band showed as two lines once ::before drew it over the edges.
+ * The art's bottom band is 25 px deeper than the other three (gold from 1125, not 1150), so the strip between the
+ * corners stops 10 px (25 x 0.4) above the padding box's bottom and leaves that gold edge to the frame.
  */
 .dh-quick .kit-qs__panel {
   padding: calc(10px * var(--kit-qs-s)) calc(20px * var(--kit-qs-s)) calc(22px * var(--kit-qs-s));
 }
 .dh-quick.kit-qs--skin-panel .kit-qs__panel {
+  --dh-qs-stone: var(--kit-qs-skin-panel) center / calc(max(100% - 166px * var(--kit-qs-s), 1px) * 1.9905)
+    calc(max(100% - 166px * var(--kit-qs-s), 1px) * 1.9905) no-repeat padding-box transparent;
+  isolation: isolate;
   border: calc(42px * var(--kit-qs-s)) solid transparent;
   border-image: var(--kit-qs-skin-panel) 312 / calc(125px * var(--kit-qs-s)) / 0 round;
-  background: var(--kit-qs-skin-panel) center / calc(max(100% - 166px * var(--kit-qs-s), 1px) * 1.9905)
-    calc(max(100% - 166px * var(--kit-qs-s), 1px) * 1.9905) no-repeat padding-box transparent;
+  background: var(--dh-qs-stone);
+}
+.dh-quick.kit-qs--skin-panel .kit-qs__panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--kit-qs-skin-panel) center / 199.05% auto no-repeat transparent;
+  -webkit-mask: linear-gradient(#000 0 0) center top / calc(100% - 166px * var(--kit-qs-s)) calc(100% - 10px * var(--kit-qs-s)) no-repeat,
+    linear-gradient(#000 0 0) center / 100% calc(100% - 166px * var(--kit-qs-s)) no-repeat;
+  mask: linear-gradient(#000 0 0) center top / calc(100% - 166px * var(--kit-qs-s)) calc(100% - 10px * var(--kit-qs-s)) no-repeat,
+    linear-gradient(#000 0 0) center / 100% calc(100% - 166px * var(--kit-qs-s)) no-repeat;
 }
 
 /*
  * Layer settings for the kit (QUICK_SETTINGS_VARS). Focus is an ember-gold glow hugging the art; active plates letter
- * in gold; the panel title is in the game's display face. The knob box is 32 px (the art fills 70 %: about 22 px
- * visible at 720p), so the fill stops at its centre. The 241 groove is cut 0 64 with 10 px caps (its chevrons keep
- * their proportion). Mute sits in a 90 px column after the number on every slider row, so all grooves are one length.
- * Until the 244 fill art: the empty groove is the 241 groove dimmed and greyed, the fill the same groove lit with an
- * ember glow, so 0, 50 and 100 % read apart at real size.
+ * in gold; the panel title, buttons, chips, keyboard rows, labels and headings are in the game's display face
+ * (Cormorant Garamond 700, sized up below: its small x-height read small at the kit's 15 px); numbers and small notes
+ * keep Be Vietnam Pro. The knob box is 32 px (the art fills 70 %: about 22 px visible at 720p), so the fill stops at
+ * its centre. The 241 groove and the 244 fill are cut 0 64 with 10 px caps (their chevrons keep their proportion) and
+ * drawn as painted. Mute sits in a 90 px column after the number on every slider row, so all grooves are one length.
+ * A hovered keyboard row lights like a hovered button.
  */
 .dh-quick.kit-qs {
   --kit-qs-glow: #ffc14d;
   --kit-qs-active-text: #f2c14e;
   --kit-qs-title-font: var(--dh-font-title);
+  --kit-qs-button-font: var(--dh-font-title);
+  --kit-qs-label-font: var(--dh-font-title);
+  --kit-qs-note-font: var(--dh-font);
   --kit-qs-knob: calc(32px * var(--kit-qs-s));
   --kit-qs-groove-slice: 0 64;
   --kit-qs-groove-cap: calc(10px * var(--kit-qs-s));
   --kit-qs-aside-w: calc(90px * var(--kit-qs-s));
-  --kit-qs-empty-filter: grayscale(0.8) brightness(0.5);
-  --kit-qs-fill-filter: brightness(1.35) saturate(1.4)
-    drop-shadow(0 0 calc(3px * var(--kit-qs-s)) rgba(255, 140, 40, 0.75));
   --kit-qs-list-pad: calc(8px * var(--kit-qs-s));
+  --kit-qs-list-hover-filter: brightness(1.3) drop-shadow(0 0 calc(6px * var(--kit-qs-s)) rgba(255, 150, 50, 0.9));
+}
+.dh-quick .kit-qs__label {
+  font-size: calc(19px * var(--kit-qs-s));
+  font-weight: 700;
+  line-height: 1.1;
+}
+.dh-quick .kit-qs__heading {
+  font-size: calc(16px * var(--kit-qs-s));
+  letter-spacing: 0.1em;
+}
+.dh-quick .kit-qs__btn,
+.dh-quick .kit-qs__chip,
+.dh-quick .kit-qs__row--keyboards .kit-keyboards button.kit-keyboards__option {
+  font-size: calc(18px * var(--kit-qs-s));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.dh-quick .kit-qs__row--keyboards .kit-keyboards .kit-keyboards__family {
+  font-size: calc(14px * var(--kit-qs-s));
+  letter-spacing: 0.06em;
 }
 
 .dh-quick .kit-qs__title {
@@ -519,10 +566,10 @@
   transform: scale(1.08);
   filter: brightness(1.25) drop-shadow(0 0 calc(6px * var(--kit-qs-s)) rgba(255, 140, 40, 0.95));
 }
-/* Keyboard focus warms both groove layers (the kit reads the two filters on the slider's own layers). */
+/* Keyboard focus warms both groove layers with an ember-gold glow (the kit reads the two filters on the slider's layers). */
 .dh-quick .kit-qs__slider:has(.kit-qs__range:focus-visible) {
-  --kit-qs-empty-filter: grayscale(0.8) brightness(0.5) drop-shadow(0 0 calc(3px * var(--kit-qs-s)) rgba(255, 193, 77, 0.6));
-  --kit-qs-fill-filter: brightness(1.45) saturate(1.4) drop-shadow(0 0 calc(4px * var(--kit-qs-s)) rgba(255, 193, 77, 0.9));
+  --kit-qs-empty-filter: drop-shadow(0 0 calc(3px * var(--kit-qs-s)) rgba(255, 193, 77, 0.6));
+  --kit-qs-fill-filter: brightness(1.1) drop-shadow(0 0 calc(4px * var(--kit-qs-s)) rgba(255, 193, 77, 0.9));
 }
 
 /*

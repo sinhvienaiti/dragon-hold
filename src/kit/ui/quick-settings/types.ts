@@ -9,6 +9,13 @@
 export const QUICK_PANELS = ["settings", "sound"] as const;
 export type QuickPanel = (typeof QUICK_PANELS)[number];
 
+/**
+ * Where the panels open: "play" (a run is on) or "title" (the title screen,
+ * no run). On the title the Resume and Quit to title buttons (rows whose
+ * action is "resume" or "quit") are hidden.
+ */
+export type QuickContext = "title" | "play";
+
 /** Icon art by name (Codex ticket 180); the game passes a URL for each. */
 export const QUICK_ICON_NAMES = [
   "hud-settings",
@@ -109,7 +116,7 @@ export type QuickToggleRow = {
   readonly default?: boolean;
 };
 
-/** A panel button: "resume" closes with the countdown, "quit" calls onQuit, a function runs as is. */
+/** A panel button: "resume" closes with the countdown, "quit" calls onQuit, a function runs as is. Resume and quit are hidden on the title (QuickContext). */
 export type QuickButtonRow = {
   readonly kind: "button";
   readonly id: string;

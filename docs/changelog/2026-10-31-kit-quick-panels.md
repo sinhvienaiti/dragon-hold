@@ -71,8 +71,55 @@ Tệp: `src/app/quick.ts`, `src/app/app.css`, `tests/app/quick-settings.test.ts`
 ## Còn mở
 
 - Close vẫn là nút chữ trên tấm nút: chưa có ảnh Close được nhận (245).
-- Phần đầy và rãnh rỗng chờ ảnh 244; tấm hàng danh sách chờ 245 (tấm nút có viền mảnh hơn một tấm hàng thật).
+- Phần đầy và rãnh rỗng chờ ảnh 244 (đã gắn ở lượt sửa bên dưới); tấm hàng danh sách chờ 245 (tấm nút có viền mảnh hơn một tấm hàng thật).
 - Hàng Quality chưa có icon (chưa có icon đồ hoạ nào được nhận).
 - Chưa thử Firefox; các luật `::-moz-range-*` chỉ kiểm bằng đọc CSS. `:has()` cần Firefox 121 trở lên (chỉ để làm ấm
   rãnh khi focus).
 - Con trỏ submodule ở repo cha chưa cập nhật.
+
+## Lượt sửa (giám khảo 31/10, tối)
+
+Giám khảo chấm lượt da ở trên và ghi 11 mục cho hai game; kit sửa ở repo cha `b8a224d0` (xem changelog kit ở repo cha),
+đồng bộ lại vào `src/kit` (`verify-kit` OK, 95 file). Mục và cách sửa ở Dragonhold:
+
+| # | Giám khảo thấy | Đã sửa |
+|---|---|---|
+| 1 | Núm bị rãnh và phần đầy vẽ đè lên khi không rê chuột, không focus | Kit: núm `z-index` 1 trên hai lớp ảnh (0). Đo ở tâm núm tại 0/50/100: ảnh giống hệt khi ẩn hai lớp (sai khác 0), khác hẳn khi ẩn núm |
+| 2 | Khung có mảng đá vuông lặp ("round") dọc cột trái và dưới nhãn Keyboard sound | `::before` của bảng phủ một bản đá giữa duy nhất lên dải đá trong của các cạnh, chừa bốn góc 83 px giữ vuốt. Không cắt lại ở dải 104 như gợi ý: vuốt góc dài tới 290 px dọc dải và 190 px vào trong, cắt ở 104 thì vuốt rơi vào cạnh lặp. Bản đá giữ ảnh vuông, co theo bề rộng (phần giữa 630 px phủ hộp), không ép từng trục: ép trục dọc trên bảng Settings ngắn làm dải vàng của khung hiện thành hai vạch ngang. Dải dưới của ảnh dày hơn 25 px, nên phần phủ dừng cách đáy 10 px, giữ mép vàng |
+| 4 | Settings ở màn tựa có Resume và Quit to title | `context: () => (run ? "play" : "title")`: không có trận thì hai nút ẩn; trong trận và sau Quit to title đúng như mong đợi |
+| 5–6 | Danh sách cắt cứng, dòng chọn ở mép dưới; Tab đi qua 34 nút nghe thử | Kit: mép mờ, bám dòng, dòng chọn ra giữa khi mở; chỉ một nút Listen trong thứ tự Tab. Đo: Tab từ dòng chọn tới Keyboard volume sau 2 lần |
+| 7 | Rê chuột trên dòng danh sách không thấy | `--kit-qs-list-hover-filter`: sáng 1,3 kèm quầng than hồng 6 px (giống nút) |
+| 9 | Phần đầy và phần rỗng là lọc màu trên rãnh cũ | `QUICK_SKIN.sliderFill` = phần đầy 244 (nhận 31/10), rãnh rỗng là rãnh 241; bỏ hai bộ lọc giả, hai lớp vẽ đúng như ảnh, cùng cắt `0 64`. Focus bàn phím chỉ thêm quầng |
+| 11 | Chữ thân là sans web | `--kit-qs-button-font` và `--kit-qs-label-font` là Cormorant Garamond 700 (nhãn 19 px, nút, chip, dòng danh sách 18 px, tiêu đề mục 16 px ở 720p); số và ghi chú giữ Be Vietnam Pro (`--kit-qs-note-font`) |
+
+Mục 3, 8, 10 là của Wordwoven.
+
+Kiểm:
+
+- `pnpm check`: kit OK, 77 file test, **710 test qua, 1 bỏ qua** (trước 707), build OK. Test mới: khung đá một bản
+  (`::before`, mask, nền vuông), font và rê chuột danh sách, Settings ở màn tựa ẩn Resume và Quit to title còn trong trận
+  thì hiện; hai test thanh trượt đổi sang ảnh 244.
+- Host chơi (`pnpm build:dragon` ở repo cha; `?debug=1&wpm=35&prelearn=0` để vào trận và đọc số), Chrome không giao diện,
+  1280 × 720 và 1920 × 1080:
+  - 0 ảnh hỏng, 0 yêu cầu lỗi, 0 ngoại lệ; ba cảnh báo "title: missing art" có từ trước;
+  - núm trên lớp ảnh ở 0/50/100, cả màn tựa và trong trận;
+  - phần đầy 244 dừng ở tâm núm: 720p 16 / 94 / 172 px (tính ra 16 / 93,8 / 171,5), 1080p 24 / 141 / 258
+    (24 / 140,6 / 257,3);
+  - Settings ở màn tựa: Resume và Quit to title ẩn; trong trận: hiện; tick đứng khi bảng mở (127 → 127), đóng thì đếm
+    3-2-1 rồi chạy tiếp;
+  - danh sách: mép mờ trên và dưới, bám dòng (`scroll-snap-type: y`), dòng chọn cách tâm 11 px (720p), 16,5 px (1080p);
+  - Tab: từ dòng chọn qua nút Listen của nó tới Keyboard volume; 12 lần Tab vẫn trong bảng; Esc đóng ở màn tựa và trong
+    trận;
+  - sáu hàng trượt cao bằng nhau (42 px ở 720p, 63 px ở 1080p); bảng Sound không cuộn (596 / 596 px ở 720p);
+  - chọn Deep Amber, đóng, gõ một chữ: đúng một tiếng (`stats.played` 0 → 1);
+  - khung ở 1:1: không còn mảng vuông ở cột trái và mép trên; không còn vạch vàng trên bảng Settings ngắn; mép vàng dưới
+    liền.
+- Tờ ghép `fix-dragonhold-1280x720.jpg`, `fix-dragonhold-1920x1080.jpg` (thư mục kiểm của lượt, ngoài repo); số đo trong
+  `tmp/kit-qs-fix/numbers.json`. Ảnh thô đã xoá bằng `tools/capture-prune/prune.mjs`.
+
+Còn mở sau lượt sửa:
+
+- Close vẫn là nút chữ; tấm hàng danh sách vẫn là tấm nút 162: chờ ảnh 245.
+- Ở 1:1 vẫn thấy rất nhẹ ranh giới vân đá ở mép bốn ô góc 83 px (ô góc vẽ ở tỉ lệ 0,4, phần giữa ở khoảng 0,76–0,88).
+- Icon 244 của bảng Sound (8 icon) đã nhận nhưng chưa gắn: không nằm trong mục giám khảo; Keyboard volume vẫn dùng
+  `vol-keyboard`.

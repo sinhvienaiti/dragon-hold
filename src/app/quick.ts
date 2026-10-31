@@ -21,10 +21,11 @@ export const PLATE_MARGIN = [143, 35, 148, 35] as const;
 const ROW_SCALE = 30 / 433;
 const px = (n: number): number => Math.round(n * ROW_SCALE * 10) / 10;
 /**
- * Frame, button and slider art (tickets 162, 225 knob, 241 groove). At 1080p the groove is drawn about 15 CSS px tall
- * and the knob box 42 px, so the 1024 x 64 groove and the 128 px knob stay sharp on a 2x screen.
- * - The fill layer runs on the 241 groove until the 244 fill art is accepted: `sliderEmpty` is the groove (app.css
- *   dims and greys it) and the fill falls back to the same groove, lit (--kit-qs-fill-filter).
+ * Frame, button and slider art (tickets 162, 225 knob, 241 groove, 244 fill). At 1080p the groove is drawn about 15
+ * CSS px tall and the knob box 42 px, so the 1024 x 64 groove and the 128 px knob stay sharp on a 2x screen.
+ * - The fill layer: the empty part is the 241 groove (`sliderEmpty`), the filled part left of the knob the 244 ember
+ *   fill (`sliderFill`, accepted 31/10; its ends match the groove's to the pixel, so both share the 0 64 cut). Both
+ *   are drawn as painted, with no filter.
  * - Keyboard sound rows are 162 button plates, the chosen row the 162 button-active plate (`buttonActive`);
  *   LIST_ROW_VARS pulls the art's transparent margins outside each row. The 245 list-row art drops in here (with its
  *   own cut in LIST_ROW_VARS).
@@ -36,6 +37,7 @@ export const QUICK_SKIN: QuickSkin = {
   sliderTrack: UI_BASE + "slider-track.png",
   sliderThumb: UI_BASE + "slider-thumb.128.png",
   sliderEmpty: UI_BASE + "slider-track.png",
+  sliderFill: UI_BASE + "slider-fill.png",
   listRow: { slice: PLATE_SLICE, edge: PLATE_SLICE.map(px) },
 };
 /**

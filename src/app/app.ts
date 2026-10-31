@@ -1065,6 +1065,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     },
     onQuit: quitToTitle,
     countdownMs: () => run ? 1000 : 0,
+    // No run (the title, the speed card): Resume and Quit to title are hidden.
+    context: () => (run ? "play" : "title"),
   }, pendingKeyboardChoices(settings.keyboard, ORIGINAL_KEYBOARD));
   // The catalogue settles the saved choice when it comes (a host that failed keeps it), then the set loads; the first run waits for it 1.5 s at most.
   void startKeyboard(keyboard, keyboardFeed, savedKeyboard, {
