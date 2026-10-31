@@ -63,16 +63,29 @@ export const FAR_FROM_M = 42;
  * V10, V13 (map pilot): every rock prop pale grey from its own shading (moss and texture hue dropped,
  * so no mossy "eggs" and no white chains), darker toward its foot, a faint cool/warm drift by place.
  * One paint for cliff, river, lane and forest stones keeps one draw call a rock prop.
+ * The stone paints end in DH_STONE_MIX, which stonePaint() fills by quality (STONE_PAINT_MIX).
  */
 const STONE_PAINT =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.43, 0.425, 0.41) * clamp(0.35 + dhL * 1.8, 0.42, 1.0); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = dhG;";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.43, 0.425, 0.41) * clamp(0.35 + dhL * 1.8, 0.42, 1.0); dhG *= mix(0.6, 1.06, smoothstep(-0.7, 0.6, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.92, 0.96, 1.05), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.3))); diffuseColor.rgb = DH_STONE_MIX;";
 
 /** Map pilot A2: cliff blocks pale warm stone; the dark sides lift (floor 0.55), the face darker toward its foot; A3 (FB-10): up-facing tops a step brighter, the sides a step darker, so each tier reads as a flat lit top over a shaded edge. */
 const CLIFF_PAINT =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.44, 0.43, 0.41) * clamp(0.4 + dhL * 1.8, 0.5, 1.05); dhG *= mix(0.62, 1.04, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); float dhUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)); dhG *= mix(0.78, 1.16, smoothstep(0.35, 0.85, dhUp)); diffuseColor.rgb = dhG;";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.44, 0.43, 0.41) * clamp(0.4 + dhL * 1.8, 0.5, 1.05); dhG *= mix(0.62, 1.04, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); float dhUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)); dhG *= mix(0.78, 1.16, smoothstep(0.35, 0.85, dhUp)); diffuseColor.rgb = DH_STONE_MIX;";
 /** The wide block's texture is near charcoal on its sides: its stone lifts further, so both blocks read as one rock. */
 const CLIFF_PAINT_B =
-  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.44, 0.43, 0.41) * clamp(0.55 + dhL * 2.4, 0.68, 1.05); dhG *= mix(0.62, 1.04, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); float dhUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)); dhG *= mix(0.78, 1.16, smoothstep(0.35, 0.85, dhUp)); diffuseColor.rgb = dhG;";
+  "float dhL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); vec3 dhG = vec3(0.44, 0.43, 0.41) * clamp(0.55 + dhL * 2.4, 0.68, 1.05); dhG *= mix(0.62, 1.04, smoothstep(0.0, 0.85, vDhLocal.y)); dhG = mix(dhG, dhG * vec3(0.94, 0.97, 1.04), smoothstep(0.3, 0.7, dhNoise(vDhWorld.xz * 0.21))); float dhUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)); dhG *= mix(0.78, 1.16, smoothstep(0.35, 0.85, dhUp)); diffuseColor.rgb = DH_STONE_MIX;";
+
+/**
+ * How much of the stone paint covers a rock's own albedo (quality rescue D3, 01/11): all of it on Low and Medium
+ * (V10, V13: one flat grey), a tint of 0.3 on High and Ultra, so the Tripo stone colour and its texture show.
+ */
+export const STONE_PAINT_MIX: Readonly<Record<Quality, number>> = { low: 1, medium: 1, high: 0.3, ultra: 0.3 };
+
+/** A paint for this quality: the stone paints' DH_STONE_MIX becomes the grey alone or a tint over the albedo. */
+export function stonePaint(paint: string, quality: Quality): string {
+  const mix = STONE_PAINT_MIX[quality];
+  return paint.replace("DH_STONE_MIX", mix >= 1 ? "dhG" : "mix(diffuseColor.rgb, dhG, " + mix.toFixed(2) + ")");
+}
 
 /** Paint fixes of the provisional props (ART_REPLACE_LATER): GLSL on diffuseColor, vDhLocal in model metres. */
 const PROP_PAINT: Readonly<Record<string, string>> = {
@@ -165,8 +178,12 @@ export function binLod(lod: LodGroup, eye: THREE.Vector3, distanceM: number): vo
   }
 }
 
-/** Mip bias of foliage colour maps (map pilot; A2: a step softer, leaf masses over leaf noise). */
-const FOLIAGE_MAP_BIAS = 3.1;
+/**
+ * Mip bias of foliage colour maps (map pilot; A2: a step softer, leaf masses over leaf noise). Quality rescue D3
+ * (01/11): 3.1 sampled the leaves at about a ninth of their resolution, so High and Ultra keep the leaf detail
+ * (0.5 and 0, with anisotropic filtering, view/models.ts MODEL_ANISOTROPY); Low and Medium stay soft.
+ */
+export const FOLIAGE_MAP_BIAS: Readonly<Record<Quality, number>> = { low: 3.1, medium: 3.1, high: 0.5, ultra: 0 };
 
 /** A placed placeholder, metres. `size`: height for pines, crown radius for round trees and bushes, rock radius. */
 export interface ScatterItem {
@@ -647,7 +664,8 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       if (items.length === 0) continue;
       const name = spec.manifest.slice(spec.manifest.lastIndexOf("/") + 1) + (warm ? "-warm" : "");
       const foliage = spec.kind !== "rock" && spec.kind !== "dress";
-      const base = warm ? WARM_CROWN : PROP_PAINT[spec.manifest];
+      const own = PROP_PAINT[spec.manifest];
+      const base = warm ? WARM_CROWN : own === undefined ? undefined : stonePaint(own, quality);
       const paint = foliage ? (base ?? "") + FOLIAGE_BREAKUP : base;
       // Model tiers (MODEL_QUALITY §2b): the normal map from Medium up, the roughness glint on High and Ultra.
       const gloss = model.roughnessMap ? { map: model.roughnessMap, ...(foliage ? PROP_GLOSS.foliage : PROP_GLOSS.solid) } : null;
@@ -659,7 +677,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         ...(spec.wind > 0 ? { wind: spec.wind } : {}),
         dither: spec.kind !== "rock" && spec.kind !== "dress",
         // Foliage a mip softer: leaf masses like the reference, less pixel noise (MAP_PLAN 2.4 clutter).
-        ...(spec.kind !== "rock" && spec.kind !== "dress" ? { mapBias: FOLIAGE_MAP_BIAS } : {}),
+        ...(spec.kind !== "rock" && spec.kind !== "dress" && FOLIAGE_MAP_BIAS[quality] > 0 ? { mapBias: FOLIAGE_MAP_BIAS[quality] } : {}),
       });
       const geometry = model.geometry;
       // Small clutter and the far ring cast no shadow (MAP_FACTORY 4.2).

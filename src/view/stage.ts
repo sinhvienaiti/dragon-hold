@@ -521,8 +521,39 @@ declare global {
       title(view: { yawDeg?: number; pitchDeg?: number; hold?: boolean } | null): void;
       project(x: number, y: number, z: number): ScreenPoint;
       heightAt(x: number, z: number): number;
+      /** Quality rescue D2/D3 (01/11): the GLB prop meshes drawn and their maps (anisotropy, normal map, roughness glint). */
+      maps(): readonly PropMapsInfo[];
     };
   }
+}
+
+/** One GLB prop mesh of the terrain preview as `maps()` reports it. */
+export interface PropMapsInfo {
+  readonly name: string;
+  readonly count: number;
+  /** Colour map anisotropy, or null without a map. */
+  readonly map: number | null;
+  readonly normalMap: number | null;
+  /** The roughness glint (paintMaterial `gloss`, the roughness map) is compiled in. */
+  readonly gloss: boolean;
+}
+
+/** The GLB prop meshes under `scene` (names "dh-prop-…") and their maps. */
+export function propMaps(scene: THREE.Object3D): PropMapsInfo[] {
+  const out: PropMapsInfo[] = [];
+  scene.traverse((object) => {
+    const mesh = object as THREE.InstancedMesh;
+    if (!mesh.isInstancedMesh || !mesh.name.startsWith("dh-prop-")) return;
+    const material = mesh.material as THREE.MeshLambertMaterial;
+    out.push({
+      name: mesh.name,
+      count: mesh.count,
+      map: material.map?.anisotropy ?? null,
+      normalMap: material.normalMap?.anisotropy ?? null,
+      gloss: material.defines?.DH_GLOSS !== undefined,
+    });
+  });
+  return out;
 }
 
 const QUALITIES: readonly Quality[] = ["low", "medium", "high", "ultra"];
@@ -625,6 +656,7 @@ export function startTerrainPreview(doc: Document = document, map: MapDef = MAP_
     },
     project: (x, y, z) => world.worldToScreen(x, y, z),
     heightAt: (x, z) => world.heightAt(x, z),
+    maps: () => propMaps(world.stage.scene),
   };
 
   return {

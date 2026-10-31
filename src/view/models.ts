@@ -19,7 +19,8 @@
  * and, on High and Ultra, a crowd model's hull (the Medium mesh) for the
  * outline and ghost passes. A missing or
  * failed model keeps its primitive and logs one warning. Loaded once per
- * app; every crowd attached gets the layers now and as they arrive.
+ * app; every crowd attached gets the layers now and as they arrive. Every GLB
+ * map is filtered anisotropically on High (8) and Ultra (16), MODEL_ANISOTROPY.
  * Owner: view (M0b models lane).
  */
 import * as THREE from "three";
@@ -50,6 +51,32 @@ export interface SurfaceMaps {
   readonly normalScale: THREE.Vector2;
   readonly roughnessMap: THREE.Texture | null;
   readonly roughness: number;
+}
+
+/**
+ * Anisotropic filtering of every map in a loaded GLB, by quality (quality rescue D3, 01/11): the game camera
+ * looks down at 55°, so crowns, slopes and cliff faces blurred with plain trilinear filtering. three clamps it to
+ * the GPU's maximum (16 on the M4). Low draws no models; Medium keeps the default.
+ */
+export const MODEL_ANISOTROPY: Readonly<Record<Quality, number>> = { low: 1, medium: 1, high: 8, ultra: 16 };
+
+/** Sets `anisotropy` on every texture of every material under `root`; returns how many textures it touched. */
+export function filterModelMaps(root: THREE.Object3D, anisotropy: number): number {
+  const seen = new Set<THREE.Texture>();
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      for (const value of Object.values(material)) {
+        if (!(value instanceof THREE.Texture) || seen.has(value)) continue;
+        seen.add(value);
+        if (value.anisotropy === anisotropy) continue;
+        value.anisotropy = anisotropy;
+        value.needsUpdate = true;
+      }
+    }
+  });
+  return seen.size;
 }
 
 /** Lambert parameters of a model's maps for the painted look: colour, and the normal map when the tier has one. */
@@ -287,6 +314,7 @@ export function loadCrowdModels(quality: Quality, options: { manifest?: string; 
   const extras = enabled ? extraFiles(manifestUrls) : Promise.resolve(new Map<string, ExtraFiles>());
   // The hull only pays where the body is heavier than the Medium mesh it is made of.
   const hulls = quality === "high" || quality === "ultra";
+  const anisotropy = MODEL_ANISOTROPY[quality];
   const wanted = (key: string): boolean => options.only === undefined || options.only.includes(key);
 
   const fetchRoot = async (manifestKey: string): Promise<THREE.Object3D | null> => {
@@ -295,6 +323,7 @@ export function loadCrowdModels(quality: Quality, options: { manifest?: string; 
     const url = entry === null ? null : pickModelTier(entry, quality);
     if (url === null) return null;
     const gltf = await loadModel(url);
+    filterModelMaps(gltf.scene, anisotropy);
     return gltf.scene;
   };
 
