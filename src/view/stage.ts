@@ -71,6 +71,11 @@ export interface PaintedStage extends Stage {
   stats(): { drawCalls: number; triangles: number };
   /** Turns the HDR bloom (fire, spells) on or off where the tier builds it (Ultra, an opt-in); false when it has none. */
   setBloom(on: boolean): boolean;
+  /**
+   * Fire test A, test bench only (view/fire-bench.ts): the tone map's highlight shoulder moves hot saturated colour
+   * toward yellow instead of desaturating it to peach. False when the tier has no grade pass.
+   */
+  setGradeShoulder(on: boolean): boolean;
 }
 
 /**
@@ -103,6 +108,7 @@ const GRADE_SHADER = {
     uHighTint: { value: new THREE.Vector3(1.04, 1.01, 0.94) },
     uVignette: { value: 0.22 },
     uAspect: { value: 16 / 9 },
+    uShoulder: { value: 0 },
   },
   vertexShader: /* glsl */ `
 varying vec2 vUv;
@@ -120,6 +126,7 @@ uniform vec3 uShadowTint;
 uniform vec3 uHighTint;
 uniform float uVignette;
 uniform float uAspect;
+uniform float uShoulder;
 varying vec2 vUv;
 // Khronos PBR Neutral (three's NeutralToneMapping): keeps painted hues.
 vec3 dhNeutral(vec3 color) {
@@ -134,7 +141,13 @@ vec3 dhNeutral(vec3 color) {
   float newPeak = 1.0 - d * d / (peak + d - start);
   color *= newPeak / peak;
   float g = 1.0 - 1.0 / (desat * (peak - newPeak) + 1.0);
-  return mix(color, vec3(newPeak), g);
+  // Fire test A (bench only): a warm, saturated highlight (red the top channel, above green above blue) goes toward
+  // hot yellow as it compresses, and only then toward white, so 4× orange reads yellow-orange, not peach.
+  float warm = uShoulder * step(color.b, color.g) * step(color.g, color.r) * smoothstep(0.25, 0.6, 1.0 - color.b / max(color.r, 1e-4));
+  vec3 hot = vec3(newPeak, newPeak * 0.86, color.b);
+  vec3 toward = mix(vec3(newPeak), hot, warm);
+  float gw = mix(g, min(1.0, g * 1.6), warm);
+  return mix(mix(color, toward, gw), vec3(newPeak), warm * g * g * 0.5);
 }
 vec3 dhToSrgb(vec3 c) {
   return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
@@ -303,6 +316,11 @@ export function createStage(host: HTMLElement, quality: Quality = "high"): Paint
     },
     stats() {
       return { drawCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+    },
+    setGradeShoulder(on: boolean): boolean {
+      if (!grade) return false;
+      grade.uniforms.uShoulder!.value = on ? 1 : 0;
+      return true;
     },
     setBloom(on: boolean): boolean {
       if (!bloom) return false;
