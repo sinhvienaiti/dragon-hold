@@ -34,7 +34,7 @@ beforeEach(() => { vi.stubEnv("VITE_PORTAL_URL", ""); vi.spyOn(console, "warn").
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("title DOM", () => {
-  it.each([undefined, { version: 1, art: [] }])("requests no unaccepted/missing art and warns once per name", art => {
+  it.each([{ version: 1, art: [] }, { version: 1, art: table.art.map(entry => ({ ...entry, accepted: null })) }])("requests no unaccepted/missing art and warns once per name", art => {
     const f = fixture(art); f.title.show(); f.title.settle("models");
     expect(f.doc.nodes.filter(node => node.src)).toEqual([]);
     expect(f.doc.node("dh-title__logo-text").textContent).toBe("Dragonhold");
@@ -43,7 +43,19 @@ describe("title DOM", () => {
     expect(f.doc.node("dh-title").dataset.backdrop).toBe("art");
     expect(console.warn).toHaveBeenCalledTimes(3);
     for (const name of ["title-backdrop", "logo", "emblem"]) expect(console.warn).toHaveBeenCalledWith("title: missing art", name);
-    expect(table.art.map(entry => entry.accepted)).toEqual([null, null, null]);
+  });
+  it("ships the 119 backdrop, logo and emblem: the default table requests all three and warns about none", () => {
+    expect(table.art.map(entry => [entry.name, entry.source, entry.width, entry.accepted])).toEqual([
+      ["title-backdrop", "ui/title-epic/title-backdrop", 1536, "119"],
+      ["logo", "ui/title-epic/logo.alpha", 1024, "119"],
+      ["emblem", "ui/title-epic/emblem.alpha", 512, "119"],
+    ]);
+    const f = fixture();
+    expect(f.doc.nodes.filter(node => node.src).map(node => node.src)).toEqual(
+      ["title-backdrop", "logo", "emblem"].map(name => `/assets/dragon-hold/ui/title/${name}.webp?v=${table.version}`));
+    expect(f.doc.node("dh-title__logo").alt).toBe("Dragonhold");
+    expect(f.doc.node("dh-title__logo-text").hidden).toBe(true);
+    expect(console.warn).not.toHaveBeenCalled();
   });
   it("uses accepted versioned art, and handles repeated image errors once with the required fallbacks", () => {
     const f = fixture(accepted());
