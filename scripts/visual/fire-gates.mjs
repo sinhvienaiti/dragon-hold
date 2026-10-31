@@ -34,6 +34,11 @@
 //                scorch has gone by ~2.5 s); needs S_END ≥ f0 + 150
 //   oliveChanged the olive share counted on changed pixels only (no hole filling): ground seen unchanged through the
 //                hollow of test B's ring is not the effect; test A's gate fills holes (its lace of holes was a veil)
+// Test C adds (its brief: 2.5–3× the foe at the peak, smoke off the Dragons, smoke gone by ~2 s):
+//   sizeSolid    the same equivalent diameter counted on the fire's solid part only (coverage ≥ 0.5), f0…f+40, over
+//                the foe's height: target 2.5–3.0 (the 1.6–2.2 band above was test B's)
+//   heroSmoke    frames the smoke alone covers > 5 % of the Dragons' visible pixels (≤ 10); heroFire the same for the fire
+//   smokeEnd     the last frame with smoke on screen (gone by ~f+120)
 //   node scripts/visual/fire-gates.mjs <run dir> [--json out.json]
 //   node scripts/visual/fire-gates.mjs --all <bench dir> [out dir]   (every run: gates.json and gates.md; a run with its
 //   own gates-run.json, written by `<run dir> --json <run dir>/gates-run.json`, is reused)
@@ -238,6 +243,8 @@ export function fireGates(dir) {
     let darkOut = 0;
     let heroPx = 0;
     let heroUnder = 0;
+    let heroSmoke = 0;
+    let heroFire = 0;
     let fireOnFoe = 0;
     let changedN = 0;
     let changedOlive = 0;
@@ -253,6 +260,8 @@ export function fireGates(dir) {
         if (hero[p] >= 128) {
           heroPx += 1;
           if (fire[p] >= 128 || smoke[p] >= 128) heroUnder += 1;
+          if (smoke[p] >= 128) heroSmoke += 1;
+          if (fire[p] >= 128) heroFire += 1;
         }
         if (fire[p] >= 128 && shifted(foe, foeAt, p)) fireOnFoe += 1;
         if (full[p] && !shifted(foeOut, foeAt, p) && hero[p] < 64) {
@@ -292,6 +301,7 @@ export function fireGates(dir) {
     }
     // Fire mask stats: area (coverage ≥ 0.15), peach share, light gained, centroid.
     let fireArea = 0;
+    let fireSolid = 0;
     let peach = 0;
     let gain = 0;
     let cx = 0;
@@ -300,6 +310,7 @@ export function fireGates(dir) {
     const fireBin = new Uint8Array(box.w * box.h);
     for (let p = 0; p < fire.length; p += 1) {
       if (fire[p] < 38) continue;
+      if (fire[p] >= 128) fireSolid += 1;
       fireBin[p] = 1;
       fireArea += 1;
       const [hh, s, v] = hsv(img.d[p * 3], img.d[p * 3 + 1], img.d[p * 3 + 2]);
@@ -396,6 +407,9 @@ export function fireGates(dir) {
       darkOut,
       heroPx,
       heroUnder: heroPx ? r4(heroUnder / heroPx) : 0,
+      heroSmoke: heroPx ? r4(heroSmoke / heroPx) : 0,
+      heroFire: heroPx ? r4(heroFire / heroPx) : 0,
+      fireSolid,
       fireFoe: foePx ? r4(fireOnFoe / foePx) : 0,
       oliveChanged: changedN ? r4(changedOlive / changedN) : 0,
       feet,
@@ -488,18 +502,26 @@ export function fireGates(dir) {
   summary.sizeBoxHOverFoe = big.bbox ? r4(big.bbox.h / foeH) : null;
   summary.sizeBoxWOverFoe = big.bbox ? r4(big.bbox.w / foeH) : null;
   summary.centreOffOverFoe = big.centre ? r4(Math.hypot(big.centre[0] + box.x - at.hit.x, big.centre[1] + box.y - at.hit.y) / foeH) : null;
+  const solid = after.filter((r) => r.rel <= 40).reduce((a, b) => (b.fireSolid > a.fireSolid ? b : a));
+  summary.sizeSolidOverFoe = r4((2 * Math.sqrt(solid.fireSolid / Math.PI)) / foeH);
+  summary.sizeSolidAt = solid.rel;
   summary.fireFoeFrames = after.filter((r) => r.fireFoe >= 0.5).length;
   summary.fireFoeMax = Math.max(...after.map((r) => r.fireFoe));
   const heroRows = [...after, ...tail].filter((r) => r.heroPx > 50);
   summary.heroPixels = heroRows.length ? Math.max(...heroRows.map((r) => r.heroPx)) : 0;
   summary.heroUnderMax = heroRows.length ? Math.max(...heroRows.map((r) => r.heroUnder)) : null;
   summary.heroUnderFrames = heroRows.filter((r) => r.heroUnder > 0.05).length;
+  summary.heroSmokeFrames = heroRows.filter((r) => r.heroSmoke > 0.05).length;
+  summary.heroFireFrames = heroRows.filter((r) => r.heroFire > 0.05).length;
+  summary.heroSmokeMax = heroRows.length ? Math.max(...heroRows.map((r) => r.heroSmoke)) : null;
   summary.blackMax = Math.max(...after.map((r) => r.black));
   summary.blackAt = after.reduce((a, b) => (b.black > a.black ? b : a)).rel;
   const first = after.filter((r) => r.rel <= 6);
   summary.charEarly = r4(Math.max(...first.map((r) => r.darkOut / Math.max(1, r.fireArea))));
   const firstSmoke = after.find((r) => r.smokeArea > 0);
   summary.smokeStart = firstSmoke ? firstSmoke.rel : null;
+  const lastSmoke = [...after, ...tail].filter((r) => r.rel >= 0 && r.smokeArea > 0).at(-1);
+  summary.smokeEnd = lastSmoke ? lastSmoke.rel : null;
   const at150 = rows.find((r) => r.rel === 150);
   const mid = Math.max(...after.filter((r) => r.rel >= 30).map((r) => r.feet));
   summary.left150 = at150 ? r4(at150.feet / Math.max(1, mid)) : null;
@@ -515,6 +537,12 @@ export function fireGates(dir) {
     charEarly: summary.charEarly <= 0.02,
     left150: summary.left150 === null ? null : summary.left150 <= 0.05,
     oliveChanged: summary.oliveChangedMax <= 0.02,
+  };
+  summary.passC = {
+    sizeSolid: summary.sizeSolidOverFoe >= 2.5 && summary.sizeSolidOverFoe <= 3.0,
+    heroSmoke: summary.heroSmokeFrames <= 10,
+    smokeEnd: summary.smokeEnd === null || summary.smokeEnd <= 125,
+    numberSmoke: summary.numberUnderSmokeFrames <= 10,
   };
   summary.pass = passOf(summary, H);
   return { summary, rows };
@@ -659,12 +687,15 @@ export function allGates(bench, out) {
     ["IoU(f, f+4) ≤ 0.85", (s) => n(s.iouMax) + mark(s.pass.iou)],
     ["impact f0 / peak ≥ 0.95", (s) => n(s.flashFirst) + mark(s.pass.flashFirst)],
     ["size: eq. diam / foe (1.6–2.2)", (s) => n(s.sizeEqOverFoe, 2) + " (box " + n(s.sizeBoxWOverFoe, 1) + "×" + n(s.sizeBoxHOverFoe, 1) + ")" + mark(s.passB.size)],
+    ["C: solid size / foe (2.5–3.0)", (s) => n(s.sizeSolidOverFoe, 2) + " @" + s.sizeSolidAt + mark(s.passC?.sizeSolid)],
     ["centre off / foe", (s) => n(s.centreOffOverFoe, 2)],
     ["fire hides foe, frames ≤ 10", (s) => n(s.fireFoeFrames) + mark(s.passB.fireFoe)],
     ["Dragons under effect, max / frames > 5 %", (s) => n(s.heroUnderMax) + " / " + n(s.heroUnderFrames) + mark(s.passB.heroes)],
     ["near-black ≤ 0.01", (s) => n(s.blackMax) + " @" + s.blackAt + mark(s.passB.black)],
     ["char before fire ≤ 0.02", (s) => n(s.charEarly) + mark(s.passB.charEarly)],
     ["smoke from", (s) => (s.smokeStart === null ? "–" : "f+" + s.smokeStart)],
+    ["C: smoke to (≤ f+125)", (s) => (s.smokeEnd === null ? "–" : "f+" + s.smokeEnd) + mark(s.passC?.smokeEnd)],
+    ["C: Dragons under smoke / fire, frames > 5 % (smoke ≤ 10)", (s) => n(s.heroSmokeFrames) + " / " + n(s.heroFireFrames) + mark(s.passC?.heroSmoke)],
     ["left at 2.5 s ≤ 0.05", (s) => n(s.left150) + mark(s.passB.left150)],
     ["brown / olive f+91…160", (s) => n(s.brownTail) + " / " + n(s.oliveTail)],
   ];

@@ -4,7 +4,8 @@
  * the painted L2-cau map at the play camera, the owner's foe model, the Dragons on the dais and the real fx
  * presenter fed made-up events: one foe stands where the caller puts it (the ford, the dais sand, dark ground) and
  * takes a STRONG (Perfect) word shot: word-complete now, the hit 12 ticks later (DAMAGE.strikeDelayTicks), as the
- * sim sends them. `?fire=r10` draws round 10's strong hit (fire-a.ts), `?fire=b` test B's (fire-b.ts);
+ * sim sends them. `?fire=r10` draws round 10's strong hit (fire-a.ts), `?fire=b` test B's (fire-b.ts), `?fire=c`
+ * test C's (fire-c.ts);
  * `grade=shoulder` turns the grade's yellow shoulder on (test bench only). Runs on requestAnimationFrame, so a held
  * clock steps it frame by frame.
  *
@@ -23,6 +24,7 @@ import { BenchCrowd, benchRandom } from "./bench";
 import type { FlipbookId } from "./flipbook";
 import { createFx } from "./fx";
 import { FIRE_B } from "./fire-b";
+import { FIRE_C } from "./fire-c";
 import { createHeroes } from "./heroes";
 import { loadCrowdModels } from "./models";
 import { createMapStage, type MapStage } from "./stage";
@@ -61,8 +63,8 @@ declare global {
 }
 
 const FOE: EnemyId = "moss-grunt";
-const FIRE_IDS: FlipbookId[] = ["impact-burst", "impact-burst-a", "impact-big", "fire-burst", "impact-cel-b"];
-const SMOKE_IDS: FlipbookId[] = ["smoke-mask", "smoke-mask-a", "smoke-roll", "smoke-cel-b"];
+const FIRE_IDS: FlipbookId[] = ["impact-burst", "impact-burst-a", "impact-big", "fire-burst", "impact-cel-b", "impact-burst-c"];
+const SMOKE_IDS: FlipbookId[] = ["smoke-mask", "smoke-mask-a", "smoke-roll", "smoke-cel-b", "smoke-c"];
 const MASK_LAYER = 7;
 
 /** Dev only, as app.ts dimToDusk: the dark-ground test (VFX_STANDARD §4.5). */
@@ -298,7 +300,7 @@ export async function runFireBench(host: HTMLElement, quality: Quality = "high",
         numbers.push([box.x, box.y, box.w, box.h]);
       }
       const live: Record<string, number> = {};
-      for (const id of [...FIRE_IDS, ...SMOKE_IDS, "halo-a", "scorch-a", "halo-b", "scorch-b"] as FlipbookId[]) live[id] = fx.core.flip.pools[id].live;
+      for (const id of [...FIRE_IDS, ...SMOKE_IDS, "halo-a", "scorch-a", "halo-b", "scorch-b", "sparks-c", "scorch-c"] as FlipbookId[]) live[id] = fx.core.flip.pools[id].live;
       return { hit, base, top, numbers, sun, live, hits, shotAt };
     },
     mask,
@@ -307,7 +309,8 @@ export async function runFireBench(host: HTMLElement, quality: Quality = "high",
       fx.core.flip.pools["impact-burst-a"].ready &&
       fx.core.flip.pools["smoke-mask-a"].ready &&
       fx.core.flip.pools["scorch-a"].ready &&
-      (!FIRE_B.on || (fx.core.flip.pools["impact-cel-b"].ready && fx.core.flip.pools["smoke-cel-b"].ready && fx.core.flip.pools["halo-b"].ready && fx.core.flip.pools["scorch-b"].ready)),
+      (!FIRE_B.on || (fx.core.flip.pools["impact-cel-b"].ready && fx.core.flip.pools["smoke-cel-b"].ready && fx.core.flip.pools["halo-b"].ready && fx.core.flip.pools["scorch-b"].ready)) &&
+      (!FIRE_C.on || (fx.core.flip.pools["impact-burst-c"].ready && fx.core.flip.pools["smoke-cel-b"].ready && fx.core.flip.pools["smoke-c"].ready && fx.core.flip.pools["sparks-c"].ready && fx.core.flip.pools["scorch-c"].ready)),
     dispose: () => {
       running = false;
       target.dispose();

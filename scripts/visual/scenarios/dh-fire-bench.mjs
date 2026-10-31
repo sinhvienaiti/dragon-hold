@@ -8,7 +8,8 @@
 //   run.json                per frame: the struck point, the foe's base and top, live numbers, the sun on screen.
 //   hero-s###.png           test B: the Dragons as they show (units stay over the effects), half size.
 // Variants: a (test A, current grade), shoulder (test A, the grade's yellow shoulder), r10 (?fire=r10: round 10),
-// b (?fire=b: test B, the cel clips).
+// b (?fire=b: test B, the cel clips), c (?fire=c: test C, round 10's peak burning out, CC0 Kenney support layers),
+// ccel (test C with test B's cel smoke for Kenney's, a side check).
 //   URL=http://127.0.0.1:3251 OUT_DIR=tmp/vfx/test-a node scripts/visual/cdp-run.mjs scripts/visual/scenarios/dh-fire-bench.mjs
 // Env: SIZES (1280x720,1920x1080), GROUNDS (ford,sand,dark), VARIANTS (a,shoulder,r10), S_END (110; test B: 175, so
 // the scorch's ~2.5 s shows), PROBE=1 (only place the foe on each ground and shoot one frame: spot checks).
@@ -33,7 +34,7 @@ export const SPOTS = {
 async function open(page, w, h, ground, variant) {
   await page.viewport(w, h, 1);
   await page.send("Emulation.setFocusEmulationEnabled", { enabled: true });
-  const query = ["bench=fire", "heldclock=1", variant === "r10" ? "fire=r10" : variant === "b" ? "fire=b" : ""].filter(Boolean).join("&");
+  const query = ["bench=fire", "heldclock=1", variant === "r10" ? "fire=r10" : variant === "b" ? "fire=b" : variant === "c" ? "fire=c" : variant === "ccel" ? "fire=c&smoke=cel" : ""].filter(Boolean).join("&");
   await page.goto(BASE + "/?" + query, { settle: 300 });
   const dark = SPOTS[ground].dark;
   const shoulder = variant === "shoulder";
@@ -83,7 +84,7 @@ async function capture(page, [w, h], ground, variant) {
     track.push(await page.eval("window.__dhFire.track()"));
   }
   // f0: the first frame with the impact clip drawn after the hit (the frame the bolt lands).
-  const fireIds = ["impact-burst-a", "impact-burst", "impact-big", "fire-burst", "impact-cel-b"];
+  const fireIds = ["impact-burst-a", "impact-burst", "impact-big", "fire-burst", "impact-cel-b", "impact-burst-c"];
   const hitIndex = track.findIndex((t) => t.hits > 0);
   let f0 = track.findIndex((t, i) => i >= hitIndex && fireIds.some((id) => (t.live[id] ?? 0) > 0) && i > 4);
   if (f0 < 0) f0 = hitIndex;

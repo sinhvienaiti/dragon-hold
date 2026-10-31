@@ -9,7 +9,9 @@
 // Blind (test B, for judges): every variant gets a neutral code, kept in a key file apart from the sheets. Strips run
 // f-5 … f+90 every frame then every 6th to f+150 (the scorch's 2.5 s), clips f-5 … f+150 at 60 fps, side by side in
 // code order and one per code.
-//   node scripts/visual/fire-sheets.mjs <bench dir> <out dir> --blind <key.json> [--codes X,Y,Z] [--seed n]
+//   node scripts/visual/fire-sheets.mjs <bench dir> <out dir> --blind <key.json> [--codes X,Y,Z] [--seed n] [--per-ground]
+// --per-ground (test C): a new shuffle for each ground (both sizes of a ground share it), so a code names a different
+// version on each ground; the key lists the mapping per ground. Temporary label files carry the code only.
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
@@ -22,8 +24,8 @@ const flag = (name, fallback = null) => {
 };
 const [bench, out] = args;
 const keyFile = flag("--blind");
-let VARIANTS = ["r10", "a", "shoulder"];
-let NAMES = { r10: "round 10", a: "test A", shoulder: "test A + yellow shoulder" };
+let VARIANTS = ["r10", "a", "shoulder", "b", "c", "ccel"];
+let NAMES = { r10: "round 10", a: "test A", shoulder: "test A + yellow shoulder", b: "test B", c: "test C", ccel: "test C, cel smoke" };
 const LAST = keyFile ? 150 : 90;
 const COMPARE = keyFile ? [-1, 0, 2, 4, 7, 10, 13, 16, 19, 22, 26, 29, 32, 36, 40, 50, 62, 76, 90, 110, 130, 150] : [-1, 0, 2, 4, 7, 10, 13, 16, 19, 22, 26, 32, 40, 50, 62, 76, 90];
 const tail = keyFile ? [96, 102, 108, 114, 120, 126, 132, 138, 144, 150] : [];
@@ -36,25 +38,37 @@ for (const d of readdirSync(bench)) {
   const run = JSON.parse(readFileSync(file, "utf8"));
   runs.set(d, { dir: join(bench, d), ...run });
 }
-// Blind codes: a seeded shuffle of the variants found, one mapping for every size and ground.
-let codeOf = (v) => v;
+// Blind codes: a seeded shuffle of the variants found, one mapping for every size and ground (or one per ground).
+let codeOf = (v, ground) => v;
+let nameOf = (v, ground) => NAMES[v];
+let orderOf = (ground) => VARIANTS;
 if (keyFile) {
   if (resolve(dirname(keyFile)).startsWith(resolve(out))) throw new Error("the key file must live outside the sheets folder");
   const found = [...new Set([...runs.values()].map((r) => r.variant))].sort();
+  const grounds = [...new Set([...runs.values()].map((r) => r.ground))].sort();
   const codes = (flag("--codes", "X,Y,Z")).split(",").slice(0, found.length);
   let seed = Number(flag("--seed", String(Date.now() % 100000)));
   const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
-  const shuffled = [...found];
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rand() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  const map = Object.fromEntries(shuffled.map((v, i) => [v, codes[i]]));
-  codeOf = (v) => map[v];
-  VARIANTS = [...found].sort((a, b) => map[a].localeCompare(map[b]));
-  NAMES = Object.fromEntries(found.map((v) => [v, map[v]]));
+  const shuffle = () => {
+    const shuffled = [...found];
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rand() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return Object.fromEntries(shuffled.map((v, i) => [v, codes[i]]));
+  };
+  const perGround = args.includes("--per-ground");
+  const one = shuffle();
+  const maps = Object.fromEntries(grounds.map((g) => [g, perGround ? shuffle() : one]));
+  codeOf = (v, ground) => maps[ground][v];
+  nameOf = codeOf;
+  orderOf = (ground) => [...found].sort((a, b) => maps[ground][a].localeCompare(maps[ground][b]));
   mkdirSync(dirname(keyFile), { recursive: true });
-  writeFileSync(keyFile, JSON.stringify({ made: new Date().toISOString(), sheets: resolve(out), codes: Object.fromEntries(Object.entries(map).map(([v, c]) => [c, v])), names: { b: "test B (cel clips)", a: "test A", r10: "round 10" } }, null, 1) + "\n");
+  const invert = (map) => Object.fromEntries(Object.entries(map).map(([v, c]) => [c, v]));
+  const key = { made: new Date().toISOString(), sheets: resolve(out), names: { c: "test C (round 10 peak + burn-out, CC0 Kenney support layers)", b: "test B (cel clips)", a: "test A", r10: "round 10" } };
+  if (perGround) key.codesByGround = Object.fromEntries(grounds.map((g) => [g, invert(maps[g])]));
+  else key.codes = invert(one);
+  writeFileSync(keyFile, JSON.stringify(key, null, 1) + "\n");
 }
 
 /** The crop round the hit (the burst, its smoke and the number above it). */
@@ -89,13 +103,14 @@ for (const [key, run] of runs) {
     if (!existsSync(join(run.dir, name(f)))) continue;
     items.push({ file: join(run.dir, name(f)), crop, label: "f" + (rel >= 0 ? "+" : "") + rel + " · " + Math.round((rel * 1000) / 60) + " ms" });
   }
-  const file = join(out, "strip-" + run.size.join("x") + "-" + run.ground + "-" + codeOf(run.variant) + ".jpg");
-  montage(items, file, 12, 200, NAMES[run.variant] + " · " + run.size.join("×") + " · " + run.ground + " · every frame at 60 fps (f0 = impact)" + (tail.length ? ", then every 6th to f+150" : ""));
+  const file = join(out, "strip-" + run.size.join("x") + "-" + run.ground + "-" + codeOf(run.variant, run.ground) + ".jpg");
+  montage(items, file, 12, 200, nameOf(run.variant, run.ground) + " · " + run.size.join("×") + " · " + run.ground + " · every frame at 60 fps (f0 = impact)" + (tail.length ? ", then every 6th to f+150" : ""));
   made.push(file);
 }
 
 for (const [g, set] of groups) {
-  const rows = VARIANTS.filter((v) => set[v]);
+  const ground = Object.values(set)[0].ground;
+  const rows = orderOf(ground).filter((v) => set[v]);
   const items = [];
   for (const v of rows) {
     const run = set[v];
@@ -103,11 +118,11 @@ for (const [g, set] of groups) {
     for (const rel of COMPARE) {
       const f = run.f0 + rel;
       if (!existsSync(join(run.dir, name(f)))) continue;
-      items.push({ file: join(run.dir, name(f)), crop, label: NAMES[v] + " · f" + (rel >= 0 ? "+" : "") + rel + " · " + Math.round((rel * 1000) / 60) + " ms" });
+      items.push({ file: join(run.dir, name(f)), crop, label: nameOf(v, ground) + " · f" + (rel >= 0 ? "+" : "") + rel + " · " + Math.round((rel * 1000) / 60) + " ms" });
     }
   }
   const file = join(out, "compare-" + g + ".jpg");
-  montage(items, file, COMPARE.length, 220, g + ": rows " + rows.map((v) => NAMES[v]).join(" · "));
+  montage(items, file, COMPARE.length, 220, g + ": rows " + rows.map((v) => nameOf(v, ground)).join(" · "));
   made.push(file);
   // Real-time clip: the three side by side, f-5 … f+90.
   const inputs = [];
@@ -120,15 +135,15 @@ for (const [g, set] of groups) {
   });
   // Labels as images (this ffmpeg has no drawtext).
   rows.forEach((v, i) => {
-    const label = join(out, ".label-" + v + ".png");
-    spawnSync("magick", ["-background", "#000000b0", "-fill", "white", "-font", FONT, "-pointsize", "20", "label: " + NAMES[v] + " ", label]);
+    const label = join(out, ".label-" + nameOf(v, ground) + ".png");
+    spawnSync("magick", ["-background", "#000000b0", "-fill", "white", "-font", FONT, "-pointsize", "20", "label: " + nameOf(v, ground) + " ", label]);
     inputs.push("-i", label);
     filters.push("[c" + i + "][" + (rows.length + i) + ":v]overlay=6:6[v" + i + "]");
   });
   const clipFile = join(out, "clip-" + g + ".mp4");
   const graph = filters.join(";") + ";" + (rows.length > 1 ? rows.map((_, i) => "[v" + i + "]").join("") + "hstack=inputs=" + rows.length : "[v0]null") + "[o]";
   const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", ...inputs, "-filter_complex", graph, "-map", "[o]", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", clipFile], { encoding: "utf8" });
-  for (const v of rows) spawnSync("rm", ["-f", join(out, ".label-" + v + ".png")]);
+  for (const v of rows) spawnSync("rm", ["-f", join(out, ".label-" + nameOf(v, ground) + ".png")]);
   if (r.status === 0) made.push(clipFile);
   else console.error("clip " + g + ": " + r.stderr.slice(0, 300));
   // Blind: one clip per code as well (the judge can watch each alone at real speed).
@@ -136,9 +151,9 @@ for (const [g, set] of groups) {
     for (const v of rows) {
       const run = set[v];
       const c = cropOf(run);
-      const one = join(out, "clip-" + g + "-" + codeOf(v) + ".mp4");
-      const label = join(out, ".label-" + v + ".png");
-      spawnSync("magick", ["-background", "#000000b0", "-fill", "white", "-font", FONT, "-pointsize", "20", "label: " + NAMES[v] + " ", label]);
+      const one = join(out, "clip-" + g + "-" + codeOf(v, ground) + ".mp4");
+      const label = join(out, ".label-" + codeOf(v, ground) + ".png");
+      spawnSync("magick", ["-background", "#000000b0", "-fill", "white", "-font", FONT, "-pointsize", "20", "label: " + nameOf(v, ground) + " ", label]);
       const r1 = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-framerate", "60", "-start_number", String(run.f0 - 5), "-i", join(run.dir, "s%03d.png"), "-i", label, "-filter_complex", "[0:v]trim=end_frame=" + (LAST + 6) + ",crop=" + c.w + ":" + c.h + ":" + c.x + ":" + c.y + ",scale=-2:720[c];[c][1:v]overlay=8:8[o]", "-map", "[o]", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", one], { encoding: "utf8" });
       spawnSync("rm", ["-f", label]);
       if (r1.status === 0) made.push(one);

@@ -34,9 +34,10 @@ import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
 import { SkyFire } from "./skyfire";
 import { FoeFx, type FoeVictim } from "./foe-fx";
 import { blankTexture, ShellPool, Streak, StreakSparks, VFX_FLAME_GLSL, VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
-import { cellRect, FlipbookSet, fireAFlipbooks, fireBFlipbooks, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
+import { cellRect, FlipbookSet, fireAFlipbooks, fireBFlipbooks, fireCFlipbooks, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
 import { FIRE_A, FIRE_A_HOT, FIRE_A_SCORCH } from "./fire-a";
 import { FIRE_B, FIRE_B_CLIP, FIRE_B_FRONT_LIFT, FIRE_B_RAISE, FIRE_B_SCORCH, FIRE_B_SIZE } from "./fire-b";
+import { FIRE_C, FIRE_C_BURN, FIRE_C_SCORCH, FIRE_C_SHOCK_DUST, FIRE_C_SHOCK_EDGE, FIRE_C_SHOCK_SPRAY, FIRE_C_SIZE, FIRE_C_SMOKE, FIRE_C_SPARK, FIRE_C_SPARK_HOT, sceneLight } from "./fire-c";
 
 export { FX_COLORS, FX_RIBBON_ORDER };
 
@@ -150,6 +151,11 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
   "smoke-cel-b": 1,
   "halo-b": 1,
   "scorch-b": 1,
+  // Test C: the burn-out is round 10's impact-burst (its fill); the Kenney sprites are sized directly (fire-c.ts).
+  "impact-burst-c": 1.4,
+  "sparks-c": 1,
+  "scorch-c": 1,
+  "smoke-c": 1,
 };
 /**
  * Test B's scorch spots (m × √k, back along the shot, aside): under the struck foe first, then a short step either
@@ -289,6 +295,7 @@ varying vec2 vUv;
 varying vec4 vColor;
 varying float vSeed;
 varying vec3 vLife;
+varying vec3 vWorld;
 ${VFX_NOISE_GLSL}
 ${VFX_FLAME_GLSL}
 void main() {
@@ -340,6 +347,30 @@ void main() {
     rgb = mix(rgb, vec3(0.15, 0.135, 0.12), smoothstep(0.66, 0.9, d + (torn - 0.5) * 0.15) * 0.85);
     float hotRim = (1.0 - smoothstep(0.03, 0.2, vLife.z)) * smoothstep(0.66, 0.76, d) * (1.0 - smoothstep(0.8, 0.9, d)) * smoothstep(0.5, 0.7, torn);
     rgb = mix(rgb, mix(vec3(1.0, 0.45, 0.08), vec3(0.55, 0.06, 0.01), smoothstep(0.06, 0.18, vLife.z)), hotRim);
+  } else if (kind > 8.5) {
+    // A ground shockwave (kind 9, fire test C; normal blend): a band at the quad's edge (the quad grows 0.2 → 1.0 with
+    // an ease-out), as wide as the thickness at first and thinning to nothing; its rim wobbles a little and gaps open
+    // in it as it ages, so it breaks up instead of fading as a see-through ring (over grass that reads olive). Crisp
+    // edges; brighter toward its leading edge. Its alpha is not faded by age (vLife.y: alpha × fade-in).
+    float k = vLife.z;
+    float ang = atan(p.y, p.x);
+    vec2 sd = vWorld.xz * 0.37;
+    // Its rim wobbles enough that no stretch of it reads as a ruled line (a smooth 8 m ring drew 37 px "straight"
+    // runs at 1080).
+    float wob = vxNoise(vec2(ang * 6.0 + sd.x, sd.y + 3.1)) * 0.6 + vxNoise(vec2(ang * 13.0 - sd.y, 1.7)) * 0.4;
+    // And a ragged front (teeth every ~1/30 of the ring), so no arc of it runs smooth for long.
+    float teeth = vxNoise(vec2(ang * 30.0 + sd.x * 3.0, sd.y)) - 0.5;
+    float outer = 0.95 - (wob - 0.5) * 0.075 - teeth * 0.06;
+    float w = thick * (1.0 - 0.85 * k);
+    float inner = outer - w + (vxNoise(vec2(ang * 24.0 - sd.y, 5.3)) - 0.5) * 0.05 * w / max(thick, 1e-3);
+    float band = smoothstep(inner - 0.01, inner + 0.01, r) * (1.0 - smoothstep(outer - 0.008, outer + 0.008, r));
+    float breakUp = vxNoise(vec2(ang * 2.2 + sd.y, k * 1.2 + sd.x)) * 0.8 + vxNoise(vec2(ang * 7.0 - sd.x, 2.0)) * 0.2;
+    float late = smoothstep(0.3, 1.0, k);
+    float keep = smoothstep(late - 0.04, late + 0.04, breakUp + 0.1);
+    float lead = clamp((r - inner) / max(w, 1e-3), 0.0, 1.0);
+    vec3 c9 = vColor.rgb * mix(0.82, 1.12, lead);
+    gl_FragColor = vec4(c9, band * keep * vLife.y * (1.0 - smoothstep(0.82, 1.0, k)));
+    return;
   } else if (kind > 7.5) {
     // A heat ring (kind 8, normal blend; round 8): licks of fire on a band at 0.7 of the radius, the fire ramp from deep
     // red to orange-gold, over a wider charcoal band of its own; thickness × 2 is how hot it burns (the typing).
@@ -940,6 +971,11 @@ export class FxCore {
   /** The camera as of the last update: impacts draw their fire on the camera's side of the struck body. */
   private readonly eye = new THREE.Vector3(0, 60, 60);
   private readonly hitAt = new THREE.Vector3();
+  /** Test C: a spark's throw (its streak follows it on screen). */
+  private readonly sparkDir = new THREE.Vector3();
+  /** Test C: the scene's light on the ground (fire-c.ts sceneLight; 1 = the day map). */
+  sceneLight = 1;
+  private readonly smokeTint = new THREE.Color();
   private readonly hitRear = new THREE.Vector3();
   private readonly flashAt = new THREE.Vector3();
   private readonly hitFront = new THREE.Vector3();
@@ -1012,7 +1048,7 @@ export class FxCore {
     this.group.add(this.cones.group);
     this.embers.mesh.renderOrder = 5.5;
     this.group.add(this.embers.mesh);
-    this.flip = new FlipbookSet(blankTexture(), { "fireball-head": 32, "charge-orb": 8, embers: 24, "ground-fire": 24, "smoke-roll": 24, "smoke-mask": 24, "smoke-column": 8, "smoke-mask-a": 24, "halo-a": 16, "scorch-a": 16 });
+    this.flip = new FlipbookSet(blankTexture(), { "fireball-head": 32, "charge-orb": 8, embers: 24, "ground-fire": 24, "smoke-roll": 24, "smoke-mask": 24, "smoke-column": 8, "smoke-mask-a": 24, "halo-a": 16, "scorch-a": 16, "sparks-c": 64, "scorch-c": 16 });
     this.group.add(this.flip.group);
     this.sky = new SkyFire(this, 3, quality);
     this.group.add(this.sky.group);
@@ -1529,10 +1565,13 @@ export class FxCore {
     const mass = size * 0.78;
     // Fire test A (DRAGON_FIRE_DIAGNOSIS §3): a strong word's impact and aftermath through the new fire material.
     const a = strong && FIRE_A.on && this.flip.pools["impact-burst-a"].ready;
+    // Fire test C (fire-c.ts): round 10's peak, then a burn-out; Kenney sparks, small cel smoke, shockwave, scorch.
+    const c = strong && !a && FIRE_C.on && this.flip.pools["impact-burst-c"].ready;
     // Soot behind the fire, in from frame 2 (§3.5 rule 4: a dark layer under the bright).
     const back = this.hitBack.subVectors(hit, this.eye).normalize().multiplyScalar(0.6 * rk).add(hit);
     // Test A: no code soot discs; the fire body's own char and the lit smoke are the dark layers.
-    for (let k = 0; k < (a ? 0 : 2); k += 1) {
+    // Test C: none either (their see-through soot outlived the fire as the fog round it).
+    for (let k = 0; k < (a || c ? 0 : 2); k += 1) {
       // With the bright layer, not after it (judge 5: the dark only came at f018–f024).
       // Round 9: warm soot (never cool navy), rising.
       this.puffs.spawn(back.x + this.rand(-0.3, 0.3) * s, back.y + (0.3 + k * 0.25) * s, back.z + this.rand(-0.3, 0.3) * s, mass * (0.8 + 0.15 * k), 0.6, FX_COLORS.soot, 0.4 * soft, { vy: 1.8, grow: 0.9, fadeIn: 0.001, hold: 0.06, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
@@ -1547,15 +1586,27 @@ export class FxCore {
     const rear = this.hitRear.subVectors(hit, this.eye).normalize().multiplyScalar(0.35 * rk).add(hit);
     const ground = this.heightOf(hit.x, hit.z);
     // And a dark oval on the ground round the foe from the hit frame (judge 6 kept it; earlier and charcoal now).
-    if (!a && !this.wetOf(hit.x, hit.z)) this.marks.spawn(hit.x, this.markY(hit.x, hit.z, mass * 1.6) + 0.04, hit.z, mass * 1.6, 0.7, FX_COLORS.char, 0.5 * soft, { kind: 2, fadeIn: 0.001, hold: 0.25, drag: 0, rot: this.random() * TAU });
+    // Test C: none (nothing is burnt before the fire reaches the ground; the scorch comes after it).
+    if (!a && !c && !this.wetOf(hit.x, hit.z)) this.marks.spawn(hit.x, this.markY(hit.x, hit.z, mass * 1.6) + 0.04, hit.z, mass * 1.6, 0.7, FX_COLORS.char, 0.5 * soft, { kind: 2, fadeIn: 0.001, hold: 0.25, drag: 0, rot: this.random() * TAU });
     // Round 9 (both judges: a hard 8-point "sticker" star at f061–f064, thin red "noodles" at c072–c078, then a mustard
     // fade with the cell's square edge at f079): the organic rolling parts of two cuts only, impact-big v3 frames
     // 15–23 for a strong word (before its square artefact) and impact-burst v2 frames 9–23 for a plain one, each
     // cooling through deep red to charcoal and eroding from half its life (flipbook `cool`), never a see-through veil.
     // Round 10 final check: impact-big's late frames keep its spiky rim (the round-9 "sticker star" at f011–f014 was
     // still there from frame 20); both grades take impact-burst v2's organic rolling ball, the strong one bigger.
-    const book = a ? this.flip.pools["impact-burst-a"] : this.flip.pick("impact-burst", "fire-burst", "impact-big");
-    if (a && book !== null) {
+    const book = a ? this.flip.pools["impact-burst-a"] : c ? this.flip.pools["impact-burst-c"] : this.flip.pick("impact-burst", "fire-burst", "impact-big");
+    if (c && book !== null) {
+      // Test C: round 10's two sprites (impact-burst v2 frames 11–19 at ×1.8, the same sizes, turns and drift) drawn
+      // as round 10 drew them until FIRE_C_BURN.start of their life (~f+9), then burning out (flipbook fireC): they
+      // shrink and cool to deep red and dark crimson with crisp edges, gone with round 10's life (~f+25).
+      const fill = FLIP_FILL["impact-burst-c"] * FIRE_C_BURN.size;
+      const clip = { frame: 11, until: 19, rate: 1.8 };
+      // this.u, not this.v: boltLanded's `at` is this.v and the scorch is placed from it after this (round 10's mark
+      // slid to the second sprite's spot).
+      const behind = -FIRE_C_BURN.behind * rk;
+      book.spawn(this.u.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill, { ...clip, rot: this.rand(-0.3, 0.3), grow: 0.3, intensity: 1.15, occlude: 0.85, ground, vy: 0.9, cool: FIRE_C_BURN.start, fadeOut: 0, lift: behind });
+      book.spawn(this.u.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.5, { ...clip, rate: clip.rate * 1.15, rot: this.rand(2.2, 4.0), intensity: 1.0, occlude: 0.8, ground, vy: 1.6, delay: 2 / 60, cool: FIRE_C_BURN.start, fadeOut: 0, lift: behind });
+    } else if (a && book !== null) {
       // Test A: impact-burst v2's frames 11–19 at ×1.8 as in round 10 (timing frozen), now RGBA: coloured by the ramp,
       // eroding from 18 % of its life with a burnt edge; `occlude` is the additive glow's gain here. A painted halo
       // (a blurred peak frame) behind the body carries the glow on High, where there is no bloom.
@@ -1613,8 +1664,10 @@ export class FxCore {
       this.w.set((ux * cs - uz * sn) * speed, this.rand(3, 10) * rk, (uz * cs + ux * sn) * speed);
       streaks.spawn(front, this.w, strong && k % 4 === 0 ? FX_COLORS.teal : FX_COLORS.ember, 2.1 * soft, 0.14 * s, this.rand(0.05, 0.12), this.rand(12, 24) / 60, 1.1, 16);
     }
-    // Embers thrown up and falling under gravity, dark-tailed (judge 5).
-    for (let k = 0; k < (this.reduced ? 8 : 10 + tierId * 2); k += 1) {
+    // Embers thrown up and falling under gravity, dark-tailed (judge 5). Test C: a few strong Kenney sparks instead
+    // (the round-10 dark-tailed embers read as "candy corn").
+    if (c && this.flip.pools["sparks-c"].ready) this.sparksC(front, ux, uz, s, rk, soft);
+    for (let k = 0; k < (c && this.flip.pools["sparks-c"].ready ? 0 : this.reduced ? 8 : 10 + tierId * 2); k += 1) {
       const yaw = this.rand(-1.6, 1.6);
       const cs = Math.cos(yaw);
       const sn = Math.sin(yaw);
@@ -1626,7 +1679,9 @@ export class FxCore {
     // light ground) with a dark edge, both grades; a strong word's teal ring over it (T3).
     const gy = this.heightOf(hit.x, hit.z) + 0.12;
     // Round 10: the contact is this ring, fast (8–10 frames), the fire band bright on its first frame.
-    if (!this.wetOf(hit.x, hit.z)) {
+    // Test C: a ground shockwave instead (mark kind 9: 0.2 → 1.0 in ~0.2 s, thinning and breaking away).
+    if (c) this.shockC(hit.x, gy, hit.z, rk, soft);
+    else if (!this.wetOf(hit.x, hit.z)) {
       this.marks.spawn(hit.x, gy - 0.02, hit.z, 1.0 * rk, 12 / 60, FX_COLORS.char, 0.45 * soft, { grow: (strong ? 2.2 : 1.8) * rk, kind: 1, thickness: 0.42, fadeIn: 0.001, drag: 0 });
       this.marks.spawn(hit.x, gy, hit.z, 0.9 * rk, 9 / 60, FX_COLORS.fireDeep, 0.95 * soft, { grow: (strong ? 2.1 : 1.7) * rk, kind: 1, thickness: 0.3, fadeIn: 0.001, drag: 0 });
       // Test A: no additive pastel band (it read peach over the burst and mustard on the grass); the fire-deep band and
@@ -1640,6 +1695,13 @@ export class FxCore {
     // Round 10 (both judges: still a flat khaki patch over the grass): the smoke is a density mask coloured in the
     // shader (warm charcoal core, lighter top, fire-lit underside while young); it starts inside the fire about 6
     // frames before the fire dies (~f018), rises and widens over about 60 frames, its edges eaten by the noise.
+    const smokeB = this.flip.pools[FIRE_C.celSmoke ? "smoke-cel-b" : "smoke-c"];
+    if (c) {
+      // Test C: test B's cel smoke, two small puffs rising from the burn spot from f+12, behind the foe (the foe and
+      // the fire draw over them), no larger than the fire, gone by ~1.8 s. No round-10 density smoke.
+      if (smokeB.ready) this.smokeC(hit, sideZ, -sideX, s, rk, big, soft);
+      return;
+    }
     const smokeA = this.flip.pools["smoke-mask-a"];
     if (a && smokeA.ready) {
       // Test A: lit smoke under the fire from f+2, three sprites smaller than the blast, rising and swelling with an
@@ -1797,6 +1859,10 @@ export class FxCore {
       this.scorchB(at, ux, uz, s, rk, big);
       return;
     }
+    if (strong && FIRE_C.on && !FIRE_A.on && this.flip.pools["scorch-c"].ready && this.flip.pools["impact-burst-c"].ready) {
+      this.scorchC(at, ux, uz, s, rk, big);
+      return;
+    }
     let found = false;
     let x = 0;
     let z = 0;
@@ -1864,6 +1930,105 @@ export class FxCore {
       this.flip.pools["scorch-b"].spawn(this.hitAt.set(x, y, z), size, { life: 2.5, delay: 6 / 60, rot: this.random() * TAU, tint: FIRE_B_SCORCH, alpha: 1, fadeIn: 0, fadeOut: 0 });
       for (let k = 0; k < (this.reduced ? 2 : 3); k += 1) {
         const at2 = this.hitAt.set(x + this.rand(-0.3, 0.3) * size, y + 0.1, z + this.rand(-0.3, 0.3) * size);
+        this.sparks.spawn(at2, this.u.set(this.rand(-0.3, 0.3), this.rand(1.0, 2.0), this.rand(-0.3, 0.3)), this.random() < 0.6 ? FX_COLORS.ember : FIRE_A_HOT, 0.26 * s, this.rand(0.4, 0.7), { drag: 0.6, gravity: -0.6 });
+      }
+      return;
+    }
+    this.scorchPoint.set(0, 0, 0);
+    for (let k = 0; k < 3; k += 1) {
+      this.puffs.spawn(at.x + this.rand(-0.4, 0.4) * s, this.heightOf(at.x, at.z) + (0.3 + k * 0.2) * s, at.z + this.rand(-0.4, 0.4) * s, (0.9 + k * 0.15) * s * big, this.rand(0.8, 1.1), FX_COLORS.steam, 0.5 * (this.reduced ? 0.7 : 1), { vy: 1.6, grow: 1.4, fadeIn: (3 + k) / 60, spin: this.rand(-1, 1), rot: this.random() * TAU });
+    }
+  }
+
+  /**
+   * Test C's sparks (CC0 Kenney flare_01; flipbook sparks-c, additive): a few strong ones, warm yellow-orange,
+   * thrown up and out from the struck body on the camera's side, falling under gravity, short-lived; each streak
+   * turned along its throw. A couple are born 2–4 frames late so they do not all leave at once.
+   */
+  private sparksC(front: THREE.Vector3, ux: number, uz: number, s: number, rk: number, soft: number): void {
+    const pool = this.flip.pools["sparks-c"];
+    const n = this.reduced ? 5 : 9;
+    const dir = this.sparkDir;
+    for (let k = 0; k < n; k += 1) {
+      const yaw = this.rand(-1.7, 1.7);
+      const cs = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      const speed = this.rand(4.5, 9) * rk;
+      dir.set((ux * cs - uz * sn) * speed, this.rand(4.5, 9.5) * rk, (uz * cs + ux * sn) * speed);
+      const life = this.rand(0.32, 0.6);
+      const hot = k % 3 === 0;
+      pool.spawn(this.u.copy(front).addScaledVector(dir, 0.02), FIRE_C_SIZE.spark * s * this.rand(0.8, 1.25), { frame: 0, rate: 0, life, vx: dir.x, vy: dir.y, vz: dir.z, drag: 1.1, gravity: -16 * rk, dir, tint: hot ? FIRE_C_SPARK_HOT : FIRE_C_SPARK, intensity: (hot ? 4.2 : 3.4) * soft, occlude: 0, fadeIn: 0, fadeOut: 0.05, delay: k >= n - 2 ? this.rand(2, 4) / 60 : 0, ground: this.heightOf(front.x, front.z) });
+    }
+    // Sparks end in ~3 frames and have no faint halo (the atlas cuts it): a faint additive yellow over grass reads
+    // olive. (Kenney's soft light_01 glow was tried and left out for the same reason.)
+  }
+
+  /**
+   * Test C's ground shockwave (mark kind 9, normal blend): a dust band with a hot leading edge on dry ground (pale
+   * spray on water), 0.2 → 1.0 of its size in ~0.2 s (ease-out), thinning and breaking up as it goes; drawn at the
+   * hit (the fire reaches the ground on its first frame).
+   */
+  private shockC(x: number, gy: number, z: number, rk: number, soft: number): void {
+    const wet = this.wetOf(x, z);
+    const d = FIRE_C_SIZE.shock * rk;
+    const life = 14 / 60;
+    const y = (wet ? gy : this.markY(x, z, d)) + 0.02;
+    // The band first, its edge drawn over it (same pool, spawned in order).
+    this.marks.spawn(x, y, z, d * 0.2, life, wet ? FIRE_C_SHOCK_SPRAY : FIRE_C_SHOCK_DUST, 0.95 * soft, { kind: 9, thickness: 0.14, grow: 4, fadeIn: 0.001, drag: 0, rot: this.random() * TAU });
+    this.marks.spawn(x, y + 0.005, z, d * 0.2, life, wet ? FIRE_C_SHOCK_SPRAY : FIRE_C_SHOCK_EDGE, 1.0 * soft, { kind: 9, thickness: 0.02, grow: 4, fadeIn: 0.001, drag: 0, rot: this.random() * TAU });
+  }
+
+  /**
+   * Test C's smoke (Kenney's puffs, smoke-c; test B's cel smoke with `smoke=cel`): two small puffs from the burn spot,
+   * behind the foe, rising, swelling and drifting off, shrinking away from half their life.
+   */
+  private smokeC(hit: THREE.Vector3, fwdX: number, fwdZ: number, s: number, rk: number, big: number, soft: number): void {
+    const cel = FIRE_C.celSmoke;
+    const smoke = this.flip.pools[cel ? "smoke-cel-b" : "smoke-c"];
+    const meta = smoke.meta!;
+    const sideX = -fwdZ;
+    const sideZ = fwdX;
+    // Away from the Dragon Dais (the map's centre, maps.ts dais.center), so the smoke never drifts over the Dragons,
+    // but never toward the eye (it would cross the foe): that part of the way out is dropped.
+    const dl = Math.hypot(hit.x, hit.z) || 1;
+    let outX = hit.x / dl;
+    let outZ = hit.z / dl;
+    const toEye = Math.min(0, outX * fwdX + outZ * fwdZ);
+    outX -= toEye * fwdX;
+    outZ -= toEye * fwdZ;
+    const puffs = this.reduced ? 1 : 2;
+    for (let k = 0; k < puffs; k += 1) {
+      const life = (k === 0 ? 90 : 76) / 60;
+      const aside = k === 0 ? 0.12 : -0.35;
+      const back = k === 0 ? 0.85 : 1.0;
+      const bx = hit.x + fwdX * back * rk + sideX * aside * rk + outX * 0.35 * rk;
+      const bz = hit.z + fwdZ * back * rk + sideZ * aside * rk + outZ * 0.35 * rk;
+      const drift = (k === 0 ? 0.55 : 0.75) * rk;
+      smoke.spawn(this.u.set(bx, this.heightOf(bx, bz) + 0.8 * rk, bz), FIRE_C_SIZE.smoke * (k === 0 ? 1 : 0.78) * (cel ? 1 : 0.75) * s * big, { frame: cel ? 0 : (k + Math.floor(this.random() * 3)) % 3, rate: cel ? (meta.frames - 0.01) / (meta.fps * life) : 0, life, rot: cel ? 0 : this.rand(-0.5, 0.5), spin: cel ? 0 : this.rand(-0.5, 0.5), grow: cel ? 0 : 0.6, alpha: soft, tint: this.smokeTint.copy(FIRE_C_SMOKE).multiplyScalar(this.sceneLight), vy: (k === 0 ? 1.15 : 1.35) * rk, vx: outX * drift + fwdX * 0.1 * rk, vz: outZ * drift + fwdZ * 0.1 * rk, drag: 0.6, delay: (k === 0 ? 12 : 17) / 60, fadeIn: 0.03, fadeOut: 0.02, occlude: cel ? 0.5 : 0.3 });
+    }
+  }
+
+
+  /**
+   * Test C's burnt ground (CC0 Kenney scorch_01 or scorch_02 in test B's decal material, flipbook decalB): under the fire, from
+   * 6 frames after the hit (the fire is on the ground), warm brown with a cooling ember edge, shrinking away by
+   * ~2.5 s; steam on water, as test B.
+   */
+  private scorchC(at: THREE.Vector3, ux: number, uz: number, s: number, rk: number, big: number): void {
+    const size = FIRE_C_SIZE.scorch * rk * big;
+    this.w.subVectors(at, this.eye);
+    const fl = Math.hypot(this.w.x, this.w.z) || 1;
+    const ax = at.x + (this.w.x / fl) * 0.25 * rk;
+    const az = at.z + (this.w.z / fl) * 0.25 * rk;
+    for (const [back, aside] of SCORCH_B_SLIDE) {
+      const x = ax - ux * back * rk - uz * aside * rk;
+      const z = az - uz * back * rk + ux * aside * rk;
+      if (!this.dryFor(x, z, size * 0.3)) continue;
+      const y = this.markY(x, z, size * 0.5) + 0.06;
+      this.scorchPoint.set(x, y, z);
+      this.flip.pools["scorch-c"].spawn(this.hitAt.set(x, y, z), size, { frame: Math.floor(this.random() * 2), rate: 0, life: 2.5, delay: 6 / 60, rot: this.random() * TAU, tint: FIRE_C_SCORCH, alpha: 1, fadeIn: 0, fadeOut: 0, occlude: 0.28 });
+      for (let k = 0; k < (this.reduced ? 2 : 3); k += 1) {
+        const at2 = this.hitAt.set(x + this.rand(-0.15, 0.15) * size, y + 0.1, z + this.rand(-0.15, 0.15) * size);
         this.sparks.spawn(at2, this.u.set(this.rand(-0.3, 0.3), this.rand(1.0, 2.0), this.rand(-0.3, 0.3)), this.random() < 0.6 ? FX_COLORS.ember : FIRE_A_HOT, 0.26 * s, this.rand(0.4, 0.7), { drag: 0.6, gravity: -0.6 });
       }
       return;
@@ -2610,10 +2775,17 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const lights = (stage as Partial<import("./stage").PaintedStage>).lights;
   if (lights) core.flip.pools["smoke-mask-a"].sun = lights.key.position.clone().sub(lights.key.target.position);
   if (lights) core.flip.pools["smoke-cel-b"].sun = lights.key.position.clone().sub(lights.key.target.position);
+  if (lights) core.flip.pools["smoke-c"].sun = lights.key.position.clone().sub(lights.key.target.position);
   // Fire test A's atlases (their own manifest; nothing in it replaces a round-10 atlas).
   void fireAFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
   // Fire test B's atlases (`?fire=b`).
-  if (FIRE_B.on) void fireBFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
+  if (FIRE_B.on || FIRE_C.on) void fireBFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
+  // Fire test C's CC0 Kenney sprites (`?fire=c`; its smoke is test B's cel smoke, loaded above).
+  if (FIRE_C.on) void fireCFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
+  if (FIRE_C.on && lights) {
+    core.sceneLight = sceneLight(lights.sky.intensity, lights.key.intensity);
+    core.flip.pools["scorch-c"].light = core.sceneLight;
+  }
   const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
   const kickTo: ScreenPoint = { x: 0, y: 0, visible: false };
   let lastRelease: { at: number } | null = null;
