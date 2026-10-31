@@ -60,7 +60,7 @@ vi.mock("../../src/app/loop", () => ({ createLoop: (hooks: { step(): void }) => 
 } }));
 
 import { startApp, type App } from "../../src/app/app";
-import { ICON_PX, LIST_PLATE_H, LIST_ROW_SIZE, LIST_ROW_SLICE, LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICON_FILES, QUICK_ICONS, QUICK_SKIN } from "../../src/app/quick";
+import { ICON_PX, LIST_PLATE_H, LIST_ROW_SIZE, LIST_ROW_SLICE, LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUALITY_RELOAD_MS, QUICK_ICON_FILES, QUICK_ICONS, QUICK_SKIN, RESTART_NOTE, qualityOptions, qualityReloadUrl } from "../../src/app/quick";
 import { QUICK_ICON_NAMES } from "../../src/kit/ui";
 
 const UI_DIR = "/assets/dragon-hold/ui/quick-settings/";
@@ -644,6 +644,36 @@ describe("192 app and shared panels", () => {
     expect(h.audio.setMuted).toHaveBeenLastCalledWith(true);
     press(window, "F2");
     expect(row("master").querySelector<HTMLInputElement>("input")!.value).toBe("40");
+  });
+
+  it("a new Quality says Restart to apply and reloads the page with it; the running tier again cancels (quality rescue D4)", () => {
+    const reload = vi.spyOn(window.location, "reload").mockImplementation(() => {});
+    const replace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
+    const note = (value: string) => row("quality").querySelector(`input[value="${value}"]`)!.closest(".kit-qs__opt")!.querySelector(".kit-qs__note")?.textContent ?? null;
+    press(window, "F1");
+    // The run is at High (no ?q=, the default save): Ultra waits for a reload, saved at once.
+    row("quality").querySelector<HTMLInputElement>('input[value="ultra"]')!.click();
+    expect(note("ultra")).toBe(RESTART_NOTE);
+    expect(note("high")).toBeNull();
+    expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).quality).toBe("ultra");
+    expect(row("quality").querySelector<HTMLInputElement>('input[value="ultra"]')!.checked).toBe(true);
+    // Back to the running High inside the wait: no note, no reload.
+    vi.advanceTimersByTime(QUALITY_RELOAD_MS / 2);
+    row("quality").querySelector<HTMLInputElement>('input[value="high"]')!.click();
+    expect(note("ultra")).toBeNull();
+    vi.advanceTimersByTime(QUALITY_RELOAD_MS * 2);
+    expect(reload).not.toHaveBeenCalled();
+    row("quality").querySelector<HTMLInputElement>('input[value="medium"]')!.click();
+    vi.advanceTimersByTime(QUALITY_RELOAD_MS - 1);
+    expect(reload).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(replace).not.toHaveBeenCalled();
+    // A page opened with ?q= (it wins over the save) reloads with the new ?q=.
+    expect(qualityReloadUrl("https://dragon.typing-game.local/?q=high&seed=3#x", "ultra")).toBe("https://dragon.typing-game.local/?q=ultra&seed=3#x");
+    expect(qualityReloadUrl("https://dragon.typing-game.local/?seed=3", "ultra")).toBeNull();
+    expect(qualityOptions("ultra").find((option) => option.value === "ultra")?.note).toBe(RESTART_NOTE);
+    expect(qualityOptions(null).every((option) => option.note === undefined)).toBe(true);
   });
 
   it("offers real settings only, all seven audio rows, and Off, Dragonhold and the Typing Feel sets under their family headings", () => {

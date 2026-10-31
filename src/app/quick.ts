@@ -1,5 +1,6 @@
-import { QuickSettings, QUICK_ICON_NAMES, defaultSoundRows, type QuickIcons, type QuickRow, type QuickSettingsOptions, type QuickSkin } from "../kit/ui";
+import { QuickSettings, QUICK_ICON_NAMES, defaultSoundRows, type QuickChoiceOption, type QuickIcons, type QuickRow, type QuickSettingsOptions, type QuickSkin } from "../kit/ui";
 import type { KeyboardSoundChoice } from "../kit/feedback/typing-fx";
+import type { Quality } from "./contracts";
 import { allowedQualities } from "./quality";
 import { manifestJson, sampleBytes } from "./keyboard";
 
@@ -84,6 +85,27 @@ export const QUICK_ART_VARS: Readonly<Record<string, string>> = {
 };
 const cssUrl = (url: string): string => `url(${JSON.stringify(url)})`;
 
+/** The Quality row's note on a choice that waits for the reload (quality rescue D4, 01/11). */
+export const RESTART_NOTE = "Restart to apply";
+/** How long the note shows before the page reloads with the new quality, ms. */
+export const QUALITY_RELOAD_MS = 1200;
+
+/** The Quality row's options; `pending` (a choice not running yet) carries RESTART_NOTE. */
+export function qualityOptions(pending: Quality | null): QuickChoiceOption[] {
+  return allowedQualities(import.meta.env.PROD).map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1), ...(value === pending ? { note: RESTART_NOTE } : {}) }));
+}
+
+/**
+ * The URL that runs `quality` after a reload: ?q= wins over the saved setting (app.ts), so a page opened with
+ * ?q= gets the new value there; otherwise the URL stays and the saved setting carries it. Null: reload as is.
+ */
+export function qualityReloadUrl(href: string, quality: Quality): string | null {
+  const url = new URL(href);
+  if (!url.searchParams.has("q")) return null;
+  url.searchParams.set("q", quality);
+  return url.href;
+}
+
 /**
  * Settings in the spec's order (IN_GAME_SETTINGS.md §3), real settings only: Graphics (Reduced motion, Quality) and
  * Learning (the meaning and IPA switches), then Resume and Quit to title. The kit's Typing effects rows (letter style,
@@ -94,8 +116,8 @@ export function settingsRows(): QuickRow[] {
   return [
     { kind: "heading", id: "graphicsHeading", label: "Graphics" },
     { kind: "toggle", id: "reducedMotion", label: "Reduced motion", icon: "gfx-motion", default: false },
-    // The release build never offers Low (195 quality floor); dev keeps all four. A new quality takes the next launch.
-    { kind: "choice", id: "quality", label: "Quality", icon: "gfx-quality", options: allowedQualities(import.meta.env.PROD).map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) })), default: "high" },
+    // The release build never offers Low (195 quality floor); dev keeps all four. A new quality reloads the page (D4).
+    { kind: "choice", id: "quality", label: "Quality", icon: "gfx-quality", options: qualityOptions(null), default: "high" },
     { kind: "heading", id: "learningHeading", label: "Learning" },
     { kind: "toggle", id: "learnMeaning", label: "Vietnamese meaning", icon: "learn-meaning", default: true },
     { kind: "toggle", id: "learnIpa", label: "Pronunciation", icon: "learn-ipa", default: true },

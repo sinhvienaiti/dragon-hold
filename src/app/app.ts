@@ -59,7 +59,7 @@ import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
 import { GameKeyboard, KEYBOARD_UNAVAILABLE, KEYS_BASE, ORIGINAL_KEYBOARD, requestKeyboardCatalogue, savedKeyboardId, startKeyboard } from "./keyboard";
 import { pendingKeyboardChoices, type KeyboardCatalog } from "../kit/feedback/typing-fx";
-import { createQuickSettings } from "./quick";
+import { QUALITY_RELOAD_MS, createQuickSettings, qualityOptions, qualityReloadUrl } from "./quick";
 import { SETTINGS_KEY, loadSettings, applyQuick, quickValues, audioVolumes, builtInKeys, storedSettings, voiceLevel } from "./settings";
 import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
 
@@ -1094,6 +1094,24 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       applyAudio();
     },
   });
+  // Quality rescue D4 (01/11): the stage, the models and the post chain are built for one quality at load, so a new
+  // Quality only took effect on the next launch, without a word. Now the chosen tier says "Restart to apply" and the
+  // page reloads with it (QUALITY_RELOAD_MS later; picking the running tier again in that time cancels the reload).
+  let qualityReload = 0;
+  const onQualityChange = (): void => {
+    if (qualityReload !== 0) view.clearTimeout(qualityReload);
+    qualityReload = 0;
+    const pending = settings.quality !== quality ? settings.quality : null;
+    quick?.setChoiceOptions("quality", qualityOptions(pending));
+    if (pending === null) return;
+    qualityReload = view.setTimeout(() => {
+      if (disposed) return;
+      learning.flush();
+      const next = qualityReloadUrl(view.location.href, pending);
+      if (next === null) view.location.reload();
+      else view.location.replace(next);
+    }, QUALITY_RELOAD_MS);
+  };
   // Built at once (parent TYPING_FEEL_SERVICE.md §5.2): Off, Dragonhold and the saved set "Loading…" until the catalogue settles the list.
   quick = createQuickSettings({
     host: overlay,
@@ -1112,6 +1130,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
       applyAudio();
       if (id === "master" || id === "muted" || id === "voice") stopSpeech();
       saveSettings();
+      if (id === "quality") onQualityChange();
     },
     onPreview: (group) => {
       if (group === "voice") learning.speak("dragon");
@@ -1419,6 +1438,7 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   return {
     dispose(): void {
       disposed = true;
+      if (qualityReload !== 0) view.clearTimeout(qualityReload);
       deckBoot.dispose();
       title?.dispose();
       learning.flush();
