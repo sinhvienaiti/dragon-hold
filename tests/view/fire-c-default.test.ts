@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { beforeAll, describe, expect, it } from "vitest";
 import { FIRE_A } from "../../src/view/fire-a";
 import { FIRE_B } from "../../src/view/fire-b";
-import { FIRE_C, FIRE_C_SIZE, fireCFromSearch } from "../../src/view/fire-c";
+import { FIRE_C, fireCFromSearch } from "../../src/view/fire-c";
 import type { FlipbookId, FlipbookMeta, FlipbookPool } from "../../src/view/flipbook";
 import { FxCore, seededRandom } from "../../src/view/fx";
 
@@ -69,13 +69,11 @@ function marks(core: FxCore, kind: number): Mark[] {
 }
 
 /** One STRONG (Perfect, T3) word bolt landing on a foe on dry ground, test C's atlases in. */
-function strongHit(reduced: boolean): FxCore {
+function strongHit(reduced: boolean, missing?: FlipbookId): FxCore {
   const core = new FxCore("high", { reduced, random: seededRandom(3110) });
   const pools = core.flip.pools;
-  pools["impact-burst-c"].attach(meta("impact-burst-c", 5, 5, 24), new THREE.Texture());
-  pools["sparks-c"].attach(meta("sparks-c", 1, 1, 1), new THREE.Texture());
-  pools["smoke-c"].attach(meta("smoke-c", 3, 1, 3), new THREE.Texture());
-  pools["scorch-c"].attach(meta("scorch-c", 2, 1, 2), new THREE.Texture());
+  const ids: [FlipbookId, number, number, number][] = [["impact-burst-c", 5, 5, 24], ["sparks-c", 1, 1, 1], ["smoke-c", 3, 1, 3], ["scorch-c", 2, 1, 2]];
+  for (const [id, cols, rows, frames] of ids) if (id !== missing) pools[id].attach(meta(id, cols, rows, frames), new THREE.Texture());
   core.update(1 / 60, 0, new THREE.Vector3(0, 60, 60), 600);
   // boltLanded: the burst (wordHit) and then the burnt ground, as a landed bolt draws them.
   (core as unknown as { boltLanded(at: THREE.Vector3, tier: number, dx: number, dz: number, strong: boolean): void }).boltLanded(new THREE.Vector3(0, 1, -15), 3, 0, -1, true);
@@ -124,8 +122,7 @@ describe("test C under Settings › Reduced motion (VFX_STANDARD §3.8)", () => 
     const b = marks(soft, 9);
     expect(b.length).toBe(2);
     const reach = (m: Mark): number => m.size * (1 + m.grow);
-    const rk = reach(a[0]!) / FIRE_C_SIZE.shock;
-    expect(reach(a[0]!)).toBeCloseTo(FIRE_C_SIZE.shock * rk, 5);
+    expect(reach(a[0]!)).toBeGreaterThan(0);
     expect(reach(b[0]!) / reach(a[0]!)).toBeCloseTo(0.8, 5);
     expect(a[0]!.size / reach(a[0]!)).toBeCloseTo(0.2, 5);
     expect(b[0]!.size / reach(b[0]!)).toBeCloseTo(0.5, 5);
@@ -136,5 +133,16 @@ describe("test C under Settings › Reduced motion (VFX_STANDARD §3.8)", () => 
     const [a] = sprites(full.flip.pools["scorch-c"]);
     const [b] = sprites(soft.flip.pools["scorch-c"]);
     expect(b!.size / a!.size).toBeCloseTo(0.8, 5);
+  });
+});
+
+describe("test C with part of its media missing (review 01/11)", () => {
+  it("draws the whole hit as round 10, never a half C, when its sparks, smoke or scorch did not load", () => {
+    for (const missing of ["sparks-c", "smoke-c", "scorch-c"] as FlipbookId[]) {
+      const core = strongHit(false, missing);
+      expect(sprites(core.flip.pools["impact-burst-c"]).length, missing).toBe(0);
+      expect(marks(core, 9).length, missing).toBe(0);
+      for (const id of ["sparks-c", "smoke-c", "scorch-c"] as FlipbookId[]) if (id !== missing) expect(sprites(core.flip.pools[id]).length, missing + " → " + id).toBe(0);
+    }
   });
 });

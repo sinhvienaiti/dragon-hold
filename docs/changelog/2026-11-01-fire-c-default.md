@@ -202,7 +202,7 @@ Việc khác còn mở:
 
 ## 8. Media (không vào Git)
 
-C cần 10 tệp mới dưới `public/assets/dragon-hold/vfx/fire-c/` (bị bỏ qua). Ngoài ra C dùng atlas vòng 10 trong `public/assets/dragon-hold/vfx/firefly/`, đã có ở `main` và trong `media.md5`.
+C cần 11 tệp mới dưới `public/assets/dragon-hold/vfx/fire-c/` (bị bỏ qua). Ngoài ra C dùng atlas vòng 10 trong `public/assets/dragon-hold/vfx/firefly/`, đã có ở `main` và trong `media.md5`.
 
 **Cách làm ra:**
 - Chạy `node scripts/assets/prepare-fire-c.mjs` từ thư mục gốc của game.
@@ -247,3 +247,16 @@ Dưới `games/.wt-dh-fire-c-merge/tmp/fire-c-default/` (Git bỏ qua):
 - kịch bản bọc ngoài: `word-c.mjs` (danh sách media `vfx/`, giả lập Reduced motion), `which-fire.mjs`.
 
 Khung thô (526 tệp, 635 MB) đã xoá bằng `tools/capture-prune/prune.mjs --apply`. Nhật ký xoá: `.pruned-20261101-0147.txt`.
+
+## Sau lượt soát độc lập (01/11, người điều phối)
+
+- **Kết luận soát:** gộp được, không cần sửa trước. Điều kiện: media `fire-c/` phải có trong checkout `main` và trên Drive ngay khi gộp.
+- **Đã sửa:** `FxCore.fireCReady()` (`src/view/fx.ts`). Đòn STRONG chỉ chơi C khi đủ atlas `impact-burst-c`, `sparks-c`, `smoke-c` (hoặc `smoke-cel-b` với `smoke=cel`) và `scorch-c`. Thiếu một trong số đó thì cả đòn là vòng 10.
+  - Trước đây chỉ kiểm `impact-burst-c`, mà atlas này mượn của vòng 10 nên luôn sẵn sàng.
+  - Hậu quả cũ: thiếu media Kenney thì ra một C nửa vời, với tia lửa và vết cháy của vòng 10 và không có khói. Bản đó chưa giám khảo nào chấm.
+  - Phép thử mới: "test C with part of its media missing".
+- **Bỏ một phép thử luôn đúng** trong `fire-c-default.test.ts` (tính `rk` từ `reach` rồi so lại `reach`).
+- **Để sau, không chặn gộp:**
+  - đổi Reduced motion giữa trận chỉ có hiệu lực từ trận sau (đã có từ `main`);
+  - sáu PNG gốc của Kenney (khoảng 444 KB) vào `dist` mà lúc chạy không tải;
+  - câu cảnh báo "no Firefly manifest" gây hiểu lầm khi thiếu media của A và B.

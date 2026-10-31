@@ -1568,7 +1568,7 @@ export class FxCore {
     // Fire test A (DRAGON_FIRE_DIAGNOSIS §3): a strong word's impact and aftermath through the new fire material.
     const a = strong && FIRE_A.on && this.flip.pools["impact-burst-a"].ready;
     // Fire test C (fire-c.ts): round 10's peak, then a burn-out; Kenney sparks, small cel smoke, shockwave, scorch.
-    const c = strong && !a && FIRE_C.on && this.flip.pools["impact-burst-c"].ready;
+    const c = strong && !a && FIRE_C.on && this.fireCReady();
     // Soot behind the fire, in from frame 2 (§3.5 rule 4: a dark layer under the bright).
     const back = this.hitBack.subVectors(hit, this.eye).normalize().multiplyScalar(0.6 * rk).add(hit);
     // Test A: no code soot discs; the fire body's own char and the lit smoke are the dark layers.
@@ -1861,7 +1861,7 @@ export class FxCore {
       this.scorchB(at, ux, uz, s, rk, big);
       return;
     }
-    if (strong && FIRE_C.on && !FIRE_A.on && this.flip.pools["scorch-c"].ready && this.flip.pools["impact-burst-c"].ready) {
+    if (strong && FIRE_C.on && !FIRE_A.on && this.fireCReady()) {
       this.scorchC(at, ux, uz, s, rk, big);
       return;
     }
@@ -1940,6 +1940,15 @@ export class FxCore {
     for (let k = 0; k < 3; k += 1) {
       this.puffs.spawn(at.x + this.rand(-0.4, 0.4) * s, this.heightOf(at.x, at.z) + (0.3 + k * 0.2) * s, at.z + this.rand(-0.4, 0.4) * s, (0.9 + k * 0.15) * s * big, this.rand(0.8, 1.1), FX_COLORS.steam, 0.5 * (this.reduced ? 0.7 : 1), { vy: 1.6, grow: 1.4, fadeIn: (3 + k) / 60, spin: this.rand(-1, 1), rot: this.random() * TAU });
     }
+  }
+
+  /**
+   * Test C plays only with all of its own media (its atlas, sparks, smoke and scorch); missing any of them, a strong
+   * hit stays wholly round 10's. Review 01/11: a C with round 10's sparks and scorch and no smoke was never judged.
+   */
+  private fireCReady(): boolean {
+    const p = this.flip.pools;
+    return p["impact-burst-c"].ready && p["sparks-c"].ready && p["scorch-c"].ready && p[FIRE_C.celSmoke ? "smoke-cel-b" : "smoke-c"].ready;
   }
 
   /**
