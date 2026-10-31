@@ -48,6 +48,10 @@ export interface BenchOptions {
   readonly ground?: "flat" | "painted";
   /** M0b: the owner's models with bones and clips (and GLB props on the painted ground); default primitives. */
   readonly bones?: boolean;
+  /** Painted ground only: the HDR bloom on or off (unset: the tier's default). */
+  readonly bloom?: boolean;
+  /** Hỏa Long's mouth light in the effects (unset: the tier's default, fx.ts FX_MOUTH_LIGHT). */
+  readonly mouthLight?: boolean;
 }
 
 export interface BenchResult {
@@ -68,6 +72,8 @@ export interface BenchResult {
   readonly gpuMeanMs: number | null;
   readonly gpuNote: string | null;
   readonly maxMs: number;
+  /** Frames over 50 ms while measuring: when (s since start), how long, and what Sky Fire was drawing (hitch traces). */
+  readonly longFrames: readonly { t: number; ms: number; sky: string | null; skyFrame: number }[];
   readonly fps: number;
   readonly count: number;
   readonly quality: Quality;
@@ -351,6 +357,8 @@ export class BenchCrowd implements FoeLocator {
   private readonly instance: CrowdInstance = { x: 0, y: 0, z: 0, yaw: 0, flash: 0, squash: 1 };
   /** Hits this frame, for the effects: [x, y, z, tier]. */
   readonly hits: number[][] = [];
+  /** Foes that wound up (stage 0) or struck (stage 1) this frame, for the effects: [index, stage]. */
+  readonly swings: number[][] = [];
   readonly deaths: number[][] = [];
 
   constructor(readonly stage: Stage, count: number, readonly random: () => number, map: MapDef = MAP_L2_CAU, readonly heightAt: (x: number, z: number) => number = () => 0, readonly models: CrowdModels | null = null) {
@@ -483,6 +491,7 @@ export class BenchCrowd implements FoeLocator {
   update(dt: number, now: number): void {
     this.hits.length = 0;
     this.deaths.length = 0;
+    this.swings.length = 0;
     const foes = this.foes;
     // Random hits at a steady rate (tiers 1–3), 1 in 4 a kill.
     const hits = Math.floor(this.hitsPerSecond * dt) + (this.random() < (this.hitsPerSecond * dt) % 1 ? 1 : 0);
@@ -557,7 +566,11 @@ export class BenchCrowd implements FoeLocator {
             if (foe.attackIn <= 0) {
               foe.attackIn = 1.6 + this.random() * 1.6;
               foe.motion.attack("windup");
-            } else if (foe.attackIn < 1.0 && foe.attackIn + dt >= 1.0) foe.motion.attack("strike");
+              this.swings.push([index, 0]);
+            } else if (foe.attackIn < 1.0 && foe.attackIn + dt >= 1.0) {
+              foe.motion.attack("strike");
+              this.swings.push([index, 1]);
+            }
           }
           foe.motion.update(dt, dt > 0 ? Math.hypot(foe.x - px, foe.z - pz) / dt : 0);
           foe.motion.write(inst);
@@ -608,6 +621,8 @@ export class BenchEffects {
   readonly core: FxCore;
   private readonly mouth = new THREE.Vector3(0, 4.6, -0.6);
   private readonly at = new THREE.Vector3();
+  private readonly hit = new THREE.Vector3();
+  private readonly edge = new THREE.Vector3();
   private readonly camPos = new THREE.Vector3();
   private readonly size = new THREE.Vector2();
   private boltClock = 0;
@@ -617,10 +632,11 @@ export class BenchEffects {
   private meteorClock = 2;
   private bombClock = 0.5;
 
-  constructor(private readonly stage: Stage, crowd: BenchCrowd, private readonly random: () => number) {
-    this.core = new FxCore(stage.quality, { locator: crowd, random, heightAt: crowd.heightAt });
+  constructor(private readonly stage: Stage, crowd: BenchCrowd, private readonly random: () => number, mouthLight?: boolean) {
+    this.core = new FxCore(stage.quality, { locator: crowd, random, heightAt: crowd.heightAt, mouthLight });
+    this.core.setMouth(this.mouth);
     stage.layers.fx.add(this.core.group);
-    this.core.warm(stage.renderer, stage.scene, stage.camera);
+    this.core.warm(stage.renderer, stage.scene, stage.camera, () => stage.render());
   }
 
   private pick(crowd: BenchCrowd): number {
@@ -637,6 +653,20 @@ export class BenchEffects {
     for (const [x, y, z, tier] of crowd.deaths) {
       const length = Math.hypot(x!, z!) || 1;
       core.death(this.at.set(x!, y!, z!), "leaf", tier!, x! / length, z! / length);
+    }
+    // The foes' blows at the ring (VFX step 3): the wind-up 0.6 s before the strike, aimed at the Dragon.
+    for (const [index, stage] of crowd.swings) {
+      const foe = crowd.foes[index!];
+      if (foe === undefined) continue;
+      if (stage === 0) core.foes.windup(index!, foe.serial, foe.id, foe.x, foe.z, 0, 0, 600);
+      else {
+        const d = Math.hypot(foe.x, foe.z) || 1;
+        this.hit.set(this.mouth.x + (foe.x / d) * 0.5, this.mouth.y - 0.9, this.mouth.z + (foe.z / d) * 0.5);
+        const ex = (foe.x / d) * MAP_L2_CAU.dais.radiusM * 0.94;
+        const ez = (foe.z / d) * MAP_L2_CAU.dais.radiusM * 0.94;
+        this.edge.set(ex, crowd.heightAt(ex, ez) + 0.02, ez);
+        core.foes.strike({ slot: index!, serial: foe.serial, foe: foe.id, x: foe.x, z: foe.z, tx: 0, tz: 0, victim: "dragon", hit: this.hit, edge: this.edge });
+      }
     }
     this.boltClock += dt;
     while (this.boltClock > 0.25) {
@@ -768,7 +798,8 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   const random = benchRandom(20_261_023);
   const crowd = new BenchCrowd(stage, options.count, random, MAP_L2_CAU, painted?.heightAt ?? (() => 0), models);
   const fxOn = options.fx !== false;
-  const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77)) : null;
+  const fx = fxOn ? new BenchEffects(stage, crowd, benchRandom(77), options.mouthLight) : null;
+  if (options.bloom !== undefined) painted?.stage.setBloom(options.bloom);
   const gpu = new GpuTimer(stage.renderer.getContext() as WebGL2RenderingContext);
   // Every material compiled before the clock starts.
   stage.renderer.compile(stage.scene, stage.camera);
@@ -784,6 +815,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
   };
   const warmup = options.warmup ?? 1.5;
   const intervals: number[] = [];
+  const longFrames: { t: number; ms: number; sky: string | null; skyFrame: number }[] = [];
   const cpu: number[] = [];
   let calls = 0;
   let triangles = 0;
@@ -817,6 +849,10 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
     const spent = performance.now() - t0;
     if (!measuring) return;
     intervals.push(interval);
+    if (interval > 50) {
+      const sky = fx?.core.skyDebug();
+      longFrames.push({ t: round2(elapsed), ms: round2(interval), sky: sky?.phase ?? null, skyFrame: sky?.frame ?? -1 });
+    }
     cpu.push(spent);
     const stats = painted?.stage.stats();
     calls = stats?.drawCalls ?? stage.renderer.info.render.calls;
@@ -835,6 +871,7 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
         cpuP95Ms: round2(percentile(cpu, 0.95)),
         ...gpuReading(gpu, mean(intervals), rendererName(stage.renderer)),
         maxMs: round2(Math.max(...intervals)),
+        longFrames,
         fps: round2(1000 / Math.max(0.001, mean(intervals))),
         count: options.count,
         quality: options.quality,

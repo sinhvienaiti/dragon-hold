@@ -38,7 +38,8 @@ vi.mock("../../src/view/actors", () => ({ createActors: h.presenter }));
 vi.mock("../../src/view/banners", () => ({ createBanners: h.presenter }));
 vi.mock("../../src/view/telegraphs", () => ({ createTelegraphs: h.presenter }));
 vi.mock("../../src/view/hpbars", () => ({ createHpBars: h.presenter }));
-vi.mock("../../src/view/fx", () => ({ createFx: h.presenter }));
+// The VFX rounds seed the effects through fx.ts seededRandom (VFX_STANDARD §3.1 rule 4).
+vi.mock("../../src/view/fx", () => ({ createFx: h.presenter, seededRandom: () => () => 0.5 }));
 vi.mock("../../src/view/lane-cue", () => ({ createLaneCue: h.presenter }));
 vi.mock("../../src/ui/tags", () => ({ createTags: h.presenter }));
 vi.mock("../../src/ui/learning-frame", () => ({ createLearningFrame: () => ({ ...h.presenter(), setCovered() {} }), createPrelearn: () => ({ ...h.presenter(), isOpen: false }), createReviewCard: () => ({ ...h.presenter(), isOpen: false }) }));

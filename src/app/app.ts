@@ -45,7 +45,7 @@ import { createWaveCard } from "../ui/wave-card";
 import { createActors, type ActorsView } from "../view/actors";
 import { createBanners, type BannersView } from "../view/banners";
 import { foeDrawnSize } from "../view/foe-look";
-import { createFx, type FxPresenter } from "../view/fx";
+import { createFx, seededRandom, type FxPresenter } from "../view/fx";
 import { createHeroes } from "../view/heroes";
 import { createHpBars } from "../view/hpbars";
 import { createMapStage, type MapStage } from "../view/stage";
@@ -84,6 +84,12 @@ export interface AppOptions {
   readonly tagSizePct?: number;
   /** The Typing Feel keys base; default KEYS_BASE (the build's VITE_TYPING_FEEL_ORIGIN). Tests point it at a sample host. */
   readonly keysBase?: string | null;
+  /** Dev only (VFX captures, VFX_STANDARD §4.5): lights and mist dimmed to a dusk shade, the dark-background test. */
+  readonly dusk?: boolean;
+  /** The HDR bloom opt-in, Ultra only (the only tier that builds it); unset keeps it off. */
+  readonly bloom?: boolean;
+  /** Dev only: Hỏa Long's mouth light (fx.ts) on or off; unset keeps the tier's default. */
+  readonly mouthLight?: boolean;
 }
 
 const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
@@ -101,7 +107,25 @@ const PICK_PX = 44;
 /** Word zone (01 §2.1, rules RINGS), sim u: fast-forward stays off while a foe is inside it. */
 const WORD_ZONE_U = mmToU(RINGS.wordZoneMm);
 
-/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?title=0, ?tagsize=80–150, and in dev ?speed=. */
+/**
+ * Dev only (dusk=1): the key, sky and fill lights, the mist and the clear colour dimmed to a dusk shade, so a
+ * VFX capture can be judged on a dark ground as well as on the sunlit one (VFX_STANDARD §4.5).
+ */
+function dimToDusk(map: MapStage): void {
+  const { sky, key, fill } = map.stage.lights;
+  sky.intensity *= 0.3;
+  key.intensity *= 0.28;
+  fill.intensity *= 0.5;
+  const look = map.terrain.look.uniforms;
+  look.uFogCool.value.multiplyScalar(0.3);
+  look.uFogWarm.value.multiplyScalar(0.3);
+  look.uSunColor.value.multiplyScalar(0.4);
+  const mist = map.terrain.look.mist.clone().multiplyScalar(0.3);
+  map.scene.background = mist;
+  map.renderer.setClearColor(mist, 1);
+}
+
+/** URL options: ?q= quality, ?seed=, ?difficulty=, ?wpm=, ?prelearn=0, ?title=0, ?tagsize=80–150, and in dev ?speed=, ?dusk=1, ?bloom=0|1, ?mouthlight=0|1. */
 export function optionsFromUrl(search: string, dev: boolean): AppOptions {
   const params = new URLSearchParams(search);
   const q = params.get("q") as Quality | null;
@@ -111,8 +135,13 @@ export function optionsFromUrl(search: string, dev: boolean): AppOptions {
     const value = raw === null ? NaN : Number(raw);
     return Number.isFinite(value) ? value : undefined;
   };
+  const flag = (name: string): boolean | undefined => (!dev || params.get(name) === null ? undefined : params.get(name) === "1");
   const speed = num("speed");
   return {
+    dusk: flag("dusk"),
+    // The Ultra bloom opt-in is the player's (no settings screen yet): read outside dev too; only Ultra builds the pass.
+    bloom: params.get("bloom") === null ? undefined : params.get("bloom") === "1",
+    mouthLight: flag("mouthlight"),
     quality: normalizeQuality(q, !dev),
     difficulty: d && DIFFICULTIES.includes(d) ? d : undefined,
     seed: num("seed"),
@@ -241,6 +270,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   if (!foundMap) throw new Error("app: stage " + stage.id + " names unknown map " + stage.mapId);
   const mapDef: MapDef = foundMap;
   const map: MapStage = createMapStage(canvasHost, mapDef, quality);
+  if (options.bloom !== undefined) map.stage.setBloom(options.bloom);
+  if (options.dusk) dimToDusk(map);
   map.render();
 
   // The Dragons live as long as the app: a retry resets them instead of loading and decoding the GLBs again.
@@ -330,6 +361,8 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   /** A tag appeared: read the keep-out rectangles again next frame, not 250 ms later (numbers under a fresh tag). */
   let keepOutSoon = false;
   let protectAt = 0;
+  /** A read of the keep-out rectangles due just after a done word's tag has faded (Infinity: none). */
+  let keepOutAfterTag = Infinity;
   let audioPaused = false;
   let prelearnShown = false;
   /** The last Thẻ Ôn answers (debug handle: scenarios answer by keyboard). */
@@ -596,7 +629,16 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
     const telegraphs = createTelegraphs(map.stage, map.terrain, { locator: actors });
     const banners = createBanners(map.stage, map.terrain, { locator: actors, telegraphs });
     const hpbars = createHpBars(map.stage, { locator: actors, terrain: map.terrain });
-    const fx = createFx(map.stage, { locator: actors, terrain: map.terrain, heroes, shake: (px) => map.rig.shake(px) });
+    // VFX randomness from its own seeded stream (VFX_STANDARD §3.1 rule 4): a capture plays the same twice.
+    const fx = createFx(map.stage, {
+      locator: actors,
+      terrain: map.terrain,
+      heroes,
+      shake: (px) => map.rig.shake(px),
+      kick: (dx, dy, px) => map.rig.kick(dx, dy, px),
+      random: seededRandom(seed ^ 0x5eed),
+      mouthLight: options.mouthLight,
+    });
     const tags = createTags(overlay!, map.stage.project, {
       gloss: learning.gloss,
       sizePct: options.tagSizePct === undefined ? undefined : Math.min(150, Math.max(80, options.tagSizePct)),
@@ -766,6 +808,12 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
           break;
         case "word-assigned":
           keepOutSoon = true;
+          break;
+        case "word-complete":
+          // The done word's tag fades out over 160 ms (tags.ts MS.leave): read the rectangles again just after, before
+          // the bolt lands (200 ms), so its stale box does not lift the damage number off the foe's head (judge 1a
+          // round 5, item 5).
+          keepOutAfterTag = Math.min(keepOutAfterTag, now + 175);
           break;
         default:
           break;
@@ -939,11 +987,18 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
    * sample a run). Between reads (250 ms) a tag can still move onto a number.
    */
   function refreshKeepOut(now: number): void {
-    if (!run || now < protectAt) return;
+    if (!run) return;
+    if (now >= keepOutAfterTag) {
+      keepOutAfterTag = Infinity;
+      protectAt = 0;
+    }
+    if (now < protectAt) return;
     protectAt = now + PROTECT_EVERY_MS;
     const rects: { x: number; y: number; w: number; h: number }[] = [];
     for (const node of overlay!.querySelectorAll<HTMLElement>("[data-dh-avoid], [data-keepout], .kit-learning-frame, .dh-tag")) {
-      if (node.hidden) continue;
+      // A freed tag keeps its element at opacity 0 (tags.ts) and is no word on screen; a leaving one (done or folded,
+      // fading 160 ms) is none either: its foe's damage number may land on the head under it (VFX round 8).
+      if (node.hidden || node.style.opacity === "0" || node.classList.contains("is-done") || node.classList.contains("is-fold") || node.classList.contains("is-gone")) continue;
       const r = node.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
     }

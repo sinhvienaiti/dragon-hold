@@ -7,8 +7,8 @@ import type { SimEvent } from "../../src/content/types";
 import type { World } from "../../src/sim/world";
 import type { FrameInfo, ScreenPoint } from "../../src/app/contracts";
 import { createActors, type FoeLocator } from "../../src/view/actors";
-import { createFx, FX_BUDGET, FxCore, strongGrade, tierForGrade } from "../../src/view/fx";
-import { createHeroes, modelUrl } from "../../src/view/heroes";
+import { createFx, FX_BUDGET, FX_RIBBON_ORDER, FxCore, flareEnvelope, strongGrade, tierForGrade } from "../../src/view/fx";
+import { createHeroes, FIRE_RELEASE_S, modelUrl, STRIKE_LEAD_S, strikeClip } from "../../src/view/heroes";
 import type { Stage } from "../../src/view/stage";
 import { createTelegraphs, MIN_WINDUP_S, TELEGRAPH_COLORS, telegraphColors } from "../../src/view/telegraphs";
 import { drawnWarnings } from "../../src/view/foe-look";
@@ -198,10 +198,174 @@ describe("view fx", () => {
     const eye = new THREE.Vector3(0, 60, 60);
     core.keySpark(new THREE.Vector3(0, 4, 0), null, 0);
     core.update(0.001, 0, eye, 600);
-    const mouthOnly = core.stats().glows;
+    const before = core.stats();
     core.keySpark(new THREE.Vector3(0, 4, 0), new THREE.Vector3(0, 1, -12), 0.5);
-    core.update(0.001, 0.001, eye, 600);
-    expect(core.stats().glows).toBeGreaterThan(mouthOnly + 1);
+    core.update(1 / 60, 0.001, eye, 600);
+    const after = core.stats();
+    // The mote, the glow held at the mouth (a step up), embers pulled in.
+    expect(after.glows).toBeGreaterThan(before.glows);
+    expect(after.charge).toBeGreaterThan(before.charge);
+    expect(after.flares).toBeGreaterThan(0);
+    // Embers flying in as stretched sparks (round 3: round motes did not read at 720p).
+    expect(after.streaks).toBeGreaterThanOrEqual(before.streaks + 3);
+    core.dispose();
+  });
+
+  it("draws the release flash and the mouth light full bright on the frame the word completes (VFX_STANDARD §3.1 rule 5)", () => {
+    const core = new FxCore("high", { locator: fixed(0, 1, -15), mouthLight: true });
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.setMouth(new THREE.Vector3(0, 4, -1));
+    core.launchBolt(new THREE.Vector3(0, 4, -1), { slot: 0, serial: 3, x: 0, y: 1, z: -15 }, false);
+    const levels: number[] = [];
+    for (let k = 0; k < 7; k += 1) {
+      core.update(1 / 60, k / 60, eye, 600);
+      levels.push(core.mouthLightLevel);
+    }
+    // Frames 0–1 at the peak, out by frame 5 (4–6 frames). Round 9: a plain word's light is 0.6 of a strong one's.
+    expect(levels[0]).toBeCloseTo(0.6, 5);
+    expect(levels[1]).toBeCloseTo(0.6, 5);
+    expect(levels[2]!).toBeLessThan(1);
+    expect(levels[5]).toBe(0);
+    expect(core.light).not.toBeNull();
+    core.dispose();
+    // No light where the tier has none: the light count never changes in a wave.
+    expect(new FxCore("medium").light).toBeNull();
+  });
+
+  it("draws a 3-frame flash 100 %, 100 %, then falling, never aged before its first frame (VFX_STANDARD §3.4)", () => {
+    expect([0, 1, 2, 3].map((f) => flareEnvelope(f / 60, 2 / 60, 3 / 60))).toEqual([1, 1, 0.5, 0]);
+    // The fire ribbons draw after the river surface (view/water.ts, order 2), so the water never covers them.
+    expect(FX_RIBBON_ORDER).toBeGreaterThan(2);
+  });
+
+  it("starts each strike clip at its release frame (the bolt leaves on play, key → release ≤ 50 ms)", () => {
+    const times = new Float32Array([0, 0.5, 1]);
+    const clip = new THREE.AnimationClip("Hero_Attack_L", 1, [new THREE.NumberKeyframeTrack("head.morphTargetInfluences[0]", times, new Float32Array([0, 0.5, 1]))]);
+    const strike = strikeClip(clip, FIRE_RELEASE_S.attackL, "Hero_Attack_L_Strike");
+    expect(strike.duration).toBeCloseTo(1 - FIRE_RELEASE_S.attackL + STRIKE_LEAD_S, 5);
+    const track = strike.tracks[0]!;
+    // Linear track: value = time. Key 0 is the whole clip's first pose (the additive reference, CHARACTER_ANIMATION
+    // L1); a hair later the strike starts at the clip's release; its last frame is the clip's end.
+    expect(track.values[0]).toBeCloseTo(0, 5);
+    expect(track.times[1]).toBeCloseTo(STRIKE_LEAD_S, 6);
+    expect(track.values[1]).toBeCloseTo(FIRE_RELEASE_S.attackL, 5);
+    expect(track.values[track.values.length - 1]).toBeCloseTo(1, 5);
+    expect(track.times[2]! - track.times[1]!).toBeCloseTo(1 / 60, 5);
+  });
+
+  it("lands a word bolt with fire and soot, and a scorch held dark 2.2 s, gone by 3.2 s (VFX_STANDARD §3.4, judge 1a)", () => {
+    const core = new FxCore("high", { locator: fixed(0, 1, -15) });
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.launchBolt(new THREE.Vector3(0, 4, -1), { slot: 0, serial: 5, x: 0, y: 1, z: -15 }, false);
+    core.landBolt(5, 1, new THREE.Vector3(0, 1, -15), 0, -1);
+    let frames = 0;
+    let puffs = 0;
+    // Round 6: the release leaves a short burn under the mouth (0.55 s); round 7: the hit a dark oval round the foe
+    // (0.7 s); round 9: a soot ring under the jet, and the hit's fire ring over its dark edge. The bolt's scorch is the
+    // last live mark.
+    while (core.scorchPoint.lengthSq() === 0 && frames < 60) {
+      puffs = core.stats().puffs;
+      core.update(1 / 60, frames / 60, eye, 600);
+      frames += 1;
+    }
+    expect(core.stats().marks).toBe(6);
+    // The impact's fire bodies and soot puffs come on top of what the flight left.
+    // (7 born on the landing frame: 3 fire, 3 soot, 1 grey; the flight's last head bodies run out meanwhile.)
+    expect(core.stats().puffs).toBeGreaterThanOrEqual(puffs + 5);
+    const marks = core.group.children.find((m): m is THREE.Mesh => m instanceof THREE.Mesh && m.renderOrder === 2 && (m.material as THREE.ShaderMaterial).polygonOffset)!;
+    const alpha = (): number => (marks.geometry.getAttribute("iColor") as THREE.InstancedBufferAttribute).getW(core.stats().marks - 1);
+    const at = (seconds: number): number => {
+      for (let k = 0; k < Math.round(seconds * 60); k += 1) core.update(1 / 60, 1, eye, 600);
+      return alpha();
+    };
+    // Round 4: the black-brown char is near opaque (0.96); round 9 (judge B: gone on light ground by f126): held 2.2 s.
+    expect(at(0.2)).toBeCloseTo(0.96, 3);
+    expect(at(1.8)).toBeCloseTo(0.96, 3);
+    const late = at(0.6);
+    expect(late).toBeGreaterThan(0.2);
+    expect(late).toBeLessThan(0.8);
+    at(0.7);
+    expect(core.stats().marks).toBe(0);
+    core.dispose();
+  });
+
+  it("never lays a word scorch on the river: slides it to dry ground on the shot's line, or steams (judge 1a round 2)", () => {
+    const eye = new THREE.Vector3(0, 60, 60);
+    const land = (wetAt: (x: number, z: number) => boolean): FxCore => {
+      const core = new FxCore("high", { locator: fixed(0, 1, -15), wetAt });
+      core.launchBolt(new THREE.Vector3(0, 4, -1), { slot: 0, serial: 6, x: 0, y: 1, z: -15 }, false);
+      core.landBolt(6, 1, new THREE.Vector3(0, 1, -15), 0, -1);
+      for (let k = 0; k < 40 && core.stats().marks === 0; k += 1) core.update(1 / 60, k / 60, eye, 600);
+      for (let k = 0; k < 3; k += 1) core.update(1 / 60, 1, eye, 600);
+      return core;
+    };
+    // Water from the dais side up to just past the struck foe: the scorch goes past it, onto the first dry spot.
+    const past = land((_x, z) => z > -15.2);
+    expect(past.stats().marks).toBe(1);
+    expect(past.scorchPoint.z).toBeLessThan(-15.4);
+    past.dispose();
+    // All water: no scorch, steam instead.
+    const wet = land(() => true);
+    expect(wet.stats().marks).toBe(0);
+    expect(wet.scorchPoint.lengthSq()).toBe(0);
+    expect(wet.stats().puffs).toBeGreaterThan(0);
+    wet.dispose();
+  });
+
+  it("plays Sky Fire in five phases in the sim's 48 frames: charge, release at frame 12, one arc, the blast at 48, aftermath (VFX_STANDARD §5.3 part 2)", () => {
+    const core = new FxCore("high", { mouthLight: true });
+    const eye = new THREE.Vector3(0, 60, 60);
+    core.setMouth(new THREE.Vector3(0, 4.2, -0.8));
+    core.meteor(0, -16);
+    const phases: (string | null)[] = [];
+    const lights: number[] = [];
+    let releasedAt = -1;
+    let domeMax = 0;
+    let streaksMax = 0;
+    for (let f = 0; f < 90; f += 1) {
+      core.update(1 / 60, f / 60, eye, 600);
+      const d = core.skyDebug();
+      phases.push(d.phase);
+      lights.push(core.light!.intensity);
+      if (releasedAt < 0 && core.sky.releases > 0) releasedAt = f;
+      domeMax = Math.max(domeMax, d.domeM);
+      streaksMax = Math.max(streaksMax, d.streaks);
+    }
+    // A for frames 0–11 (embers flying in as stretched sparks), R on frame 12, I from 48.
+    expect(phases.slice(0, 12).every((p) => p === "A")).toBe(true);
+    expect(phases[12]).toBe("R");
+    expect(releasedAt).toBe(12);
+    expect(phases[47]).toBe("T");
+    expect(phases[48]).toBe("I");
+    expect(phases[80]).toBe("F");
+    // The release light is at its peak on its first frame; the impact light too.
+    expect(lights[12]).toBeGreaterThanOrEqual(Math.max(...lights.slice(12, 20)) * 0.95);
+    expect(lights[48]).toBeGreaterThanOrEqual(Math.max(...lights.slice(48, 64)) * 0.95);
+    // The dome reaches the rule's radius (4 m) within ±10 %; stretched sparks fly.
+    expect(domeMax).toBeGreaterThan(3.6);
+    expect(domeMax).toBeLessThan(4.4);
+    expect(streaksMax).toBeGreaterThan(20);
+    core.dispose();
+  });
+
+  it("charges the mouth a step a letter, spends it on the release, lets an abandoned word go", () => {
+    const core = new FxCore("high", { locator: fixed(0, 1, -15) });
+    const eye = new THREE.Vector3(0, 60, 60);
+    const mouth = new THREE.Vector3(0, 4, -1);
+    const levels: number[] = [];
+    for (const frac of [0.25, 0.5, 0.75]) {
+      core.keySpark(mouth, null, frac);
+      for (let k = 0; k < 6; k += 1) core.update(1 / 60, 0, eye, 600);
+      levels.push(core.stats().charge);
+    }
+    expect(levels[0]!).toBeLessThan(levels[1]!);
+    expect(levels[1]!).toBeLessThan(levels[2]!);
+    core.launchBolt(mouth, { slot: 0, serial: 4, x: 0, y: 1, z: -15 }, true);
+    core.update(1 / 60, 0.1, eye, 600);
+    expect(core.stats().charge).toBe(0);
+    core.keySpark(mouth, null, 0.5);
+    for (let k = 0; k < 150; k += 1) core.update(1 / 60, 0.2 + k / 60, eye, 600);
+    expect(core.stats().charge).toBeLessThan(0.01);
     core.dispose();
   });
 

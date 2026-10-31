@@ -2,7 +2,8 @@
 //   ?view=terrain  the diorama and free camera only (view/stage.ts)
 //   ?view=ui       dev only: HUD, shop and placement over a mock world (ui/ui-preview.ts)
 //   ?bench=crowd   the crowd bench, ?bench=fx the effects showcase (view/bench.ts),
-//   ?bench=models  the M0b model studio (view/studio.ts, driven by dh-models.mjs)
+//   ?bench=models  the M0b model studio (view/studio.ts, driven by dh-models.mjs),
+//   ?bench=foes    the foe blows showcase (view/foe-showcase.ts, driven by dh-vfx-foes.mjs)
 import { startApp } from "./app/app";
 // Static: app.ts imports view/stage.ts too, so a dynamic import could not split it (vite warned).
 import { startTerrainPreview } from "./view/stage";
@@ -13,6 +14,6 @@ const bench = params.get("bench");
 
 if (page === "terrain") startTerrainPreview(document);
 else if (import.meta.env.DEV && page === "ui") void import("./ui/ui-preview").then((m) => m.startUiPreview(document));
-else if (bench === "crowd" || bench === "fx" || bench === "models") {
+else if (bench === "crowd" || bench === "fx" || bench === "models" || bench === "foes") {
   // dh-bench.mjs imports view/bench.ts itself and drives it; the page only stays empty.
 } else startApp();

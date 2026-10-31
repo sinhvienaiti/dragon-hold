@@ -105,8 +105,9 @@ describe("English player text", () => {
   });
 
   it("inherits the kit's dragon numbers without a redundant override", () => {
-    expect(NUMBER_FEEL).toBe(DRAGON);
+    // dh-vfx keeps only the number pop of judge 1a round 5 on top of the kit profile.
     expect(NUMBER_FEEL.numbers).toBe(DRAGON.numbers);
+    expect({ ...NUMBER_FEEL, tiers: DRAGON.tiers }).toEqual(DRAGON);
   });
 
   it("names Dragonhold and declares English in the entry page", () => {

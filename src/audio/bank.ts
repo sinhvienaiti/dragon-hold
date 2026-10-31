@@ -9,7 +9,7 @@
  * Owner: audio (LANES.md).
  */
 import { audioUrl, noiseBuffer } from "../kit/audio";
-import { AUDIO_BASE, SOUNDS, SOUND_IDS, soundDef, type SoundId } from "./catalog";
+import { AUDIO_BASE, FOE_SFX_IDS, SOUNDS, SOUND_IDS, soundDef, type SoundId } from "./catalog";
 import { bedBuffer, isBed } from "./beds";
 import type { MusicLayer } from "./music-plan";
 import { SYNTH_RECIPES, SynthTools, type SoundParams } from "./synth";
@@ -24,6 +24,12 @@ export interface SoundBank {
   loop(ctx: BaseAudioContext, id: SoundId): AudioBuffer | null;
   /** A music layer recorded as a file, or null (the synth plays it). */
   music(layer: MusicLayer): AudioBuffer | null;
+  /** Per-foe ids (catalog foeSfx): a file for `id` is loaded. Files only: nothing is ever made in code for them. */
+  hasFoe?(id: string): boolean;
+  /** Plays the per-foe file `id` (as `play`); 0 when there is none. */
+  playFoe?(ctx: BaseAudioContext, id: string, out: AudioNode, when: number, params: SoundParams): number;
+  /** The per-foe looping file `id` (a move bed), or null. */
+  loopFoe?(ctx: BaseAudioContext, id: string): AudioBuffer | null;
 }
 
 /** How long a synth placeholder lasts: its own length, not the real file's target (catalog lengthMs). */
@@ -69,7 +75,8 @@ export class SynthBank implements SoundBank {
 }
 
 export interface AudioManifest {
-  readonly sounds?: Partial<Record<SoundId, readonly string[]>>;
+  /** Catalog ids, and the per-foe ids of catalog FOE_SFX_IDS. */
+  readonly sounds?: Partial<Record<string, readonly string[]>>;
   readonly music?: Partial<Record<MusicLayer, string>>;
 }
 
@@ -77,6 +84,7 @@ export interface AudioManifest {
 export class FileBank implements SoundBank {
   readonly name = "files";
   private readonly buffers = new Map<SoundId, AudioBuffer[]>();
+  private readonly foeBuffers = new Map<string, AudioBuffer[]>();
   private readonly layers = new Map<MusicLayer, AudioBuffer>();
   private readonly turn = new Map<SoundId, number>();
 
@@ -106,12 +114,15 @@ export class FileBank implements SoundBank {
     };
     const known = new Set<string>(SOUND_IDS);
     const jobs: Promise<void>[] = [];
-    for (const [id, paths] of Object.entries(manifest.sounds ?? {}) as [SoundId, readonly string[]][]) {
-      if (!known.has(id) || !Array.isArray(paths)) continue;
+    for (const [id, paths] of Object.entries(manifest.sounds ?? {}) as [string, readonly string[]][]) {
+      const foe = FOE_SFX_IDS.has(id);
+      if ((!known.has(id) && !foe) || !Array.isArray(paths)) continue;
       jobs.push(
         Promise.all(paths.map(decode)).then((list) => {
           const ready = list.filter((buffer): buffer is AudioBuffer => buffer !== null);
-          if (ready.length > 0) this.buffers.set(id, ready);
+          if (ready.length === 0) return;
+          if (foe) this.foeBuffers.set(id, ready);
+          else this.buffers.set(id as SoundId, ready);
         }),
       );
     }
@@ -146,6 +157,26 @@ export class FileBank implements SoundBank {
     return SOUNDS[id].loop ? (this.buffers.get(id)?.[0] ?? null) : null;
   }
 
+  hasFoe(id: string): boolean {
+    return this.foeBuffers.has(id);
+  }
+
+  playFoe(ctx: BaseAudioContext, id: string, out: AudioNode, when: number, params: SoundParams): number {
+    const list = this.foeBuffers.get(id);
+    if (!list) return 0;
+    const buffer = list[Math.floor(Math.random() * list.length)]!;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = params.rate;
+    source.connect(out);
+    source.start(when);
+    return buffer.duration / params.rate;
+  }
+
+  loopFoe(_ctx: BaseAudioContext, id: string): AudioBuffer | null {
+    return this.foeBuffers.get(id)?.[0] ?? null;
+  }
+
   music(layer: MusicLayer): AudioBuffer | null {
     return this.layers.get(layer) ?? null;
   }
@@ -169,6 +200,18 @@ export class LayeredBank implements SoundBank {
 
   loop(ctx: BaseAudioContext, id: SoundId): AudioBuffer | null {
     return this.files.loop(ctx, id) ?? this.fallback.loop(ctx, id);
+  }
+
+  hasFoe(id: string): boolean {
+    return this.files.hasFoe?.(id) ?? false;
+  }
+
+  playFoe(ctx: BaseAudioContext, id: string, out: AudioNode, when: number, params: SoundParams): number {
+    return this.files.playFoe?.(ctx, id, out, when, params) ?? 0;
+  }
+
+  loopFoe(ctx: BaseAudioContext, id: string): AudioBuffer | null {
+    return this.files.loopFoe?.(ctx, id) ?? null;
   }
 
   music(layer: MusicLayer): AudioBuffer | null {

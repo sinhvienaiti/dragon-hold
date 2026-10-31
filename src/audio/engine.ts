@@ -56,7 +56,9 @@ export class AudioEngine {
   /** Plays one cue now (plus its delay); false when the limiter or the bank said no. */
   play(cue: CueLike, at = this.ctx.currentTime): boolean {
     const def = SOUNDS[cue.id];
-    if (def.loop || !this.bank.has(cue.id)) return false;
+    // A foe's own file (catalog foeSfx) plays in its class sound's place, with the class sound's bus, priority and gap.
+    const file = cue.file && this.bank.hasFoe?.(cue.file) ? cue.file : null;
+    if (def.loop || (file === null && (cue.fileOnly || !this.bank.has(cue.id)))) return false;
     const vary = def.vary;
     const rate = (cue.rate ?? 1) * (vary ? 0.96 + this.random() * 0.08 : 1);
     const jitterDb = vary ? (this.random() * 2 - 1) * 1.5 : 0;
@@ -86,7 +88,7 @@ export class AudioEngine {
       material: cue.material ?? null,
       rootHz: this.rootHz,
     };
-    const length = this.bank.play(ctx, cue.id, gain, when, params);
+    const length = file !== null ? (this.bank.playFoe?.(ctx, file, gain, when, params) ?? 0) : this.bank.play(ctx, cue.id, gain, when, params);
     if (length <= 0) {
       this.limiter.release(admission.voice);
       gain.disconnect();
@@ -100,14 +102,15 @@ export class AudioEngine {
   }
 
   /** Starts (once) and levels a looping bed; level 0 keeps it running silently. */
-  bed(id: SoundId, level: number, pan = 0, rampS = 0.4): void {
+  bed(id: SoundId, level: number, pan = 0, rampS = 0.4, file: string | null = null): void {
     const def = SOUNDS[id];
     if (!def.loop) return;
     let bed = this.beds.get(id);
     const now = this.ctx.currentTime;
     if (!bed) {
       if (level <= 0) return;
-      const buffer = this.bank.loop(this.ctx, id);
+      // The leading foe's own move loop (catalog foeSfx), when loaded, in the class bed's place.
+      const buffer = (file !== null ? this.bank.loopFoe?.(this.ctx, file) : null) ?? this.bank.loop(this.ctx, id);
       if (!buffer) return;
       const source = this.ctx.createBufferSource();
       source.buffer = buffer;

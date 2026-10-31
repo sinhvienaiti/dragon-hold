@@ -433,7 +433,10 @@ vec3 crackAt = vec3(vLocal.x * 4.1, vLocal.y * 6.3, vLocal.z * 4.7) + vec3(3.7 +
 float crowdCrack = 1.0 - smoothstep(0.0, 0.045, abs(crowdNoise(crackAt) - 0.5));
 totalEmissiveRadiance += vec3(${hexVec("#c8d24a")}) * crowdCrack * 0.6 * vFoe;
 #endif
-totalEmissiveRadiance += vec3(1.6, 1.55, 1.4) * vState.x;
+// Hit flash. Round 10 (VFX judge A: the body filled solid cream for 4–5 frames): a hot rim, orange-white at the
+// silhouette with only a faint fill, squared so its tail drops in 2–3 frames.
+float crowdHit = vState.x * vState.x;
+totalEmissiveRadiance += vec3(1.8, 1.05, 0.5) * crowdHit * (0.18 + 1.7 * pow(1.0 - abs(vViewN.z), 1.4));
 if (vState.y > 0.001) {
   float edge = 1.0 - smoothstep(0.0, 0.09, crowdN - vState.y * 1.08);
   totalEmissiveRadiance += vec3(${hexVec("#c8d24a")}) * edge * 2.4;

@@ -237,6 +237,35 @@ export const CLASS_SETS: Readonly<Record<SoundClass, ClassSet>> = {
   },
 };
 
+// ── Per-foe sound ids (VFX step 3, coordinator 29/10) ────────────────────────
+
+/** The five moments every foe has a sound id for. */
+export const FOE_SFX_SLOTS = ["spawn", "move", "attack", "hit", "death"] as const;
+export type FoeSfxSlot = (typeof FOE_SFX_SLOTS)[number];
+
+/**
+ * A foe's own sound ids (02 §1.5 names): attack, hit and death are the content's ids (`enemy.<id>.attack`,
+ * `general.<id>.hit`, …), spawn and move follow the same pattern. Ids only (owner 29/10: sound work paused, no files,
+ * no synth): the manifest may list them, and until a file is there the class set (CLASS_SETS) plays as before.
+ * Null for an unknown id.
+ */
+export function foeSfx(foe: string): Readonly<Record<FoeSfxSlot, string>> | null {
+  const enemy = (ENEMIES as Readonly<Record<string, (typeof ENEMIES)[keyof typeof ENEMIES] | undefined>>)[foe];
+  const general = (GENERALS as Readonly<Record<string, (typeof GENERALS)[keyof typeof GENERALS] | undefined>>)[foe];
+  const sounds = enemy?.show.sounds ?? general?.show.sounds;
+  if (sounds === undefined) return null;
+  const prefix = (enemy ? "enemy." : "general.") + foe + ".";
+  return { spawn: prefix + "spawn", move: prefix + "move", attack: sounds.attack, hit: sounds.hit, death: sounds.death };
+}
+
+/** Every foe's ids (the manifest's allowed per-foe keys). */
+export const FOE_SFX_IDS: ReadonlySet<string> = new Set(
+  [...Object.keys(ENEMIES), ...Object.keys(GENERALS)].flatMap((foe) => {
+    const ids = foeSfx(foe);
+    return ids ? FOE_SFX_SLOTS.map((slot) => ids[slot]) : [];
+  }),
+);
+
 /** A general's own set (02 §3.4); M0 has G01 only. */
 export interface GeneralSet {
   readonly horn: SoundId;

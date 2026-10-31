@@ -539,6 +539,7 @@ const CSS = `
 .dh-tag__word .j { display: inline-block; animation: dh-letter 170ms ease-out; animation-delay: var(--dh-letter-delay, 0ms); }
 .dh-tag.is-done .dh-tag__body { animation: dh-tag-done 160ms ease-in forwards; }
 .dh-tag.is-fold .dh-tag__body { animation: dh-tag-fold 200ms ease-in forwards; }
+.dh-tag.is-gone .dh-tag__body { animation: dh-tag-gone 70ms linear forwards; }
 .dh-tag.is-chip .dh-tag__body { border-style: solid; border-color: rgba(255, 244, 214, 0.7); }
 .dh-tag__arrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border-left: 7px solid #FFF4D6; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
 .dh-tag:not(.is-chip) .dh-tag__arrow { display: none; }
@@ -553,6 +554,7 @@ const CSS = `
 @keyframes dh-letter { 0% { transform: translateY(0) scale(1); } 35% { transform: translateY(-5px) scale(1.45); text-shadow: 0 0 8px rgba(127, 245, 224, 0.95), 0 0 2px #fff; } 100% { transform: none; } }
 @keyframes dh-tag-done { 0% { opacity: 1; } 45% { opacity: 0.3; } 100% { opacity: 0; translate: 0 -14px; } }
 @keyframes dh-tag-fold { to { opacity: 0; transform: scale(0.6, 0.2); } }
+@keyframes dh-tag-gone { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .dh-tag__body, .dh-tag__word .j { animation: none !important; } }
 `;
 
@@ -599,7 +601,7 @@ interface Tag {
   y: number;
   ax: number;
   ay: number;
-  leaving: "" | "done" | "fold";
+  leaving: "" | "done" | "fold" | "gone";
   leaveAt: number;
   shakeUntil: number;
   pinkUntil: number;
@@ -906,14 +908,15 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
     tag.el.classList.remove("is-tight");
   };
 
-  const leave = (tag: Tag, how: "done" | "fold", now: number) => {
+  // "gone": the word's foe died (VFX round 9: under Sky Fire's blast the 200 ms fold sat over the damage number).
+  const leave = (tag: Tag, how: "done" | "fold" | "gone", now: number) => {
     if (tag.slot < 0) return;
     bySlot.delete(tag.slot);
     ringOf.delete(tag.slot);
     tag.slot = -1;
     tag.leaving = how;
     tag.leaveAt = now;
-    tag.el.classList.add(how === "done" ? "is-done" : "is-fold");
+    tag.el.classList.add(how === "done" ? "is-done" : how === "gone" ? "is-gone" : "is-fold");
     tag.line.style.display = "none";
   };
 
@@ -956,7 +959,7 @@ export function createTags(root: HTMLElement, project: Projector, options: TagsO
           const tag = bySlot.get(event.word);
           if (tag && event.reason === "done") burst(tag, textOf.get(event.word) ?? "");
           textOf.delete(event.word);
-          if (tag) leave(tag, event.reason === "done" ? "done" : "fold", now);
+          if (tag) leave(tag, event.reason === "done" ? "done" : event.reason === "target-gone" ? "gone" : "fold", now);
         }
       }
       void world;

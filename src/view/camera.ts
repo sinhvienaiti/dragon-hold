@@ -23,6 +23,8 @@ export interface CameraRig extends ActionHandler {
   update(dt: number): void;
   /** Trauma-based shake from kit/feedback, in pixels (≤ 12). */
   shake(pixels: number): void;
+  /** A directional kick of `px` (≤ 6) along the screen direction (dx, dy), springing back in ~120 ms (05 §5); off under reduced motion. */
+  kick(dx: number, dy: number, px: number): void;
   reset(): void;
   dispose(): void;
   /** Jumps or eases to a view (scenarios, settings); unspecified parts keep their target. */
@@ -277,6 +279,10 @@ export function createCameraRig(camera: PerspectiveCamera, map: MapDef, dom: HTM
       const px = clamp(pixels, 0, DRAGON.trauma.maxPx);
       // shake = trauma² × maxPx, so this trauma peaks at `pixels`.
       trauma.add(Math.sqrt(px / DRAGON.trauma.maxPx));
+    },
+
+    kick(dx: number, dy: number, px: number): void {
+      trauma.kick(dx, dy, px);
     },
 
     update(dt: number): void {
