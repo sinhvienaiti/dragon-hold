@@ -4,11 +4,13 @@
  * the painted L2-cau map at the play camera, the owner's foe model, the Dragons on the dais and the real fx
  * presenter fed made-up events: one foe stands where the caller puts it (the ford, the dais sand, dark ground) and
  * takes a STRONG (Perfect) word shot: word-complete now, the hit 12 ticks later (DAMAGE.strikeDelayTicks), as the
- * sim sends them. `?fire=r10` draws round 10's strong hit (fire-a.ts); `grade=shoulder` turns the grade's yellow
- * shoulder on (test bench only). Runs on requestAnimationFrame, so a held clock steps it frame by frame.
+ * sim sends them. `?fire=r10` draws round 10's strong hit (fire-a.ts), `?fire=b` test B's (fire-b.ts);
+ * `grade=shoulder` turns the grade's yellow shoulder on (test bench only). Runs on requestAnimationFrame, so a held
+ * clock steps it frame by frame.
  *
  * Measures: `mask(kind)` renders the fire or the smoke flipbooks alone (their coverage, red, depth-tested against the
- * scene) at half size and returns it as a PNG data URL; `track()` gives the screen points the gates need.
+ * scene) at half size and returns it as a PNG data URL; `mask("heroes")` the Dragons' opaque meshes as they show
+ * (test B: units stay over the effects); `track()` gives the screen points the gates need.
  * View only: the World is a stub with the map and the staged foe. Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
@@ -20,6 +22,7 @@ import type { World } from "../sim/world";
 import { BenchCrowd, benchRandom } from "./bench";
 import type { FlipbookId } from "./flipbook";
 import { createFx } from "./fx";
+import { FIRE_B } from "./fire-b";
 import { createHeroes } from "./heroes";
 import { loadCrowdModels } from "./models";
 import { createMapStage, type MapStage } from "./stage";
@@ -33,8 +36,8 @@ export interface FireBench {
   shoot(power?: number): number;
   /** Screen points of this frame (CSS px): the struck point, the foe's base and top, live damage numbers, the sun. */
   track(): FireTrack;
-  /** The fire ("fire") or smoke ("smoke") flipbooks alone, coverage in red, half size, as a PNG data URL. */
-  mask(kind: "fire" | "smoke"): string;
+  /** The fire ("fire") or smoke ("smoke") flipbooks alone, coverage in red, or the Dragons ("heroes") as they show; half size, as a PNG data URL. */
+  mask(kind: "fire" | "smoke" | "heroes"): string;
   ready(): boolean;
   dispose(): void;
 }
@@ -58,8 +61,8 @@ declare global {
 }
 
 const FOE: EnemyId = "moss-grunt";
-const FIRE_IDS: FlipbookId[] = ["impact-burst", "impact-burst-a", "impact-big", "fire-burst"];
-const SMOKE_IDS: FlipbookId[] = ["smoke-mask", "smoke-mask-a", "smoke-roll"];
+const FIRE_IDS: FlipbookId[] = ["impact-burst", "impact-burst-a", "impact-big", "fire-burst", "impact-cel-b"];
+const SMOKE_IDS: FlipbookId[] = ["smoke-mask", "smoke-mask-a", "smoke-roll", "smoke-cel-b"];
 const MASK_LAYER = 7;
 
 /** Dev only, as app.ts dimToDusk: the dark-ground test (VFX_STANDARD §4.5). */
@@ -189,7 +192,20 @@ export async function runFireBench(host: HTMLElement, quality: Quality = "high",
   const size = new THREE.Vector2();
   const clear = new THREE.Color();
 
-  const mask = (kind: "fire" | "smoke"): string => {
+  const heroMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const heroMeshes = (): THREE.Object3D[] => {
+    const out: THREE.Object3D[] = [];
+    stage.scene.getObjectByName("heroes")?.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || !object.visible) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      if (materials.some((m) => m.transparent)) return;
+      out.push(object);
+    });
+    return out;
+  };
+
+  const mask = (kind: "fire" | "smoke" | "heroes"): string => {
     const r = stage.renderer;
     const scene = stage.scene;
     const camera = stage.camera;
@@ -197,7 +213,8 @@ export async function runFireBench(host: HTMLElement, quality: Quality = "high",
     const w = Math.max(2, Math.round(size.x / 2));
     const h = Math.max(2, Math.round(size.y / 2));
     target.setSize(w, h);
-    const pools = (kind === "fire" ? FIRE_IDS : SMOKE_IDS).map((id) => fx.core.flip.pools[id]);
+    const pools = kind === "heroes" ? [] : (kind === "fire" ? FIRE_IDS : SMOKE_IDS).map((id) => fx.core.flip.pools[id]);
+    const heroes = kind === "heroes" ? heroMeshes() : [];
     const background = scene.background;
     const autoClear = r.autoClear;
     r.getClearColor(clear);
@@ -220,7 +237,13 @@ export async function runFireBench(host: HTMLElement, quality: Quality = "high",
       pool.mesh.layers.enable(MASK_LAYER);
       pool.mesh.material.uniforms.uMaskOut!.value = 1;
     }
+    // The Dragons: their own meshes again over their depth (equal depth passes), in plain red.
+    for (const mesh of heroes) mesh.layers.enable(MASK_LAYER);
+    const override = scene.overrideMaterial;
+    if (heroes.length > 0) scene.overrideMaterial = heroMaterial;
     r.render(scene, camera);
+    scene.overrideMaterial = override;
+    for (const mesh of heroes) mesh.layers.disable(MASK_LAYER);
     for (const pool of pools) {
       pool.mesh.layers.disable(MASK_LAYER);
       pool.mesh.material.uniforms.uMaskOut!.value = 0;
@@ -275,14 +298,20 @@ export async function runFireBench(host: HTMLElement, quality: Quality = "high",
         numbers.push([box.x, box.y, box.w, box.h]);
       }
       const live: Record<string, number> = {};
-      for (const id of [...FIRE_IDS, ...SMOKE_IDS, "halo-a", "scorch-a"] as FlipbookId[]) live[id] = fx.core.flip.pools[id].live;
+      for (const id of [...FIRE_IDS, ...SMOKE_IDS, "halo-a", "scorch-a", "halo-b", "scorch-b"] as FlipbookId[]) live[id] = fx.core.flip.pools[id].live;
       return { hit, base, top, numbers, sun, live, hits, shotAt };
     },
     mask,
-    ready: () => fx.core.flip.pools["impact-burst"].ready && fx.core.flip.pools["impact-burst-a"].ready && fx.core.flip.pools["smoke-mask-a"].ready && fx.core.flip.pools["scorch-a"].ready,
+    ready: () =>
+      fx.core.flip.pools["impact-burst"].ready &&
+      fx.core.flip.pools["impact-burst-a"].ready &&
+      fx.core.flip.pools["smoke-mask-a"].ready &&
+      fx.core.flip.pools["scorch-a"].ready &&
+      (!FIRE_B.on || (fx.core.flip.pools["impact-cel-b"].ready && fx.core.flip.pools["smoke-cel-b"].ready && fx.core.flip.pools["halo-b"].ready && fx.core.flip.pools["scorch-b"].ready)),
     dispose: () => {
       running = false;
       target.dispose();
+      heroMaterial.dispose();
       fx.dispose();
       heroes.dispose();
       crowd.dispose();

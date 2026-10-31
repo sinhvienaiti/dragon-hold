@@ -34,8 +34,9 @@ import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
 import { SkyFire } from "./skyfire";
 import { FoeFx, type FoeVictim } from "./foe-fx";
 import { blankTexture, ShellPool, Streak, StreakSparks, VFX_FLAME_GLSL, VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
-import { cellRect, FlipbookSet, fireAFlipbooks, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
+import { cellRect, FlipbookSet, fireAFlipbooks, fireBFlipbooks, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
 import { FIRE_A, FIRE_A_HOT, FIRE_A_SCORCH } from "./fire-a";
+import { FIRE_B, FIRE_B_CLIP, FIRE_B_FRONT_LIFT, FIRE_B_RAISE, FIRE_B_SCORCH, FIRE_B_SIZE } from "./fire-b";
 
 export { FX_COLORS, FX_RIBBON_ORDER };
 
@@ -144,7 +145,17 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
   "smoke-mask-a": 1.4,
   "halo-a": 1,
   "scorch-a": 1,
+  // Test B: sized directly (fire-b.ts FIRE_B_SIZE).
+  "impact-cel-b": 1,
+  "smoke-cel-b": 1,
+  "halo-b": 1,
+  "scorch-b": 1,
 };
+/**
+ * Test B's scorch spots (m × √k, back along the shot, aside): under the struck foe first, then a short step either
+ * way; all inside the burst, so no mark shows where nothing burned (test A's slid out in front of the fire).
+ */
+const SCORCH_B_SLIDE: readonly (readonly [number, number])[] = [[0, 0], [0.35, 0], [-0.35, 0], [0.25, 0.45], [0.25, -0.45], [-0.3, 0.45], [-0.3, -0.45]];
 /** The Firefly fireball's white core runs over 30 % of its ball (FXV flag 0.32): a warm tint keeps it cream-orange. */
 const HEAD_TINT = new THREE.Color(1, 0.86, 0.72);
 /** Playback speed of the one-shot clips at a word hit (Firefly cuts run 1.5–3 s; a hit's fire burns ≈ 0.8 s). */
@@ -1228,7 +1239,7 @@ export class FxCore {
     // frames of impact-burst v2 (a small burst of real fire), 3 frames; the drawn star only while no atlas is in.
     // Test A: a painted halo behind a strong word's release (glow on High without bloom, VFX_STANDARD §3.5 rule 2).
     const halo = this.flip.pools["halo-a"];
-    if (strong && FIRE_A.on && halo.ready) halo.spawn(this.u.set(at.x + ux * 0.3 * s, at.y, at.z + uz * 0.3 * s), 3.2 * s * big, { life: 8 / 60, fadeOut: 6 / 60, intensity: 0.9 * soft, occlude: 0.2, rot: this.random() * TAU });
+    if (strong && (FIRE_A.on || FIRE_B.on) && halo.ready) halo.spawn(this.u.set(at.x + ux * 0.3 * s, at.y, at.z + uz * 0.3 * s), 3.2 * s * big, { life: 8 / 60, fadeOut: 6 / 60, intensity: 0.9 * soft, occlude: 0.2, rot: this.random() * TAU });
     const pop = this.flip.pick("impact-burst");
     if (pop !== null) pop.spawn(this.u.set(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s), (strong ? 5.6 : 4.4) * s * big, { frame: 0, until: 4, life: 3 / 60, rate: 6.5, rot: this.random() * TAU, intensity: strong ? 1.3 : 1.15, occlude: 0.7, fadeOut: 0.02 });
     else this.puffs.spawn(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s, 1.85 * s * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
@@ -1499,6 +1510,8 @@ export class FxCore {
    * soot and grey smoke rising (dark on light grass, grey on dark grass), the T3 ring.
    */
   private wordHit(at: THREE.Vector3, tierId: number, dirX: number, dirZ: number, strong: boolean): void {
+    // Fire test B: a strong word's impact and aftermath from the cel clips (fire-b.ts).
+    if (strong && FIRE_B.on && this.wordHitB(at, tierId, dirX, dirZ)) return;
     const row = tierRow(tierId, DRAGON.tiers);
     const s = this.k;
     const rk = Math.sqrt(s);
@@ -1660,6 +1673,107 @@ export class FxCore {
   }
 
   /**
+   * Fire test B's strong word hit (fire-b.ts): the cel burst centred on the struck point, about 1.6–2.2× the foe's
+   * height at its peak; its first ~4 frames (the white ball) over the foe, then its plane just behind the foe's middle
+   * (the foe stands in front of the starburst); an orange heat
+   * glow under it; test A's flashes and comets, sized to the burst; the cel smoke from the burn spot at f+12,
+   * behind the foe. False while its atlas is not in (the caller draws test A or round 10).
+   */
+  private wordHitB(at: THREE.Vector3, tierId: number, dirX: number, dirZ: number): boolean {
+    const burst = this.flip.pools["impact-cel-b"];
+    if (!burst.ready) return false;
+    const row = tierRow(tierId, DRAGON.tiers);
+    const s = this.k;
+    const rk = Math.sqrt(s);
+    const soft = this.reduced ? 0.6 : 1;
+    const big = this.reduced ? 0.8 : 1;
+    const length = Math.hypot(dirX, dirZ) || 1;
+    const ux = dirX / length;
+    const uz = dirZ / length;
+    const hit = this.hitAt.copy(at);
+    this.w.subVectors(hit, this.eye);
+    const view = this.hitBack.copy(this.w).normalize();
+    const flatLen = Math.hypot(this.w.x, this.w.z) || 1;
+    const fwdX = this.w.x / flatLen;
+    const fwdZ = this.w.z / flatLen;
+    const front = this.hitFront.copy(hit).addScaledVector(view, -0.9 * rk);
+    const size = FIRE_B_SIZE.burst * s * big;
+    // The burst's equivalent diameter at its peak (cell 21 fills ~0.54 of the cell).
+    const peak = size * 0.54;
+    const ground = this.heightOf(hit.x, hit.z);
+    // On the struck point on screen (moved along the view ray only), 0.15 m behind the foe's middle, raised a little
+    // along the camera's up (no change of depth) so the white heart shows over the head.
+    // The camera's up: right × view, with right = view × world up (flat).
+    const rl = Math.hypot(view.x, view.z) || 1;
+    const rx = -view.z / rl;
+    const rz = view.x / rl;
+    const upX = -rz * view.y;
+    const upY = rz * view.x - rx * view.z;
+    const upZ = rx * view.y;
+    const centre = this.hitRear.copy(hit).addScaledVector(view, 0.15 * rk);
+    centre.x += upX * FIRE_B_RAISE * s;
+    centre.y += upY * FIRE_B_RAISE * s;
+    centre.z += upZ * FIRE_B_RAISE * s;
+    // It swells a little as it burns (a still cel shape reads as a sticker), its rays bent by the shader's boil.
+    const rot = this.rand(-0.25, 0.25);
+    const meta = burst.meta!;
+    const fps = meta.fps * FIRE_B_CLIP.rate;
+    const frontS = (FIRE_B_CLIP.frontTo + 1 - FIRE_B_CLIP.frame) / fps;
+    const burstS = (FIRE_B_CLIP.burstTo + 1 - FIRE_B_CLIP.frame) / fps;
+    const ringS = (meta.frames - FIRE_B_CLIP.burstTo - 1) / (meta.fps * FIRE_B_CLIP.ringRate);
+    // Three passes of one drawing: the white ball over the foe (the hit flash, its white heart seen: behind the foe
+    // the body hid it), then the starburst behind the foe, then the ring it opens into, slower; the ring's own
+    // break-up ends it (no fade: a see-through third of a thin ring read olive over grass). The grow runs on from
+    // pass to pass so the size never jumps.
+    const kf = frontS / burstS;
+    const grown = 1 + 0.12 * (1 - (1 - kf) * (1 - kf));
+    burst.spawn(centre, size, { frame: FIRE_B_CLIP.frame, until: FIRE_B_CLIP.frontTo, rate: FIRE_B_CLIP.rate, life: frontS, rot, grow: grown - 1, intensity: 1, ground, fadeOut: 0, lift: FIRE_B_FRONT_LIFT * rk });
+    burst.spawn(centre, size * grown, { frame: FIRE_B_CLIP.frontTo + 1, until: FIRE_B_CLIP.burstTo, rate: FIRE_B_CLIP.rate, life: burstS - frontS, delay: frontS, rot, grow: 1.12 / grown - 1, intensity: 1, ground, fadeOut: 0 });
+    burst.spawn(centre, size * 1.12, { frame: FIRE_B_CLIP.burstTo + 1, rate: FIRE_B_CLIP.ringRate, life: ringS, delay: burstS, rot, grow: 0.08, intensity: 1, ground, fadeOut: 0 });
+    // The heat glow under the body (additive; the ground under it takes its colour, not a yellow wash).
+    const halo = this.flip.pools["halo-b"];
+    if (halo.ready) halo.spawn(centre, peak * 1.5, { life: 24 / 60, fadeOut: 16 / 60, intensity: 0.55 * soft, occlude: 1.0, rot: this.random() * TAU });
+    // The pop (VFX_STANDARD §3.1 rule 5): test A's three flashes, sized to this burst.
+    const lift = 1.0 * rk;
+    this.flares.flare(this.u.copy(centre).addScaledVector(view, -0.9 * rk), peak * 0.36, FX_COLORS.flashCore, 3.4 * soft, 3 / 60, WORD_FX.flashHoldS, 0.1, 1, lift);
+    this.flares.flare(centre, peak * 0.6, FX_COLORS.ember, 0.75 * soft, 5 / 60, WORD_FX.flashHoldS, 0.25, 1, 0);
+    this.flares.flare(front, peak * 0.4, FX_COLORS.teal, 0.8 * soft, 4 / 60, WORD_FX.flashHoldS, 0.2, 1, lift);
+    // Comets as test A (L8), but thrown from the burst behind the foe (from in front of it they crossed its body) and
+    // hotter. No dark-tailed embers: their soot tails over grass read as khaki sticks (olive), and the cel clip draws
+    // its own rays.
+    front.copy(centre);
+    const streaks = this.sky.streaks;
+    const n = (this.reduced ? 5 : 10) + tierId * 3;
+    for (let k = 0; k < n; k += 1) {
+      const yaw = this.rand(-1.4, 1.4);
+      const cs = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      const speed = this.rand(6, 13) * rk;
+      this.u.set((ux * cs - uz * sn) * speed, this.rand(3, 8) * rk, (uz * cs + ux * sn) * speed);
+      streaks.spawn(front, this.u, k % 4 === 0 ? FX_COLORS.teal : FIRE_A_HOT, 1.6 * soft, 0.14 * s, this.rand(0.05, 0.12), this.rand(12, 22) / 60, 1.1, 16);
+    }
+    // The strong word's teal ring (T3), as round 10 but sized to this burst (round 10's grew to ~3.4 m, several times
+    // the foe). No char ring: nothing is burnt before the fire reaches the ground.
+    if (row.ring) this.rings.spawn(hit.x, ground + 0.12, hit.z, 0.8 * rk, 0.3, FX_COLORS.teal, 0.6, { grow: (1.3 + tierId * 0.2) * rk, kind: 1, thickness: 0.2, drag: 0 });
+    // The cel smoke: one puff rising from the burn spot from f+12, standing just behind the foe (the foe and the fire
+    // draw over it), no larger than the burst, gone before the clip's flat-top cells (flipbook smokeB).
+    const smoke = this.flip.pools["smoke-cel-b"];
+    if (smoke.ready) {
+      const meta = smoke.meta!;
+      const life = 96 / 60;
+      // Screen right (the sun's side on this map) is the flat view direction turned a quarter.
+      const sideX = -fwdZ;
+      const sideZ = fwdX;
+      // 0.35 m behind the foe on the ground: on screen its foot is at the foe's shins (behind is up on screen).
+      const bx = hit.x + fwdX * 0.35 * rk + sideX * 0.1 * rk;
+      const bz = hit.z + fwdZ * 0.35 * rk + sideZ * 0.1 * rk;
+      // this.u, not this.v: boltLanded's `at` is this.v and the scorch is placed from it after this.
+      smoke.spawn(this.u.set(bx, this.heightOf(bx, bz) + 0.15, bz), FIRE_B_SIZE.smoke * s * big, { frame: 0, rate: (meta.frames - 0.01) / (meta.fps * life), life, rot: 0, alpha: soft, vy: 0.75 * rk, vx: fwdX * 0.2 * rk, vz: fwdZ * 0.2 * rk, drag: 0.7, delay: 12 / 60, fadeIn: 0.03, fadeOut: 0.02 });
+    }
+    return true;
+  }
+
+  /**
    * A bolt landed (I, F of the word attack): its fire burst at the foe (wordHit), then a black-brown scorch with ember
    * cracks that holds its full dark for 1.5 s and fades out by 2.6 s (§3.4 decal 2–3 s).
    */
@@ -1678,6 +1792,11 @@ export class FxCore {
     // from just in front of the foe, under it, then past it; on water, a puff of steam instead.
     // Round 9 (judge B: the scorch was near invisible on light ground at f126): 1.35× bigger, held 2.2 s.
     const size = (1.55 + tierId * 0.3) * rk * 1.35;
+    const scorchB = this.flip.pools["scorch-b"];
+    if (strong && FIRE_B.on && scorchB.ready && this.flip.pools["impact-cel-b"].ready) {
+      this.scorchB(at, ux, uz, s, rk, big);
+      return;
+    }
     let found = false;
     let x = 0;
     let z = 0;
@@ -1721,6 +1840,37 @@ export class FxCore {
     for (let k = 0; k < (this.reduced ? 2 : 3 + Math.floor(this.random() * 3)); k += 1) {
       const at2 = this.hitAt.set(x + this.rand(-0.35, 0.35) * size, y + 0.1, z + this.rand(-0.35, 0.35) * size);
       this.sparks.spawn(at2, this.u.set(this.rand(-0.4, 0.4), this.rand(1.2, 2.4), this.rand(-0.4, 0.4)), this.random() < 0.6 ? FX_COLORS.ember : FX_COLORS.fireHot, 0.3 * s, this.rand(1.0, 1.5), { drag: 0.6, gravity: -0.6 });
+    }
+  }
+
+  /**
+   * Test B's burnt ground (flipbook decalB): under the burst (SCORCH_B_SLIDE), in 4 frames after the hit (the fire
+   * reaches the ground), growing from its heart, ember edge cooling, shrinking away by ~2.5 s; steam on water.
+   */
+  private scorchB(at: THREE.Vector3, ux: number, uz: number, s: number, rk: number, big: number): void {
+    const size = FIRE_B_SIZE.scorch * rk * big;
+    // Under the burst, whose centre is raised along the camera's up: its foot on the ground lies a little behind
+    // the foe as the camera sees it.
+    this.w.subVectors(at, this.eye);
+    const fl = Math.hypot(this.w.x, this.w.z) || 1;
+    const ax = at.x + (this.w.x / fl) * 0.3 * rk;
+    const az = at.z + (this.w.z / fl) * 0.3 * rk;
+    for (const [back, aside] of SCORCH_B_SLIDE) {
+      const x = ax - ux * back * rk - uz * aside * rk;
+      const z = az - uz * back * rk + ux * aside * rk;
+      if (!this.dryFor(x, z, size * 0.8)) continue;
+      const y = this.markY(x, z, size) + 0.06;
+      this.scorchPoint.set(x, y, z);
+      this.flip.pools["scorch-b"].spawn(this.hitAt.set(x, y, z), size, { life: 2.5, delay: 6 / 60, rot: this.random() * TAU, tint: FIRE_B_SCORCH, alpha: 1, fadeIn: 0, fadeOut: 0 });
+      for (let k = 0; k < (this.reduced ? 2 : 3); k += 1) {
+        const at2 = this.hitAt.set(x + this.rand(-0.3, 0.3) * size, y + 0.1, z + this.rand(-0.3, 0.3) * size);
+        this.sparks.spawn(at2, this.u.set(this.rand(-0.3, 0.3), this.rand(1.0, 2.0), this.rand(-0.3, 0.3)), this.random() < 0.6 ? FX_COLORS.ember : FIRE_A_HOT, 0.26 * s, this.rand(0.4, 0.7), { drag: 0.6, gravity: -0.6 });
+      }
+      return;
+    }
+    this.scorchPoint.set(0, 0, 0);
+    for (let k = 0; k < 3; k += 1) {
+      this.puffs.spawn(at.x + this.rand(-0.4, 0.4) * s, this.heightOf(at.x, at.z) + (0.3 + k * 0.2) * s, at.z + this.rand(-0.4, 0.4) * s, (0.9 + k * 0.15) * s * big, this.rand(0.8, 1.1), FX_COLORS.steam, 0.5 * (this.reduced ? 0.7 : 1), { vy: 1.6, grow: 1.4, fadeIn: (3 + k) / 60, spin: this.rand(-1, 1), rot: this.random() * TAU });
     }
   }
 
@@ -2459,8 +2609,11 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   // Test A's smoke is lit by the stage's sun (the key light), where the stage has one.
   const lights = (stage as Partial<import("./stage").PaintedStage>).lights;
   if (lights) core.flip.pools["smoke-mask-a"].sun = lights.key.position.clone().sub(lights.key.target.position);
+  if (lights) core.flip.pools["smoke-cel-b"].sun = lights.key.position.clone().sub(lights.key.target.position);
   // Fire test A's atlases (their own manifest; nothing in it replaces a round-10 atlas).
   void fireAFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
+  // Fire test B's atlases (`?fire=b`).
+  if (FIRE_B.on) void fireBFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
   const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
   const kickTo: ScreenPoint = { x: 0, y: 0, visible: false };
   let lastRelease: { at: number } | null = null;

@@ -19,8 +19,24 @@
 //   iou          fire outline IoU(f, f+4), f0…f+20 (≤ 0.85)
 //   flashFirst   the impact's first frame: mean luma gained in a disc of 0.08 H round the struck point, f0 over the
 //                brightest of f0…f+8 (≥ 0.95, §3.1 rule 5)
+// Test B adds (the judges' test-A defects, measured):
+//   size         the fire's equivalent diameter (2√(area/π)) at its largest, f0…f+40, over the foe's height on screen
+//                (base to top): 1.6–2.2; with its bounding height and the centroid's offset from the struck point
+//   fireFoe      frames the fire covers ≥ 50 % of the foe's pixels (it hid the foe f0…f+18 in test A) (≤ 10)
+//   heroes       the Dragons' visible pixels (hero-s###.png) under the fire or the smoke: the largest share and the
+//                frames over 5 % (units stay over the effects) (≤ 0.05 and 0)
+//   black        near-black share (v < 0.12) of the effect's interior, f0…f+90 (the ink blot) (≤ 0.01)
+//   charEarly    dark (v < 0.3) changed pixels outside the fire mask, f0…f+6, over the fire's area then (char before
+//                anything burned) (≤ 0.02)
+//   smokeStart   the first frame with smoke on screen, f0 = 0
+//   left2.5s     changed pixels round the foe's feet (an ellipse 1.5 × 1.0 foe heights; the foe grown 6 px and the
+//                Dragons, as now and as at the shot, left out) at f+150 over their largest count f+30…f+90 (≤ 0.05: the
+//                scorch has gone by ~2.5 s); needs S_END ≥ f0 + 150
+//   oliveChanged the olive share counted on changed pixels only (no hole filling): ground seen unchanged through the
+//                hollow of test B's ring is not the effect; test A's gate fills holes (its lace of holes was a veil)
 //   node scripts/visual/fire-gates.mjs <run dir> [--json out.json]
-//   node scripts/visual/fire-gates.mjs --all <bench dir> [out dir]   (every run: gates.json and gates.md)
+//   node scripts/visual/fire-gates.mjs --all <bench dir> [out dir]   (every run: gates.json and gates.md; a run with its
+//   own gates-run.json, written by `<run dir> --json <run dir>/gates-run.json`, is reused)
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
@@ -29,8 +45,9 @@ import { changed, clearTags, hsv, interior, olive, read, salmon, straightest } f
 const brown = (h, s, v) => h <= 30 && s >= 0.5 && v <= 0.35;
 const luma = (d, i) => (0.2126 * d[i * 3] + 0.7152 * d[i * 3 + 1] + 0.0722 * d[i * 3 + 2]) / 255;
 
-/** A grey mask (half size) upsampled ×2 to the frame, inside `box`: Uint8Array of 0–255. */
+/** A grey mask (half size) upsampled ×2 to the frame, inside `box`: Uint8Array of 0–255 (zeros when absent). */
 function readMask(file, box, w, h) {
+  if (!existsSync(file)) return new Uint8Array(box.w * box.h);
   const size = spawnSync("magick", ["identify", "-format", "%w %h", file], { encoding: "utf8" }).stdout.trim().split(/\s+/).map(Number);
   const raw = spawnSync("magick", [file, "-depth", "8", "gray:-"], { maxBuffer: 256 << 20 }).stdout;
   const [mw, mh] = size;
@@ -189,7 +206,22 @@ export function fireGates(dir) {
 
   const rows = [];
   const fireMasks = new Map();
-  for (let f = f0 - 5; f <= f0 + 90 && f < run.track.length; f += 1) {
+  const foeH = Math.max(8, at.base.y - at.top.y);
+  // The Dragons as at the shot (the first captured frame), grown 6 px: their idle moves them off the reference.
+  const heroAtShot = (() => {
+    const m = readMask(join(dir, "hero-" + name(0) + ".png"), box, W, H);
+    const bin = new Float64Array(m.length);
+    for (let p = 0; p < m.length; p += 1) bin[p] = m[p] >= 64 ? 1 : 0;
+    return boxSum(bin, box.w, box.h, 6);
+  })();
+  const foeGrown = (() => {
+    const bin = new Float64Array(foe.length);
+    for (let p = 0; p < foe.length; p += 1) bin[p] = foe[p];
+    const sum = boxSum(bin, box.w, box.h, 6);
+    return Uint8Array.from(sum, (v) => (v > 0 ? 1 : 0));
+  })();
+  // Up to f+160 where captured (the scorch's 2.5 s); the summary windows of test A stay f0…f+90.
+  for (let f = f0 - 5; f <= f0 + 160 && f < run.track.length && existsSync(join(dir, name(f) + ".png")); f += 1) {
     const rel = f - f0;
     const img = read(join(dir, name(f) + ".png"), box);
     const tags = run.track[f]?.numbers ?? [];
@@ -197,18 +229,49 @@ export function fireGates(dir) {
     const inner = interior(full, box.w, box.h);
     const fire = readMask(join(dir, "fire-" + name(f) + ".png"), box, W, H);
     const smoke = readMask(join(dir, "smoke-" + name(f) + ".png"), box, W, H);
+    const hero = readMask(join(dir, "hero-" + name(f) + ".png"), box, W, H);
     const foeAt = rel >= 0 ? [...track(img, fire, smoke)] : [0, 0];
     let region = 0;
     let ol = 0;
     let br = 0;
+    let black = 0;
+    let darkOut = 0;
+    let heroPx = 0;
+    let heroUnder = 0;
+    let fireOnFoe = 0;
+    let changedN = 0;
+    let changedOlive = 0;
+    let feet = 0;
+    const heroNow = (() => {
+      const bin = new Float64Array(hero.length);
+      for (let p = 0; p < hero.length; p += 1) bin[p] = hero[p] >= 64 ? 1 : 0;
+      return boxSum(bin, box.w, box.h, 6);
+    })();
     for (let y = 0; y < box.h; y += 1) {
       for (let x = 0; x < box.w; x += 1) {
         const p = y * box.w + x;
-        if (!inner[p] || shifted(foeOut, foeAt, p)) continue;
+        if (hero[p] >= 128) {
+          heroPx += 1;
+          if (fire[p] >= 128 || smoke[p] >= 128) heroUnder += 1;
+        }
+        if (fire[p] >= 128 && shifted(foe, foeAt, p)) fireOnFoe += 1;
+        if (full[p] && !shifted(foeOut, foeAt, p) && hero[p] < 64) {
+          const [h2, s2, v2] = hsv(img.d[p * 3], img.d[p * 3 + 1], img.d[p * 3 + 2]);
+          changedN += 1;
+          if (olive(h2, s2, v2)) changedOlive += 1;
+        }
+        if (full[p] && !shifted(foeGrown, foeAt, p) && heroNow[p] === 0 && heroAtShot[p] === 0) {
+          const ex = (x + box.x - at.base.x) / (1.5 * foeH);
+          const ey = (y + box.y - at.base.y) / (1.0 * foeH);
+          if (ex * ex + ey * ey <= 1) feet += 1;
+        }
+        if (!inner[p] || shifted(foeOut, foeAt, p) || hero[p] >= 64) continue;
         const [hh, s, v] = hsv(img.d[p * 3], img.d[p * 3 + 1], img.d[p * 3 + 2]);
         region += 1;
         if (olive(hh, s, v)) ol += 1;
         if (brown(hh, s, v)) br += 1;
+        if (v < 0.12) black += 1;
+        if (v < 0.3 && fire[p] < 26 && smoke[p] < 26) darkOut += 1;
       }
     }
     // The impact's light: mean luma gained over the reference in a disc of 0.08 H round the struck point.
@@ -329,9 +392,18 @@ export function fireGates(dir) {
       foeShift: foeAt,
       litMinusShaded: r4(lit),
       numberOverlap: r4(numberOverlap),
+      black: region ? r4(black / region) : 0,
+      darkOut,
+      heroPx,
+      heroUnder: heroPx ? r4(heroUnder / heroPx) : 0,
+      fireFoe: foePx ? r4(fireOnFoe / foePx) : 0,
+      oliveChanged: changedN ? r4(changedOlive / changedN) : 0,
+      feet,
+      bbox: rel >= 0 && fireArea > 0 ? bboxOf(fireBin, box.w, box.h) : null,
     });
   }
-  const after = rows.filter((r) => r.rel >= 0);
+  const tail = rows.filter((r) => r.rel > 90);
+  const after = rows.filter((r) => r.rel >= 0 && r.rel <= 90);
   // The peak: most light gained inside the fire mask, f0…f+10.
   const early = after.filter((r) => r.rel <= 10 && r.fireArea > 0);
   const peak = early.reduce((a, b) => (b.gain > a.gain ? b : a), early[0]);
@@ -408,8 +480,62 @@ export function fireGates(dir) {
     flashFirst: r4(after[0].discGain / Math.max(...after.filter((r) => r.rel <= 8).map((r) => r.discGain))),
     ious,
   };
+  // Test B's measures (see the header).
+  const big = after.filter((r) => r.rel <= 40).reduce((a, b) => (b.fireArea > a.fireArea ? b : a));
+  summary.foeHeightPx = foeH;
+  summary.sizePeakRel = big.rel;
+  summary.sizeEqOverFoe = r4((2 * Math.sqrt(big.fireArea / Math.PI)) / foeH);
+  summary.sizeBoxHOverFoe = big.bbox ? r4(big.bbox.h / foeH) : null;
+  summary.sizeBoxWOverFoe = big.bbox ? r4(big.bbox.w / foeH) : null;
+  summary.centreOffOverFoe = big.centre ? r4(Math.hypot(big.centre[0] + box.x - at.hit.x, big.centre[1] + box.y - at.hit.y) / foeH) : null;
+  summary.fireFoeFrames = after.filter((r) => r.fireFoe >= 0.5).length;
+  summary.fireFoeMax = Math.max(...after.map((r) => r.fireFoe));
+  const heroRows = [...after, ...tail].filter((r) => r.heroPx > 50);
+  summary.heroPixels = heroRows.length ? Math.max(...heroRows.map((r) => r.heroPx)) : 0;
+  summary.heroUnderMax = heroRows.length ? Math.max(...heroRows.map((r) => r.heroUnder)) : null;
+  summary.heroUnderFrames = heroRows.filter((r) => r.heroUnder > 0.05).length;
+  summary.blackMax = Math.max(...after.map((r) => r.black));
+  summary.blackAt = after.reduce((a, b) => (b.black > a.black ? b : a)).rel;
+  const first = after.filter((r) => r.rel <= 6);
+  summary.charEarly = r4(Math.max(...first.map((r) => r.darkOut / Math.max(1, r.fireArea))));
+  const firstSmoke = after.find((r) => r.smokeArea > 0);
+  summary.smokeStart = firstSmoke ? firstSmoke.rel : null;
+  const at150 = rows.find((r) => r.rel === 150);
+  const mid = Math.max(...after.filter((r) => r.rel >= 30).map((r) => r.feet));
+  summary.left150 = at150 ? r4(at150.feet / Math.max(1, mid)) : null;
+  summary.oliveChangedMax = Math.max(...fade.map((r) => r.oliveChanged));
+  summary.oliveChangedAt = fade.reduce((a, b) => (b.oliveChanged > a.oliveChanged ? b : a)).rel;
+  summary.brownTail = tail.length ? Math.max(...tail.map((r) => r.brown)) : null;
+  summary.oliveTail = tail.length ? Math.max(...tail.map((r) => r.olive)) : null;
+  summary.passB = {
+    size: summary.sizeEqOverFoe >= 1.6 && summary.sizeEqOverFoe <= 2.2,
+    fireFoe: summary.fireFoeFrames <= 10,
+    heroes: summary.heroUnderMax === null || (summary.heroUnderMax <= 0.05 && summary.heroUnderFrames === 0),
+    black: summary.blackMax <= 0.01,
+    charEarly: summary.charEarly <= 0.02,
+    left150: summary.left150 === null ? null : summary.left150 <= 0.05,
+    oliveChanged: summary.oliveChangedMax <= 0.02,
+  };
   summary.pass = passOf(summary, H);
   return { summary, rows };
+}
+
+/** A binary mask's bounding box (w, h in px). */
+function bboxOf(mask, w, h) {
+  let x0 = w;
+  let y0 = h;
+  let x1 = -1;
+  let y1 = -1;
+  for (let p = 0; p < mask.length; p += 1) {
+    if (!mask[p]) continue;
+    const x = p % w;
+    const y = Math.floor(p / w);
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  return x1 < 0 ? null : { w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
 /** The value ladder and core colour at the peak frame (full-res read of the frame). */
@@ -505,7 +631,9 @@ export function allGates(bench, out) {
   const runs = readdirSync(bench).filter((d) => existsSync(join(bench, d, "run.json"))).sort();
   const results = {};
   for (const d of runs) {
-    results[d] = fireGates(join(bench, d));
+    // A run already measured on its own (`<run dir> --json <run dir>/gates-run.json`, e.g. several at once) is reused.
+    const done = join(bench, d, "gates-run.json");
+    results[d] = existsSync(done) ? JSON.parse(readFileSync(done, "utf8")) : fireGates(join(bench, d));
     console.error(d + ": " + Object.entries(results[d].summary.pass).filter(([, v]) => v === false).map(([k]) => k).join(", "));
   }
   writeFileSync(join(out, "gates.json"), JSON.stringify(results, null, 1));
@@ -514,6 +642,7 @@ export function allGates(bench, out) {
   const cols = [
     ["olive fade ≤ 0.02", (s) => n(s.oliveMax) + mark(s.pass.olive)],
     ["olive all frames", (s) => n(s.oliveAll) + " @" + s.oliveAllAt],
+    ["olive, changed px only (fade) ≤ 0.02", (s) => n(s.oliveChangedMax) + " @" + s.oliveChangedAt + mark(s.passB.oliveChanged)],
     ["brown ≥f+15 ≤ 0.03", (s) => n(s.brownMaxFrom15) + mark(s.pass.brown)],
     ["straight px (≤ 20 @1080)", (s) => n(s.straightMaxPx, 1) + mark(s.pass.straight)],
     ["rim ≤ 0.30", (s) => n(s.ladder?.rim) + mark(s.pass.rim)],
@@ -529,6 +658,15 @@ export function allGates(bench, out) {
     ["smoke drop ≤ 0.25", (s) => n(s.smokeDropMax) + mark(s.pass.smokeDrop)],
     ["IoU(f, f+4) ≤ 0.85", (s) => n(s.iouMax) + mark(s.pass.iou)],
     ["impact f0 / peak ≥ 0.95", (s) => n(s.flashFirst) + mark(s.pass.flashFirst)],
+    ["size: eq. diam / foe (1.6–2.2)", (s) => n(s.sizeEqOverFoe, 2) + " (box " + n(s.sizeBoxWOverFoe, 1) + "×" + n(s.sizeBoxHOverFoe, 1) + ")" + mark(s.passB.size)],
+    ["centre off / foe", (s) => n(s.centreOffOverFoe, 2)],
+    ["fire hides foe, frames ≤ 10", (s) => n(s.fireFoeFrames) + mark(s.passB.fireFoe)],
+    ["Dragons under effect, max / frames > 5 %", (s) => n(s.heroUnderMax) + " / " + n(s.heroUnderFrames) + mark(s.passB.heroes)],
+    ["near-black ≤ 0.01", (s) => n(s.blackMax) + " @" + s.blackAt + mark(s.passB.black)],
+    ["char before fire ≤ 0.02", (s) => n(s.charEarly) + mark(s.passB.charEarly)],
+    ["smoke from", (s) => (s.smokeStart === null ? "–" : "f+" + s.smokeStart)],
+    ["left at 2.5 s ≤ 0.05", (s) => n(s.left150) + mark(s.passB.left150)],
+    ["brown / olive f+91…160", (s) => n(s.brownTail) + " / " + n(s.oliveTail)],
   ];
   const lines = ["| run | " + cols.map((c) => c[0]).join(" | ") + " |", "|---|" + cols.map(() => "---").join("|") + "|"];
   for (const d of runs) lines.push("| " + d + " | " + cols.map((c) => c[1](results[d].summary)).join(" | ") + " |");
