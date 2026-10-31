@@ -9936,7 +9936,7 @@ c735ce7e850082abf71a9dd1c3fb9eb6  public/assets/dragon-hold/ui/icons/lane-sky.64
 8145cc7bebcb29a6e5d826287ad10a1d  public/assets/dragon-hold/ui/icons/lock.128.webp
 b6899961749ee06ef6d0fddfa706abda  public/assets/dragon-hold/ui/icons/lock.256.webp
 f22dd6cb67bd7c58ab1a552c907455ca  public/assets/dragon-hold/ui/icons/lock.64.webp
-686bbb8e4c53dae3d7db94e63ca7c6db  public/assets/dragon-hold/ui/icons/manifest.json
+6fcb8cdc87bba8ceaed40ef171d0745b  public/assets/dragon-hold/ui/icons/manifest.json
 20c84593faeeb5abf66716632bb8d382  public/assets/dragon-hold/ui/icons/moss-warden.128.webp
 6a6de02dc58128ca287652efc89cfc7d  public/assets/dragon-hold/ui/icons/moss-warden.256.webp
 a5050f3e93a595af8b9be03710d9cdff  public/assets/dragon-hold/ui/icons/moss-warden.64.webp
@@ -10074,6 +10074,9 @@ e68729eb48c1e9f9806311f88b587ed4  public/assets/dragon-hold/ui/quick-settings/vo
 1e2ca6a743c192c57601467107f8c147  public/assets/dragon-hold/ui/quick-settings/vol-voice.64.png
 0452fe62837531da5a9602d03e468915  public/assets/dragon-hold/ui/quick-settings/vol-voice.r2.128.png
 9ad49c451995f74d4c3f60a04e09abbc  public/assets/dragon-hold/ui/quick-settings/vol-voice.r2.64.png
+4b8c578488168075c0a8b5252e498409  public/assets/dragon-hold/ui/title/emblem.webp
+254dcc83191def8eaa89785fb726441c  public/assets/dragon-hold/ui/title/logo.webp
+682891f0c9d9e59f4a80ba843ba4b4f9  public/assets/dragon-hold/ui/title/title-backdrop.webp
 457e431e618f5aa8cd004c9a573010f4  public/assets/dragon-hold/vfx/fire-c/kenney/flare_01.png
 122c3584f6c09634f5a73bb89c06155d  public/assets/dragon-hold/vfx/fire-c/kenney/scorch_01.png
 af398c7e09d9f586f88a5c08ac704846  public/assets/dragon-hold/vfx/fire-c/kenney/scorch_02.png
