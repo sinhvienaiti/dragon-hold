@@ -20,11 +20,17 @@ import * as THREE from "three";
 import { VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
 
 /** The Firefly ids (FIREFLY_VFX_LIST §3) and the first quick cut the coordinator made. */
-export const FLIPBOOK_IDS = ["charge-orb", "muzzle-flash", "fireball-head", "flame-trail", "impact-burst", "impact-big", "smoke-roll", "smoke-mask", "smoke-column", "embers", "ground-fire", "fire-burst"] as const;
+// Fire test A (31/10, DRAGON_FIRE_DIAGNOSIS §3): impact-burst-a and smoke-mask-a are RGBA re-cuts (coverage in alpha),
+// halo-a a blurred peak frame of impact-burst, scorch-a the painted scorch of ticket 038 (vfx/fire-a/manifest.json).
+export const FLIPBOOK_IDS = ["charge-orb", "muzzle-flash", "fireball-head", "flame-trail", "impact-burst", "impact-big", "smoke-roll", "smoke-mask", "smoke-column", "embers", "ground-fire", "fire-burst", "impact-burst-a", "smoke-mask-a", "halo-a", "scorch-a"] as const;
 export type FlipbookId = (typeof FLIPBOOK_IDS)[number];
 
-/** How each id is drawn: smoke-roll is dark smoke on white (normal blend); every other is fire on black. */
-export const FLIPBOOK_MODE: Readonly<Record<FlipbookId, "fire" | "smoke">> = {
+/**
+ * How each id is drawn: smoke-roll is dark smoke on white (normal blend); the fire clips are fire on black. Test A:
+ * "fireA" (coverage + a colour ramp, erosion, normal body plus additive glow), "smokeA" (coverage, lit by the sun),
+ * "decal" (a painted mark lying flat on the ground).
+ */
+export const FLIPBOOK_MODE: Readonly<Record<FlipbookId, "fire" | "smoke" | "fireA" | "smokeA" | "decal">> = {
   "charge-orb": "fire",
   "muzzle-flash": "fire",
   "fireball-head": "fire",
@@ -39,9 +45,16 @@ export const FLIPBOOK_MODE: Readonly<Record<FlipbookId, "fire" | "smoke">> = {
   embers: "fire",
   "ground-fire": "fire",
   "fire-burst": "fire",
+  "impact-burst-a": "fireA",
+  "smoke-mask-a": "smokeA",
+  // Additive (the fire blend with occlude 0): the painted glow behind the body.
+  "halo-a": "fire",
+  "scorch-a": "decal",
 };
 
 export const FIREFLY_BASE = "/assets/dragon-hold/vfx/firefly/";
+/** Fire test A's media (scripts/assets/prepare-fire-a.mjs). */
+export const FIRE_A_BASE = "/assets/dragon-hold/vfx/fire-a/";
 
 export interface FlipbookMeta {
   readonly id: FlipbookId;
@@ -122,10 +135,12 @@ interface Entry {
 }
 
 /** The atlases of this page (loaded once; every run's pools attach to them). */
-class FlipbookLibrary {
+export class FlipbookLibrary {
   private readonly entries = new Map<FlipbookId, Entry>();
   private readonly listeners = new Set<(id: FlipbookId) => void>();
   private loading: Promise<void> | null = null;
+
+  constructor(readonly base = FIREFLY_BASE) {}
 
   get(id: FlipbookId): Entry | null {
     return this.entries.get(id) ?? null;
@@ -147,7 +162,7 @@ class FlipbookLibrary {
    * Fetches the manifest and every atlas in it (once a page). No manifest: no flipbooks, the code-drawn layers stay.
    * `full`: the full-size atlases (Ultra); else an atlas's half-size copy where it has one (VFX_STANDARD §3.7 memory).
    */
-  load(base = FIREFLY_BASE, anisotropy = 4, full = false): Promise<void> {
+  load(base = this.base, anisotropy = 4, full = false): Promise<void> {
     if (this.loading !== null) return this.loading;
     if (typeof fetch !== "function" || typeof location === "undefined" || !/^https?:$/.test(location.protocol)) return (this.loading = Promise.resolve());
     this.loading = (async () => {
@@ -199,6 +214,8 @@ class FlipbookLibrary {
 }
 
 export const flipbooks = new FlipbookLibrary();
+/** Fire test A's atlases (a manifest of their own, so the round-10 one stays as it is). */
+export const fireAFlipbooks = new FlipbookLibrary(FIRE_A_BASE);
 
 /** The cell (u0, v0, du, dv) of frame `frame` in an atlas (row 0 at the image top; textures load flipped). */
 export function cellRect(meta: FlipbookMeta, frame: number, out: THREE.Vector4): THREE.Vector4 {
@@ -218,7 +235,11 @@ attribute float iLift;
 uniform vec2 uPivot;
 uniform float uAspect;
 uniform float uHeading;
+uniform float uFlat;
+uniform vec3 uSun;
 varying vec2 vUv;
+varying float vAngle;
+varying vec3 vSun;
 varying float vFrame;
 varying float vAlpha;
 varying vec3 vTint;
@@ -234,6 +255,19 @@ void main() {
   vTint = iColor.rgb;
   vGround = iColor.a;
   vOcclude = iDir.w;
+  vAngle = iData.y;
+  // Toward the sun in view space (test A smoke: lit by the sun, VFX_STANDARD §3.5 rule 4).
+  vSun = normalize(mat3(viewMatrix) * uSun);
+  if (uFlat > 0.5) {
+    // Test A decal: the quad lies flat on the ground (x and -z), turned by its angle.
+    vec2 q = vec2((uv.x - uPivot.x) * uAspect, uv.y - uPivot.y) * iData.x;
+    float fc = cos(iData.y);
+    float fs = sin(iData.y);
+    vec3 w = iPos + vec3(q.x * fc - q.y * fs, 0.0, -(q.x * fs + q.y * fc));
+    vWorld = (modelMatrix * vec4(w, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(w, 1.0);
+    return;
+  }
   vec4 view = modelViewMatrix * vec4(iPos, 1.0);
   // Drawn nearer the eye by iLift (depth only): a meteor that must land on a foe, not behind it.
   view.z += iLift;
@@ -264,7 +298,12 @@ uniform float uHasAlpha;
 uniform float uLumaMask;
 uniform float uSoftM;
 uniform float uVignette;
+uniform float uMode;
+uniform float uMaskOut;
+uniform vec2 uTexel;
 varying vec2 vUv;
+varying float vAngle;
+varying vec3 vSun;
 varying float vFrame;
 varying float vAlpha;
 varying vec3 vTint;
@@ -278,6 +317,13 @@ vec2 vxCell(float f, vec2 uv) {
   float col = mod(f, uGrid.x);
   float row = floor(f / uGrid.x);
   return (vec2(col, uGrid.y - 1.0 - row) + uv) / uGrid;
+}
+// Test A: the fire's colour by heat (char, dark red, orange, yellow, near-white), linear HDR-ready values.
+vec3 fireRamp(float h) {
+  vec3 c = mix(vec3(0.030, 0.024, 0.021), vec3(0.30, 0.045, 0.014), smoothstep(0.02, 0.12, h));
+  c = mix(c, vec3(0.95, 0.30, 0.04), smoothstep(0.12, 0.4, h));
+  c = mix(c, vec3(1.0, 0.66, 0.13), smoothstep(0.4, 0.68, h));
+  return mix(c, vec3(1.0, 0.88, 0.60), smoothstep(0.75, 0.97, h));
 }
 void main() {
   if (vAlpha <= 0.0) discard;
@@ -300,6 +346,96 @@ void main() {
   // it never thins as a gold veil. Smoke erodes the same way as it rises.
   float cool = vAge.y > 0.0 ? clamp((vAge.x - vAge.y) / max(0.05, 1.0 - vAge.y), 0.0, 1.0) : 0.0;
   float n = vxNoise(vUv * 6.0 + vec2(vAge.z * 13.1, vAge.z * 7.3)) * 0.65 + vxNoise(vUv * 15.0 - vec2(vAge.z * 5.7, 0.0)) * 0.35;
+  if (uMode > 2.5) {
+    // Test A decal (the painted 038 scorch): the char tint lit by the painting (its own colour read green over grass).
+    // It comes and goes by erosion of the spatter (its densest parts first), never see-through (darkened grass reads
+    // olive): vAlpha raises the threshold.
+    float lift = (1.0 - clamp(vAlpha, 0.0, 1.0)) * 0.65;
+    float a = smoothstep(0.36 + lift, 0.46 + lift, t.a) * border;
+    if (uMaskOut > 0.5) { gl_FragColor = vec4(a, 0.0, 0.0, a); return; }
+    gl_FragColor = vec4(vTint * (0.75 + 1.5 * dot(t.rgb, vec3(0.2126, 0.7152, 0.0722))), a);
+    return;
+  }
+  if (uMode > 1.5) {
+    // Test A smoke: the clip is coverage (alpha) and its own shading (light ÷ coverage). Lit by the sun (half-Lambert)
+    // on a puff's round normal (its offset from the centre, turned to the view) plus the clip's slope for detail;
+    // warm grey from the tint, a fire-lit underside while young. Dense inside (a see-through grey over grass reads
+    // olive), it dies by erosion from its thin parts in, not by fading. Premultiplied.
+    float cov = t.a;
+    float shade = clamp(sqrt(lum) / max(cov, 0.12), 0.0, 1.0);
+    vec2 cuv = vxCell(floor(f), uv);
+    // The slope of the clip's density (its light, which keeps varying inside the opaque part), 3 texels apart.
+    vec3 lw = vec3(0.2126, 0.7152, 0.0722);
+    vec2 o = uTexel * 3.0;
+    float gx = sqrt(dot(texture2D(uMap, cuv + vec2(o.x, 0.0)).rgb, lw)) - sqrt(dot(texture2D(uMap, cuv - vec2(o.x, 0.0)).rgb, lw));
+    float gy = sqrt(dot(texture2D(uMap, cuv + vec2(0.0, o.y)).rgb, lw)) - sqrt(dot(texture2D(uMap, cuv - vec2(0.0, o.y)).rgb, lw));
+    float ca = cos(vAngle);
+    float sa = sin(vAngle);
+    vec2 g = vec2(gx * ca - gy * sa, gx * sa + gy * ca);
+    vec2 p = (vUv - 0.5) * 2.0;
+    vec2 pv = vec2(p.x * ca - p.y * sa, p.x * sa + p.y * ca);
+    vec3 nrm = normalize(vec3(pv * 1.1 - g * 3.0, 0.45));
+    // The play camera looks down, so the sun is mostly behind it: light the puffs from the sun's side on screen.
+    vec3 sunV = normalize(vec3(normalize(vSun.xy + vec2(1e-4, 0.0)) * 0.8, 0.6));
+    float lambert = clamp(dot(nrm, sunV) * 0.5 + 0.5, 0.0, 1.0);
+    vec3 c = vTint * (0.2 + 1.7 * lambert * lambert) * mix(0.55, 1.35, shade);
+    float young = 1.0 - smoothstep(0.0, 0.25, vAge.x);
+    c += vec3(0.85, 0.32, 0.07) * young * (1.0 - smoothstep(0.1, 0.55, vUv.y)) * smoothstep(0.3, 0.8, cov) * 0.6;
+    // Erosion over its life (eased, a few % of its area a frame): the threshold rises through the density.
+    // The field spreads from the rim to the heart (a blurred density and a round falloff), so the front moves in
+    // steadily instead of a flat dense middle going all at once.
+    float covB = mix(texture2D(uMap, vxCell(f0, uv), 3.5).a, texture2D(uMap, vxCell(f1, uv), 3.5).a, f - f0);
+    float field = cov * (0.25 + 0.3 * covB) + 0.55 * (1.0 - min(length(p), 1.0)) + (n - 0.5) * 0.2;
+    float late = clamp((vAge.x - 0.3) / 0.68, 0.0, 1.0);
+    float thr = late * 1.25;
+    float a = smoothstep(thr, thr + 0.09, field) * smoothstep(0.1, 0.26, cov) * soft;
+    if (uMaskOut > 0.5) { gl_FragColor = vec4(a, 0.0, 0.0, a); return; }
+    gl_FragColor = vec4(c * a, a);
+    return;
+  }
+  if (uMode > 0.5) {
+    // Test A fire (DRAGON_FIRE_DIAGNOSIS §2 A1): the clip gives coverage (alpha, the widened luma matte) and heat (its
+    // light); the colour is a ramp of the heat. It dies by erosion: a threshold rising over its life eats the burst
+    // from its rim in (a blurred heat, so no lace of holes), with a thin burnt dark-red edge; the glow goes faster
+    // than the body, and what cools turns char, not rust. A dark body blended normally plus an additive glow,
+    // premultiplied in one pass: never a see-through veil, never a flat cut-out.
+    vec3 lw = vec3(0.2126, 0.7152, 0.0722);
+    float cov = t.a;
+    // Heat: the clip's light as display luma (an orange flame is mid heat, only its white heart is hot).
+    float heat = pow(max(dot(t.rgb, lw), 0.0), 0.4545);
+    // The burst's hot heart, low frequency (2 mip levels down): the order the erosion follows, rim first.
+    vec4 tb = mix(texture2D(uMap, vxCell(f0, uv), 2.0), texture2D(uMap, vxCell(f1, uv), 2.0), f - f0);
+    float heart = pow(max(dot(tb.rgb, lw), 0.0), 0.4545);
+    float e = vAge.y > 0.0 ? clamp((vAge.x - vAge.y) / max(0.05, 1.0 - vAge.y), 0.0, 1.0) : 0.0;
+    float h = pow(heat, 1.25);
+    float nf = vxNoise(vUv * 4.0 + vec2(vAge.z * 13.1, vAge.z * 7.3)) * 0.7 + vxNoise(vUv * 11.0 - vec2(vAge.z * 5.7, 0.0)) * 0.3;
+    // A fine noise breaks the front so it never runs straight along the blurred field.
+    float field = cov * (0.55 * heart + 0.25 * heat + 0.2) + (nf - 0.5) * 0.16 + (vxNoise(vUv * 27.0 + vAge.z * 3.1) - 0.5) * 0.08;
+    // The fade into the ground, broken by the noise (a clean fade over flat ground drew a straight horizontal edge).
+    soft = vxSoftGround(vWorld + vec3(0.0, (nf - 0.5) * uSoftM * 1.2, 0.0), vGround, uSoftM) * border * vAlpha;
+    float thr = e * 1.1 - 0.04;
+    float keep = smoothstep(thr, thr + 0.05, field);
+    // The glow goes first: its threshold runs ahead of the body's. Between the two fronts the body is char (a smoky
+    // dark edge, never a rust or brown silhouette); the glow's front burns as a thin dark-red line.
+    float gthr = thr + 0.1 * smoothstep(0.0, 0.12, e);
+    float glowKeep = smoothstep(gthr, gthr + 0.06, field);
+    float burnt = smoothstep(gthr - 0.015, gthr + 0.015, field) * (1.0 - smoothstep(gthr + 0.02, gthr + 0.07, field)) * smoothstep(0.0, 0.06, e);
+    // The body: char where the clip is dim or the glow has gone, a deep red under the live flame.
+    vec3 body = mix(vec3(0.036, 0.034, 0.034), vec3(0.20, 0.035, 0.012), smoothstep(0.12, 0.42, h) * glowKeep);
+    // The dim rim is a smoky char border (the dark layer under the bright, VFX_STANDARD §3.5 rule 4), broken by the
+    // noise so it never reads as a drawn outline; the widened matte's fringe is softer still.
+    // The edge is short (a see-through fringe of orange over grass read olive in the first frames).
+    float covE = smoothstep(0.08, 0.55, cov);
+    float aBody = covE * keep * mix(0.45, 1.0, smoothstep(0.0, 0.14, heat)) * mix(0.75, 1.0, nf) * soft;
+    // The glow: orange flame from low heat, yellow to near-white only in the heart (HDR there, never on the orange).
+    float g = smoothstep(0.07, 0.42, h) * (1.0 - 0.3 * e) + 1.1 * smoothstep(0.8, 0.98, h);
+    // The burnt line glows a deep red-orange (never a dark brown: value stays well over 0.35).
+    // What is left cools as it is eaten: the white heart goes yellow, then orange (never a cream chunk at the end).
+    vec3 glow = (fireRamp(h * (1.0 - 0.45 * e)) * g * glowKeep + vec3(0.7, 0.14, 0.025) * burnt) * covE * smoothstep(0.25, 0.8, cov) * soft;
+    if (uMaskOut > 0.5) { gl_FragColor = vec4(aBody, 0.0, 0.0, aBody); return; }
+    gl_FragColor = vec4(body * vTint * aBody + glow * vTint * vOcclude * keep, aBody);
+    return;
+  }
   if (uSmoke > 0.5) {
     // Round 10 (both judges: a flat olive or khaki patch over grass, a straight-edged band): the clip is only a DENSITY
     // mask (its alpha, its luminance for white smoke on black, or its darkness for dark smoke on white); the colour is
@@ -315,6 +451,7 @@ void main() {
     c = mix(c, vTint * 0.7, core * 0.45);
     float lit = (1.0 - smoothstep(0.0, 0.3, vAge.x)) * (1.0 - smoothstep(0.05, 0.55, vUv.y)) * core;
     c += vec3(0.95, 0.38, 0.08) * lit;
+    if (uMaskOut > 0.5) { float m = a * (0.78 + 0.17 * core) * soft; gl_FragColor = vec4(m, 0.0, 0.0, m); return; }
     gl_FragColor = vec4(c, a * (0.78 + 0.17 * core) * soft);
     return;
   }
@@ -337,6 +474,7 @@ void main() {
   // Fire on black, premultiplied: the light is added, the ground under it darkens by its luminance × occlude. The
   // curve is steep (final check on light ground: the burst's dim flames stayed see-through and pale): a dim red flame
   // already hides most of the stone under it, so it reads deep red, the dark under-layer of the bright core.
+  if (uMaskOut > 0.5) { gl_FragColor = vec4(body * soft, 0.0, 0.0, body * soft); return; }
   gl_FragColor = vec4(rgb * soft, body * vOcclude * soft);
 }`;
 
@@ -355,7 +493,7 @@ export interface FlipOptions {
   /** Colour × intensity (HDR) the clip is multiplied by (fire); the smoke's own colour (smoke). */
   tint?: THREE.Color;
   intensity?: number;
-  /** How much the ground under the fire darkens by its luminance (fire only, 0–1). */
+  /** How much the ground under the fire darkens by its luminance (fire only, 0–1); test A fire: the glow's gain. */
   occlude?: number;
   vx?: number;
   vy?: number;
@@ -405,7 +543,8 @@ export class FlipbookPool {
   live = 0;
 
   constructor(readonly id: FlipbookId, readonly capacity: number, renderOrder: number, blank: THREE.Texture) {
-    const smoke = FLIPBOOK_MODE[id] === "smoke";
+    const mode = FLIPBOOK_MODE[id];
+    const smoke = mode === "smoke" || mode === "decal";
     this.iPos = new Float32Array(capacity * 3);
     this.iData = new Float32Array(capacity * 4);
     this.iColor = new Float32Array(capacity * 4);
@@ -439,6 +578,11 @@ export class FlipbookPool {
         uPivot: { value: new THREE.Vector2(0.5, 0.5) },
         uAspect: { value: 1 },
         uHeading: { value: 0 },
+        uMode: { value: mode === "fireA" ? 1 : mode === "smokeA" ? 2 : mode === "decal" ? 3 : 0 },
+        uMaskOut: { value: 0 },
+        uTexel: { value: new THREE.Vector2(1 / 2048, 1 / 1024) },
+        uFlat: { value: mode === "decal" ? 1 : 0 },
+        uSun: { value: new THREE.Vector3(-0.55, 1.05, 0.62).normalize() },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -451,7 +595,12 @@ export class FlipbookPool {
       blendDst: THREE.OneMinusSrcAlphaFactor,
       blendSrcAlpha: THREE.ZeroFactor,
       blendDstAlpha: THREE.OneFactor,
+      // A flat decal sits a few cm over the ground: keep it off the terrain's depth.
+      polygonOffset: mode === "decal",
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
+    if (mode === "smokeA" || mode === "fireA") material.uniforms.uVignette!.value = 1;
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = renderOrder;
@@ -475,6 +624,13 @@ export class FlipbookPool {
     u.uAspect!.value = meta.aspect;
     u.uHeading!.value = meta.heading;
     u.uHasAlpha!.value = meta.alpha ? 1 : 0;
+    const image = texture.image as { width?: number; height?: number } | undefined;
+    (u.uTexel!.value as THREE.Vector2).set(1 / (image?.width || meta.cols * 256), 1 / (image?.height || meta.rows * 256));
+  }
+
+  /** Test A: the sun the smoke is lit by (world direction toward the sun). */
+  set sun(dir: THREE.Vector3) {
+    (this.mesh.material.uniforms.uSun!.value as THREE.Vector3).copy(dir).normalize();
   }
 
   /** Soft fade distance against the ground (m). */
@@ -640,6 +796,11 @@ export class FlipbookSet {
       "muzzle-flash": 4.96,
       "fireball-head": 4.97,
       "flame-trail": 5.1,
+      // Test A: the smoke under the fire, the painted halo behind the body, the scorch with the ground marks.
+      "smoke-mask-a": 5.25,
+      "halo-a": 5.27,
+      "impact-burst-a": 5.3,
+      "scorch-a": 2.05,
     };
     const pools = {} as Record<FlipbookId, FlipbookPool>;
     for (const id of FLIPBOOK_IDS) {
@@ -648,12 +809,15 @@ export class FlipbookSet {
     }
     this.pools = pools;
     this.group.name = "fx-flipbooks";
-    this.unwatch = flipbooks.watch((id) => {
-      const entry = flipbooks.get(id);
-      if (entry === null) return;
-      this.upload?.(entry.texture);
-      pools[id].attach(entry.meta, entry.texture);
-    });
+    const unwatch = [flipbooks, fireAFlipbooks].map((library) =>
+      library.watch((id) => {
+        const entry = library.get(id);
+        if (entry === null) return;
+        this.upload?.(entry.texture);
+        pools[id].attach(entry.meta, entry.texture);
+      }),
+    );
+    this.unwatch = () => unwatch.forEach((stop) => stop());
   }
 
   /** The pool for `id` if its atlas is in, else the first of `fallbacks` that is (null: none; keep the code layer). */

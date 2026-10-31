@@ -4,6 +4,7 @@
 //   ?bench=crowd   the crowd bench, ?bench=fx the effects showcase (view/bench.ts),
 //   ?bench=models  the M0b model studio (view/studio.ts, driven by dh-models.mjs),
 //   ?bench=foes    the foe blows showcase (view/foe-showcase.ts, driven by dh-vfx-foes.mjs)
+//   ?bench=fire    fire test A's bench (view/fire-bench.ts, driven by dh-fire-bench.mjs)
 import { startApp } from "./app/app";
 // Static: app.ts imports view/stage.ts too, so a dynamic import could not split it (vite warned).
 import { startTerrainPreview } from "./view/stage";
@@ -14,6 +15,6 @@ const bench = params.get("bench");
 
 if (page === "terrain") startTerrainPreview(document);
 else if (import.meta.env.DEV && page === "ui") void import("./ui/ui-preview").then((m) => m.startUiPreview(document));
-else if (bench === "crowd" || bench === "fx" || bench === "models" || bench === "foes") {
+else if (bench === "crowd" || bench === "fx" || bench === "models" || bench === "foes" || bench === "fire") {
   // dh-bench.mjs imports view/bench.ts itself and drives it; the page only stays empty.
 } else startApp();

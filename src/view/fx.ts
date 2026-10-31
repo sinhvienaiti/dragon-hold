@@ -34,7 +34,8 @@ import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
 import { SkyFire } from "./skyfire";
 import { FoeFx, type FoeVictim } from "./foe-fx";
 import { blankTexture, ShellPool, Streak, StreakSparks, VFX_FLAME_GLSL, VFX_NOISE_GLSL, VFX_SOFT_GLSL } from "./vfx-layers";
-import { cellRect, FlipbookSet, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
+import { cellRect, FlipbookSet, fireAFlipbooks, flipbooks, ONE_FRAME, type FlipbookId } from "./flipbook";
+import { FIRE_A, FIRE_A_HOT, FIRE_A_SCORCH } from "./fire-a";
 
 export { FX_COLORS, FX_RIBBON_ORDER };
 
@@ -138,6 +139,11 @@ const FLIP_FILL: Readonly<Record<FlipbookId, number>> = {
   embers: 1.0,
   "ground-fire": 1.3,
   "fire-burst": 1.4,
+  // Test A: the same cuts as impact-burst and smoke-mask; the halo and the scorch are sized directly.
+  "impact-burst-a": 1.4,
+  "smoke-mask-a": 1.4,
+  "halo-a": 1,
+  "scorch-a": 1,
 };
 /** The Firefly fireball's white core runs over 30 % of its ball (FXV flag 0.32): a warm tint keeps it cream-orange. */
 const HEAD_TINT = new THREE.Color(1, 0.86, 0.72);
@@ -995,7 +1001,7 @@ export class FxCore {
     this.group.add(this.cones.group);
     this.embers.mesh.renderOrder = 5.5;
     this.group.add(this.embers.mesh);
-    this.flip = new FlipbookSet(blankTexture(), { "fireball-head": 32, "charge-orb": 8, embers: 24, "ground-fire": 24, "smoke-roll": 24, "smoke-mask": 24, "smoke-column": 8 });
+    this.flip = new FlipbookSet(blankTexture(), { "fireball-head": 32, "charge-orb": 8, embers: 24, "ground-fire": 24, "smoke-roll": 24, "smoke-mask": 24, "smoke-column": 8, "smoke-mask-a": 24, "halo-a": 16, "scorch-a": 16 });
     this.group.add(this.flip.group);
     this.sky = new SkyFire(this, 3, quality);
     this.group.add(this.sky.group);
@@ -1220,6 +1226,9 @@ export class FxCore {
     // Round 8: 1.55 → 1.85 m × k, so the mouth flash stays ≥ 1.5× the Firefly fireball head (§3.5 rule 6).
     // Round 10 (judges: a cream-peach clipart 8-point star at the mouth): a flash of the same fire material, the first
     // frames of impact-burst v2 (a small burst of real fire), 3 frames; the drawn star only while no atlas is in.
+    // Test A: a painted halo behind a strong word's release (glow on High without bloom, VFX_STANDARD §3.5 rule 2).
+    const halo = this.flip.pools["halo-a"];
+    if (strong && FIRE_A.on && halo.ready) halo.spawn(this.u.set(at.x + ux * 0.3 * s, at.y, at.z + uz * 0.3 * s), 3.2 * s * big, { life: 8 / 60, fadeOut: 6 / 60, intensity: 0.9 * soft, occlude: 0.2, rot: this.random() * TAU });
     const pop = this.flip.pick("impact-burst");
     if (pop !== null) pop.spawn(this.u.set(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s), (strong ? 5.6 : 4.4) * s * big, { frame: 0, until: 4, life: 3 / 60, rate: 6.5, rot: this.random() * TAU, intensity: strong ? 1.3 : 1.15, occlude: 0.7, fadeOut: 0.02 });
     else this.puffs.spawn(at.x + ux * 0.2 * s, at.y + 0.05, at.z + uz * 0.2 * s, 1.85 * s * big, 3 / 60, FX_COLORS.white, 1, { fadeIn: 0.001, hold: 2 / 60, rot: this.random() * TAU, shape: PUFF_STAR });
@@ -1505,9 +1514,12 @@ export class FxCore {
     // recoil): the opaque bodies are 0.75 of it and thin out after frame 1; the light comes from an additive hot core.
     const size = (1.8 + 0.6 * tierId + (strong ? 0.4 : 0)) * s * big;
     const mass = size * 0.78;
+    // Fire test A (DRAGON_FIRE_DIAGNOSIS §3): a strong word's impact and aftermath through the new fire material.
+    const a = strong && FIRE_A.on && this.flip.pools["impact-burst-a"].ready;
     // Soot behind the fire, in from frame 2 (§3.5 rule 4: a dark layer under the bright).
     const back = this.hitBack.subVectors(hit, this.eye).normalize().multiplyScalar(0.6 * rk).add(hit);
-    for (let k = 0; k < 2; k += 1) {
+    // Test A: no code soot discs; the fire body's own char and the lit smoke are the dark layers.
+    for (let k = 0; k < (a ? 0 : 2); k += 1) {
       // With the bright layer, not after it (judge 5: the dark only came at f018–f024).
       // Round 9: warm soot (never cool navy), rising.
       this.puffs.spawn(back.x + this.rand(-0.3, 0.3) * s, back.y + (0.3 + k * 0.25) * s, back.z + this.rand(-0.3, 0.3) * s, mass * (0.8 + 0.15 * k), 0.6, FX_COLORS.soot, 0.4 * soft, { vy: 1.8, grow: 0.9, fadeIn: 0.001, hold: 0.06, spin: this.rand(-0.8, 0.8), rot: this.random() * TAU });
@@ -1522,15 +1534,29 @@ export class FxCore {
     const rear = this.hitRear.subVectors(hit, this.eye).normalize().multiplyScalar(0.35 * rk).add(hit);
     const ground = this.heightOf(hit.x, hit.z);
     // And a dark oval on the ground round the foe from the hit frame (judge 6 kept it; earlier and charcoal now).
-    if (!this.wetOf(hit.x, hit.z)) this.marks.spawn(hit.x, this.markY(hit.x, hit.z, mass * 1.6) + 0.04, hit.z, mass * 1.6, 0.7, FX_COLORS.char, 0.5 * soft, { kind: 2, fadeIn: 0.001, hold: 0.25, drag: 0, rot: this.random() * TAU });
+    if (!a && !this.wetOf(hit.x, hit.z)) this.marks.spawn(hit.x, this.markY(hit.x, hit.z, mass * 1.6) + 0.04, hit.z, mass * 1.6, 0.7, FX_COLORS.char, 0.5 * soft, { kind: 2, fadeIn: 0.001, hold: 0.25, drag: 0, rot: this.random() * TAU });
     // Round 9 (both judges: a hard 8-point "sticker" star at f061–f064, thin red "noodles" at c072–c078, then a mustard
     // fade with the cell's square edge at f079): the organic rolling parts of two cuts only, impact-big v3 frames
     // 15–23 for a strong word (before its square artefact) and impact-burst v2 frames 9–23 for a plain one, each
     // cooling through deep red to charcoal and eroding from half its life (flipbook `cool`), never a see-through veil.
     // Round 10 final check: impact-big's late frames keep its spiky rim (the round-9 "sticker star" at f011–f014 was
     // still there from frame 20); both grades take impact-burst v2's organic rolling ball, the strong one bigger.
-    const book = this.flip.pick("impact-burst", "fire-burst", "impact-big");
-    if (book !== null) {
+    const book = a ? this.flip.pools["impact-burst-a"] : this.flip.pick("impact-burst", "fire-burst", "impact-big");
+    if (a && book !== null) {
+      // Test A: impact-burst v2's frames 11–19 at ×1.8 as in round 10 (timing frozen), now RGBA: coloured by the ramp,
+      // eroding from 18 % of its life with a burnt edge; `occlude` is the additive glow's gain here. A painted halo
+      // (a blurred peak frame) behind the body carries the glow on High, where there is no bloom.
+      // Opaque, its whole cut shows (round 10's dim parts were near see-through): 0.9 of its size reads as big.
+      const fill = FLIP_FILL["impact-burst-a"] * 0.9;
+      const clip = { frame: 11, until: 19, rate: 1.8 };
+      const halo = this.flip.pools["halo-a"];
+      // Only just past the body, its ground darkened under the glow (occlude): warm light, not a yellow wash on grass.
+      if (halo.ready) halo.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * 1.35, { life: 18 / 60, fadeOut: 14 / 60, intensity: 0.6 * soft, occlude: 1.0, rot: this.random() * TAU });
+      // It swells and turns as it burns (a shape held still for ~20 frames read as a sticker: IoU(f, f+4) ≤ 0.85).
+      const turn = this.random() < 0.5 ? -1 : 1;
+      book.spawn(this.v.set(rear.x, rear.y + 0.3 * mass, rear.z), size * fill, { ...clip, rot: this.rand(-0.3, 0.3), spin: 0.9 * turn, grow: 0.6, intensity: 1.0, occlude: 0.9, ground, vy: 0.9, cool: 0.18, fadeOut: 0.05 });
+      book.spawn(this.v.set(rear.x + sideX * 0.4 * mass, rear.y + 0.6 * mass, rear.z + sideZ * 0.4 * mass), size * fill * 0.5, { ...clip, rate: clip.rate * 1.15, rot: this.rand(2.2, 4.0), spin: -1.2 * turn, grow: 0.7, intensity: 1.0, occlude: 0.8, ground, vy: 1.6, delay: 2 / 60, cool: 0.18, fadeOut: 0.05 });
+    } else if (book !== null) {
       const big2 = book.id === "impact-big";
       const fill = FLIP_FILL[book.id];
       // Round 10 (judges: frames 16–18 of impact-big read as a hard 2D starburst, f060–f063): from frame 19, its round
@@ -1581,7 +1607,7 @@ export class FxCore {
       const sn = Math.sin(yaw);
       const speed = this.rand(3, 7) * rk;
       this.w.set((ux * cs - uz * sn) * speed, this.rand(4, 8) * rk, (uz * cs + ux * sn) * speed);
-      this.embers.spawn(front, this.w, k % 2 === 0 ? FX_COLORS.fireHot : FX_COLORS.ember, 2.2 * soft, 0.18 * s, 0.08, this.rand(0.45, 0.8), 0.6, 16);
+      this.embers.spawn(front, this.w, k % 2 === 0 ? (a ? FIRE_A_HOT : FX_COLORS.fireHot) : FX_COLORS.ember, 2.2 * soft, 0.18 * s, 0.08, this.rand(0.45, 0.8), 0.6, 16);
     }
     // The ring on the ground. Round 9 (judge B: a thin pink line): a thick fire-coloured band (normal blend, it reads on
     // light ground) with a dark edge, both grades; a strong word's teal ring over it (T3).
@@ -1590,7 +1616,9 @@ export class FxCore {
     if (!this.wetOf(hit.x, hit.z)) {
       this.marks.spawn(hit.x, gy - 0.02, hit.z, 1.0 * rk, 12 / 60, FX_COLORS.char, 0.45 * soft, { grow: (strong ? 2.2 : 1.8) * rk, kind: 1, thickness: 0.42, fadeIn: 0.001, drag: 0 });
       this.marks.spawn(hit.x, gy, hit.z, 0.9 * rk, 9 / 60, FX_COLORS.fireDeep, 0.95 * soft, { grow: (strong ? 2.1 : 1.7) * rk, kind: 1, thickness: 0.3, fadeIn: 0.001, drag: 0 });
-      this.rings.spawn(hit.x, gy + 0.01, hit.z, 0.9 * rk, 8 / 60, FX_COLORS.fireHot, 0.9 * soft, { grow: (strong ? 2.1 : 1.7) * rk, kind: 1, thickness: 0.12, fadeIn: 0.001, drag: 0 });
+      // Test A: no additive pastel band (it read peach over the burst and mustard on the grass); the fire-deep band and
+      // its char edge (normal blend) carry the contact.
+      if (!a) this.rings.spawn(hit.x, gy + 0.01, hit.z, 0.9 * rk, 8 / 60, FX_COLORS.fireHot, 0.9 * soft, { grow: (strong ? 2.1 : 1.7) * rk, kind: 1, thickness: 0.12, fadeIn: 0.001, drag: 0 });
     }
     if (row.ring) this.rings.spawn(hit.x, gy, hit.z, 1.2 * rk, 0.35, strong ? FX_COLORS.teal : FX_COLORS.fire, 0.6, { grow: (2.2 + tierId * 0.4) * rk, kind: 1, thickness: 0.18, drag: 0 });
     // Smoke (§3.5 rule 4). Round 9 (both judges: smoke that appears ready-made at c081 and then lies flat like a ground
@@ -1599,6 +1627,24 @@ export class FxCore {
     // Round 10 (both judges: still a flat khaki patch over the grass): the smoke is a density mask coloured in the
     // shader (warm charcoal core, lighter top, fire-lit underside while young); it starts inside the fire about 6
     // frames before the fire dies (~f018), rises and widens over about 60 frames, its edges eaten by the noise.
+    const smokeA = this.flip.pools["smoke-mask-a"];
+    if (a && smokeA.ready) {
+      // Test A: lit smoke under the fire from f+2, three sprites smaller than the blast, rising and swelling with an
+      // ease-out over 50–70 frames, shaded by the clip × the sun (flipbook smokeA).
+      // Behind the foe as the camera sees it (away from the eye on the ground, and up): the smoke rises past the
+      // foe's head, not over it, and drifts on away.
+      const meta = smokeA.meta!;
+      const fwdX = this.w.x / flatLen;
+      const fwdZ = this.w.z / flatLen;
+      for (let k = 0; k < 3; k += 1) {
+        const life = (50 + 10 * k) / 60;
+        const ox = (k === 1 ? 1 : k === 2 ? -1 : 0) * 0.22 * mass;
+        const back2 = (1.0 + 0.12 * k) * mass;
+        // The clip's pivot sits at 63 % of its height, so most of a puff hangs below it: lift it by that much.
+        smokeA.spawn(this.v.set(hit.x + fwdX * back2 + sideX * ox, hit.y + (0.8 + 0.1 * k) * mass, hit.z + fwdZ * back2 + sideZ * ox), mass * FLIP_FILL["smoke-mask-a"] * (0.38 - 0.04 * k), { rate: (0.75 * (meta.frames - meta.start)) / (meta.fps * life), life, rot: this.rand(-0.3, 0.3), tint: FX_COLORS.smokeWarm, alpha: soft, ground: this.heightOf(hit.x, hit.z), vx: ux * 0.3 + fwdX * 0.9 * rk, vy: (0.6 + 0.15 * k) * rk, vz: uz * 0.3 + fwdZ * 0.9 * rk, drag: 1.5, grow: 0.35, delay: (2 + 3 * k) / 60, fadeIn: 0.1, fadeOut: 0.02 });
+      }
+      return;
+    }
     const roll = this.flip.pick("smoke-mask", "smoke-roll");
     // Firefly smoke-mask v1 (a billowing cloud, 32 frames at 8 fps, its density fading over the last ten): played at
     // ×2.6, so it rolls through most of its life in ~1.1 s and thins out on its own.
@@ -1654,6 +1700,17 @@ export class FxCore {
     const y = this.markY(x, z, size) + 0.06;
     this.scorchPoint.set(x, y, z);
     const rot = this.random() * TAU;
+    const scorchA = this.flip.pools["scorch-a"];
+    if (strong && FIRE_A.on && scorchA.ready) {
+      // Test A: the painted 038 scorch for the code-drawn one (no Voronoi cracks, no radial mark), held, then fading.
+      scorchA.spawn(this.hitAt.set(x, y, z), size * 1.35, { life: WORD_FX.scorchS, fadeIn: 0.06, fadeOut: WORD_FX.scorchS - WORD_FX.scorchHoldS, rot, tint: FIRE_A_SCORCH, alpha: 1 });
+      for (let k = 0; k < (this.reduced ? 2 : 3 + Math.floor(this.random() * 3)); k += 1) {
+        const at2 = this.hitAt.set(x + this.rand(-0.35, 0.35) * size, y + 0.1, z + this.rand(-0.35, 0.35) * size);
+        // Short-lived (a long fading spark over the char reads brown).
+        this.sparks.spawn(at2, this.u.set(this.rand(-0.4, 0.4), this.rand(1.2, 2.4), this.rand(-0.4, 0.4)), this.random() < 0.6 ? FX_COLORS.ember : FIRE_A_HOT, 0.3 * s, this.rand(0.4, 0.7), { drag: 0.6, gravity: -0.6 });
+      }
+      return;
+    }
     const seed = this.random() * 0.9;
     this.marks.spawn(x, y, z, size, WORD_FX.scorchS, FX_COLORS.scorch, 0.96, { kind: 5, thickness: seed, fadeIn: 0.06, hold: WORD_FX.scorchHoldS, drag: 0, rot });
     // Round 4: the ember cracks cool over about 1 s (orange to 0.5 s, red to 1.2 s), so F starts hot.
@@ -2399,6 +2456,11 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   const core = new FxCore(stage.quality, { heightAt, wetAt, dryAt, locator: options.locator, random: options.random, mouthLight: options.mouthLight, reduced });
   // The Firefly atlases (round 8): loaded once a page; each pool takes its atlas when it arrives.
   void flipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, stage.quality === "ultra");
+  // Test A's smoke is lit by the stage's sun (the key light), where the stage has one.
+  const lights = (stage as Partial<import("./stage").PaintedStage>).lights;
+  if (lights) core.flip.pools["smoke-mask-a"].sun = lights.key.position.clone().sub(lights.key.target.position);
+  // Fire test A's atlases (their own manifest; nothing in it replaces a round-10 atlas).
+  void fireAFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
   const kickFrom: ScreenPoint = { x: 0, y: 0, visible: false };
   const kickTo: ScreenPoint = { x: 0, y: 0, visible: false };
   let lastRelease: { at: number } | null = null;
