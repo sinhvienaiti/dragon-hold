@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TestContext, TestGain, TestSource, flush } from "./keyboard-audio-fixture";
 import { catalogue, FEEL_BASE, serve, setDir, type Reply } from "./feel-fixture";
@@ -54,8 +55,12 @@ vi.mock("../../src/app/loop", () => ({ createLoop: (hooks: { step(): void }) => 
 } }));
 
 import { startApp, type App } from "../../src/app/app";
-import { LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICONS } from "../../src/app/quick";
+import { LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICON_FILES, QUICK_ICONS } from "../../src/app/quick";
 import { QUICK_ICON_NAMES } from "../../src/kit/ui";
+
+const UI_DIR = "/assets/dragon-hold/ui/quick-settings/";
+const PUBLIC_QS = "public/assets/dragon-hold/ui/quick-settings";
+const SELECTED_QS = "art-src/ui/quick-settings/selected";
 
 let app: App | null = null;
 let ctx: TestContext;
@@ -391,13 +396,17 @@ describe("192 app and shared panels", () => {
     expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards__listen img")).toContain("width: calc(24px * var(--kit-qs-s));");
   });
 
-  it("every Sound row has its 180 icon (Keyboard volume the keyboard's), the Quality cell stays empty, and the title is in Cormorant", () => {
+  it("every Sound row has its accepted icon (244 r2 for Keyboard sound, Voice, Interface; 244 Keyboard volume), the Quality cell stays empty, and the title is in Cormorant", () => {
     press(window, "F2");
     const icon = (id: string) => row(id).querySelector(".kit-qs__icon")?.getAttribute("src") ?? null;
-    const expected: Record<string, string> = { master: "vol-master", music: "vol-music", effects: "vol-effects", keyboard: "vol-keyboard", keyboardVolume: "vol-keyboard", voice: "vol-voice", ui: "vol-interface" };
-    for (const [id, name] of Object.entries(expected)) expect(icon(id), id).toContain(`/assets/dragon-hold/ui/quick-settings/${name}.64.png`);
-    // Only files the game has: every URL is one of the 180 icons.
-    for (const url of Object.values(QUICK_ICONS)) expect(QUICK_ICON_NAMES.some((name) => url!.endsWith(`/${name}.64.png`)), url).toBe(true);
+    const expected: Record<string, string> = { master: "vol-master", music: "vol-music", effects: "vol-effects", keyboard: "vol-keyboard.r2", keyboardVolume: "vol-keyboard-volume", voice: "vol-voice.r2", ui: "vol-interface.r2" };
+    for (const [id, stem] of Object.entries(expected)) expect(icon(id), id).toMatch(new RegExp(`/assets/dragon-hold/ui/quick-settings/${stem.replace(".", "\\.")}\\.64\\.png$`));
+    // Every row has its own picture: no two Sound rows share one.
+    expect(new Set(Object.keys(expected).map(icon)).size).toBe(Object.keys(expected).length);
+    // Every URL is an accepted file the game copies into public (QUICK_ICON_FILES), and the corner icons stay the 180 set.
+    for (const [name, url] of Object.entries(QUICK_ICONS)) expect(url, name).toBe(`${UI_DIR}${QUICK_ICON_FILES[name]}.64.png`);
+    for (const name of ["hud-settings", "hud-sound", "hud-sound-muted"]) expect(QUICK_ICON_FILES[name], name).toBe(name);
+    for (const name of QUICK_ICON_NAMES) expect(QUICK_ICON_FILES[name], name).toBeDefined();
     // No graphics icon is accepted yet: the cell keeps its width and holds nothing.
     press(window, "F1");
     const cell = row("quality").querySelector(".kit-qs__icon-cell")!;
@@ -405,6 +414,17 @@ describe("192 app and shared panels", () => {
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
     expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-title-font: var(--dh-font-title);");
     expect(rules.get(".dh-quick .kit-qs__title")).toContain("color: #f2c14e;");
+  });
+
+  // Media is not in Git: on a machine with the media and the art sources, each icon is the accepted file byte for byte.
+  it.skipIf(!existsSync(PUBLIC_QS) || !existsSync(SELECTED_QS))("each icon file in public is a byte copy of its accepted source in art-src", () => {
+    const md5 = (file: string) => createHash("md5").update(readFileSync(file)).digest("hex");
+    for (const [name, stem] of Object.entries(QUICK_ICON_FILES)) {
+      const file = `${PUBLIC_QS}/${stem}.64.png`;
+      expect(existsSync(file), file).toBe(true);
+      expect(md5(file), name).toBe(md5(`${SELECTED_QS}/${stem}.64.png`));
+    }
+    for (const file of ["slider-fill.png", "slider-track.png"]) expect(md5(`${PUBLIC_QS}/${file}`), file).toBe(md5(`art-src/ui/quick-settings/sliders/${file}`));
   });
 
   it("pauses immediately, preserves the word/hash, blocks letters and counts 3–2–1 before another tick", () => {

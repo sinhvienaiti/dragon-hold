@@ -4,11 +4,19 @@ import { allowedQualities } from "./quality";
 import { manifestJson, sampleBytes } from "./keyboard";
 
 const UI_BASE = `${import.meta.env.BASE_URL}assets/dragon-hold/ui/quick-settings/`;
-/** The 180 icons; Keyboard volume reuses the keyboard icon until its own (ticket 244) is accepted. */
-export const QUICK_ICONS: QuickIcons = {
-  ...Object.fromEntries(QUICK_ICON_NAMES.map((name) => [name, UI_BASE + name + ".64.png"])),
-  "vol-keyboard-volume": UI_BASE + "vol-keyboard.64.png",
+/**
+ * Accepted icon art per row icon name, as file stems in public (each a byte copy of
+ * art-src/ui/quick-settings/selected/<stem>.64.png): the 180 set, with the 244 redraws (r2) for Keyboard sound,
+ * Voice and Interface, and the 244 Keyboard volume icon. Graphics rows have no accepted icon yet.
+ */
+export const QUICK_ICON_FILES: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(QUICK_ICON_NAMES.map((name) => [name, name])),
+  "vol-keyboard": "vol-keyboard.r2",
+  "vol-voice": "vol-voice.r2",
+  "vol-interface": "vol-interface.r2",
+  "vol-keyboard-volume": "vol-keyboard-volume",
 };
+export const QUICK_ICONS: QuickIcons = Object.fromEntries(Object.entries(QUICK_ICON_FILES).map(([name, stem]) => [name, UI_BASE + stem + ".64.png"]));
 /**
  * The 162 button art (2172 x 724) as a nine-slice plate: its visible plate is 2102 x 433 at (35, 143), and the
  * corner ornaments reach 195 px across and 185 px down inside it. The cuts hold the margin plus the ornament, so the
