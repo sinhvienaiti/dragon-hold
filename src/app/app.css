@@ -293,22 +293,81 @@
   height: calc(44px * var(--kit-qs-s));
 }
 
+/*
+ * The frame art is stretched over the panel box: its inner gold edge sits about 8.5 % in from each side and 10.7 % up
+ * from the bottom, and the bottom corner ornaments reach further in. 44 px put the right-aligned values and the title on
+ * the gold edge and the last value on the bottom-right ornament; these paddings clear both at 1280 and 1920.
+ */
 .dh-quick .kit-qs__panel {
-  padding: calc(52px * var(--kit-qs-s)) calc(44px * var(--kit-qs-s));
+  padding: calc(52px * var(--kit-qs-s)) calc(62px * var(--kit-qs-s)) calc(64px * var(--kit-qs-s));
+}
+
+/*
+ * The frame and button art have transparent margins. The kit paints --kit-qs-bg under the panel and --kit-qs-control
+ * (light-blue --kit-qs-accent on Resume and a pressed Mute) under each button, which showed as flat boxes around the
+ * art. Only the art shows now; Resume and a pressed button read as gold lettering on the same art, hover lifts the art.
+ */
+.dh-quick.kit-qs--skin-panel .kit-qs__panel {
+  background-color: transparent;
 }
 
 .dh-quick.kit-qs--skin-button .kit-qs__btn {
   color: var(--kit-qs-text);
   min-height: calc(40px * var(--kit-qs-s));
   padding-inline: calc(24px * var(--kit-qs-s));
+  border-color: transparent;
+  background-color: transparent;
+}
+
+.dh-quick.kit-qs--skin-button .kit-qs__btn--primary,
+.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-pressed="true"],
+.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-checked="true"] {
+  color: #f2c14e;
+}
+
+.dh-quick.kit-qs--skin-button .kit-qs__btn:hover {
+  filter: brightness(1.18);
 }
 
 .dh-quick .kit-qs__backdrop {
   backdrop-filter: blur(5px);
 }
 
+/*
+ * Slider art (225 knob, 241 groove). The groove is drawn in three slices: its 64 px chevron caps keep their own
+ * proportion (10 x 10 px at scale 1, as tall as the groove) and only the plain middle stretches; the kit stretched the
+ * whole 1024 x 64 image, so the caps came out 1.5x too wide on 24:1 grooves. The kit's flat --kit-qs-line under the
+ * groove and --kit-qs-text under the knob's square are cleared, so only the art shows. The knob box grows from 22 to
+ * 28 px (the art fills 70 % of it: about 20 px visible, twice the groove) and the range box with it, so the focus ring
+ * still holds the knob. WebKit and Gecko pseudo-elements stay in separate rules (one unknown selector drops the rule).
+ */
+.dh-quick.kit-qs--skin-slider .kit-qs__range {
+  height: calc(28px * var(--kit-qs-s));
+}
+.dh-quick.kit-qs--skin-slider .kit-qs__range::-webkit-slider-runnable-track {
+  background: none;
+  border: 0 solid transparent;
+  border-image: var(--kit-qs-skin-track) 0 64 fill / 0 calc(10px * var(--kit-qs-s)) stretch;
+}
+.dh-quick.kit-qs--skin-slider .kit-qs__range::-moz-range-track {
+  background: none;
+  border: 0 solid transparent;
+  border-image: var(--kit-qs-skin-track) 0 64 fill / 0 calc(10px * var(--kit-qs-s)) stretch;
+}
+.dh-quick.kit-qs--skin-slider .kit-qs__range::-webkit-slider-thumb {
+  width: calc(28px * var(--kit-qs-s));
+  height: calc(28px * var(--kit-qs-s));
+  margin-top: calc(-9px * var(--kit-qs-s));
+  background-color: transparent;
+}
+.dh-quick.kit-qs--skin-slider .kit-qs__range::-moz-range-thumb {
+  width: calc(28px * var(--kit-qs-s));
+  height: calc(28px * var(--kit-qs-s));
+  background-color: transparent;
+}
+
 @media (max-width: 600px) {
-  .dh-quick .kit-qs__panel { padding: 44px 30px; }
+  .dh-quick .kit-qs__panel { padding: 48px 56px 60px; }
   .dh-quick .kit-qs__row { grid-template-columns: 24px minmax(0, 1fr); }
   .dh-quick .kit-qs__control { grid-column: 1 / -1; }
 }

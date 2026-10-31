@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TestContext, TestGain, TestSource, flush } from "./keyboard-audio-fixture";
 import { catalogue, FEEL_BASE, serve, setDir, type Reply } from "./feel-fixture";
@@ -69,6 +70,19 @@ const slide = (id: string, value: number) => {
   input.value = String(value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
 };
+/** Rule bodies by selector (comments dropped, whitespace folded; each selector of a list gets the body) and every head. */
+function cssRules(source: string): { rules: Map<string, string>; heads: string[] } {
+  const rules = new Map<string, string>();
+  const heads: string[] = [];
+  const css = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const [, head, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    heads.push(head!.trim());
+    for (const selector of head!.split(",").map((part) => part.trim()).filter(Boolean)) {
+      rules.set(selector, (rules.get(selector) ?? "") + body!.replace(/\s+/g, " ").trim() + " ");
+    }
+  }
+  return { rules, heads };
+}
 /** Every fetch the page made. */
 let fetched: string[];
 /** A fetch answer as timedJson, timedBytes and the kit read it; sample bytes are the file's URL (TestContext). */
@@ -138,6 +152,56 @@ describe("192 app and shared panels", () => {
     press(window, "F1");
     press(window, "F1");
     expect(window.__dh!.panel()).toBeNull();
+  });
+
+  it("sliders wear the 225 knob and the 241 groove in three slices, with no kit colour under either", () => {
+    const root = document.querySelector<HTMLElement>(".dh-quick")!;
+    expect(root.classList.contains("kit-qs--skin-slider")).toBe(true);
+    expect(root.style.getPropertyValue("--kit-qs-skin-track")).toContain("/assets/dragon-hold/ui/quick-settings/slider-track.png");
+    expect(root.style.getPropertyValue("--kit-qs-skin-thumb")).toContain("/assets/dragon-hold/ui/quick-settings/slider-thumb.128.png");
+    press(window, "F2");
+    expect(row("master").querySelector('input[type="range"]')!.classList.contains("kit-qs__range")).toBe(true);
+    // A DOM stub has no cascade: read the sheet. The 64 px chevron caps keep their proportion (10 x 10 at scale 1) and
+    // only the middle stretches; the round knob and the capped groove would show the kit's flat colours.
+    const { rules, heads } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    const at = (pseudo: string) => rules.get(`.dh-quick.kit-qs--skin-slider .kit-qs__range${pseudo}`) ?? "";
+    for (const track of ["::-webkit-slider-runnable-track", "::-moz-range-track"]) {
+      expect(at(track), track).toContain("background: none;");
+      expect(at(track), track).toContain("border-image: var(--kit-qs-skin-track) 0 64 fill / 0 calc(10px * var(--kit-qs-s)) stretch;");
+    }
+    // The knob box is 28 px (about 20 px of knob, twice the groove), centred on the 10 px groove; the range box holds it.
+    for (const thumb of ["::-webkit-slider-thumb", "::-moz-range-thumb"]) {
+      expect(at(thumb), thumb).toContain("background-color: transparent;");
+      expect(at(thumb), thumb).toContain("width: calc(28px * var(--kit-qs-s));");
+      expect(at(thumb), thumb).toContain("height: calc(28px * var(--kit-qs-s));");
+    }
+    expect(at("::-webkit-slider-thumb")).toContain("margin-top: calc(-9px * var(--kit-qs-s));");
+    expect(at("")).toContain("height: calc(28px * var(--kit-qs-s));");
+    // One unknown pseudo-element drops a whole rule: WebKit and Gecko never share one.
+    expect(heads.filter((head) => head.includes("::-webkit-") && head.includes("::-moz-"))).toEqual([]);
+  });
+
+  it("frame and buttons show only their art; Resume and a pressed Mute read gold; values keep off the frame's gold edge", () => {
+    press(window, "F1");
+    const resume = document.querySelector<HTMLButtonElement>('.kit-qs__dialog[data-panel="settings"] [data-action="resume"]')!;
+    expect(resume.classList.contains("kit-qs__btn--primary")).toBe(true);
+    press(window, "F2");
+    const mute = row("master").querySelector<HTMLButtonElement>(".kit-qs__btn")!;
+    mute.click();
+    expect(mute.getAttribute("aria-pressed")).toBe("true");
+    mute.click();
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    expect(rules.get(".dh-quick.kit-qs--skin-panel .kit-qs__panel")).toContain("background-color: transparent;");
+    const button = rules.get(".dh-quick.kit-qs--skin-button .kit-qs__btn") ?? "";
+    expect(button).toContain("background-color: transparent;");
+    expect(button).toContain("border-color: transparent;");
+    for (const state of ["--primary", '[aria-pressed="true"]', '[aria-checked="true"]']) {
+      expect(rules.get(`.dh-quick.kit-qs--skin-button .kit-qs__btn${state}`), state).toContain("color: #f2c14e;");
+    }
+    // The stretched frame's inner gold edge is about 8.5 % in from each side and 10.7 % up from the bottom.
+    expect(rules.get(".dh-quick .kit-qs__panel")).toContain(
+      "padding: calc(52px * var(--kit-qs-s)) calc(62px * var(--kit-qs-s)) calc(64px * var(--kit-qs-s));",
+    );
   });
 
   it("pauses immediately, preserves the word/hash, blocks letters and counts 3–2–1 before another tick", () => {

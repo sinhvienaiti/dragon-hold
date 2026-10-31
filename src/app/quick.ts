@@ -1,10 +1,22 @@
-import { QuickSettings, QUICK_ICON_NAMES, defaultSoundRows, type QuickIcons, type QuickRow, type QuickSettingsOptions } from "../kit/ui";
+import { QuickSettings, QUICK_ICON_NAMES, defaultSoundRows, type QuickIcons, type QuickRow, type QuickSettingsOptions, type QuickSkin } from "../kit/ui";
 import type { KeyboardSoundChoice } from "../kit/feedback/typing-fx";
 import { allowedQualities } from "./quality";
 import { manifestJson, sampleBytes } from "./keyboard";
 
 const UI_BASE = `${import.meta.env.BASE_URL}assets/dragon-hold/ui/quick-settings/`;
 export const QUICK_ICONS: QuickIcons = Object.fromEntries(QUICK_ICON_NAMES.map((name) => [name, UI_BASE + name + ".64.png"]));
+/**
+ * Frame, button and slider art (tickets 162, 225 knob, 241 groove). At 1080p the groove is drawn about 306 × 15 CSS px
+ * and the knob box 42 px, so the 1024 × 64 groove and the 128 px knob stay sharp on a 2× screen. app.css draws the
+ * groove in three slices (the chevron caps keep their proportion), sizes the knob and clears the kit's flat colours
+ * under both (`.dh-quick.kit-qs--skin-slider`), so only the art shows.
+ */
+export const QUICK_SKIN: QuickSkin = {
+  panel: UI_BASE + "panel-large.alpha.png",
+  button: UI_BASE + "button.alpha.png",
+  sliderTrack: UI_BASE + "slider-track.png",
+  sliderThumb: UI_BASE + "slider-thumb.128.png",
+};
 
 export function settingsRows(): QuickRow[] {
   return [
@@ -32,7 +44,7 @@ export function quickOptions(options: QuickSettingsOptions, keyboards: readonly 
     soundRows: defaultSoundRows({ keyboardProfiles: keyboards }),
     keyboardFetch: { fetchJson: manifestJson, fetchBytes: sampleBytes },
     icons: QUICK_ICONS,
-    skin: { panel: UI_BASE + "panel-large.alpha.png", button: UI_BASE + "button.alpha.png" },
+    skin: QUICK_SKIN,
   };
 }
 
