@@ -4,8 +4,9 @@
  * glow), lit smoke under the fire, the painted 038 scorch and a painted halo. Release, travel, timing, hit-stop and
  * the damage number stay as in round 10.
  *
- * On by default on this branch; `?fire=r10` draws round 10's strong hit (the side-by-side captures), `?fire=b`
- * test B's (fire-b.ts) and `?fire=c` test C's (fire-c.ts). The grade's yellow shoulder is a test-bench switch only (view/fire-bench.ts, `grade=shoulder`).
+ * Off unless `?fire=a` asks for it (a comparison only): test C is the default fire since 01/11 (fire-c.ts),
+ * `?fire=r10` draws round 10's strong hit, `?fire=b` test B's (fire-b.ts). The grade's yellow shoulder is a test-bench
+ * switch only (view/fire-bench.ts, `grade=shoulder`).
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
@@ -17,10 +18,9 @@ export const FIRE_A_SCORCH = new THREE.Color("#3b3633");
 
 function fromUrl(): boolean {
   try {
-    const fire = new URLSearchParams(globalThis.location?.search ?? "").get("fire");
-    return fire !== "r10" && fire !== "b" && fire !== "c";
+    return new URLSearchParams(globalThis.location?.search ?? "").get("fire") === "a";
   } catch {
-    return true;
+    return false;
   }
 }
 

@@ -15,7 +15,11 @@
  *   the fire reaches the ground, gone by ~2.5 s); no round-10 dark oval, soot discs or radial scorch.
  * Release, travel, timing, hit-stop and the damage number stay as round 10.
  *
- * `?fire=c` turns it on (test A stays the default on this branch; `?fire=r10` round 10, `?fire=b` test B).
+ * The dragon fire for the demo since 01/11 (owner 31/10 "take the best dragon fire we have for now"; two fresh blind
+ * judges put C first: 7 and 7.5, round 10 6.5 and 6, test B 5 and 5.5): on with no `?fire=` at all (or `?fire=c`);
+ * `?fire=r10` draws round 10, `?fire=a` test A, `?fire=b` test B, for comparison. Reduced motion (Settings › Graphics,
+ * VFX_STANDARD §3.8) softens it in fx.ts: fewer, dimmer sparks, one smoke puff, a smaller and dimmer shockwave with a
+ * shorter sweep; the burst ×0.8 in size and its flashes ×0.6 in brightness and ×0.8 in size, as round 10's.
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";
@@ -65,12 +69,21 @@ export function sceneLight(sky: number, key: number): number {
 }
 export const FIRE_C_SHOCK_SPRAY = new THREE.Color("#dfe9ee");
 
-function fromUrl(): boolean {
+/** The comparison switches that turn C off; anything else (no `fire`, `fire=c`) plays C, the default. */
+export const FIRE_OTHERS = ["r10", "a", "b"] as const;
+
+/** True unless the URL asks for another fire (`?fire=r10|a|b`). */
+export function fireCFromSearch(search: string): boolean {
   try {
-    return new URLSearchParams(globalThis.location?.search ?? "").get("fire") === "c";
+    const fire = new URLSearchParams(search).get("fire");
+    return !(FIRE_OTHERS as readonly (string | null)[]).includes(fire);
   } catch {
-    return false;
+    return true;
   }
+}
+
+function fromUrl(): boolean {
+  return fireCFromSearch(globalThis.location?.search ?? "");
 }
 
 export const FIRE_C = { on: fromUrl(), celSmoke: celSmoke() };

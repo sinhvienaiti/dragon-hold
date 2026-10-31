@@ -1972,12 +1972,16 @@ export class FxCore {
    */
   private shockC(x: number, gy: number, z: number, rk: number, soft: number): void {
     const wet = this.wetOf(x, z);
-    const d = FIRE_C_SIZE.shock * rk;
+    // Reduced motion (VFX_STANDARD §3.8, soften): ×0.8 across like a flash's radius, ×0.6 alpha (soft), and a shorter
+    // sweep, 0.5 → 1.0 of its size instead of 0.2 → 1.0, so less of the ring rushes outward. It still marks the hit.
+    const d = FIRE_C_SIZE.shock * rk * (this.reduced ? 0.8 : 1);
+    const from = this.reduced ? 0.5 : 0.2;
+    const grow = 1 / from - 1;
     const life = 14 / 60;
     const y = (wet ? gy : this.markY(x, z, d)) + 0.02;
     // The band first, its edge drawn over it (same pool, spawned in order).
-    this.marks.spawn(x, y, z, d * 0.2, life, wet ? FIRE_C_SHOCK_SPRAY : FIRE_C_SHOCK_DUST, 0.95 * soft, { kind: 9, thickness: 0.14, grow: 4, fadeIn: 0.001, drag: 0, rot: this.random() * TAU });
-    this.marks.spawn(x, y + 0.005, z, d * 0.2, life, wet ? FIRE_C_SHOCK_SPRAY : FIRE_C_SHOCK_EDGE, 1.0 * soft, { kind: 9, thickness: 0.02, grow: 4, fadeIn: 0.001, drag: 0, rot: this.random() * TAU });
+    this.marks.spawn(x, y, z, d * from, life, wet ? FIRE_C_SHOCK_SPRAY : FIRE_C_SHOCK_DUST, 0.95 * soft, { kind: 9, thickness: 0.14, grow, fadeIn: 0.001, drag: 0, rot: this.random() * TAU });
+    this.marks.spawn(x, y + 0.005, z, d * from, life, wet ? FIRE_C_SHOCK_SPRAY : FIRE_C_SHOCK_EDGE, 1.0 * soft, { kind: 9, thickness: 0.02, grow, fadeIn: 0.001, drag: 0, rot: this.random() * TAU });
   }
 
   /**
@@ -2780,11 +2784,12 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   if (lights) core.flip.pools["smoke-mask-a"].sun = lights.key.position.clone().sub(lights.key.target.position);
   if (lights) core.flip.pools["smoke-cel-b"].sun = lights.key.position.clone().sub(lights.key.target.position);
   if (lights) core.flip.pools["smoke-c"].sun = lights.key.position.clone().sub(lights.key.target.position);
-  // Fire test A's atlases (their own manifest; nothing in it replaces a round-10 atlas).
-  void fireAFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
-  // Fire test B's atlases (`?fire=b`).
-  if (FIRE_B.on || FIRE_C.on) void fireBFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
-  // Fire test C's CC0 Kenney sprites (`?fire=c`; its smoke is test B's cel smoke, loaded above).
+  // Fire test A's atlases (their own manifest; nothing in it replaces a round-10 atlas): `?fire=a`, and `?fire=b`
+  // (its release halo is halo-a). Only the fire in play is fetched: C, the default, needs neither A's nor B's media.
+  if (FIRE_A.on || FIRE_B.on) void fireAFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
+  // Fire test B's atlases (`?fire=b`; with C only for `smoke=cel`, test B's cel smoke as a side check).
+  if (FIRE_B.on || (FIRE_C.on && FIRE_C.celSmoke)) void fireBFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
+  // Fire test C's CC0 Kenney sprites (the default fire; its burn-out draws round 10's impact-burst atlas).
   if (FIRE_C.on) void fireCFlipbooks.load(undefined, stage.quality === "ultra" ? 8 : stage.quality === "high" ? 4 : 1, true);
   if (FIRE_C.on && lights) {
     core.sceneLight = sceneLight(lights.sky.intensity, lights.key.intensity);
@@ -2826,6 +2831,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   core.warm(stage.renderer, stage.scene, stage.camera, () => stage.render());
   const hitStop = new HitStop(DRAGON);
   const trauma = new Trauma(DRAGON, options.random);
+  // Its own shake (no `shake` given: the benches) stops under reduced motion too, as the rig's does in play (§3.8).
+  trauma.reduced = reduced;
   // The kit field: its box is the drawn digits and label, settle() runs until none touch (round 3 kit drift, fixed in the kit).
   const numbers = new NumberField(NUMBER_FEEL);
   numbers.limit = FX_BUDGET[stage.quality].numbers;

@@ -4,8 +4,8 @@
  * the painted L2-cau map at the play camera, the owner's foe model, the Dragons on the dais and the real fx
  * presenter fed made-up events: one foe stands where the caller puts it (the ford, the dais sand, dark ground) and
  * takes a STRONG (Perfect) word shot: word-complete now, the hit 12 ticks later (DAMAGE.strikeDelayTicks), as the
- * sim sends them. `?fire=r10` draws round 10's strong hit (fire-a.ts), `?fire=b` test B's (fire-b.ts), `?fire=c`
- * test C's (fire-c.ts);
+ * sim sends them. With no `fire` it draws test C's (fire-c.ts, the default fire since 01/11); `?fire=r10` round 10's
+ * strong hit, `?fire=a` test A's (fire-a.ts), `?fire=b` test B's (fire-b.ts);
  * `grade=shoulder` turns the grade's yellow shoulder on (test bench only). Runs on requestAnimationFrame, so a held
  * clock steps it frame by frame.
  *
@@ -23,6 +23,7 @@ import type { World } from "../sim/world";
 import { BenchCrowd, benchRandom } from "./bench";
 import type { FlipbookId } from "./flipbook";
 import { createFx } from "./fx";
+import { FIRE_A } from "./fire-a";
 import { FIRE_B } from "./fire-b";
 import { FIRE_C } from "./fire-c";
 import { createHeroes } from "./heroes";
@@ -304,13 +305,13 @@ export async function runFireBench(host: HTMLElement, quality: Quality = "high",
       return { hit, base, top, numbers, sun, live, hits, shotAt };
     },
     mask,
+    // Only the fire on the bench waits for its atlases (fx.ts fetches A's for `fire=a` and `fire=b`, B's for `fire=b`
+    // and C's `smoke=cel`, C's for the default).
     ready: () =>
       fx.core.flip.pools["impact-burst"].ready &&
-      fx.core.flip.pools["impact-burst-a"].ready &&
-      fx.core.flip.pools["smoke-mask-a"].ready &&
-      fx.core.flip.pools["scorch-a"].ready &&
+      (!(FIRE_A.on || FIRE_B.on) || (fx.core.flip.pools["impact-burst-a"].ready && fx.core.flip.pools["smoke-mask-a"].ready && fx.core.flip.pools["scorch-a"].ready)) &&
       (!FIRE_B.on || (fx.core.flip.pools["impact-cel-b"].ready && fx.core.flip.pools["smoke-cel-b"].ready && fx.core.flip.pools["halo-b"].ready && fx.core.flip.pools["scorch-b"].ready)) &&
-      (!FIRE_C.on || (fx.core.flip.pools["impact-burst-c"].ready && fx.core.flip.pools["smoke-cel-b"].ready && fx.core.flip.pools["smoke-c"].ready && fx.core.flip.pools["sparks-c"].ready && fx.core.flip.pools["scorch-c"].ready)),
+      (!FIRE_C.on || (fx.core.flip.pools["impact-burst-c"].ready && (!FIRE_C.celSmoke || fx.core.flip.pools["smoke-cel-b"].ready) && fx.core.flip.pools["smoke-c"].ready && fx.core.flip.pools["sparks-c"].ready && fx.core.flip.pools["scorch-c"].ready)),
     dispose: () => {
       running = false;
       target.dispose();

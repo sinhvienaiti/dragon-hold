@@ -13,7 +13,8 @@
  *   cools, appearing under the fire as it reaches the ground, shrinking away by ~2.5 s.
  * Release, travel, timing, hit-stop and the damage number stay as round 10 / test A.
  *
- * `?fire=b` turns it on (test A stays the default on this branch, `?fire=r10` round 10).
+ * `?fire=b` turns it on (a comparison only: test C is the default fire since 01/11, fire-c.ts; `?fire=r10` round 10,
+ * `?fire=a` test A).
  * Owner: view-crowd-fx (LANES.md).
  */
 import * as THREE from "three";

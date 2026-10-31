@@ -4,7 +4,7 @@
 //   ?bench=crowd   the crowd bench, ?bench=fx the effects showcase (view/bench.ts),
 //   ?bench=models  the M0b model studio (view/studio.ts, driven by dh-models.mjs),
 //   ?bench=foes    the foe blows showcase (view/foe-showcase.ts, driven by dh-vfx-foes.mjs)
-//   ?bench=fire    fire test A's bench (view/fire-bench.ts, driven by dh-fire-bench.mjs)
+//   ?bench=fire    the dragon fire bench, test C by default (view/fire-bench.ts, driven by dh-fire-bench.mjs)
 import { startApp } from "./app/app";
 // Static: app.ts imports view/stage.ts too, so a dynamic import could not split it (vite warned).
 import { startTerrainPreview } from "./view/stage";

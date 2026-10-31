@@ -7,7 +7,7 @@
 //   fire-s###.png, smoke-s###.png   the fire and the smoke flipbooks alone (coverage, half size, depth-tested);
 //   run.json                per frame: the struck point, the foe's base and top, live numbers, the sun on screen.
 //   hero-s###.png           test B: the Dragons as they show (units stay over the effects), half size.
-// Variants: a (test A, current grade), shoulder (test A, the grade's yellow shoulder), r10 (?fire=r10: round 10),
+// Variants: a (?fire=a: test A, current grade), shoulder (test A, the grade's yellow shoulder), r10 (?fire=r10: round 10),
 // b (?fire=b: test B, the cel clips), c (?fire=c: test C, round 10's peak burning out, CC0 Kenney support layers),
 // ccel (test C with test B's cel smoke for Kenney's, a side check).
 //   URL=http://127.0.0.1:3251 OUT_DIR=tmp/vfx/test-a node scripts/visual/cdp-run.mjs scripts/visual/scenarios/dh-fire-bench.mjs
@@ -34,7 +34,8 @@ export const SPOTS = {
 async function open(page, w, h, ground, variant) {
   await page.viewport(w, h, 1);
   await page.send("Emulation.setFocusEmulationEnabled", { enabled: true });
-  const query = ["bench=fire", "heldclock=1", variant === "r10" ? "fire=r10" : variant === "b" ? "fire=b" : variant === "c" ? "fire=c" : variant === "ccel" ? "fire=c&smoke=cel" : ""].filter(Boolean).join("&");
+  // Test C is the default fire since 01/11: test A (and its shoulder) now needs `fire=a`.
+  const query = ["bench=fire", "heldclock=1", variant === "a" || variant === "shoulder" ? "fire=a" : variant === "r10" ? "fire=r10" : variant === "b" ? "fire=b" : variant === "c" ? "fire=c" : variant === "ccel" ? "fire=c&smoke=cel" : ""].filter(Boolean).join("&");
   await page.goto(BASE + "/?" + query, { settle: 300 });
   const dark = SPOTS[ground].dark;
   const shoulder = variant === "shoulder";
