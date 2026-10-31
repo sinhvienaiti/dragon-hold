@@ -54,6 +54,8 @@ vi.mock("../../src/app/loop", () => ({ createLoop: (hooks: { step(): void }) => 
 } }));
 
 import { startApp, type App } from "../../src/app/app";
+import { LIST_ROW_VARS, PLATE_MARGIN, PLATE_SLICE, QUICK_ICONS } from "../../src/app/quick";
+import { QUICK_ICON_NAMES } from "../../src/kit/ui";
 
 let app: App | null = null;
 let ctx: TestContext;
@@ -154,31 +156,59 @@ describe("192 app and shared panels", () => {
     expect(window.__dh!.panel()).toBeNull();
   });
 
-  it("sliders wear the 225 knob and the 241 groove in three slices, with no kit colour under either", () => {
+  it("sliders draw the 241 groove as an empty part and a lit fill clipped at the 225 knob, every groove one length", () => {
     const root = document.querySelector<HTMLElement>(".dh-quick")!;
     expect(root.classList.contains("kit-qs--skin-slider")).toBe(true);
-    expect(root.style.getPropertyValue("--kit-qs-skin-track")).toContain("/assets/dragon-hold/ui/quick-settings/slider-track.png");
+    // The fill layer is on before the 244 fill art: the empty part is the 241 groove, the fill falls back to it.
+    expect(root.classList.contains("kit-qs--slider-fill")).toBe(true);
+    expect(root.classList.contains("kit-qs--fill-art")).toBe(false);
+    for (const name of ["--kit-qs-skin-track", "--kit-qs-skin-empty", "--kit-qs-skin-fill"]) {
+      expect(root.style.getPropertyValue(name), name).toContain("/assets/dragon-hold/ui/quick-settings/slider-track.png");
+    }
     expect(root.style.getPropertyValue("--kit-qs-skin-thumb")).toContain("/assets/dragon-hold/ui/quick-settings/slider-thumb.128.png");
     press(window, "F2");
-    expect(row("master").querySelector('input[type="range"]')!.classList.contains("kit-qs__range")).toBe(true);
-    // A DOM stub has no cascade: read the sheet. The 64 px chevron caps keep their proportion (10 x 10 at scale 1) and
-    // only the middle stretches; the round knob and the capped groove would show the kit's flat colours.
+    // Every slider row: the range over the groove and fill layers, and the Mute column after the number (empty but for
+    // Master), so all grooves have one length.
+    for (const id of ["master", "music", "effects", "keyboardVolume", "voice", "ui"]) {
+      const slider = row(id).querySelector(".kit-qs__slider")!;
+      expect(slider.querySelector(".kit-qs__groove"), id).not.toBeNull();
+      expect(slider.querySelector(".kit-qs__fill"), id).not.toBeNull();
+      expect(slider.querySelector("input.kit-qs__range"), id).not.toBeNull();
+      expect(row(id).querySelector(".kit-qs__aside"), id).not.toBeNull();
+    }
+    expect(row("master").querySelector('.kit-qs__aside [data-toggle="muted"]')).not.toBeNull();
+    // The fill follows the value (the kit clips it at the knob's centre through --kit-qs-v).
+    const music = row("music").querySelector<HTMLElement>(".kit-qs__slider")!;
+    for (const [value, v] of [[0, "0.0000"], [50, "0.5000"], [100, "1.0000"]] as const) {
+      slide("music", value);
+      expect(music.style.getPropertyValue("--kit-qs-v"), String(value)).toBe(v);
+    }
+    // A DOM stub has no cascade: read the sheet. Knob 32 px, the 64 px chevron caps 10 px, Mute's column 90 px; the
+    // empty part dim and grey, the fill lit with an ember glow.
     const { rules, heads } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    const layer = rules.get(".dh-quick.kit-qs") ?? "";
+    for (const line of [
+      "--kit-qs-knob: calc(32px * var(--kit-qs-s));",
+      "--kit-qs-groove-slice: 0 64;",
+      "--kit-qs-groove-cap: calc(10px * var(--kit-qs-s));",
+      "--kit-qs-aside-w: calc(90px * var(--kit-qs-s));",
+      "--kit-qs-empty-filter: grayscale(0.8) brightness(0.5);",
+      "--kit-qs-fill-filter: brightness(1.35) saturate(1.4) drop-shadow(",
+    ]) expect(layer, line).toContain(line);
     const at = (pseudo: string) => rules.get(`.dh-quick.kit-qs--skin-slider .kit-qs__range${pseudo}`) ?? "";
-    for (const track of ["::-webkit-slider-runnable-track", "::-moz-range-track"]) {
-      expect(at(track), track).toContain("background: none;");
-      expect(at(track), track).toContain("border-image: var(--kit-qs-skin-track) 0 64 fill / 0 calc(10px * var(--kit-qs-s)) stretch;");
-    }
-    // The knob box is 32 px (about 22 px of knob at 720p), centred on the 10 px groove; the range box holds it.
-    for (const thumb of ["::-webkit-slider-thumb", "::-moz-range-thumb"]) {
-      expect(at(thumb), thumb).toContain("background-color: transparent;");
-      expect(at(thumb), thumb).toContain("width: calc(32px * var(--kit-qs-s));");
-      expect(at(thumb), thumb).toContain("height: calc(32px * var(--kit-qs-s));");
-    }
-    expect(at("::-webkit-slider-thumb")).toContain("margin-top: calc(-11px * var(--kit-qs-s));");
+    // The knob art only: the kit's --kit-qs-text square under it is cleared.
+    for (const thumb of ["::-webkit-slider-thumb", "::-moz-range-thumb"]) expect(at(thumb), thumb).toContain("background-color: transparent;");
     expect(at("")).toContain("height: calc(32px * var(--kit-qs-s));");
+    // The old track rules and the 6em basis on the range are gone (the kit's fill layer draws the groove now).
+    expect(at("::-webkit-slider-runnable-track")).toBe("");
+    expect(rules.get(".dh-quick .kit-qs__control .kit-qs__range")).toBeUndefined();
     // One unknown pseudo-element drops a whole rule: WebKit and Gecko never share one.
     expect(heads.filter((head) => head.includes("::-webkit-") && head.includes("::-moz-"))).toEqual([]);
+  });
+
+  it("the Sound panel is 640 px wide, so the grooves take the room Mute's column costs", () => {
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="sound"] .kit-qs__panel')).toContain("width: min(calc(640px * var(--kit-qs-s)), calc(100% - 32px));");
   });
 
   it("the knob answers hover, press and keyboard focus with its own light, and the range shows a hand", () => {
@@ -186,20 +216,25 @@ describe("192 app and shared panels", () => {
     const at = (state: string) => rules.get(`.dh-quick.kit-qs--skin-slider .kit-qs__range${state}`) ?? "";
     expect(at("")).toContain("cursor: pointer;");
     expect(at(":active")).toContain("cursor: grabbing;");
-    // The kit's flat 2 px box around the whole range gives way to a gold ring of light on the knob and a warm groove.
+    // The kit's flat 2 px box around the whole range gives way to the ember-gold glow on the knob and a warm groove.
     expect(at(":focus-visible")).toContain("outline: none;");
-    for (const [thumb, track] of [["::-webkit-slider-thumb", "::-webkit-slider-runnable-track"], ["::-moz-range-thumb", "::-moz-range-track"]] as const) {
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-glow: #ffc14d;");
+    for (const thumb of ["::-webkit-slider-thumb", "::-moz-range-thumb"]) {
       expect(at(`:hover${thumb}`), thumb).toMatch(/filter: brightness\(1\.15\) drop-shadow\(/);
       expect(at(`:active${thumb}`), thumb).toContain("transform: scale(1.08);");
-      expect(at(`:focus-visible${thumb}`), thumb).toContain("drop-shadow(0 0 1px #ffd166) drop-shadow(0 0 1px #ffd166)");
-      expect(at(`:focus-visible${track}`), track).toContain("filter: drop-shadow(");
+      expect(at(`:focus-visible${thumb}`), thumb).toContain("filter: brightness(1.12) var(--kit-qs-glow-filter);");
     }
+    const warm = rules.get(".dh-quick .kit-qs__slider:has(.kit-qs__range:focus-visible)") ?? "";
+    expect(warm).toMatch(/--kit-qs-empty-filter: grayscale\(0\.8\) brightness\(0\.5\) drop-shadow\(/);
+    expect(warm).toMatch(/--kit-qs-fill-filter: brightness\(1\.45\) saturate\(1\.4\) drop-shadow\(/);
   });
 
   it("muted, the Master row dims and strikes its number, shows the muted speaker and the button reads Unmute", async () => {
     const root = document.querySelector<HTMLElement>(".dh-quick")!;
     expect(root.style.getPropertyValue("--dh-qs-icon-muted")).toContain("/assets/dragon-hold/ui/quick-settings/hud-sound-muted.64.png");
-    expect(root.style.getPropertyValue("--dh-qs-button-active")).toContain("/assets/dragon-hold/ui/quick-settings/button-active.alpha.png");
+    // The button-active plate now comes through the kit's skin field.
+    expect(root.classList.contains("kit-qs--skin-button-active")).toBe(true);
+    expect(root.style.getPropertyValue("--kit-qs-skin-button-active")).toContain("/assets/dragon-hold/ui/quick-settings/button-active.alpha.png");
     press(window, "F2");
     const master = row("master");
     const mute = master.querySelector<HTMLButtonElement>('[data-toggle="muted"]')!;
@@ -223,57 +258,122 @@ describe("192 app and shared panels", () => {
     expect(master.classList.contains("dh-quick__row--silent")).toBe(true);
     expect(master.classList.contains("dh-quick__row--muted")).toBe(false);
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
-    expect(rules.get(".dh-quick .dh-quick__row--muted .kit-qs__range")).toContain("filter: grayscale(0.7) brightness(0.6);");
+    // The whole slider dims (both groove layers and the knob), not only the range (which would leave the fill lit).
+    expect(rules.get(".dh-quick .dh-quick__row--muted .kit-qs__slider")).toContain("filter: grayscale(0.7) brightness(0.6);");
+    expect(rules.get(".dh-quick .dh-quick__row--muted .kit-qs__range")).toBeUndefined();
     expect(rules.get(".dh-quick .dh-quick__row--muted .kit-qs__num")).toContain("text-decoration: line-through;");
     expect(rules.get(".dh-quick .dh-quick__row--silent .kit-qs__icon-cell")).toContain("background: var(--dh-qs-icon-muted) center / contain no-repeat;");
     expect(rules.get(".dh-quick .dh-quick__row--silent .kit-qs__icon")).toContain("opacity: 0;");
-    // One width for "Mute" and "Unmute", and the groove wraps only below its 6em minimum: Mute stays beside the groove.
+    // One width for "Mute" and "Unmute": the toggle fills the 90 px column.
     expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__btn[data-toggle]")).toContain("min-width: calc(90px * var(--kit-qs-s));");
-    expect(rules.get(".dh-quick .kit-qs__control .kit-qs__range")).toContain("flex-basis: 6em;");
   });
 
-  it("frame and buttons show only their art; Resume and a pressed Mute read gold; values keep off the frame's gold edge", () => {
+  it("buttons and chips are 32 px 162 plates whose transparent margins sit outside the box; Resume, a pressed Mute and the chosen chip wear the lit active plate", () => {
     press(window, "F1");
     const resume = document.querySelector<HTMLButtonElement>('.kit-qs__dialog[data-panel="settings"] [data-action="resume"]')!;
     expect(resume.classList.contains("kit-qs__btn--primary")).toBe(true);
-    press(window, "F2");
-    const mute = row("master").querySelector<HTMLButtonElement>(".kit-qs__btn")!;
-    mute.click();
-    expect(mute.getAttribute("aria-pressed")).toBe("true");
-    mute.click();
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
     // The frame is a 9-slice of the 162 slice data (312 px corners, edges round) at one scale; the centre is one
     // stretched copy of the art's middle (1254/630), clipped inside the gold edge, never tiled.
     const panel = rules.get(".dh-quick.kit-qs--skin-panel .kit-qs__panel") ?? "";
     expect(panel).toContain("border: calc(42px * var(--kit-qs-s)) solid transparent;");
     expect(panel).toContain("border-image: var(--kit-qs-skin-panel) 312 / calc(125px * var(--kit-qs-s)) / 0 round;");
-    expect(panel).toContain("background: var(--kit-qs-skin-panel) center / calc(max(100% - 166px * var(--kit-qs-s), 1px) * 1.9905)");
-    expect(panel).toContain("no-repeat padding-box transparent;");
-    const button = rules.get(".dh-quick.kit-qs--skin-button .kit-qs__btn") ?? "";
-    expect(button).toContain("background-color: transparent;");
-    expect(button).toContain("border-color: transparent;");
-    for (const state of ["--primary", '[aria-pressed="true"]', '[aria-checked="true"]']) {
-      expect(rules.get(`.dh-quick.kit-qs--skin-button .kit-qs__btn${state}`), state).toContain("color: #f2c14e;");
-    }
-    for (const state of ['[aria-pressed="true"]', '[aria-checked="true"]']) {
-      expect(rules.get(`.dh-quick.kit-qs--skin-button .kit-qs__btn${state}`), state).toContain("background-image: var(--dh-qs-button-active, var(--kit-qs-skin-button));");
-    }
-    // With the gold edge at 42 px, these paddings keep the content where the stretched frame had it (52/62/64 px).
     expect(rules.get(".dh-quick .kit-qs__panel")).toContain(
       "padding: calc(10px * var(--kit-qs-s)) calc(20px * var(--kit-qs-s)) calc(22px * var(--kit-qs-s));",
     );
+    // The plate: cut at the margin plus the corner ornament (PLATE_SLICE), drawn at 32/433 of the art, the margins
+    // (PLATE_MARGIN) pushed outside the box by the outset, so the 433 px plate fills the 32 px box.
+    const k = 32 / 433;
+    const len = (n: number) => `calc(${Math.round(n * k * 10) / 10}px * var(--kit-qs-s))`;
+    const [t, r, b] = PLATE_SLICE;
+    const [mt, mr, mb] = PLATE_MARGIN;
+    const plate = `border-image: var(--kit-qs-skin-button) ${PLATE_SLICE.join(" ")} fill / ${len(t)} ${len(r)} ${len(b)} / ${len(mt)} ${len(mr)} ${len(mb)} stretch;`;
+    for (const selector of [".dh-quick.kit-qs--skin-button .kit-qs__btn", ".dh-quick.kit-qs--skin-button .kit-qs__chip"]) {
+      const body = rules.get(selector) ?? "";
+      expect(body, selector).toContain(plate);
+      expect(body, selector).toContain("min-height: calc(32px * var(--kit-qs-s));");
+      expect(body, selector).toContain("border: 0 solid transparent;");
+      // No flat colour or rounded web border under the art.
+      expect(body, selector).toContain("background: none;");
+      expect(body, selector).toContain("border-radius: 0;");
+    }
+    for (const state of [".kit-qs__btn--primary", '.kit-qs__btn[aria-pressed="true"]', '.kit-qs__btn[aria-checked="true"]', ".kit-qs__opt input:checked + .kit-qs__chip"]) {
+      const body = rules.get(`.dh-quick.kit-qs--skin-button ${state}`) ?? "";
+      expect(body, state).toContain("border-image-source: var(--kit-qs-skin-button-active, var(--kit-qs-skin-button));");
+      expect(body, state).toContain("color: var(--kit-qs-active-text);");
+      // Brighter rim and an ember glow; keyboard focus adds the gold glow to that light.
+      expect(body, state).toMatch(/filter: var\(--dh-qs-lit\) drop-shadow\(/);
+      expect(body, state).toMatch(/--kit-qs-glow-filter: var\(--dh-qs-lit\) drop-shadow\(/);
+    }
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-active-text: #f2c14e;");
+    // Hover: a clear brighten plus glow on every plate.
+    for (const selector of [".dh-quick.kit-qs--skin-button .kit-qs__btn:hover", ".dh-quick.kit-qs--skin-button .kit-qs__opt:hover input:not(:disabled) + .kit-qs__chip"]) {
+      expect(rules.get(selector), selector).toMatch(/filter: brightness\(1\.3\) drop-shadow\(/);
+    }
   });
 
-  it("Quality is one short label with its chips on one line, on the button art, the chosen one on the active plate", () => {
+  it("the plate cut holds the 162 art's margins and its corner ornaments", () => {
+    // Visible plate 2102 x 433 at (35, 143) of 2172 x 724; the ornaments reach 195 px across and 185 px down.
+    expect(PLATE_MARGIN).toEqual([143, 35, 724 - 143 - 433, 2172 - 35 - 2102]);
+    expect(PLATE_SLICE).toEqual([143 + 185, 35 + 195, 148 + 185, 35 + 195]);
+  });
+
+  it("Quality is one short label with its chips on one line, on the plates, the chosen one on the active plate", () => {
     press(window, "F1");
     const settings = document.querySelector<HTMLElement>('.kit-qs__dialog[data-panel="settings"]')!;
     expect(settings.querySelector(".kit-qs__heading")!.textContent).toBe("Graphics · next launch");
     expect(row("quality").querySelector(".kit-qs__label")!.textContent).toBe("Quality");
     expect([...row("quality").querySelectorAll(".kit-qs__chip")].map((chip) => chip.textContent)).toEqual(["Low", "Medium", "High", "Ultra"]);
     const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
-    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row')).toContain("grid-template-columns: calc(24px * var(--kit-qs-s)) auto minmax(0, 1fr);");
-    expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__chip")).toContain("background: var(--kit-qs-skin-button) center / 100% 100% no-repeat transparent;");
-    expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__opt input:checked + .kit-qs__chip")).toContain("background: var(--dh-qs-button-active, var(--kit-qs-skin-button)) center / 100% 100% no-repeat transparent;");
+    expect(rules.get('.dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row')).toContain("grid-template-columns: var(--kit-qs-icon-size) auto minmax(0, 1fr);");
+    expect(rules.get(".dh-quick.kit-qs--skin-button .kit-qs__chip")).toContain("display: inline-flex;");
+  });
+
+  it("keyboard sound rows are 162 plates, the chosen row the lit button-active plate in gold; the list scales with the panel", () => {
+    const root = document.querySelector<HTMLElement>(".dh-quick")!;
+    expect(root.classList.contains("kit-qs--skin-list")).toBe(true);
+    // Real active art exists, so the kit does not tint the row plate.
+    expect(root.classList.contains("kit-qs--list-tint")).toBe(false);
+    expect(root.style.getPropertyValue("--kit-qs-list-row")).toContain("/assets/dragon-hold/ui/quick-settings/button.alpha.png");
+    expect(root.style.getPropertyValue("--kit-qs-list-row-active")).toContain("/assets/dragon-hold/ui/quick-settings/button-active.alpha.png");
+    expect(root.style.getPropertyValue("--kit-qs-list-slice")).toBe(PLATE_SLICE.join(" "));
+    for (const [name, value] of Object.entries(LIST_ROW_VARS)) expect(root.style.getPropertyValue(name), name).toBe(value);
+    // The art's margins pulled outside each row: inset + margin at the row's scale leaves 2 px above and below, 0 aside.
+    const k = 30 / 433;
+    const inset = [...LIST_ROW_VARS["--kit-qs-list-inset"]!.matchAll(/calc\((-?[\d.]+)px \* var\(--kit-qs-s\)\)/g)].map((m) => Number(m[1]));
+    expect(inset).toHaveLength(4);
+    PLATE_MARGIN.forEach((margin, side) => expect(inset[side]! + margin * k, String(side)).toBeCloseTo(side % 2 === 0 ? 2 : 0, 0));
+    press(window, "F2");
+    const selected = document.querySelector('[role="option"][aria-selected="true"]');
+    expect(selected?.textContent).toBe("Bright Clack Velvet");
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-list-pad: calc(8px * var(--kit-qs-s));");
+    const chosen = '.dh-quick.kit-qs.kit-qs--skin-list .kit-keyboards button.kit-keyboards__option[aria-selected="true"]';
+    expect(rules.get(`${chosen}::before`)).toMatch(/filter: brightness\(1\.15\) saturate\(1\.2\) drop-shadow\(/);
+    expect(rules.get(chosen)).toMatch(/--kit-qs-glow-filter: brightness\(1\.15\) saturate\(1\.2\) drop-shadow\(/);
+    // Rows, headings and listen icons scale; 7.5 rows show, so the panel fits its frame; touch keeps 44 px.
+    expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards")).toContain("max-height: calc(252px * var(--kit-qs-s));");
+    const rowsRule = rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards button") ?? "";
+    expect(rowsRule).toContain("height: calc(34px * var(--kit-qs-s));");
+    expect(rowsRule).toContain("height: max(44px, calc(34px * var(--kit-qs-s)));");
+    expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards__family")).toContain("height: calc(28px * var(--kit-qs-s));");
+    expect(rules.get(".dh-quick .kit-qs__row--keyboards .kit-keyboards__listen img")).toContain("width: calc(24px * var(--kit-qs-s));");
+  });
+
+  it("every Sound row has its 180 icon (Keyboard volume the keyboard's), the Quality cell stays empty, and the title is in Cormorant", () => {
+    press(window, "F2");
+    const icon = (id: string) => row(id).querySelector(".kit-qs__icon")?.getAttribute("src") ?? null;
+    const expected: Record<string, string> = { master: "vol-master", music: "vol-music", effects: "vol-effects", keyboard: "vol-keyboard", keyboardVolume: "vol-keyboard", voice: "vol-voice", ui: "vol-interface" };
+    for (const [id, name] of Object.entries(expected)) expect(icon(id), id).toContain(`/assets/dragon-hold/ui/quick-settings/${name}.64.png`);
+    // Only files the game has: every URL is one of the 180 icons.
+    for (const url of Object.values(QUICK_ICONS)) expect(QUICK_ICON_NAMES.some((name) => url!.endsWith(`/${name}.64.png`)), url).toBe(true);
+    // No graphics icon is accepted yet: the cell keeps its width and holds nothing.
+    press(window, "F1");
+    const cell = row("quality").querySelector(".kit-qs__icon-cell")!;
+    expect(cell.children).toHaveLength(0);
+    const { rules } = cssRules(readFileSync("src/app/app.css", "utf8"));
+    expect(rules.get(".dh-quick.kit-qs")).toContain("--kit-qs-title-font: var(--dh-font-title);");
+    expect(rules.get(".dh-quick .kit-qs__title")).toContain("color: #f2c14e;");
   });
 
   it("pauses immediately, preserves the word/hash, blocks letters and counts 3–2–1 before another tick", () => {

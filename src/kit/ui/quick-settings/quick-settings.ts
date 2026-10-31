@@ -33,9 +33,10 @@ import {
   type QuickButtonRow,
   type QuickChoiceOption,
   type QuickChoiceRow,
-  type QuickIconName,
+  type QuickIconKey,
   type QuickIcons,
   type QuickMount,
+  type QuickNineSlice,
   type QuickPanel,
   type QuickRow,
   type QuickSkin,
@@ -90,8 +91,9 @@ export type QuickSettingsOptions = QuickDefaultsOptions & {
   readonly onResume?: () => void;
   /** "Quit to title" pressed (no countdown, no onResume). */
   readonly onQuit?: () => void;
-  /** Icon art URLs; a missing icon leaves a plain text button. */
+  /** Icon art URLs by name (corner buttons and any row's `icon`); a missing icon leaves a plain text button or an empty icon cell. */
   readonly icons?: QuickIcons;
+  /** Frame, button, slider, list and Close art; each part left out keeps the kit's plain look. */
   readonly skin?: QuickSkin;
   /** Replace the kit's rows (e.g. a filtered or reordered defaultSettingsRows()). */
   readonly settingsRows?: readonly QuickRow[];
@@ -127,9 +129,30 @@ type Panel = {
   readonly syncers: (() => void)[];
   readonly slots: { readonly host: HTMLElement; readonly mount: QuickMount }[];
   readonly cleanups: (() => void)[];
+  /** Some slider row has a toggle: every slider row keeps the column after the number, so grooves match. */
+  readonly aside: boolean;
+  readonly close: HTMLButtonElement;
 };
 
-type RowHead = { readonly id: string; readonly label: string; readonly icon?: QuickIconName };
+type RowHead = { readonly id: string; readonly label: string; readonly icon?: QuickIconKey };
+
+/** A border-image list in CSS: finite numbers ≥ 0, one to four; anything else is `fallback`. */
+function cssNumbers(value: number | readonly number[] | undefined, unit: string, fallback: string): string {
+  const list = (typeof value === "number" ? [value] : Array.isArray(value) ? value : []).slice(0, 4);
+  if (list.length === 0 || !list.every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0)) return fallback;
+  return list.map((n) => `${n}${unit}`).join(" ");
+}
+
+const plateSlice = (plate: QuickNineSlice): string => cssNumbers(plate.slice, "", "0");
+const plateEdge = (plate: QuickNineSlice): string => cssNumbers(plate.edge, "px", "12px");
+/** The label's side padding on a plate: the wider of its left and right edges, plus 4 px. */
+function plateText(plate: QuickNineSlice): string {
+  const edges = plateEdge(plate).split(" ").map((n) => parseFloat(n));
+  const right = edges[1] ?? edges[0]!;
+  const left = edges[3] ?? right;
+  return `${Math.max(left, right) + 4}px`;
+}
+const artUrl = (value: string | undefined): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 let instances = 0;
 
@@ -147,7 +170,9 @@ export class QuickSettings {
   private readonly corners: Readonly<Record<QuickPanel, HTMLButtonElement>>;
   private readonly panels: Readonly<Record<QuickPanel, Panel>>;
   private readonly count: HTMLElement;
-  private readonly rowIcons: { readonly name: QuickIconName; readonly holder: HTMLElement }[] = [];
+  private readonly rowIcons: { readonly name: QuickIconKey; readonly holder: HTMLElement }[] = [];
+  /** QuickSkin.close: Close is drawn as this icon while it loads. */
+  private closeArt: string | null = null;
   private readonly failedIcons = new Set<string>();
   private readonly previews: KeyedThrottle;
   private readonly keyboardPreview: KeyboardSoundPreview;
@@ -215,6 +240,7 @@ export class QuickSettings {
     this.onResize();
     this.readValues();
     this.paintRowIcons();
+    this.paintClose();
   }
 
   /** A panel is open. */
@@ -471,7 +497,7 @@ export class QuickSettings {
     this.paintCorners();
   }
 
-  private iconUrl(name: QuickIconName): string | null {
+  private iconUrl(name: QuickIconKey): string | null {
     const url = this.icons[name];
     return typeof url === "string" && url !== "" && !this.failedIcons.has(url) ? url : null;
   }
@@ -482,7 +508,7 @@ export class QuickSettings {
     this.paintCorner(this.corners.sound, muted ? TEXT.soundOff : TEXT.sound, muted ? "hud-sound-muted" : "hud-sound", QUICK_KEYS.sound);
   }
 
-  private paintCorner(button: HTMLButtonElement, text: string, icon: QuickIconName, key: string): void {
+  private paintCorner(button: HTMLButtonElement, text: string, icon: QuickIconKey, key: string): void {
     const url = this.iconUrl(icon);
     button.title = `${text} (${key})`;
     button.classList.toggle("has-icon", url !== null);
@@ -503,6 +529,23 @@ export class QuickSettings {
     }
   }
 
+  /** Close as the skin's icon (accessible name "Close"), or the text button when there is none or it failed. */
+  private paintClose(): void {
+    const url = this.closeArt !== null && !this.failedIcons.has(this.closeArt) ? this.closeArt : null;
+    for (const kind of QUICK_PANELS) {
+      const button = this.panels[kind].close;
+      button.classList.toggle("kit-qs__btn", url === null);
+      button.classList.toggle("kit-qs__close--icon", url !== null);
+      if (url === null) {
+        button.removeAttribute("aria-label");
+        if (button.firstElementChild !== null || button.textContent !== TEXT.close) button.textContent = TEXT.close;
+      } else {
+        button.setAttribute("aria-label", TEXT.close);
+        if (button.firstElementChild?.getAttribute("src") !== url) button.replaceChildren(this.image(url, "kit-qs__close-img"));
+      }
+    }
+  }
+
   /** An art image; if it fails to load, its button or row falls back to text / no icon. */
   private image(url: string, className: string): HTMLImageElement {
     const img = this.el("img", className);
@@ -514,6 +557,7 @@ export class QuickSettings {
         this.failedIcons.add(url);
         this.paintCorners();
         this.paintRowIcons();
+        this.paintClose();
       },
       { once: true },
     );
@@ -522,15 +566,48 @@ export class QuickSettings {
   }
 
   private applySkin(skin: QuickSkin): void {
+    const { classList, style } = this.root;
+    const image = (url: string | null): string => (url === null ? "none" : cssUrl(url));
     const set = (url: string | undefined, className: string, variable: string): void => {
-      if (typeof url !== "string" || url === "") return;
-      this.root.classList.add(className);
-      this.root.style.setProperty(variable, cssUrl(url));
+      const art = artUrl(url);
+      if (art === null) return;
+      classList.add(className);
+      style.setProperty(variable, cssUrl(art));
     };
     set(skin.panel, "kit-qs--skin-panel", "--kit-qs-skin-panel");
     set(skin.button, "kit-qs--skin-button", "--kit-qs-skin-button");
+    set(skin.buttonActive, "kit-qs--skin-button-active", "--kit-qs-skin-button-active");
     set(skin.sliderThumb, "kit-qs--skin-slider", "--kit-qs-skin-thumb");
     set(skin.sliderTrack, "kit-qs--skin-slider", "--kit-qs-skin-track");
+    // Fill layer: empty groove under the range, fill over it clipped at the knob; each falls back to the track art.
+    const fill = artUrl(skin.sliderFill);
+    const empty = artUrl(skin.sliderEmpty);
+    if (fill !== null || empty !== null) {
+      const track = artUrl(skin.sliderTrack);
+      classList.add("kit-qs--skin-slider", "kit-qs--slider-fill");
+      classList.toggle("kit-qs--fill-art", fill !== null);
+      classList.toggle("kit-qs--empty-art", empty !== null);
+      style.setProperty("--kit-qs-skin-fill", image(fill ?? track));
+      style.setProperty("--kit-qs-skin-empty", image(empty ?? track));
+    }
+    // List plates: a missing url is the button art; a missing active plate is button-active, else the row plate lit.
+    if (skin.listRow !== undefined || skin.listRowActive !== undefined) {
+      const row = skin.listRow ?? skin.listRowActive!;
+      const rowUrl = artUrl(skin.listRow?.url) ?? artUrl(skin.button);
+      const activeUrl = artUrl(skin.listRowActive?.url) ?? artUrl(skin.buttonActive);
+      const active = activeUrl !== null ? (skin.listRowActive ?? row) : row;
+      classList.add("kit-qs--skin-list");
+      classList.toggle("kit-qs--list-tint", activeUrl === null);
+      style.setProperty("--kit-qs-list-row", image(rowUrl));
+      style.setProperty("--kit-qs-list-slice", plateSlice(row));
+      style.setProperty("--kit-qs-list-edge", plateEdge(row));
+      style.setProperty("--kit-qs-list-text-x", plateText(row));
+      style.setProperty("--kit-qs-list-row-active", image(activeUrl ?? rowUrl));
+      style.setProperty("--kit-qs-list-active-slice", plateSlice(active));
+      style.setProperty("--kit-qs-list-active-edge", plateEdge(active));
+    }
+    this.closeArt = artUrl(skin.close);
+    classList.toggle("kit-qs--skin-close", this.closeArt !== null);
   }
 
   private corner(kind: QuickPanel): HTMLButtonElement {
@@ -565,7 +642,8 @@ export class QuickSettings {
     const body = this.el("div", "kit-qs__body");
     box.append(head, body);
     element.append(backdrop, box);
-    const panel: Panel = { element, box, dialog: new A11yDialog(element), syncers: [], slots: [], cleanups: [] };
+    const aside = this.rows[kind].some((row) => row.kind === "slider" && row.toggle !== undefined);
+    const panel: Panel = { element, box, dialog: new A11yDialog(element), syncers: [], slots: [], cleanups: [], aside, close };
     let actions: HTMLElement | null = null;
     for (const row of this.rows[kind]) {
       if (row.kind === "button") {
@@ -607,9 +685,13 @@ export class QuickSettings {
   private shell(row: RowHead, labelTag: "label" | "span"): { line: HTMLElement; label: HTMLElement; control: HTMLElement } {
     const line = this.el("div", "kit-qs__row");
     line.dataset.row = row.id;
+    // The cell keeps its width when empty, so labels line up.
     const icon = this.el("span", "kit-qs__icon-cell");
     icon.setAttribute("aria-hidden", "true");
-    if (row.icon !== undefined) this.rowIcons.push({ name: row.icon, holder: icon });
+    if (row.icon !== undefined) {
+      icon.dataset.icon = row.icon;
+      this.rowIcons.push({ name: row.icon, holder: icon });
+    }
     const label = this.el(labelTag, "kit-qs__label", row.label);
     label.id = `${this.uid}-${row.id}-label`;
     const control = this.el("div", "kit-qs__control");
@@ -617,9 +699,21 @@ export class QuickSettings {
     return { line, label, control };
   }
 
+  /**
+   * The native range (input and a11y) inside `.kit-qs__slider`, over two art
+   * layers that show only with the fill skin: the empty groove and the fill,
+   * clipped at the knob through --kit-qs-v (0..1) on the wrapper. The toggle
+   * goes to the row's `.kit-qs__aside` column after the number.
+   */
   private renderSlider(row: QuickSliderRow, panel: Panel): HTMLElement {
     const { line, label, control } = this.shell(row, "label");
+    control.classList.add("kit-qs__control--slider");
     const { min, max, step } = sliderBounds(row);
+    const slider = this.el("div", "kit-qs__slider");
+    const groove = this.el("span", "kit-qs__groove");
+    const fill = this.el("span", "kit-qs__fill");
+    groove.setAttribute("aria-hidden", "true");
+    fill.setAttribute("aria-hidden", "true");
     const input = this.el("input", "kit-qs__range");
     input.type = "range";
     input.id = `${this.uid}-${row.id}`;
@@ -633,18 +727,23 @@ export class QuickSettings {
       this.change(row.id, readSlider(row, Number(input.value)));
       if (row.preview !== undefined) this.previews.call(row.preview);
     });
-    control.append(input, number);
+    slider.append(groove, fill, input);
+    control.append(slider, number);
     panel.syncers.push(() => {
       const value = String(this.values[row.id]);
       if (input.value !== value) input.value = value;
       number.textContent = value;
+      const at = max > min ? (Number(this.values[row.id]) - min) / (max - min) : 0;
+      slider.style.setProperty("--kit-qs-v", (Number.isFinite(at) ? Math.min(1, Math.max(0, at)) : 0).toFixed(4));
     });
+    const aside = panel.aside ? this.el("span", "kit-qs__aside") : null;
+    if (aside !== null) control.append(aside);
     if (row.toggle !== undefined) {
       const { id, label: text } = row.toggle;
       const button = this.button("kit-qs__btn", text);
       button.dataset.toggle = id;
       button.addEventListener("click", () => this.change(id, this.values[id] !== true));
-      control.append(button);
+      (aside ?? control).append(button);
       panel.syncers.push(() => button.setAttribute("aria-pressed", String(this.values[id] === true)));
     }
     return line;

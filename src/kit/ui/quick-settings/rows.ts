@@ -61,38 +61,42 @@ export type QuickDefaultsOptions = {
   readonly gameSectionLabel?: string;
 };
 
-/** Sound panel rows in the spec's order (§2). Values 0–100; `muted` is a boolean. */
+/** Sound panel rows in the spec's order (§2). Values 0–100; `muted` is a boolean. Every row names an icon. */
 export function defaultSoundRows(options: QuickDefaultsOptions = {}): QuickRow[] {
   return [
     { kind: "slider", id: "master", label: "Master", icon: "vol-master", preview: "master", toggle: { id: "muted", label: "Mute" } },
     { kind: "slider", id: "music", label: "Music", icon: "vol-music", preview: "music" },
     { kind: "slider", id: "effects", label: "Effects", icon: "vol-effects", preview: "effects" },
     { kind: "choice", id: "keyboard", label: "Keyboard sound", icon: "vol-keyboard", options: options.keyboardProfiles ?? DEFAULT_KEYBOARD_PROFILES, default: (options.keyboardProfiles ?? DEFAULT_KEYBOARD_PROFILES).find((p) => p.value !== "off" && !p.disabled)?.value ?? "off", preview: "keyboard" },
-    { kind: "slider", id: "keyboardVolume", label: "Keyboard volume", preview: "keyboard" },
+    { kind: "slider", id: "keyboardVolume", label: "Keyboard volume", icon: "vol-keyboard-volume", preview: "keyboard" },
     { kind: "slider", id: "voice", label: "Voice", icon: "vol-voice", preview: "voice" },
     { kind: "slider", id: "ui", label: "Interface", icon: "vol-interface", preview: "ui" },
   ];
 }
 
-/** Settings panel rows in the spec's order (§3): typing effects, graphics, learning, the game's rows, Resume, Quit to title. */
+/**
+ * Settings panel rows in the spec's order (§3): typing effects, graphics,
+ * learning, the game's rows, Resume, Quit to title. Every kit row names an
+ * icon (QUICK_ROW_ICON_NAMES); a game gives its own rows any icon name.
+ */
 export function defaultSettingsRows(options: QuickDefaultsOptions = {}): QuickRow[] {
   const rows: QuickRow[] = [
     { kind: "heading", id: "typingHeading", label: "Typing effects" },
-    { kind: "choice", id: "fxStyle", label: "Letter style", options: LETTER_STYLES, default: "stamp" },
-    { kind: "choice", id: "fxIntensity", label: "Effect strength", options: STRENGTHS, default: "normal" },
-    { kind: "choice", id: "fxSize", label: "Word size", options: WORD_SIZES, default: "large" },
+    { kind: "choice", id: "fxStyle", label: "Letter style", icon: "fx-style", options: LETTER_STYLES, default: "stamp" },
+    { kind: "choice", id: "fxIntensity", label: "Effect strength", icon: "fx-strength", options: STRENGTHS, default: "normal" },
+    { kind: "choice", id: "fxSize", label: "Word size", icon: "fx-size", options: WORD_SIZES, default: "large" },
   ];
   if (options.mountPreview !== undefined) rows.push({ kind: "slot", id: "fxPreview", label: "Preview", mount: options.mountPreview });
   rows.push(
     { kind: "heading", id: "graphicsHeading", label: "Graphics" },
-    { kind: "choice", id: "quality", label: "Quality", options: QUALITIES, default: "high" },
-    { kind: "toggle", id: "reducedMotion", label: "Reduced motion", default: false },
+    { kind: "choice", id: "quality", label: "Quality", icon: "gfx-quality", options: QUALITIES, default: "high" },
+    { kind: "toggle", id: "reducedMotion", label: "Reduced motion", icon: "gfx-motion", default: false },
   );
   const learning = options.learning ?? {};
   if (learning.meaning === true || learning.ipa === true) {
     rows.push({ kind: "heading", id: "learningHeading", label: "Learning" });
-    if (learning.meaning === true) rows.push({ kind: "toggle", id: "learnMeaning", label: "Show Vietnamese meaning", default: true });
-    if (learning.ipa === true) rows.push({ kind: "toggle", id: "learnIpa", label: "Show pronunciation", default: true });
+    if (learning.meaning === true) rows.push({ kind: "toggle", id: "learnMeaning", label: "Show Vietnamese meaning", icon: "learn-meaning", default: true });
+    if (learning.ipa === true) rows.push({ kind: "toggle", id: "learnIpa", label: "Show pronunciation", icon: "learn-ipa", default: true });
   }
   const gameRows = options.gameRows ?? [];
   if (gameRows.length > 0 || options.mountGameItems !== undefined) {

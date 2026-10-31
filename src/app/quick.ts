@@ -4,25 +4,55 @@ import { allowedQualities } from "./quality";
 import { manifestJson, sampleBytes } from "./keyboard";
 
 const UI_BASE = `${import.meta.env.BASE_URL}assets/dragon-hold/ui/quick-settings/`;
-export const QUICK_ICONS: QuickIcons = Object.fromEntries(QUICK_ICON_NAMES.map((name) => [name, UI_BASE + name + ".64.png"]));
+/** The 180 icons; Keyboard volume reuses the keyboard icon until its own (ticket 244) is accepted. */
+export const QUICK_ICONS: QuickIcons = {
+  ...Object.fromEntries(QUICK_ICON_NAMES.map((name) => [name, UI_BASE + name + ".64.png"])),
+  "vol-keyboard-volume": UI_BASE + "vol-keyboard.64.png",
+};
 /**
- * Frame, button and slider art (tickets 162, 225 knob, 241 groove). At 1080p the groove is drawn about 306 × 15 CSS px
- * and the knob box 42 px, so the 1024 × 64 groove and the 128 px knob stay sharp on a 2× screen. app.css draws the
- * groove in three slices (the chevron caps keep their proportion), sizes the knob and clears the kit's flat colours
- * under both (`.dh-quick.kit-qs--skin-slider`), so only the art shows.
+ * The 162 button art (2172 x 724) as a nine-slice plate: its visible plate is 2102 x 433 at (35, 143), and the
+ * corner ornaments reach 195 px across and 185 px down inside it. The cuts hold the margin plus the ornament, so the
+ * ornaments keep their shape and only the band and the slate between them stretch.
+ */
+export const PLATE_SLICE = [328, 230, 333, 230] as const;
+/** Transparent margins of the button art (top, right, bottom, left), in source px. */
+export const PLATE_MARGIN = [143, 35, 148, 35] as const;
+/** Keyboard sound rows (34 px): the visible plate is 30 px tall, so the art is drawn at 30 / 433 of its size. */
+const ROW_SCALE = 30 / 433;
+const px = (n: number): number => Math.round(n * ROW_SCALE * 10) / 10;
+/**
+ * Frame, button and slider art (tickets 162, 225 knob, 241 groove). At 1080p the groove is drawn about 15 CSS px tall
+ * and the knob box 42 px, so the 1024 x 64 groove and the 128 px knob stay sharp on a 2x screen.
+ * - The fill layer runs on the 241 groove until the 244 fill art is accepted: `sliderEmpty` is the groove (app.css
+ *   dims and greys it) and the fill falls back to the same groove, lit (--kit-qs-fill-filter).
+ * - Keyboard sound rows are 162 button plates, the chosen row the 162 button-active plate (`buttonActive`);
+ *   LIST_ROW_VARS pulls the art's transparent margins outside each row. The 245 list-row art drops in here (with its
+ *   own cut in LIST_ROW_VARS).
  */
 export const QUICK_SKIN: QuickSkin = {
   panel: UI_BASE + "panel-large.alpha.png",
   button: UI_BASE + "button.alpha.png",
+  buttonActive: UI_BASE + "button-active.alpha.png",
   sliderTrack: UI_BASE + "slider-track.png",
   sliderThumb: UI_BASE + "slider-thumb.128.png",
+  sliderEmpty: UI_BASE + "slider-track.png",
+  listRow: { slice: PLATE_SLICE, edge: PLATE_SLICE.map(px) },
 };
 /**
- * Art the kit's skin has no field for, passed to app.css as variables on the layer: the 162 button-active plate (a
- * pressed Mute, a chosen chip) and the 180 muted speaker for the Master row while muted.
+ * The keyboard rows' plate at the panel's scale (app.css scales the 34 px rows by --kit-qs-s; the kit's own values are
+ * these at scale 1): edges, the art's margins pulled outside each row with 2 px of air above and below (inset: top,
+ * right, bottom, left) and the label clear of the corner ornaments.
  */
+const scaled = (n: number): string => `calc(${Math.round(n * 10) / 10}px * var(--kit-qs-s))`;
+const ROW_EDGE = PLATE_SLICE.map((n) => scaled(px(n))).join(" ");
+export const LIST_ROW_VARS: Readonly<Record<string, string>> = {
+  "--kit-qs-list-edge": ROW_EDGE,
+  "--kit-qs-list-active-edge": ROW_EDGE,
+  "--kit-qs-list-inset": [2 - px(PLATE_MARGIN[0]), -px(PLATE_MARGIN[1]), 2 - px(PLATE_MARGIN[2]), -px(PLATE_MARGIN[3])].map(scaled).join(" "),
+  "--kit-qs-list-text-x": scaled(Math.max(px(PLATE_SLICE[1]), px(PLATE_SLICE[3])) + 4),
+};
+/** Art the kit's skin has no field for, passed to app.css as variables on the layer: the 180 muted speaker for the Master row. */
 export const QUICK_ART_VARS: Readonly<Record<string, string>> = {
-  "--dh-qs-button-active": UI_BASE + "button-active.alpha.png",
   "--dh-qs-icon-muted": UI_BASE + "hud-sound-muted.64.png",
 };
 const cssUrl = (url: string): string => `url(${JSON.stringify(url)})`;
@@ -62,6 +92,7 @@ export function createQuickSettings(options: QuickSettingsOptions, keyboards: re
   const quick = new QuickSettings(quickOptions(options, keyboards));
   quick.root.classList.add("dh-quick");
   for (const [name, url] of Object.entries(QUICK_ART_VARS)) quick.root.style.setProperty(name, cssUrl(url));
+  for (const [name, value] of Object.entries(LIST_ROW_VARS)) quick.root.style.setProperty(name, value);
   quick.root.querySelector<HTMLElement>(".kit-qs__bar")!.dataset.keepout = "";
   watchMute(quick.root);
   return quick;

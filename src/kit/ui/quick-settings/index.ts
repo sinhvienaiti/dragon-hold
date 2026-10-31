@@ -9,18 +9,21 @@ export {
   type QuickSettingsOptions,
 } from "./quick-settings";
 export { DEFAULT_KEYBOARD_PROFILES, defaultSettingsRows, defaultSoundRows, type QuickDefaultsOptions } from "./rows";
-export { QUICK_SETTINGS_COLORS, QUICK_SETTINGS_CSS, QUICK_SETTINGS_STYLE_ID, installQuickSettingsStyles } from "./css";
+export { QUICK_FILL_FROM_TRACK_FILTER, QUICK_SETTINGS_COLORS, QUICK_SETTINGS_CSS, QUICK_SETTINGS_STYLE_ID, QUICK_SETTINGS_VARS, installQuickSettingsStyles } from "./css";
 export { QUICK_KEYS } from "./logic";
 export {
   QUICK_ICON_NAMES,
   QUICK_PANELS,
+  QUICK_ROW_ICON_NAMES,
   type QuickButtonRow,
   type QuickChoiceOption,
   type QuickChoiceRow,
   type QuickHeadingRow,
+  type QuickIconKey,
   type QuickIconName,
   type QuickIcons,
   type QuickMount,
+  type QuickNineSlice,
   type QuickPanel,
   type QuickRow,
   type QuickSkin,

@@ -313,75 +313,110 @@
 }
 
 /*
- * The frame and button art have transparent margins. The kit paints --kit-qs-control (light-blue --kit-qs-accent on
- * Resume and a pressed Mute) under each button, which showed as flat boxes around the art. Only the art shows now;
- * Resume reads as gold lettering on the button art; a pressed Mute and a chosen chip wear the 162 button-active art
- * (gold-lit, ember glow; --dh-qs-button-active from quick.ts) with gold lettering; hover lifts the art.
+ * Layer settings for the kit (QUICK_SETTINGS_VARS). Focus is an ember-gold glow hugging the art; active plates letter
+ * in gold; the panel title is in the game's display face. The knob box is 32 px (the art fills 70 %: about 22 px
+ * visible at 720p), so the fill stops at its centre. The 241 groove is cut 0 64 with 10 px caps (its chevrons keep
+ * their proportion). Mute sits in a 90 px column after the number on every slider row, so all grooves are one length.
+ * Until the 244 fill art: the empty groove is the 241 groove dimmed and greyed, the fill the same groove lit with an
+ * ember glow, so 0, 50 and 100 % read apart at real size.
  */
-
-.dh-quick.kit-qs--skin-button .kit-qs__btn {
-  color: var(--kit-qs-text);
-  min-height: calc(40px * var(--kit-qs-s));
-  padding-inline: calc(24px * var(--kit-qs-s));
-  border-color: transparent;
-  background-color: transparent;
+.dh-quick.kit-qs {
+  --kit-qs-glow: #ffc14d;
+  --kit-qs-active-text: #f2c14e;
+  --kit-qs-title-font: var(--dh-font-title);
+  --kit-qs-knob: calc(32px * var(--kit-qs-s));
+  --kit-qs-groove-slice: 0 64;
+  --kit-qs-groove-cap: calc(10px * var(--kit-qs-s));
+  --kit-qs-aside-w: calc(90px * var(--kit-qs-s));
+  --kit-qs-empty-filter: grayscale(0.8) brightness(0.5);
+  --kit-qs-fill-filter: brightness(1.35) saturate(1.4)
+    drop-shadow(0 0 calc(3px * var(--kit-qs-s)) rgba(255, 140, 40, 0.75));
+  --kit-qs-list-pad: calc(8px * var(--kit-qs-s));
 }
 
-.dh-quick.kit-qs--skin-button .kit-qs__btn--primary,
-.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-pressed="true"],
-.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-checked="true"] {
+.dh-quick .kit-qs__title {
+  font-size: calc(28px * var(--kit-qs-s));
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
   color: #f2c14e;
-}
-
-.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-pressed="true"],
-.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-checked="true"] {
-  background-image: var(--dh-qs-button-active, var(--kit-qs-skin-button));
-}
-
-.dh-quick.kit-qs--skin-button .kit-qs__btn:hover {
-  filter: brightness(1.18);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 /*
- * "Unmute" is longer than "Mute": the toggle keeps Unmute's width (88 px at scale 1, measured) for both labels, so the
- * Master row does not shift when muted. The groove beside it wraps only when its kit minimum (6em) no longer fits: the
- * kit's 8em basis (on the range's own 13.3 px font) put Mute under the groove at 1280 x 720 once the toggle kept that width.
+ * Buttons and chips are 162 plates, 32 px tall at 720p. The art (2172 x 724) has a 2102 x 433 plate inside large
+ * transparent margins; drawn over the whole box it showed a thin bar about 20 px tall. It is now a nine-slice (cuts
+ * 328 230 333 230: margin plus corner ornament, quick.ts PLATE_SLICE) at 32/433 of its size, and the margins are
+ * pushed outside the box (border-image-outset 143 35 148 35 at that scale), so the plate fills the box exactly. The
+ * kit's flat colours under the art are cleared. Text clears the 14 px ornaments.
  */
-.dh-quick.kit-qs--skin-button .kit-qs__btn[data-toggle] {
-  min-width: calc(90px * var(--kit-qs-s));
-  padding-inline: calc(14px * var(--kit-qs-s));
+.dh-quick.kit-qs--skin-button .kit-qs__btn,
+.dh-quick.kit-qs--skin-button .kit-qs__chip {
+  box-sizing: border-box;
+  min-height: calc(32px * var(--kit-qs-s));
+  border: 0 solid transparent;
+  border-radius: 0;
+  border-image: var(--kit-qs-skin-button) 328 230 333 230 fill /
+    calc(24.2px * var(--kit-qs-s)) calc(17px * var(--kit-qs-s)) calc(24.6px * var(--kit-qs-s)) /
+    calc(10.6px * var(--kit-qs-s)) calc(2.6px * var(--kit-qs-s)) calc(10.9px * var(--kit-qs-s)) stretch;
+  background: none;
+  color: var(--kit-qs-text);
+  transition: filter 120ms ease-out;
 }
-.dh-quick .kit-qs__control .kit-qs__range {
-  flex-basis: 6em;
+.dh-quick.kit-qs--skin-button .kit-qs__btn {
+  padding-inline: calc(24px * var(--kit-qs-s));
 }
-
-/*
- * Choice chips (Quality) wear the same button art, a chosen one the button-active art, instead of the kit's flat navy
- * pills and light-blue selection. The Settings rows size the label column to the label, so all four chips fit on one
- * line next to "Quality" at 1280 and 1920 (with the 9.5em column "Ultra" dropped to a second line).
- */
 .dh-quick.kit-qs--skin-button .kit-qs__chip {
   display: inline-flex;
   align-items: center;
-  min-height: calc(36px * var(--kit-qs-s));
-  padding: 0 calc(16px * var(--kit-qs-s));
-  border-color: transparent;
-  border-radius: 0;
-  background: var(--kit-qs-skin-button) center / 100% 100% no-repeat transparent;
-  color: var(--kit-qs-text);
+  padding: 0 calc(18px * var(--kit-qs-s));
   font-weight: 700;
 }
+
+/*
+ * Active plate: Resume, a pressed Mute and the chosen chip wear the 162 button-active art (QuickSkin.buttonActive),
+ * lit (brighter rim) with an ember glow and gold lettering. Keyboard focus on one adds the gold glow to that light
+ * (the kit's focus rule reads --kit-qs-glow-filter on the element).
+ */
+.dh-quick.kit-qs--skin-button .kit-qs__btn--primary,
+.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-pressed="true"],
+.dh-quick.kit-qs--skin-button .kit-qs__btn[aria-checked="true"],
 .dh-quick.kit-qs--skin-button .kit-qs__opt input:checked + .kit-qs__chip {
-  border-color: transparent;
-  background: var(--dh-qs-button-active, var(--kit-qs-skin-button)) center / 100% 100% no-repeat transparent;
-  color: #f2c14e;
+  --dh-qs-lit: brightness(1.18) saturate(1.25);
+  --kit-qs-glow-filter: var(--dh-qs-lit) drop-shadow(0 0 1px var(--kit-qs-glow)) drop-shadow(0 0 1px var(--kit-qs-glow))
+    drop-shadow(0 0 calc(6px * var(--kit-qs-s)) var(--kit-qs-glow));
+  border-image-source: var(--kit-qs-skin-button-active, var(--kit-qs-skin-button));
+  background: none;
+  color: var(--kit-qs-active-text);
+  filter: var(--dh-qs-lit) drop-shadow(0 0 calc(5px * var(--kit-qs-s)) rgba(255, 140, 40, 0.8));
 }
+
+/* Hover: a clear brighten and an ember glow, on any plate. */
+.dh-quick.kit-qs--skin-button .kit-qs__btn:hover,
 .dh-quick.kit-qs--skin-button .kit-qs__opt:hover input:not(:disabled) + .kit-qs__chip {
-  border-color: transparent;
-  filter: brightness(1.18);
+  filter: brightness(1.3) drop-shadow(0 0 calc(6px * var(--kit-qs-s)) rgba(255, 150, 50, 0.9));
 }
+
+/* "Unmute" is longer than "Mute": the toggle keeps Unmute's width (the 90 px Mute column) for both labels. */
+.dh-quick.kit-qs--skin-button .kit-qs__btn[data-toggle] {
+  min-width: calc(90px * var(--kit-qs-s));
+  padding-inline: calc(16px * var(--kit-qs-s));
+}
+
+/*
+ * The Settings rows size the label column to the label, so all four Quality chips fit on one line next to "Quality"
+ * at 1280 and 1920 (with the 9.5em column "Ultra" dropped to a second line).
+ */
 .dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row {
-  grid-template-columns: calc(24px * var(--kit-qs-s)) auto minmax(0, 1fr);
+  grid-template-columns: var(--kit-qs-icon-size) auto minmax(0, 1fr);
+}
+
+/*
+ * The Sound panel is 640 px wide (scaled; the kit's 560 elsewhere): with Mute in its own column, the extra 80 px all go
+ * to the grooves (107.5 to 187.5 px at 720p), every row alike.
+ */
+.dh-quick .kit-qs__dialog[data-panel="sound"] .kit-qs__panel {
+  width: min(calc(640px * var(--kit-qs-s)), calc(100% - 32px));
 }
 
 .dh-quick .kit-qs__backdrop {
@@ -389,16 +424,62 @@
 }
 
 /*
- * Slider art (225 knob, 241 groove). The groove is drawn in three slices: its 64 px chevron caps keep their own
- * proportion (10 x 10 px at scale 1, as tall as the groove) and only the plain middle stretches; the kit stretched the
- * whole 1024 x 64 image, so the caps came out 1.5x too wide on 24:1 grooves. The kit's flat --kit-qs-line under the
- * groove and --kit-qs-text under the knob's square are cleared, so only the art shows. The knob box grows from 22 to
- * 32 px (the art fills 70 % of it: about 22 px visible at 720p, 34 px at 1080p) and the range box with it, so the
- * knob's glow stays inside. WebKit and Gecko pseudo-elements stay in separate rules (one unknown selector drops the rule).
+ * Keyboard sound rows are 162 plates too (quick.ts QUICK_SKIN.listRow, the chosen row on the button-active art), drawn
+ * at 30/433 of the art's size; quick.ts LIST_ROW_VARS pulls the art's transparent margins outside each row, so 2 px of
+ * air stays between plates. The chosen row is lit with an ember glow like an active button.
+ */
+.dh-quick.kit-qs.kit-qs--skin-list .kit-keyboards button.kit-keyboards__option[aria-selected="true"] {
+  --kit-qs-glow-filter: brightness(1.15) saturate(1.2) drop-shadow(0 0 1px var(--kit-qs-glow))
+    drop-shadow(0 0 1px var(--kit-qs-glow)) drop-shadow(0 0 4px var(--kit-qs-glow));
+}
+.dh-quick.kit-qs.kit-qs--skin-list .kit-keyboards button.kit-keyboards__option[aria-selected="true"]::before {
+  filter: brightness(1.15) saturate(1.2) drop-shadow(0 0 4px rgba(255, 140, 40, 0.75));
+}
+/*
+ * The list grows with the panel (the kit draws it 34 px a row at every size): at 1080p a 22 px label filled a 30 px
+ * plate edge to edge. Rows, family headings and the listen icons scale by --kit-qs-s, and quick.ts scales the plate's
+ * cut and inset the same way (LIST_ROW_VARS). Touch keeps at least the kit's 44 px rows. The list shows about 7.5
+ * rows (252 px at 720p, the kit's 306 less 54) so the Sound panel fits inside its frame at every size: at 720p the
+ * Interface row ran 46 px under the frame's bottom band.
+ */
+.dh-quick .kit-qs__row--keyboards .kit-keyboards {
+  max-height: calc(252px * var(--kit-qs-s));
+}
+.dh-quick .kit-qs__row--keyboards .kit-keyboards button,
+.dh-quick .kit-qs__row--keyboards .kit-keyboards__spacer {
+  flex-basis: calc(34px * var(--kit-qs-s));
+  height: calc(34px * var(--kit-qs-s));
+  min-height: calc(34px * var(--kit-qs-s));
+}
+.dh-quick .kit-qs__row--keyboards .kit-keyboards__family {
+  flex-basis: calc(28px * var(--kit-qs-s));
+  height: calc(28px * var(--kit-qs-s));
+  min-height: calc(28px * var(--kit-qs-s));
+  padding: calc(4px * var(--kit-qs-s)) calc(10px * var(--kit-qs-s));
+}
+.dh-quick .kit-qs__row--keyboards .kit-keyboards__listen {
+  min-width: calc(44px * var(--kit-qs-s));
+}
+.dh-quick .kit-qs__row--keyboards .kit-keyboards__listen img {
+  width: calc(24px * var(--kit-qs-s));
+  height: calc(24px * var(--kit-qs-s));
+}
+@media (any-pointer: coarse) {
+  .dh-quick .kit-qs__row--keyboards .kit-keyboards button,
+  .dh-quick .kit-qs__row--keyboards .kit-keyboards__spacer {
+    flex-basis: max(44px, calc(34px * var(--kit-qs-s)));
+    height: max(44px, calc(34px * var(--kit-qs-s)));
+    min-height: max(44px, calc(34px * var(--kit-qs-s)));
+  }
+}
+
+/*
+ * Slider knob (225), on the kit's fill layer. The kit's --kit-qs-text square under the knob art is cleared, so only
+ * the art shows. WebKit and Gecko pseudo-elements stay in separate rules (one unknown selector drops the rule).
  *
  * States, on the knob as games draw them: the range shows a hand; hover brightens the knob with a warm ember glow; a
- * press (drag) lifts it 8 % with a stronger glow and a grabbing hand; keyboard focus rings it in gold light (two tight
- * gold drop-shadows and a soft halo) and warms the groove, in place of the kit's flat 2 px box around the whole range.
+ * press (drag) lifts it 8 % with a stronger glow and a grabbing hand; keyboard focus rings it in the ember-gold glow
+ * and warms the groove, in place of the kit's flat 2 px box around the whole range.
  */
 .dh-quick.kit-qs--skin-slider .kit-qs__range {
   height: calc(32px * var(--kit-qs-s));
@@ -410,26 +491,11 @@
 .dh-quick.kit-qs--skin-slider .kit-qs__range:focus-visible {
   outline: none;
 }
-.dh-quick.kit-qs--skin-slider .kit-qs__range::-webkit-slider-runnable-track {
-  background: none;
-  border: 0 solid transparent;
-  border-image: var(--kit-qs-skin-track) 0 64 fill / 0 calc(10px * var(--kit-qs-s)) stretch;
-}
-.dh-quick.kit-qs--skin-slider .kit-qs__range::-moz-range-track {
-  background: none;
-  border: 0 solid transparent;
-  border-image: var(--kit-qs-skin-track) 0 64 fill / 0 calc(10px * var(--kit-qs-s)) stretch;
-}
 .dh-quick.kit-qs--skin-slider .kit-qs__range::-webkit-slider-thumb {
-  width: calc(32px * var(--kit-qs-s));
-  height: calc(32px * var(--kit-qs-s));
-  margin-top: calc(-11px * var(--kit-qs-s));
   background-color: transparent;
   transition: filter 120ms ease-out, transform 120ms ease-out;
 }
 .dh-quick.kit-qs--skin-slider .kit-qs__range::-moz-range-thumb {
-  width: calc(32px * var(--kit-qs-s));
-  height: calc(32px * var(--kit-qs-s));
   background-color: transparent;
   transition: filter 120ms ease-out, transform 120ms ease-out;
 }
@@ -439,19 +505,11 @@
 .dh-quick.kit-qs--skin-slider .kit-qs__range:hover::-moz-range-thumb {
   filter: brightness(1.15) drop-shadow(0 0 calc(4px * var(--kit-qs-s)) rgba(255, 150, 50, 0.85));
 }
-.dh-quick.kit-qs--skin-slider .kit-qs__range:focus-visible::-webkit-slider-runnable-track {
-  filter: drop-shadow(0 0 calc(3px * var(--kit-qs-s)) rgba(255, 209, 102, 0.55));
-}
-.dh-quick.kit-qs--skin-slider .kit-qs__range:focus-visible::-moz-range-track {
-  filter: drop-shadow(0 0 calc(3px * var(--kit-qs-s)) rgba(255, 209, 102, 0.55));
-}
 .dh-quick.kit-qs--skin-slider .kit-qs__range:focus-visible::-webkit-slider-thumb {
-  filter: brightness(1.12) drop-shadow(0 0 1px #ffd166) drop-shadow(0 0 1px #ffd166)
-    drop-shadow(0 0 calc(5px * var(--kit-qs-s)) rgba(255, 209, 102, 0.95));
+  filter: brightness(1.12) var(--kit-qs-glow-filter);
 }
 .dh-quick.kit-qs--skin-slider .kit-qs__range:focus-visible::-moz-range-thumb {
-  filter: brightness(1.12) drop-shadow(0 0 1px #ffd166) drop-shadow(0 0 1px #ffd166)
-    drop-shadow(0 0 calc(5px * var(--kit-qs-s)) rgba(255, 209, 102, 0.95));
+  filter: brightness(1.12) var(--kit-qs-glow-filter);
 }
 .dh-quick.kit-qs--skin-slider .kit-qs__range:active::-webkit-slider-thumb {
   transform: scale(1.08);
@@ -461,13 +519,19 @@
   transform: scale(1.08);
   filter: brightness(1.25) drop-shadow(0 0 calc(6px * var(--kit-qs-s)) rgba(255, 140, 40, 0.95));
 }
+/* Keyboard focus warms both groove layers (the kit reads the two filters on the slider's own layers). */
+.dh-quick .kit-qs__slider:has(.kit-qs__range:focus-visible) {
+  --kit-qs-empty-filter: grayscale(0.8) brightness(0.5) drop-shadow(0 0 calc(3px * var(--kit-qs-s)) rgba(255, 193, 77, 0.6));
+  --kit-qs-fill-filter: brightness(1.45) saturate(1.4) drop-shadow(0 0 calc(4px * var(--kit-qs-s)) rgba(255, 193, 77, 0.9));
+}
 
 /*
- * Muted (quick.ts watchMute): while Mute is pressed the Master groove and knob dim and lose colour and the number is
- * struck through; the button reads "Unmute" on the button-active art. The row's speaker shows the 180 muted-speaker art
- * (--dh-qs-icon-muted) while muted or at 0, as the corner button does; the kit's image only hides, so it comes back as is.
+ * Muted (quick.ts watchMute): while Mute is pressed the whole Master slider (both groove layers and the knob) dims and
+ * loses colour and the number is struck through; the button reads "Unmute" on the button-active plate. The row's
+ * speaker shows the 180 muted-speaker art (--dh-qs-icon-muted) while muted or at 0, as the corner button does; the
+ * kit's image only hides, so it comes back as is.
  */
-.dh-quick .dh-quick__row--muted .kit-qs__range {
+.dh-quick .dh-quick__row--muted .kit-qs__slider {
   filter: grayscale(0.7) brightness(0.6);
 }
 .dh-quick .dh-quick__row--muted .kit-qs__num {
@@ -485,14 +549,18 @@
 @media (prefers-reduced-motion: reduce) {
   .dh-quick.kit-qs--skin-slider .kit-qs__range::-webkit-slider-thumb { transition: none; }
   .dh-quick.kit-qs--skin-slider .kit-qs__range::-moz-range-thumb { transition: none; }
+  .dh-quick.kit-qs--skin-button .kit-qs__btn,
+  .dh-quick.kit-qs--skin-button .kit-qs__chip { transition: none; }
 }
 .dh-quick.kit-qs--still.kit-qs--skin-slider .kit-qs__range::-webkit-slider-thumb { transition: none; }
 .dh-quick.kit-qs--still.kit-qs--skin-slider .kit-qs__range::-moz-range-thumb { transition: none; }
+.dh-quick.kit-qs--still.kit-qs--skin-button .kit-qs__btn,
+.dh-quick.kit-qs--still.kit-qs--skin-button .kit-qs__chip { transition: none; }
 
 @media (max-width: 600px) {
   .dh-quick .kit-qs__panel { padding: 10px 14px 18px; }
   .dh-quick .kit-qs__row,
-  .dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row { grid-template-columns: 24px minmax(0, 1fr); }
+  .dh-quick .kit-qs__dialog[data-panel="settings"] .kit-qs__row { grid-template-columns: var(--kit-qs-icon-size) minmax(0, 1fr); }
   .dh-quick .kit-qs__control { grid-column: 1 / -1; }
 }
 

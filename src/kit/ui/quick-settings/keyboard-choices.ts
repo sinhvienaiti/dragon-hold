@@ -5,6 +5,38 @@ import type { KeyboardSoundChoice } from "../../feedback/typing-fx/audio";
 const STYLE_ID = "kit-keyboard-choices";
 let nextGroupId = 0;
 /**
+ * Art plates for the rows (QuickSkin.listRow / listRowActive, ticket 245), on
+ * under an ancestor with `kit-qs--skin-list` (QuickSettings sets it; the Lab
+ * does not). The list loses its web box (border, rounded corners, flat fills);
+ * each option draws its plate on ::before (nine-slice, inset by
+ * --kit-qs-list-inset so plates stand apart), hover brightens the plate, the
+ * chosen row wears the active plate, and keyboard focus is a glow hugging the
+ * plate (--kit-qs-glow-filter). `overflow: clip` with a clip margin keeps the
+ * label's ellipsis and lets the glow out. The `.kit-qs` prefix outranks every
+ * plain state rule above.
+ */
+const PLATE = ".kit-qs.kit-qs--skin-list .kit-keyboards";
+const OPTION = `${PLATE} button.kit-keyboards__option`;
+const KEYBOARD_PLATES_CSS = `
+${PLATE}{border:0;border-radius:0;background:transparent;padding:var(--kit-qs-list-pad,4px 6px)}
+${PLATE} button{background:transparent;box-shadow:none}
+${OPTION}{position:relative;isolation:isolate;overflow:clip;overflow-clip-margin:8px;padding:0 var(--kit-qs-list-text-x,16px);background:transparent;box-shadow:none;color:var(--kit-qs-text,#F3F4F6)}
+${OPTION}::before{content:"";position:absolute;inset:var(--kit-qs-list-inset,2px 0);z-index:-1;box-sizing:border-box;border:0 solid transparent;border-image:var(--kit-qs-list-row,none) var(--kit-qs-list-slice,0) fill / var(--kit-qs-list-edge,12px) / 0 stretch;pointer-events:none}
+${OPTION}:hover:not(:disabled){background:transparent;box-shadow:none}
+${OPTION}:hover:not(:disabled)::before{filter:brightness(1.15)}
+${OPTION}[aria-selected="true"],${OPTION}[aria-selected="true"]:hover:not(:disabled){background:transparent;box-shadow:none;color:var(--kit-qs-active-text,var(--kit-qs-text,#F3F4F6))}
+${OPTION}[aria-selected="true"]::before{border-image:var(--kit-qs-list-row-active,none) var(--kit-qs-list-active-slice,0) fill / var(--kit-qs-list-active-edge,12px) / 0 stretch}
+.kit-qs.kit-qs--list-tint .kit-keyboards button.kit-keyboards__option[aria-selected="true"]::before{filter:var(--kit-qs-list-active-filter)}
+${OPTION}:disabled,${OPTION}[aria-selected="true"]:disabled{background:transparent;box-shadow:none;color:var(--kit-qs-muted,#C3C9D3)}
+${OPTION}:disabled::before,${OPTION}[aria-selected="true"]:disabled::before{filter:grayscale(.6) brightness(.7)}
+${OPTION}:focus-visible{outline:none}
+${OPTION}[aria-selected]:focus-visible::before{filter:var(--kit-qs-glow-filter)}
+.kit-qs.kit-qs--list-tint .kit-keyboards button.kit-keyboards__option[aria-selected="true"]:focus-visible::before{filter:var(--kit-qs-list-active-filter) var(--kit-qs-glow-filter)}
+${PLATE} .kit-keyboards__listen:hover:not(:disabled){background:transparent;filter:brightness(1.18)}
+${PLATE} .kit-keyboards__listen:focus-visible{outline:none;filter:var(--kit-qs-glow-filter)}
+`;
+
+/**
  * Kept separate from TF2's quick-settings/css.ts. 9 × 34 px at 720p, independently scrollable.
  * The selected option keeps its accent fill under the pointer (a dark inset ring marks the hover);
  * a selected option that is also disabled ("Saved sound · unavailable") is muted ink on the panel's
@@ -28,7 +60,7 @@ export const KEYBOARD_CHOICES_CSS = `
 .kit-keyboards__spacer{height:34px;flex:0 0 34px}
 .kit-qs__row--keyboards{align-items:start}
 @media (any-pointer:coarse){.kit-keyboards button{height:44px;min-height:44px;flex-basis:44px}.kit-keyboards__spacer{height:44px;flex-basis:44px}}
-`;
+${KEYBOARD_PLATES_CSS}`;
 
 /**
  * What a list hands to the one that replaces it (QuickSettings.setChoiceOptions):
