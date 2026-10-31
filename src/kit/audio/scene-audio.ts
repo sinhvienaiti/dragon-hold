@@ -8,33 +8,48 @@ import {
   type DragonSample,
   type SceneVoice,
 } from "./dragon-voice";
+import { FileBank, LayeredBank, type FileBankStats, type MissingHook } from "./file-bank";
+import type { AudioManifestSource } from "./manifest";
+import type { VariantOptions } from "./variants";
 import { BusMix, DEFAULT_BUSES, type AudioGroup, type BusTable } from "./mix";
 import { DEFAULT_AUDIO_BASE, audioUrl, clamp, rand } from "./util";
 
 /** One sound of a game's table: a file (under the audio base, or a full URL) and its bus. */
-export type SoundSpec<B extends string> = string | { url: string; bus?: B; gain?: number; gap?: number };
+export type SoundSpec<B extends string> = string | { url?: string; bus?: B; gain?: number; gap?: number };
 export type SoundTable<S extends string, B extends string> = Readonly<Record<S, SoundSpec<B>>>;
 
-export type PlayOptions<B extends string> = { rate?: number; pan?: number; gap?: number; bus?: B };
+export type PlayOptions<B extends string> = { rate?: number; pan?: number; gap?: number; bus?: B; variant?: number };
 
-export type SceneAudioOptions<S extends string, B extends string> = {
+export type SceneAudioOptions<S extends string, B extends string> = VariantOptions<S> & {
   /** The game's sounds by name. */
   sounds: SoundTable<S, B>;
   /** Mix buses; Space's five groups by default. */
   buses?: BusTable<B>;
   /** Bus for sounds that name none (default: "combat" when present, else the first bus). */
-  defaultBus?: B;
+  defaultBus?: NoInfer<B>;
   /** Bus the dragon voices go through (default: defaultBus). */
-  voiceBus?: B;
+  voiceBus?: NoInfer<B>;
   /** Defaults to "/assets/audio/". */
   audioBase?: string;
   /** Dragon recordings to load for `voice` (false: synthesized only). Paths are under the audio base. */
   dragonSamples?: Partial<Record<DragonSample, (typeof DRAGON_SAMPLES)[DragonSample]>> | false;
+  /** Manifest URL under audioBase, or v1/v2 metadata already in memory. Omitted: no manifest request. */
+  manifest?: AudioManifestSource;
+  /** Priority sound ids, decoded in this order before legacy table files. */
+  preload?: readonly NoInfer<S>[];
+  decodeConcurrency?: number;
+  /** Existing game recipes, removed per id once real files are accepted. */
+  missing?: Partial<Readonly<Record<NoInfer<S>, MissingHook>>>;
+  /** This bus connects directly to destination, bypassing the effects master. */
+  musicBus?: NoInfer<B>;
   sfxVolume?: number;
   musicVolume?: number;
 };
 
-type ResolvedSound<B extends string> = { url: string; bus: B; gain: number; gap: number | undefined };
+type ResolvedSound<B extends string> = { bus: B; gain: number; gap: number | undefined };
+
+export type PlayCounts = { file: number; hook: number; silent: number };
+export type SceneAudioStats<S extends string> = FileBankStats & { plays: Partial<Record<S, PlayCounts>> };
 
 /**
  * Web Audio effects on a few mix buses and one looping music track. Unlocks
@@ -46,9 +61,13 @@ export class SceneAudio<S extends string, B extends string = AudioGroup> {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private readonly busNodes = new Map<B, GainNode>();
-  private music: { source: AudioBufferSourceNode; gain: GainNode; url: string } | null = null;
-  private readonly buffers = new Map<string, AudioBuffer>();
-  private readonly loading = new Map<string, Promise<AudioBuffer | null>>();
+  private music: { source: AudioBufferSourceNode; gain: GainNode; url: string; key: string } | null = null;
+  private readonly files: FileBank<S>;
+  private readonly layered: LayeredBank<S>;
+  private readonly plays = new Map<S, PlayCounts>();
+  private readonly musicBusName: B | undefined;
+  private startup: Promise<void> = Promise.resolve();
+  private musicRequest = 0;
   private readonly last = new Map<string, number>();
   private readonly sounds: Map<S, ResolvedSound<B>>;
   private readonly defaultBus: B;
@@ -72,17 +91,24 @@ export class SceneAudio<S extends string, B extends string = AudioGroup> {
     if (names.length === 0) throw new RangeError("SceneAudio needs at least one bus");
     this.defaultBus = options.defaultBus ?? (names.includes("combat" as B) ? ("combat" as B) : names[0]!);
     this.voiceBusName = options.voiceBus ?? this.defaultBus;
+    this.musicBusName = options.musicBus;
+    if (this.musicBusName !== undefined && !(this.musicBusName in buses)) throw new RangeError("unknown music bus " + this.musicBusName);
     this.audioBase = options.audioBase ?? DEFAULT_AUDIO_BASE;
     this.dragonSamples = options.dragonSamples === false ? {} : (options.dragonSamples ?? DRAGON_SAMPLES);
     this.sfxVolume = clamp(options.sfxVolume ?? 0.5, 0, 1);
     this.musicVolume = clamp(options.musicVolume ?? 0.35, 0, 1);
     this.sounds = new Map();
+    const legacy: Partial<Record<S, string>> = Object.create(null);
     for (const [name, spec] of Object.entries(options.sounds) as [S, SoundSpec<B>][]) {
       const full = typeof spec === "string" ? { url: spec } : spec;
       const bus = full.bus ?? this.defaultBus;
       if (!(bus in buses)) throw new RangeError("sound " + name + " names an unknown bus " + bus);
-      this.sounds.set(name, { url: audioUrl(full.url, this.audioBase), bus, gain: full.gain ?? 1, gap: full.gap });
+      const url = full.url === undefined ? undefined : audioUrl(full.url, this.audioBase);
+      if (url !== undefined) legacy[name] = url;
+      this.sounds.set(name, { bus, gain: full.gain ?? 1, gap: full.gap });
     }
+    this.files = new FileBank({ ...options, audioBase: this.audioBase, legacy });
+    this.layered = new LayeredBank(this.files, options.missing);
   }
 
   get unlocked(): boolean {
@@ -91,7 +117,7 @@ export class SceneAudio<S extends string, B extends string = AudioGroup> {
 
   /** The resolved URL of a sound in the table. */
   url(name: S): string | undefined {
-    return this.sounds.get(name)?.url;
+    return this.files.url(name);
   }
 
   setVolumes(sfx: number, music: number): void {
@@ -125,78 +151,92 @@ export class SceneAudio<S extends string, B extends string = AudioGroup> {
     for (const bus of this.mix.busNames) {
       const node = context.createGain();
       node.gain.value = this.mix.busGain(bus, this.pronunciationActive);
-      node.connect(this.master);
+      node.connect(bus === this.musicBusName ? context.destination : this.master);
       this.busNodes.set(bus, node);
     }
     this.voiceOut = voiceBus(context, this.busNodes.get(this.voiceBusName) ?? this.master);
-    for (const sound of this.sounds.values()) void this.buffer(sound.url);
+    this.startup = this.files.unlock(context, Object.values(this.dragonSamples).map(spec => spec.file));
     for (const [key, spec] of Object.entries(this.dragonSamples) as [DragonSample, (typeof DRAGON_SAMPLES)[DragonSample]][]) {
-      void this.buffer(audioUrl(spec.file, this.audioBase)).then((buffer) => {
+      void this.files.file(spec.file).then((buffer) => {
         if (buffer !== null) this.dragon.set(key, buffer);
       });
     }
   }
 
-  private buffer(url: string): Promise<AudioBuffer | null> {
-    const context = this.context;
-    if (context === null) return Promise.resolve(null);
-    const known = this.loading.get(url);
-    if (known !== undefined) return known;
-    const load = fetch(url)
-      .then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(url))))
-      .then((data) => context.decodeAudioData(data))
-      .then((buffer) => {
-        this.buffers.set(url, buffer);
-        return buffer;
-      })
-      .catch(() => null);
-    this.loading.set(url, load);
-    return load;
+  /** Resolves after metadata, priority ids, legacy files and dragon recordings; other ids and music stay lazy. */
+  ready(): Promise<void> { return this.startup; }
+
+  loopBuffer(name: S): AudioBuffer | null { return this.files.loopBuffer(name); }
+
+  stats(): SceneAudioStats<S> {
+    return { ...this.files.stats(), plays: Object.fromEntries([...this.plays].map(([id, counts]) => [id, { ...counts }])) as Partial<Record<S, PlayCounts>> };
+  }
+
+  private count(name: S, kind: keyof PlayCounts): void {
+    const counts = this.plays.get(name) ?? { file: 0, hook: 0, silent: 0 };
+    counts[kind]++;
+    this.plays.set(name, counts);
   }
 
   private output(bus: B): AudioNode | null {
     return this.busNodes.get(bus) ?? this.master;
   }
 
-  /** `gap`: minimum seconds between two plays of the same sound. */
-  play(name: S, gain = 1, options: PlayOptions<B> = {}): void {
+  /** `gap`: minimum seconds between plays; a loading file never starts this event late. */
+  play(name: S, gain = 1, options: PlayOptions<B> = {}): number {
     const sound = this.sounds.get(name);
-    if (sound === undefined) return;
-    this.start(name, sound.url, gain * sound.gain, { ...options, gap: options.gap ?? sound.gap, bus: options.bus ?? sound.bus });
+    const context = this.context;
+    if (!this.enabled || context === null || this.master === null) { this.count(name, "silent"); return 0; }
+    const full = { ...options, gap: options.gap ?? sound?.gap, bus: options.bus ?? sound?.bus ?? this.defaultBus };
+    const now = context.currentTime;
+    if (now - (this.last.get(name) ?? -1) < (full.gap ?? 0.03)) { this.count(name, "silent"); return 0; }
+    const selected = this.layered.select(name, options.variant);
+    if (selected.kind === "silent") { this.count(name, "silent"); return 0; }
+    this.last.set(name, now);
+    const level = gain * (sound?.gain ?? 1);
+    if (selected.kind === "file") {
+      this.count(name, "file");
+      return this.startBuffer(selected.file.buffer, level, full);
+    }
+    this.noise ??= noiseBuffer(context);
+    const out = context.createGain();
+    out.gain.value = level;
+    const panner = context.createStereoPanner();
+    panner.pan.value = clamp(full.pan ?? 0, -1, 1);
+    out.connect(panner).connect(this.output(full.bus)!);
+    this.count(name, "hook");
+    return selected.hook(context, out, this.noise, now) ?? 0;
   }
 
   /** Starts loading sound files outside the table (paths under the audio base or full URLs) for `playFile`. */
   preload(urls: readonly string[]): void {
-    for (const url of urls) void this.buffer(audioUrl(url, this.audioBase));
+    for (const url of urls) void this.files.file(url);
   }
 
   /** Like `play`, for a file `preload` loaded; `gap` is kept per file. */
-  playFile(url: string, gain = 1, options: PlayOptions<B> = {}): void {
-    if (!this.enabled || this.context === null || this.master === null) return;
+  playFile(url: string, gain = 1, options: PlayOptions<B> = {}): number {
+    if (!this.enabled || this.context === null || this.master === null) return 0;
     const full = audioUrl(url, this.audioBase);
-    if (!this.buffers.has(full)) {
-      void this.buffer(full);
-      return;
-    }
-    this.start(full, full, gain, options);
+    const buffer = this.files.cached(full);
+    if (buffer === undefined) { void this.files.file(full); return 0; }
+    const now = this.context.currentTime;
+    if (now - (this.last.get(full) ?? -1) < (options.gap ?? 0.03)) return 0;
+    this.last.set(full, now);
+    return this.startBuffer(buffer, gain, options);
   }
 
-  private start(key: string, url: string, gain: number, options: PlayOptions<B>): void {
-    if (!this.enabled || this.context === null || this.master === null) return;
-    const buffer = this.buffers.get(url);
-    if (buffer === undefined) return;
-    const now = this.context.currentTime;
-    if (now - (this.last.get(key) ?? -1) < (options.gap ?? 0.03)) return;
-    this.last.set(key, now);
-    const source = this.context.createBufferSource();
+  private startBuffer(buffer: AudioBuffer, gain: number, options: PlayOptions<B>): number {
+    const context = this.context!;
+    const source = context.createBufferSource();
     source.buffer = buffer;
     source.playbackRate.value = (options.rate ?? 1) * rand(0.95, 1.05);
-    const volume = this.context.createGain();
+    const volume = context.createGain();
     volume.gain.value = gain;
-    const panner = this.context.createStereoPanner();
+    const panner = context.createStereoPanner();
     panner.pan.value = clamp(options.pan ?? 0, -1, 1);
     source.connect(volume).connect(panner).connect(this.output(options.bus ?? this.defaultBus)!);
     source.start();
+    return buffer.duration / source.playbackRate.value;
   }
 
   /** A sound built on the spot: `build` wires Web Audio nodes into `out` (on a bus), from `now`. */
@@ -236,30 +276,42 @@ export class SceneAudio<S extends string, B extends string = AudioGroup> {
     if (!recordedVoice(context, out, this.noise, this.dragon, name, now)) synthVoice(context, out, this.noise, name, now);
   }
 
-  /** Loops one track (a path under the audio base), crossfading from the previous one. */
+  /** Loops a path under the audio base, crossfading from the previous track. */
   async playMusic(path: string | null): Promise<void> {
+    await this.changeMusic(path === null ? "" : "file:" + audioUrl(path, this.audioBase), path === null ? null : () => this.files.file(path).then(buffer => buffer === null ? null : { buffer, url: audioUrl(path, this.audioBase) }));
+  }
+
+  /** Loops a named manifest track. Music is fetched and decoded only on this call. */
+  async playTrack(name: string | null): Promise<void> {
+    await this.changeMusic(name === null ? "" : "track:" + name, name === null ? null : () => this.files.track(name));
+  }
+
+  private async changeMusic(key: string, load: (() => Promise<{ buffer: AudioBuffer; url: string } | null>) | null): Promise<void> {
     const context = this.context;
     if (context === null) return;
-    const url = path === null ? "" : audioUrl(path, this.audioBase);
-    if (this.music?.url === url) return;
-    const previous = this.music;
-    this.music = null;
-    if (previous !== null) {
-      previous.gain.gain.setTargetAtTime(0, context.currentTime, 0.4);
-      previous.source.stop(context.currentTime + 2);
-    }
-    if (path === null) return;
-    const buffer = await this.buffer(url);
-    if (buffer === null || this.context !== context || this.music !== null) return;
+    const request = ++this.musicRequest;
+    if (this.music?.key === key) return;
+    this.fadeMusic(context);
+    if (load === null) return;
+    const track = await load();
+    if (request !== this.musicRequest || track === null || this.context !== context || this.music?.url === track.url) return;
     const source = context.createBufferSource();
-    source.buffer = buffer;
+    source.buffer = track.buffer;
     source.loop = true;
     const gain = context.createGain();
     gain.gain.value = 0;
     gain.gain.setTargetAtTime(this.enabled ? this.musicVolume : 0, context.currentTime, 0.6);
-    source.connect(gain).connect(context.destination);
+    const destination = this.musicBusName === undefined ? context.destination : this.busNodes.get(this.musicBusName)!;
+    source.connect(gain).connect(destination);
     source.start();
-    this.music = { source, gain, url };
+    this.music = { source, gain, url: track.url, key };
+  }
+
+  private fadeMusic(context: AudioContext): void {
+    if (this.music === null) return;
+    this.music.gain.gain.setTargetAtTime(0, context.currentTime, 0.4);
+    this.music.source.stop(context.currentTime + 2);
+    this.music = null;
   }
 
   setEnabled(enabled: boolean): void {

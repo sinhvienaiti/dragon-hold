@@ -277,3 +277,53 @@
   background: rgba(32, 24, 17, 0.8);
   pointer-events: none;
 }
+
+/* Reserve the top-right corner for the shared buttons; tags read its keepout. */
+.dh-overlay .dh-system {
+  right: max(124px, calc(160px * var(--ui)));
+}
+
+.dh-quick .kit-qs__bar {
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+}
+
+.dh-quick .kit-qs__corner.has-icon {
+  width: calc(44px * var(--kit-qs-s));
+  height: calc(44px * var(--kit-qs-s));
+}
+
+.dh-quick .kit-qs__panel {
+  padding: calc(52px * var(--kit-qs-s)) calc(44px * var(--kit-qs-s));
+}
+
+.dh-quick.kit-qs--skin-button .kit-qs__btn {
+  color: var(--kit-qs-text);
+  min-height: calc(40px * var(--kit-qs-s));
+  padding-inline: calc(24px * var(--kit-qs-s));
+}
+
+.dh-quick .kit-qs__backdrop {
+  backdrop-filter: blur(5px);
+}
+
+.dh-title {
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: min(520px, calc(100vw - 32px));
+  padding: 64px;
+  text-align: center;
+  z-index: 44;
+  background: #14161b url('/assets/dragon-hold/ui/quick-settings/panel-large.alpha.png') center / 100% 100% no-repeat;
+}
+
+.dh-title::after { display: none; }
+.dh-title__name { font: 700 44px/1.1 var(--dh-font-title); }
+.dh-title__play { min-width: 120px; min-height: 44px; background: url('/assets/dragon-hold/ui/quick-settings/button.alpha.png') center / 100% 100% no-repeat; }
+
+@media (max-width: 600px) {
+  .dh-quick .kit-qs__panel { padding: 44px 30px; }
+  .dh-quick .kit-qs__row { grid-template-columns: 24px minmax(0, 1fr); }
+  .dh-quick .kit-qs__control { grid-column: 1 / -1; }
+}

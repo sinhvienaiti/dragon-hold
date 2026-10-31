@@ -79,6 +79,19 @@ Dev port 3005, host `dragon.typing-game.local`.
   `s6-traps` wait for the owner. Merged on 28/10: M0b models and the speed
   card's Easy hint (D33 (6), Codex 023). See
   `docs/changelog/2026-10-27-owner-decisions.md` §8.
+- State (31/10, Typing Feel G3/B4): keyboard sounds are Off, Dragonhold (the
+  game's own `type.key`) and the Typing Feel sets, read at run time from
+  `VITE_TYPING_FEEL_ORIGIN` (`src/app/keyboard.ts`, parent
+  `docs/games/TYPING_FEEL_SERVICE.md`); no set is copied into the game and
+  `media.md5` has no `audio/keys` line. Unset (a clone, CI, `pnpm check`):
+  no network, Off and Dragonhold. The Settings and Sound panels are built at
+  once; the catalogue settles the raw saved `keyboard` without overwriting it
+  when the host fails; the current set decodes before the first gesture on
+  the page's AudioContext, made suspended by `audio.prepare()` (the mixer and
+  music wait for `unlock()`), and the first run waits for its first batch
+  1.5 s at most; a set that cannot sound has Dragonhold stand in, unsaved.
+  Tests use the sample host in
+  `tests/app/feel-fixture.ts`. See `docs/changelog/2026-10-31-typing-feel-keys.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.

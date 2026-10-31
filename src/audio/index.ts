@@ -56,10 +56,22 @@ export interface AudioStats {
 }
 
 export interface GameAudio extends Presenter {
-  /** Resumes (or creates) the AudioContext; call from a user gesture. */
+  /** Resumes (or creates) the AudioContext and builds the mixer, voices and music on it; call from a user gesture. */
   unlock(): void;
+  /** True once unlock() built the mixer on the context (a gesture), not while only prepare() made it. */
   readonly unlocked: boolean;
+  /**
+   * The AudioContext, made without a gesture when there is none yet: it stays
+   * suspended until unlock(), with no mixer, voice or music on it, so nothing
+   * queues while it waits. Keyboard samples decode on it before the first key
+   * (parent docs/games/TYPING_FEEL_SERVICE.md §5.4: decodeAudioData needs no
+   * gesture). Throws when the page has no Web Audio or the audio is disposed.
+   */
+  prepare(): AudioContext;
   setMuted(muted: boolean): void;
+  context(): AudioContext;
+  setKeyboardEnabled(enabled: boolean): void;
+  preview(group: string): void;
   setVolumes(volumes: Partial<AudioVolumes>): void;
   /** Focus lost or menu open: world and music low-passed, effects down (06 §2). */
   setPaused(paused: boolean): void;
@@ -102,6 +114,7 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
   let engine: AudioEngine | null = null;
   let music: MusicDirector | null = null;
   let muted = false;
+  let keyboardEnabled = true;
   let paused = false;
   let sharedMusic = false;
   let dialogue = false;
@@ -125,6 +138,12 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
     if (!autoUnlock) return;
     window.removeEventListener("pointerdown", gesture, { capture: true });
     window.removeEventListener("keydown", gesture, { capture: true });
+  };
+
+  /** The page's one AudioContext, made once (prepare() or unlock()); null without Web Audio. */
+  const makeContext = (): AudioContext | null => {
+    if (!ctx && (options.createContext || typeof AudioContext !== "undefined")) ctx = options.createContext ? options.createContext() : new AudioContext({ latencyHint: "interactive" });
+    return ctx;
   };
 
   const counts = new Map<SoundClass, { n: number; x: number; z: number }>();
@@ -169,17 +188,24 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
 
   const audio: GameAudio = {
     get unlocked() {
-      return ctx !== null && ctx.state !== "closed";
+      return ctx !== null && mixer !== null && ctx.state !== "closed";
+    },
+
+    prepare() {
+      if (disposed) throw new Error("Audio is disposed");
+      const made = makeContext();
+      if (!made) throw new Error("Audio is unavailable");
+      return made;
     },
 
     unlock() {
       if (disposed) return;
-      if (ctx) {
+      if (ctx && mixer) {
         if (ctx.state === "suspended") void ctx.resume();
         return;
       }
-      if (typeof AudioContext === "undefined" && !options.createContext) return;
-      ctx = options.createContext ? options.createContext() : new AudioContext({ latencyHint: "interactive" });
+      makeContext();
+      if (!ctx) return;
       mixer = new Mixer(ctx, mix, volumes);
       mixer.setMuted(muted);
       mixer.setPaused(paused);
@@ -195,7 +221,7 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
       const cues = mapper.map(batch, now(), listener);
       if (music && (mapper.phase === "victory" || mapper.phase === "defeat") && batch.some((e) => e.type === "victory" || e.type === "defeat")) music.stop(1.5);
       if (!engine) return;
-      for (const cue of cues) engine.play(cue);
+      for (const cue of cues) if (keyboardEnabled || !cue.id.startsWith("type.")) engine.play(cue);
     },
 
     frame(world: World, _info: FrameInfo) {
@@ -221,6 +247,24 @@ export function createAudio(options: AudioOptions = {}): GameAudio {
     setMuted(value) {
       muted = value;
       mixer?.setMuted(value);
+    },
+
+    context() {
+      audio.unlock();
+      if (!ctx) throw new Error("Audio is unavailable");
+      return ctx;
+    },
+
+    setKeyboardEnabled(enabled) {
+      keyboardEnabled = enabled;
+    },
+
+    preview(group) {
+      audio.unlock();
+      if (group === "music") music?.preview();
+      else if (group === "effects" || group === "master") engine?.play({ id: "fire.cast" });
+      else if (group === "ui") audio.ui("select");
+      else if (group === "keyboard" && keyboardEnabled) engine?.play({ id: "type.key" });
     },
 
     setVolumes(next) {

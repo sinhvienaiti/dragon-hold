@@ -10,3 +10,5 @@ export {
   type SemanticColor,
 } from "./tokens";
 export { KIT_CSS, KIT_STYLE_ID, LEARNING_FRAME_CLASSES, applyUiScale, installKitStyles } from "./styles";
+// In-play Settings and Sound panels (needs a11y-dialog in the game's package.json).
+export * from "./quick-settings/index";

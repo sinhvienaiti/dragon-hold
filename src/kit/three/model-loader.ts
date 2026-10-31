@@ -182,6 +182,12 @@ export class ModelLibrary {
 
 let loaderPromise: Promise<GLTFLoader> | null = null;
 
+/** What KTX2Loader.detectSupport reads of a renderer (a WebGLRenderer; a test passes a fake). */
+export type Ktx2Renderer = Parameters<import("three/examples/jsm/loaders/KTX2Loader.js").KTX2Loader["detectSupport"]>[0];
+
+/** KTX2 (Basis Universal, KHR_texture_basisu) textures: set by enableKtx2, attached before any load that follows. */
+let ktx2: { transcoderPath: string; renderer: Ktx2Renderer; ready: Promise<void> | null } | null = null;
+
 async function gltfLoader(): Promise<GLTFLoader> {
   loaderPromise ??= Promise.all([
     import("three/examples/jsm/loaders/GLTFLoader.js"),
@@ -191,10 +197,34 @@ async function gltfLoader(): Promise<GLTFLoader> {
     instance.setMeshoptDecoder(meshopt.MeshoptDecoder);
     return instance;
   });
-  return loaderPromise;
+  const instance = await loaderPromise;
+  if (ktx2 !== null) {
+    const config = ktx2;
+    config.ready ??= import("three/examples/jsm/loaders/KTX2Loader.js").then(({ KTX2Loader }) => {
+      instance.setKTX2Loader(new KTX2Loader().setTranscoderPath(config.transcoderPath).detectSupport(config.renderer));
+    });
+    await config.ready;
+  }
+  return instance;
 }
 
-/** Loads a GLB (meshopt, quantized, WebP textures all supported). */
+/**
+ * Lets loadModel read KTX2 textures (MODEL_QUALITY §3 step 3: GPU-compressed maps, transcoded to the formats
+ * `renderer` supports). `transcoderPath` is the folder serving three's basis_transcoder.js and .wasm
+ * (three/examples/jsm/libs/basis/). Call once, before the first model that has KTX2 maps loads.
+ */
+export function enableKtx2(transcoderPath: string, renderer: Ktx2Renderer): void {
+  if (transcoderPath.length === 0) throw new Error("models: enableKtx2 needs the transcoder's folder");
+  if (ktx2 !== null) return;
+  ktx2 = { transcoderPath: transcoderPath.endsWith("/") ? transcoderPath : transcoderPath + "/", renderer, ready: null };
+}
+
+/** Whether enableKtx2 was called (tests, diagnostics). */
+export function ktx2Enabled(): boolean {
+  return ktx2 !== null;
+}
+
+/** Loads a GLB (meshopt, quantized, WebP and, after enableKtx2, KTX2 textures). */
 export async function loadModel(url: string): Promise<GLTF> {
   const loader = await gltfLoader();
   return loader.loadAsync(url);
