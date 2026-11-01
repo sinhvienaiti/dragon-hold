@@ -25,8 +25,8 @@ describe("quality rescue D3", () => {
     expect(stonePaint(paint, "high")).not.toContain("DH_STONE_MIX");
   });
 
-  it("filters every map of a GLB 8x on High and 16x on Ultra, each texture once", () => {
-    expect(MODEL_ANISOTROPY).toMatchObject({ high: 8, ultra: 16 });
+  it("filters every map of a GLB 8x on High and Ultra (wave 1 fix: 16x drew the same at the play camera), each texture once", () => {
+    expect(MODEL_ANISOTROPY).toMatchObject({ high: 8, ultra: 8 });
     const shared = new THREE.Texture();
     const body = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ map: shared, normalMap: new THREE.Texture(), roughnessMap: new THREE.Texture() }));
     const cap = new THREE.Mesh(new THREE.BoxGeometry(), [new THREE.MeshStandardMaterial({ map: shared }), new THREE.MeshStandardMaterial({ emissiveMap: new THREE.Texture() })]);
@@ -35,11 +35,11 @@ describe("quality rescue D3", () => {
     const before = shared.version;
     expect(filterModelMaps(root, MODEL_ANISOTROPY.ultra)).toBe(4);
     const material = body.material;
-    expect([material.map, material.normalMap, material.roughnessMap].map((texture) => texture?.anisotropy)).toEqual([16, 16, 16]);
-    expect((cap.material[1] as THREE.MeshStandardMaterial).emissiveMap?.anisotropy).toBe(16);
+    expect([material.map, material.normalMap, material.roughnessMap].map((texture) => texture?.anisotropy)).toEqual([8, 8, 8]);
+    expect((cap.material[1] as THREE.MeshStandardMaterial).emissiveMap?.anisotropy).toBe(8);
     expect(shared.version).toBe(before + 1);
     // Already filtered: nothing to upload again.
-    filterModelMaps(root, 16);
+    filterModelMaps(root, MODEL_ANISOTROPY.ultra);
     expect(shared.version).toBe(before + 1);
   });
 

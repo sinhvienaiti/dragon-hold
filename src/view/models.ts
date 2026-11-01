@@ -20,7 +20,7 @@
  * outline and ghost passes. A missing or
  * failed model keeps its primitive and logs one warning. Loaded once per
  * app; every crowd attached gets the layers now and as they arrive. Every GLB
- * map is filtered anisotropically on High (8) and Ultra (16), MODEL_ANISOTROPY.
+ * map is filtered anisotropically on High and Ultra (8), MODEL_ANISOTROPY.
  * Owner: view (M0b models lane).
  */
 import * as THREE from "three";
@@ -57,9 +57,10 @@ export interface SurfaceMaps {
 /**
  * Anisotropic filtering of every map in a loaded GLB, by quality (quality rescue D3, 01/11): the game camera
  * looks down at 55°, so crowns, slopes and cliff faces blurred with plain trilinear filtering. three clamps it to
- * the GPU's maximum (16 on the M4). Low draws no models; Medium keeps the default.
+ * the GPU's maximum (16 on the M4). Low draws no models; Medium keeps the default. Wave 1 fix (01/11): Ultra 8×
+ * as High; 16× drew the same trees and cliff close-ups at the play camera, 1080p (tmp/wave1fix sheets), for more GPU time.
  */
-export const MODEL_ANISOTROPY: Readonly<Record<Quality, number>> = { low: 1, medium: 1, high: 8, ultra: 16 };
+export const MODEL_ANISOTROPY: Readonly<Record<Quality, number>> = { low: 1, medium: 1, high: 8, ultra: 8 };
 
 /** Sets `anisotropy` on every texture of every material under `root`; returns how many textures it touched. */
 export function filterModelMaps(root: THREE.Object3D, anisotropy: number): number {

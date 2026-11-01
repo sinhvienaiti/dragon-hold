@@ -1,11 +1,15 @@
-// Quality rescue wave 1 fix (01/11, review low findings 7-9): the prop LODs bin in MapStage.render's own call (no
-// scene hook anyone restores), scene hooks are a registry (a disposed presenter removes only its own), binLod copies
-// with index loops (no subarray per item), and a road texture that arrives after dispose() is freed. No WebGL needed.
+// Quality rescue wave 1 fix (01/11): the review's low findings 7-9 (the prop LODs bin in MapStage.render's own call,
+// no scene hook anyone restores; scene hooks are a registry; binLod copies with index loops; a road texture that
+// arrives after dispose() is freed) and the judge's regressions that the layout and the crowd carry (the trail past
+// the pond's rest spot, no post-like road stones, foe contact shadows over the road ribbon). No WebGL needed.
 import * as THREE from "three";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAP_L2_CAU } from "../../src/content/data/maps";
 import { PROP_SPECS } from "../../src/view/model-specs";
 import type { PropModel } from "../../src/view/models";
+import { createCrowd, FOE_CONTACT, SHADOW_LIFT_M } from "../../src/view/crowd";
+import { ROAD, roadCoreHalf } from "../../src/view/road-profile";
+import { ROAD_VALUE } from "../../src/view/roads";
 import { addSceneHook } from "../../src/view/scene-hooks";
 import { binLod, buildScatter, PROP_LOD_M, type LodGroup } from "../../src/view/scatter";
 import { buildTerrain } from "../../src/view/terrain";
@@ -124,5 +128,51 @@ describe("wave 1 fix: roads free a texture that arrives after dispose", () => {
     expect(freed).toHaveBeenCalledTimes(1);
     expect(roads.sources.core).not.toBe("road/road-flagstone");
     vi.doUnmock("../../src/view/paint");
+  });
+});
+
+describe("wave 1 fix: the judge's regressions in the layout and the crowd", () => {
+  const layout = terrain.field.layout;
+  const end = (line: { xs: ArrayLike<number>; zs: ArrayLike<number>; count: number }, last: boolean): [number, number] => {
+    const k = last ? line.count - 1 : 0;
+    return [line.xs[k]!, line.zs[k]!];
+  };
+
+  it("runs the trail on from the pond's rest spot into the south-east forest (no dead-end sand patch)", () => {
+    const camp = layout.footpaths.find((path) => path.id === "fp-camp")!;
+    const trail = layout.footpaths.find((path) => path.id === "fp-camp-trail")!;
+    expect(camp.rest).toBe(true);
+    expect(trail.rest).toBe(false);
+    const [ax, az] = end(camp.line, true);
+    const [bx, bz] = end(trail.line, false);
+    expect(Math.hypot(ax - bx, az - bz)).toBeLessThan(0.01);
+    const [fx, fz] = end(trail.line, true);
+    expect(Math.hypot(fx, fz)).toBeGreaterThan(MAP_L2_CAU.terrain.playRadiusM);
+    expect(trail.line.length).toBeGreaterThan(15);
+    // One rest spot only (its seat off the trail's verge), and the trail's first lantern clear of the rest spot's own.
+    expect(layout.rocks.filter((item) => item.id.startsWith("rest:log:"))).toHaveLength(1);
+    const lanterns = layout.dress.filter((item) => item.id.startsWith("dress:lantern:fp-camp-trail:") || item.id.startsWith("dress:lantern:rest:"));
+    for (const a of lanterns) for (const b of lanterns) if (a !== b) expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(6);
+  });
+
+  it("dresses the road edges with low granite slabs, never the Cliff Rock blocks that read as posts", () => {
+    const road = layout.rocks.filter((item) => item.id.startsWith("road:"));
+    expect(road.length).toBeGreaterThan(10);
+    expect(road.every((item) => item.proto === "props/pine-river-rock-slab")).toBe(true);
+    expect(Math.max(...road.map((item) => item.k))).toBeLessThanOrEqual(1.05);
+  });
+
+  it("keeps the road core a value step over the grass and the foes' contact shadows over the road ribbon", () => {
+    expect(ROAD_VALUE.lift).toBeGreaterThan(1);
+    expect(ROAD_VALUE.lee).toBeGreaterThan(0);
+    // The ribbon's core lies 3 cm over the ground and pulls (-2, -4) toward the camera; the marks lie over it and pull more.
+    expect(SHADOW_LIFT_M).toBeGreaterThan(0.03);
+    expect(SHADOW_LIFT_M).toBeLessThan(0.03 + ROAD.coreDropM + 0.001);
+    const crowd = createCrowd(8);
+    const marks = crowd.group.getObjectByName("crowd-shadows") as THREE.Mesh<THREE.BufferGeometry, THREE.Material>;
+    expect(marks.material.polygonOffsetFactor).toBeLessThan(-2);
+    expect(marks.material.polygonOffsetUnits).toBeLessThan(-4);
+    expect(FOE_CONTACT.size).toBeGreaterThan(1);
+    expect(roadCoreHalf({ s: 0, laneIndex: 0, half: 1.5, curvature: 0, rDais: 30, bridgeGap: Infinity })).toBeGreaterThan(1.4);
   });
 });
