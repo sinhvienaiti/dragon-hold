@@ -361,6 +361,7 @@ export interface MapStage {
   heightAt(xM: number, zM: number): number;
   /** Eases the camera, flows the water, sways the trees. */
   update(dt: number): void;
+  /** Bins the prop LODs by the camera (scatter.updateLod), then draws the frame: call this, not stage.render(). */
   render(): void;
   /** World metres → CSS pixels (stage.project). */
   worldToScreen(xM: number, yM: number, zM: number, out?: ScreenPoint): ScreenPoint;
@@ -424,6 +425,11 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
   const rig = createCameraRig(stage.camera, map, host);
   rig.update(0);
   let disposed = false;
+  /** Every frame this stage draws: the prop LODs follow the camera first (no scene hook), then the frame. */
+  const render = (): void => {
+    scatter.updateLod(stage.camera);
+    stage.render();
+  };
   const warm = (): void => {
     if (disposed) return;
     const culled: THREE.Object3D[] = [];
@@ -433,7 +439,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
         object.frustumCulled = false;
       }
     });
-    stage.render();
+    render();
     for (const object of culled) object.frustumCulled = true;
   };
   // A3: bake the ground paint once its tiles and decals are in (the live paint shows until then).
@@ -467,7 +473,7 @@ export function createMapStage(host: HTMLElement, map: MapDef, quality: Quality 
       paths.update(dt);
       rig.update(dt);
     },
-    render: stage.render,
+    render,
     worldToScreen(xM, yM, zM, out = { x: 0, y: 0, visible: false }) {
       return stage.project(xM, yM, zM, out);
     },

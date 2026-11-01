@@ -34,6 +34,12 @@ export interface ScatterView {
    * first call, same one draw call), false brings back the 55° ring of the play views.
    */
   setLowView(on: boolean): void;
+  /**
+   * Bins the props that have a far LOD by the camera's distance (MapStage.render calls it before each frame it
+   * draws, so the shadow and colour passes read the new split). Nothing happens until the camera has moved
+   * PROP_LOD_STEP_M since the last bin; no scene hook, nothing allocated per frame.
+   */
+  updateLod(camera: THREE.Camera): void;
   /** Triangles of one drawing of the scatter (no shadow pass), and how many items are GLB props. */
   stats(): { triangles: number; props: number; primitives: number };
   dispose(): void;
@@ -167,15 +173,18 @@ export function binLod(lod: LodGroup, eye: THREE.Vector3, distanceM: number): vo
     const far = lod.side[i] === 0 ? d2 > farOut : d2 > nearIn;
     lod.side[i] = far ? 1 : 0;
     const k = far ? f++ : n++;
-    (far ? farMatrix : nearMatrix).set(lod.matrices.subarray(i * 16, i * 16 + 16), k * 16);
-    (far ? farColor : nearColor).set(lod.colors.subarray(i * 3, i * 3 + 3), k * 3);
+    // Index loops, no subarray views: nothing allocated per item or per frame.
+    const matrix = far ? farMatrix : nearMatrix;
+    const color = far ? farColor : nearColor;
+    for (let c = 0; c < 16; c += 1) matrix[k * 16 + c] = lod.matrices[i * 16 + c]!;
+    for (let c = 0; c < 3; c += 1) color[k * 3 + c] = lod.colors[i * 3 + c]!;
   }
   lod.near.count = n;
   lod.far.count = f;
-  for (const mesh of [lod.near, lod.far]) {
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.instanceColor!.needsUpdate = true;
-  }
+  lod.near.instanceMatrix.needsUpdate = true;
+  lod.near.instanceColor!.needsUpdate = true;
+  lod.far.instanceMatrix.needsUpdate = true;
+  lod.far.instanceColor!.needsUpdate = true;
 }
 
 /**
@@ -574,15 +583,16 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
   const meshes = [cones, trunks, rounds, shrubs, stones];
   /** GLB prop meshes (their geometry belongs to view/models.ts). */
   const propMeshes: THREE.InstancedMesh[] = [];
-  /** Prop groups with a far LOD, the switch distance for this quality, and the render hook that bins them. */
+  /** Prop groups with a far LOD and the switch distance for this quality (binned by updateLod). */
   const lods: LodGroup[] = [];
+  const lodEye = new THREE.Vector3();
+  const binnedAt = new THREE.Vector3(Infinity, 0, 0);
   // ?lod=<m> overrides the switch distance (perf split and tuning; 0 draws the tier mesh everywhere).
   const lodSwitch = mapSwitch("lod");
   const lodM = lodSwitch !== null && Number.isFinite(Number(lodSwitch)) ? Number(lodSwitch) : PROP_LOD_M[quality];
   // ?leafbias=<x> overrides the foliage mip bias (perf split and tuning).
   const leafSwitch = mapSwitch("leafbias");
   const leafBias = leafSwitch !== null && Number.isFinite(Number(leafSwitch)) ? Number(leafSwitch) : FOLIAGE_MAP_BIAS[quality];
-  let unhook: (() => void) | null = null;
   let used = false;
   const field = terrain.field;
   const near = map.terrain.playRadiusM + PROP_NEAR_SKIRT_M;
@@ -695,7 +705,7 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
           : { near: mesh, far: farMesh, matrices: new Float32Array(items.length * 16), colors: new Float32Array(items.length * 3), centers: new Float32Array(items.length * 3), side: new Int8Array(items.length) };
       if (farMesh !== null) {
         farMesh.receiveShadow = mesh.receiveShadow;
-        // Empty until the first bin; without a render hook (no scene yet) the tier mesh draws every item.
+        // Empty until the first bin (updateLod); until then the tier mesh draws every item.
         farMesh.count = 0;
       }
       items.forEach((item, index) => {
@@ -733,26 +743,8 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
         lods.push(lod);
       }
     }
-    // Bins the LOD groups each frame the camera has moved PROP_LOD_STEP_M (scene.onBeforeRender, before the shadow
-    // and colour passes read the instance buffers), so the same frame draws the new split.
-    let root: THREE.Object3D = group;
-    while (root.parent !== null) root = root.parent;
-    if (lods.length > 0 && (root as THREE.Scene).isScene) {
-      const scene = root as THREE.Scene;
-      const previous = scene.onBeforeRender;
-      const eye = new THREE.Vector3();
-      const binnedAt = new THREE.Vector3(Infinity, 0, 0);
-      scene.onBeforeRender = function (this: THREE.Scene, ...args: Parameters<THREE.Scene["onBeforeRender"]>) {
-        previous.apply(this, args);
-        eye.setFromMatrixPosition(args[2].matrixWorld);
-        if (eye.distanceToSquared(binnedAt) < PROP_LOD_STEP_M * PROP_LOD_STEP_M) return;
-        binnedAt.copy(eye);
-        for (const lod of lods) binLod(lod, eye, lodM);
-      };
-      unhook = () => {
-        scene.onBeforeRender = previous;
-      };
-    }
+    // The first updateLod after the swap bins at once (wherever the camera is).
+    binnedAt.set(Infinity, 0, 0);
     if (renderer && farItems.length > 0) {
       const used = [...new Set(farItems.map((item) => item.manifest))];
       const models = used.map((key) => loaded.find((entry) => entry.spec.manifest === key)!.model);
@@ -781,10 +773,19 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
     if (ring) ring.visible = !on || !lowRing;
   };
 
+  const updateLod = (camera: THREE.Camera): void => {
+    if (lods.length === 0) return;
+    camera.getWorldPosition(lodEye);
+    if (lodEye.distanceToSquared(binnedAt) < PROP_LOD_STEP_M * PROP_LOD_STEP_M) return;
+    binnedAt.copy(lodEye);
+    for (let i = 0; i < lods.length; i += 1) binLod(lods[i]!, lodEye, lodM);
+  };
+
   return {
     group,
     useProps,
     setLowView,
+    updateLod,
     stats() {
       // Hidden primitives (zero scale) still go through the vertex stage: they count.
       let triangles = 0;
@@ -794,7 +795,6 @@ export function buildScatter(map: MapDef, terrain: PaintedTerrain, quality: Qual
       return { triangles, props, primitives };
     },
     dispose(): void {
-      unhook?.();
       group.removeFromParent();
       for (const item of [...geometries, ...materials, ...meshes, ...propMeshes]) item.dispose();
       atlas?.dispose();

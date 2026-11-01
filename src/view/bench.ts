@@ -851,7 +851,9 @@ export async function runCrowdBench(host: HTMLElement, options: BenchOptions): P
       longFrames.push({ t: round2(elapsed), ms: round2(interval), warm: elapsed <= warmup, sky: sky?.phase ?? null, skyFrame: sky?.frame ?? -1 });
     }
     const query = gpu.begin();
-    stage.render();
+    // The painted map draws through MapStage.render (prop LODs follow the camera there, as in the game).
+    if (painted) painted.render();
+    else stage.render();
     gpu.end(query, measuring);
     gpu.poll();
     const spent = performance.now() - t0;

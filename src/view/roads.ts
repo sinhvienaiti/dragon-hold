@@ -240,12 +240,18 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
   const sources: Record<keyof typeof ROAD_TEXTURES, string> = { core: ROAD_TEXTURES.core.standIn, verge: ROAD_TEXTURES.verge.standIn, edges: "none" };
   const loader = new THREE.TextureLoader();
   const owned: THREE.Texture[] = [];
+  let disposed = false;
   for (const slot of Object.keys(ROAD_TEXTURES) as (keyof typeof ROAD_TEXTURES)[]) {
     const want = ROAD_TEXTURES[slot];
     void manifestOf(want.kind).then((manifest) => {
       const entry = manifest?.textures[want.key];
-      if (!entry) return;
+      if (!entry || disposed) return;
       return loader.loadAsync(entry.url).then((texture) => {
+        // Arrived after dispose(): nothing will draw or free it, so it goes now.
+        if (disposed) {
+          texture.dispose();
+          return;
+        }
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
         texture.anisotropy = 4;
@@ -262,11 +268,13 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
     sources,
     stats: () => ({ triangles: indices.length / 3, lanes: field.lanes.length, footpaths: field.layout.footpaths.length }),
     dispose(): void {
+      disposed = true;
       group.removeFromParent();
       geometry.dispose();
       material.dispose();
       emptyEdges.dispose();
       for (const texture of owned) texture.dispose();
+      owned.length = 0;
     },
   };
 }

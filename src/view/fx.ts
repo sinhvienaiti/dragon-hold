@@ -28,6 +28,7 @@ import { pointAt } from "../sim/lanes";
 import { uToM } from "../sim/fixed";
 import type { FrameInfo, Presenter, Quality, ScreenPoint } from "../app/contracts";
 import type { FoeLocator } from "./actors";
+import { addSceneHook } from "./scene-hooks";
 import type { Stage } from "./stage";
 import type { TerrainView } from "./terrain";
 import { FX_COLORS, FX_RIBBON_ORDER } from "./fx-palette";
@@ -2814,10 +2815,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
   let fovAge = Number.POSITIVE_INFINITY;
   let fovDeg = SKY_FOV_DEG;
   let fovSaved: [number, number] | null = null;
-  const previousBefore = stage.scene.onBeforeRender;
-  const previousAfter = stage.scene.onAfterRender;
-  stage.scene.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
-    previousBefore.call(stage.scene, renderer, scene, camera, geometry, material, group);
+  // Registered hooks (view/scene-hooks.ts), not a chain: a retired run's dispose removes only its own.
+  const unhookBefore = addSceneHook(stage.scene, "before", (_renderer, _scene, camera) => {
     const push = fovPush(fovAge, fovDeg);
     if (push <= 0 || camera !== stage.camera) return;
     const lens = camera as THREE.PerspectiveCamera;
@@ -2827,16 +2826,15 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     fovSaved = [e[0]!, e[5]!];
     e[0] = e[0]! * k;
     e[5] = e[5]! * k;
-  };
-  stage.scene.onAfterRender = (renderer, scene, camera, geometry, material, group) => {
+  });
+  const unhookAfter = addSceneHook(stage.scene, "after", (_renderer, _scene, camera) => {
     if (fovSaved !== null && camera === stage.camera) {
       const e = (camera as THREE.PerspectiveCamera).projectionMatrix.elements;
       e[0] = fovSaved[0];
       e[5] = fovSaved[1];
       fovSaved = null;
     }
-    previousAfter.call(stage.scene, renderer, scene, camera, geometry, material, group);
-  };
+  });
   core.warm(stage.renderer, stage.scene, stage.camera, () => stage.render());
   const hitStop = new HitStop(DRAGON);
   const trauma = new Trauma(DRAGON, options.random);
@@ -3255,8 +3253,8 @@ export function createFx(stage: Stage, options: FxOptions = {}): FxPresenter {
     },
 
     dispose(): void {
-      stage.scene.onBeforeRender = previousBefore;
-      stage.scene.onAfterRender = previousAfter;
+      unhookBefore();
+      unhookAfter();
       core.dispose();
       sprites?.dispose();
       canvas.style.transform = "";
