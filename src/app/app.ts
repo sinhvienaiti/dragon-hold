@@ -59,7 +59,7 @@ import { createLoop, type Loop } from "./loop";
 import { createPaceCard } from "./pace-card";
 import { GameKeyboard, KEYBOARD_UNAVAILABLE, KEYS_BASE, ORIGINAL_KEYBOARD, requestKeyboardCatalogue, savedKeyboardId, startKeyboard } from "./keyboard";
 import { pendingKeyboardChoices, type KeyboardCatalog } from "../kit/feedback/typing-fx";
-import { QUALITY_RELOAD_MS, createQuickSettings, qualityOptions, qualityReloadUrl } from "./quick";
+import { QUALITY_RELOAD_MS, createQuickSettings, qualityNote, qualityReloadUrl } from "./quick";
 import { SETTINGS_KEY, loadSettings, applyQuick, quickValues, audioVolumes, builtInKeys, storedSettings, voiceLevel } from "./settings";
 import { PaceMeter, clampWpm, measuredHeader, offerEasy, paceLabel, paceOptions, readPaceMemory, recordStage, rememberPick, sameSpeed, type PaceHeader } from "./typing-pace";
 
@@ -1097,12 +1097,15 @@ export function startApp(doc: Document = document, given?: AppOptions): App {
   // Quality rescue D4 (01/11): the stage, the models and the post chain are built for one quality at load, so a new
   // Quality only took effect on the next launch, without a word. Now the chosen tier says "Restart to apply" and the
   // page reloads with it (QUALITY_RELOAD_MS later; picking the running tier again in that time cancels the reload).
+  // The note is a line under the Quality chips (quick.ts qualityNote), not inside the chosen chip.
   let qualityReload = 0;
+  let qualityLine: ReturnType<typeof qualityNote> | null = null;
   const onQualityChange = (): void => {
     if (qualityReload !== 0) view.clearTimeout(qualityReload);
     qualityReload = 0;
     const pending = settings.quality !== quality ? settings.quality : null;
-    quick?.setChoiceOptions("quality", qualityOptions(pending));
+    if (quick) qualityLine ??= qualityNote(quick.root);
+    qualityLine?.show(pending);
     if (pending === null) return;
     qualityReload = view.setTimeout(() => {
       if (disposed) return;

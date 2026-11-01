@@ -90,9 +90,33 @@ export const RESTART_NOTE = "Restart to apply";
 /** How long the note shows before the page reloads with the new quality, ms. */
 export const QUALITY_RELOAD_MS = 1200;
 
-/** The Quality row's options; `pending` (a choice not running yet) carries RESTART_NOTE. */
-export function qualityOptions(pending: Quality | null): QuickChoiceOption[] {
-  return allowedQualities(import.meta.env.PROD).map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1), ...(value === pending ? { note: RESTART_NOTE } : {}) }));
+/** The Quality row's options: plain chips, one size and one font (the restart note is a line of its own, qualityNote). */
+export function qualityOptions(): QuickChoiceOption[] {
+  return allowedQualities(import.meta.env.PROD).map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) }));
+}
+
+/**
+ * Wave 1 fix (judge, 01/11): "Ultra Restart to apply" crammed two sizes and two fonts into one chip. The note is now
+ * a small line of the game's own under the Quality chips (app.css `.dh-quick__note`, a polite live region); the
+ * kit's chip stays plain. `show(null)` hides it.
+ */
+export function qualityNote(root: HTMLElement): { show(pending: Quality | null): void; readonly element: HTMLElement | null } {
+  const row = root.querySelector<HTMLElement>('.kit-qs__row[data-row="quality"]');
+  if (!row) return { show: () => undefined, element: null };
+  const note = row.ownerDocument.createElement("p");
+  note.className = "dh-quick__note";
+  note.setAttribute("role", "status");
+  note.setAttribute("aria-live", "polite");
+  note.hidden = true;
+  row.classList.add("dh-quick__row--noted");
+  row.append(note);
+  return {
+    element: note,
+    show(pending) {
+      note.hidden = pending === null;
+      note.textContent = pending === null ? "" : RESTART_NOTE;
+    },
+  };
 }
 
 /**
@@ -117,7 +141,7 @@ export function settingsRows(): QuickRow[] {
     { kind: "heading", id: "graphicsHeading", label: "Graphics" },
     { kind: "toggle", id: "reducedMotion", label: "Reduced motion", icon: "gfx-motion", default: false },
     // The release build never offers Low (195 quality floor); dev keeps all four. A new quality reloads the page (D4).
-    { kind: "choice", id: "quality", label: "Quality", icon: "gfx-quality", options: qualityOptions(null), default: "high" },
+    { kind: "choice", id: "quality", label: "Quality", icon: "gfx-quality", options: qualityOptions(), default: "high" },
     { kind: "heading", id: "learningHeading", label: "Learning" },
     { kind: "toggle", id: "learnMeaning", label: "Vietnamese meaning", icon: "learn-meaning", default: true },
     { kind: "toggle", id: "learnIpa", label: "Pronunciation", icon: "learn-ipa", default: true },

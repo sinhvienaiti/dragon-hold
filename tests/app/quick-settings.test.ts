@@ -649,18 +649,23 @@ describe("192 app and shared panels", () => {
   it("a new Quality says Restart to apply and reloads the page with it; the running tier again cancels (quality rescue D4)", () => {
     const reload = vi.spyOn(window.location, "reload").mockImplementation(() => {});
     const replace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
-    const note = (value: string) => row("quality").querySelector(`input[value="${value}"]`)!.closest(".kit-qs__opt")!.querySelector(".kit-qs__note")?.textContent ?? null;
+    // Wave 1 fix (judge 01/11): no note inside a chip; one line of the game's own under the Quality chips.
+    const chipNotes = () => row("quality").querySelectorAll(".kit-qs__chip .kit-qs__note").length;
+    const line = () => row("quality").querySelector<HTMLElement>(".dh-quick__note");
+    const note = () => (line() && !line()!.hidden ? line()!.textContent : null);
     press(window, "F1");
     // The run is at High (no ?q=, the default save): Ultra waits for a reload, saved at once.
     row("quality").querySelector<HTMLInputElement>('input[value="ultra"]')!.click();
-    expect(note("ultra")).toBe(RESTART_NOTE);
-    expect(note("high")).toBeNull();
+    expect(note()).toBe(RESTART_NOTE);
+    expect(chipNotes()).toBe(0);
+    expect(line()!.getAttribute("role")).toBe("status");
+    expect(row("quality").querySelector('input[value="ultra"]')!.closest(".kit-qs__opt")!.textContent!.trim()).toBe("Ultra");
     expect(loadSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).quality).toBe("ultra");
     expect(row("quality").querySelector<HTMLInputElement>('input[value="ultra"]')!.checked).toBe(true);
     // Back to the running High inside the wait: no note, no reload.
     vi.advanceTimersByTime(QUALITY_RELOAD_MS / 2);
     row("quality").querySelector<HTMLInputElement>('input[value="high"]')!.click();
-    expect(note("ultra")).toBeNull();
+    expect(note()).toBeNull();
     vi.advanceTimersByTime(QUALITY_RELOAD_MS * 2);
     expect(reload).not.toHaveBeenCalled();
     row("quality").querySelector<HTMLInputElement>('input[value="medium"]')!.click();
@@ -672,8 +677,7 @@ describe("192 app and shared panels", () => {
     // A page opened with ?q= (it wins over the save) reloads with the new ?q=.
     expect(qualityReloadUrl("https://dragon.typing-game.local/?q=high&seed=3#x", "ultra")).toBe("https://dragon.typing-game.local/?q=ultra&seed=3#x");
     expect(qualityReloadUrl("https://dragon.typing-game.local/?seed=3", "ultra")).toBeNull();
-    expect(qualityOptions("ultra").find((option) => option.value === "ultra")?.note).toBe(RESTART_NOTE);
-    expect(qualityOptions(null).every((option) => option.note === undefined)).toBe(true);
+    expect(qualityOptions().every((option) => option.note === undefined)).toBe(true);
   });
 
   it("offers real settings only, all seven audio rows, and Off, Dragonhold and the Typing Feel sets under their family headings", () => {

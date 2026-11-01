@@ -486,6 +486,20 @@
 .dh-quick .kit-qs__row {
   grid-template-columns: var(--kit-qs-icon-size) var(--dh-qs-label-w) minmax(0, 1fr);
 }
+/*
+ * Wave 1 fix (judge 01/11): "Ultra Restart to apply" crammed two sizes and two fonts into one chip. The note is a
+ * line of its own under the Quality chips (quick.ts qualityNote), in the panel's body font; the chip stays plain.
+ */
+.dh-quick .dh-quick__note {
+  grid-column: 3 / -1;
+  margin: calc(-2px * var(--kit-qs-s)) 0 calc(2px * var(--kit-qs-s));
+  font-family: var(--kit-qs-note-font, var(--dh-font));
+  font-size: calc(15px * var(--kit-qs-s));
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--kit-qs-active-text, #f2c14e);
+}
+.dh-quick .dh-quick__note[hidden] { display: none; }
 
 /*
  * Settings is 700 px wide (scaled; the kit's 560): the four Quality chips need 333 px at scale 1 in the 18 px serif,
@@ -688,7 +702,8 @@
   .dh-quick .kit-qs__panel { padding: 10px 14px 18px; }
   .dh-quick .kit-qs__row { grid-template-columns: var(--kit-qs-icon-size) minmax(0, 1fr); }
   .dh-quick .kit-qs__control,
-  .dh-quick .kit-qs__row--keyboards .kit-qs__control { grid-column: 1 / -1; }
+  .dh-quick .kit-qs__row--keyboards .kit-qs__control,
+  .dh-quick .dh-quick__note { grid-column: 1 / -1; }
 }
 
 /* Pre-router deck recovery uses the existing game panel and authored Retry art. */
