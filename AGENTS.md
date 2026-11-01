@@ -113,6 +113,16 @@ Dev port 3005, host `dragon.typing-game.local`.
   High 4.5 → 6.85 ms (gate 8 ms: pass). Not judged by C yet.
   The tier media are not on Drive until the coordinator copies and pushes
   them. See `docs/changelog/2026-11-01-wave1.md`.
+- State (01/11, wave 1 fix, same branch): the blind judge's six regressions
+  and the review's low findings are fixed (roads a value step over the
+  grass, foe contact shadows over the road ribbon, the trail south of the
+  pond, the river edge, Rock Slab road edges instead of Cliff Rock posts,
+  the Quality restart note on its own line; prop LODs bin in
+  `MapStage.render`, scene hooks via `view/scene-hooks.ts`). Ultra
+  anisotropy is 8x (as High). `dh-bench`: High 6.87–6.92 ms (gate: pass),
+  Ultra dpr 2 24.8–26.1 ms; `dh-crowd` ok. Blind-judge sheets in
+  `tmp/judge-wave1fix/`, not judged yet. See
+  `docs/changelog/2026-11-01-wave1-fix.md`.
 - Never judge a shared gate (`docs/games/BALANCE.md`) by a game-only band
   alone: print the shared result too.
 - Rule numbers live in `src/content/rules.ts`, each pointing to its canon section.
