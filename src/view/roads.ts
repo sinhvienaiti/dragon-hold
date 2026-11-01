@@ -32,6 +32,13 @@ export interface RoadsView {
   dispose(): void;
 }
 
+/**
+ * Wave 1 fix (judge, 01/11): the road one clear value step over the grass beside it at the play camera
+ * (measured as mean luma of road core and grass strips, tmp/wave1fix): `lift` on the core and verge colour,
+ * `lee` darkens the grass just past the road edge inside the ribbon.
+ */
+export const ROAD_VALUE = { lift: 1.08, lee: 0.12 } as const;
+
 const STEP_M = 0.5;
 /** Cross-section columns: [share of the core, share of the verge] from the centre out. */
 const COLUMNS: readonly (readonly [number, number])[] = [
@@ -56,6 +63,8 @@ uniform vec3 uDirtDark;
 uniform vec3 uGrassMid;
 uniform float uRoadTile;
 uniform vec3 uDaisRing;
+uniform float uRoadLift;
+uniform float uRoadLee;
 `;
 
 // vDhMask: x signed metres across (− left), y core half, z verge width (this side), w arc length of this column.
@@ -81,11 +90,13 @@ vec3 tC = texture2D(uRCore, ruv).rgb;
 vec3 mC = textureLod(uRCore, vec2(0.5), 12.0).rgb;
 vec3 tV = texture2D(uRVerge, ruv * 1.25 + 0.37).rgb;
 vec3 mV = textureLod(uRVerge, vec2(0.5), 12.0).rgb;
-vec3 coreC = mix(uDirt, uDirtLight, 0.55) * clamp(mix(vec3(1.0), tC / max(mC, vec3(0.004)), 0.85), 0.0, 2.0);
+// Wave 1 fix (judge, 01/11: roads read worse than on main): the core one clear value step over the grass beside it,
+// the tile's detail at half strength (its dark grains pulled the mean down), faint ruts, a lighter verge, a thin lip.
+vec3 coreC = mix(uDirt, uDirtLight, 0.85) * uRoadLift * clamp(mix(vec3(1.0), tC / max(mC, vec3(0.004)), 0.5), 0.0, 2.0);
 // Wheel lines: the verge image again, faint, along two worn tracks (no drawn pattern).
 float rut = (1.0 - smoothstep(0.1, 0.3, abs(ad - C * 0.5))) * smoothstep(0.3, 0.65, dhNoise(vec2(al * 0.22, side + 3.0)));
-coreC = mix(coreC, coreC * mix(vec3(1.0), tV / max(mV, vec3(0.004)), 0.6) * 0.86, rut * 0.55);
-vec3 vergeC = mix(uDirtDark, uDirt, 0.55) * vec3(0.95, 0.94, 0.9) * clamp(mix(vec3(1.0), tV / max(mV, vec3(0.004)), 1.0), 0.0, 2.2);
+coreC = mix(coreC, coreC * mix(vec3(1.0), tV / max(mV, vec3(0.004)), 0.6) * 0.9, rut * 0.3);
+vec3 vergeC = mix(uDirtDark, uDirt, 0.8) * vec3(0.97, 0.96, 0.92) * uRoadLift * clamp(mix(vec3(1.0), tV / max(mV, vec3(0.004)), 0.6), 0.0, 2.0);
 // Thin grass creeping onto the verge's outer half.
 vergeC = mix(vergeC, ground, smoothstep(0.42, 0.78, dhNoise(vDhWorld.xz * 1.6)) * smoothstep(coreEdge + 0.4, outer, ad) * 0.45);
 if (uREdgesOn > 0.5) {
@@ -94,7 +105,11 @@ if (uREdgesOn > 0.5) {
 }
 vec3 col = mix(vergeC, coreC, core);
 // The verge lip (5 cm over the core) shades the core edge.
-col *= 1.0 - 0.22 * exp(-pow((ad - coreEdge - band * 0.4) / 0.2, 2.0)) * (1.0 - core * 0.5);
+col *= 1.0 - 0.1 * exp(-pow((ad - coreEdge - band * 0.4) / 0.2, 2.0)) * (1.0 - core * 0.5);
+// The grass just past the road a shade darker (trodden, in the verge's lee), back to the plain ground at the
+// ribbon's edge: the road's outline reads as a value step, not a hue blur.
+float lee = (1.0 - road) * (1.0 - smoothstep(outer - grassBand * 0.5, C + V * 1.35, ad));
+ground *= 1.0 - uRoadLee * lee;
 diffuseColor.rgb = mix(ground, col, road);
 `;
 
@@ -221,6 +236,8 @@ export function buildRoads(map: MapDef, terrain: PaintedTerrain): RoadsView {
     uGrassMid: paint.uGrassMid!,
     uRoadTile: { value: ROAD.tileM },
     uDaisRing: { value: new THREE.Vector3(cx, cz, map.dais.radiusM + 0.6) },
+    uRoadLift: { value: ROAD_VALUE.lift },
+    uRoadLee: { value: ROAD_VALUE.lee },
   };
   emptyEdges.needsUpdate = true;
   const material = paintMaterial(new THREE.MeshLambertMaterial({ color: "#ffffff", polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }), terrain.look, {

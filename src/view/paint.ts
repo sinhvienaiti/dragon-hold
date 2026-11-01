@@ -781,7 +781,9 @@ c = mix(c, uMud * dEarth, 1.0 - smoothstep(-0.6, 0.0, edge));
 float r = rr;
 float dn = (mid - 0.5) * 0.42 + (stroke - 0.5) * 0.22;
 float trodV = max(pm.r, pm2.r) + dn;
-float halo = smoothstep(0.1, 0.28, trodV) * (1.0 - smoothstep(0.34, 0.42, trodV));
+// Wave 1 fix: the pale halo rings trodden ground only, not the main footpaths (it washed their edges into the meadow).
+float haloV = pm.r + dn;
+float halo = smoothstep(0.1, 0.28, haloV) * (1.0 - smoothstep(0.34, 0.42, haloV));
 c = mix(c, uGrassLight * 1.07 * dGrass, halo * 0.5 * (1.0 - woods * 0.7));
 float dirtA = smoothstep(0.46, 0.54, pm.r + dn) * level;
 float rimA = smoothstep(0.37, 0.45, trodV) * (1.0 - smoothstep(0.46, 0.54, trodV)) * level;
@@ -814,14 +816,14 @@ float worn = smoothstep(0.62, 0.96, lane + wob) * dirt;
 float rut = (1.0 - smoothstep(0.06, 0.17, abs(lane - 0.46 + wob * 0.25))) * dirt;
 vec3 laneC = mix(uDirt, uDirtLight, smoothstep(0.42, 0.72, stroke + mid * 0.2)) * dPath;
 laneC = mix(laneC, uDirtDark * dPath, worn * 0.45 + rut * 0.3);
-float shoulder = (1.0 - smoothstep(1.0, 1.9, lane + wob)) * (1.0 - dirt);
-c = mix(c, mix(c, uGrassLight * dGrass, 0.45), shoulder * 0.7);
-// A3 follow-up (FB-17, dh-foe-contrast): a wider band along each lane leans grey-olive and a step lighter, so
-// moss-green foes (and their shadows) part from the meadow; the lane dirt itself keeps the A3 tan.
+// Wave 1 fix (judge, 01/11): no pale grass shoulder beside the road any more (it sat under the ribbon's verge and
+// cut the road's value step); the band keeps its grey-olive lean but no longer lightens the grass.
+// A3 follow-up (FB-17, dh-foe-contrast): a wider band along each lane leans grey-olive, so moss-green foes (and
+// their shadows) part from the meadow by hue; the lane dirt itself keeps the A3 tan.
 {
   float laneBand = (1.0 - smoothstep(1.4, 4.5, lane + wob)) * (1.0 - dirt);
   float bandL = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  c = mix(c, mix(vec3(bandL), c, 0.55) * 1.1, laneBand * 0.55);
+  c = mix(c, mix(vec3(bandL), c, 0.55), laneBand * 0.55);
 }
 c = mix(c, laneC, dirt);
 // Decals (D1–D4), bombed; their density lives in the mask, so lanes and water never get one.
