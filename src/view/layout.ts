@@ -39,7 +39,12 @@ export const LAYOUT_RULES = {
     levelBelowM: 0.3,
   },
   /** PATH_QUALITY 2.5: road edge dressing (see the lane road loop in buildLayout). */
-  roadDress: { stepM: [2, 4.5] as const, clusterMax: 3, clusterM: 1.4, clusterOutM: 0.7, stoneShare: 0.6, stoneK: [0.8, 1.8] as const, tuftK: [0.8, 1.4] as const, bendCurvature: 0.09, junctionR: 11, bridgeEndM: 3, bigK: [1.3, 2.0] as const },
+  /**
+   * Wave 1 fix (judge, 01/11): the big Cliff Rock blocks at bends, junctions and bridge ends and the small Cliff Rock
+   * curbs read as pale grey posts (placeholders); the edge stones are low granite slabs (Rock Slab, the stone paint
+   * of the river and lane rocks), and the dressing is thinner (every 3–6 m, 1–2 pieces), so the road edge stays clean.
+   */
+  roadDress: { stepM: [3, 6] as const, clusterMax: 2, clusterM: 1.4, clusterOutM: 0.7, stoneShare: 0.5, stoneK: [0.6, 1.05] as const, stoneSink: 0.3, tuftK: [0.8, 1.3] as const },
   /** L2: cliff marks in the outer skirt that frame one side (line and height pinned in the map's scene spec, profile by rule). */
   cliff: {
     /**
@@ -698,7 +703,7 @@ function routeFootpaths(f: LayoutFields, pond: Pond | null, cliff: Cliff | null,
       const fromPlaza = from.kind === "plaza" ? lerp(F.plazaTaper, 1, smooth(0, F.plazaTaperM, s)) : 1;
       halves[i] = half * toEdge * fromPlaza * (0.92 + 0.16 * valueNoise(s / 4, routeIndex + 0.5, seed + RULE.path + 1));
     }
-    paths.push({ id: route.id, tier: route.tier, line, halves, rest: route.tier === "branch" && (to.kind === "point" || to.kind === "edge") });
+    paths.push({ id: route.id, tier: route.tier, line, halves, rest: route.rest !== false && route.tier === "branch" && (to.kind === "point" || to.kind === "edge") });
   });
   return paths;
 }
@@ -1296,7 +1301,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     const L = DR.lantern;
     let side = h(RULE.dress, 600 + pi, 1, seed) < 0.5 ? -1 : 1;
     let n = 0;
-    for (let s = L.firstM; s < path.line.length - 2.5; n += 1) {
+    // A trail that goes on from another path's end (a rest stop's own lantern stands there): its first post further out.
+    const joins = footpaths.some((p) => p !== path && Math.hypot(p.line.xs[p.line.count - 1]! - path.line.xs[0]!, p.line.zs[p.line.count - 1]! - path.line.zs[0]!) < 0.1);
+    for (let s = L.firstM + (joins ? 4 : 0); s < path.line.length - 2.5; n += 1) {
       path.line.pointAt(s, tangent);
       const off = halfAt(path, s) + L.offM;
       let placed = false;
@@ -1346,10 +1353,10 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     }
   });
   // PATH_QUALITY 2.5: road edge dressing on each lane's verge crest (view/road-profile.ts, the ribbon's own width),
-  // seeded, every 2–6 m a side: low curb stones (Cliff Rock (wide), sunk) and grass tufts over the edge; at bends,
-  // the dais junction and the bridge ends a big edge stone (Cliff Rock). Kit3 models, instanced with the rest.
+  // seeded: low granite slabs (Rock Slab, sunk) and grass tufts over the edge. Wave 1 fix (judge, 01/11): no Cliff
+  // Rock blocks any more (big at bends, junctions and bridge ends, small as curbs): they read as pale grey posts.
   const RD = LAYOUT_RULES.roadDress;
-  /** Dresses one road's verge crests: clusters of 1–3 pieces every 2–4.5 m a side, bigger ones at bends, junctions, bridge ends. */
+  /** Dresses one road's verge crests: 1–2 pieces every 3–6 m a side. */
   const dressRoad = (line: Polyline, index: number, spans: readonly { fromM: number; toM: number }[], halfAt: (s: number) => number, vergeScale: number, footpath: boolean): void => {
     for (const side of [-1, 1]) {
       let n = 0;
@@ -1362,9 +1369,8 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
         const gap = bridgeGapAt(spans, s);
         if (spans.some((span) => s > span.fromM - 0.5 && s < span.toM + 0.5)) continue;
         const sample = { s, laneIndex: index, half: halfAt(s), curvature: curvatureAt(line, s), rDais: r, bridgeGap: gap };
-        const big = sample.curvature > RD.bendCurvature || r < RD.junctionR || gap < RD.bridgeEndM;
         const crest = roadCoreHalf(sample) + roadVerge(sample, side) * vergeScale * 0.55;
-        const count = big ? 3 : 1 + Math.floor(h(RULE.dress, key, 6, seed) * RD.clusterMax);
+        const count = 1 + Math.floor(h(RULE.dress, key, 6, seed) * RD.clusterMax);
         for (let m = 0; m < count; m += 1) {
           const along = (h(RULE.dress, key, 10 + m, seed) - 0.5) * RD.clusterM;
           const out = crest + (h(RULE.dress, key, 20 + m, seed) - 0.3) * RD.clusterOutM;
@@ -1376,12 +1382,9 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
           const roll = h(RULE.dress, key, 30 + m, seed);
           const yaw = roll * 6.283;
           const id = "road:" + index + ":" + side + ":" + n + ":" + m;
-          if (big && m === 0) {
-            const k = lerp(RD.bigK[0], RD.bigK[1], h(RULE.dress, key, 40, seed));
-            rocks.push({ id: id + ":big", proto: CLIFF_A, x: px, z: pz, k, yaw, tint: [1, 1, 1], radius: k * 0.4, stone: true, sinkShare: 0.34, tilt: [(roll - 0.5) * 0.2, (h(RULE.dress, key, 41, seed) - 0.5) * 0.2] });
-          } else if (h(RULE.dress, key, 50 + m, seed) < RD.stoneShare) {
+          if (h(RULE.dress, key, 50 + m, seed) < RD.stoneShare) {
             const k = lerp(RD.stoneK[0], RD.stoneK[1], h(RULE.dress, key, 60 + m, seed) ** 1.5);
-            rocks.push({ id: id + ":stone", proto: CLIFF_B, x: px, z: pz, k, yaw, tint: [1, 1, 1], radius: k * 0.45, stone: true, sinkShare: 0.4, tilt: [(roll - 0.5) * 0.3, (h(RULE.dress, key, 61 + m, seed) - 0.5) * 0.3] });
+            rocks.push({ id: id + ":stone", proto: ROCK_SLAB, x: px, z: pz, k, yaw, tint: GREY, radius: k * 0.45, sinkShare: RD.stoneSink, tilt: [(roll - 0.5) * 0.16, (h(RULE.dress, key, 61 + m, seed) - 0.5) * 0.16] });
           } else if (f.laneGap(px, pz) >= 1.7) {
             // Tufts (moss green, like the Moss Grunts) keep 1.7 m from the walking band (scatter's bush rule 1.1 m),
             // so they never sit in the ring a foe reads against (dh-foe-contrast); stones 0.6 m.
@@ -1501,11 +1504,13 @@ export function buildLayout(map: MapDef, scene: SceneSpec | null = sceneFor(map)
     const path = footpaths.find((p) => p.rest && Math.hypot(p.line.xs[p.line.count - 1]! - c.x, p.line.zs[p.line.count - 1]! - c.z) < 0.1);
     if (!path) return;
     path.line.pointAt(path.line.length - 0.5, tangent);
-    const lx = c.x + tangent.dx * 1.6 - tangent.dz * 1.3;
-    const lz = c.z + tangent.dz * 1.6 + tangent.dx * 1.3;
+    // A trail that goes on past the stop (wave 1 fix): the seat and the stump step off its verge.
+    const side = footpaths.some((p) => p !== path && Math.hypot(p.line.xs[0]! - c.x, p.line.zs[0]! - c.z) < 0.1) ? 1.9 : 1.3;
+    const lx = c.x + tangent.dx * 1.6 - tangent.dz * side;
+    const lz = c.z + tangent.dz * 1.6 + tangent.dx * side;
     rocks.push({ id: "rest:log:" + ci, proto: "props/pine-river-log", x: lx, z: lz, k: 2.2, yaw: Math.atan2(tangent.dx, tangent.dz) + 1.4, tint: [1, 1, 1], radius: 1.1 });
-    const sx = c.x + tangent.dx * 0.4 + tangent.dz * 1.6;
-    const sz = c.z + tangent.dz * 0.4 - tangent.dx * 1.6;
+    const sx = c.x + tangent.dx * 0.4 + tangent.dz * Math.max(1.6, side);
+    const sz = c.z + tangent.dz * 0.4 - tangent.dx * Math.max(1.6, side);
     rocks.push({ id: "rest:stump:" + ci, proto: "props/pine-river-stump", x: sx, z: sz, k: 0.85, yaw: ci * 1.7, tint: [1, 1, 1], radius: 0.45 });
     const px = c.x - tangent.dx * 2.2 - tangent.dz * 1.1;
     const pz = c.z - tangent.dz * 2.2 + tangent.dx * 1.1;

@@ -27,6 +27,8 @@ export interface SceneFootpath {
   readonly bend: number;
   /** "main" (lantern route, full cover) or "branch" (narrow, grass crown). */
   readonly tier: "main" | "branch";
+  /** false: no rest spot at the far end, even for a branch into the forest (a trail that goes on past one). */
+  readonly rest?: boolean;
 }
 
 export interface SceneCliff {
@@ -166,12 +168,13 @@ export function readScene(json: Json): SceneSpec {
     })),
     cliffs: list<{ id: string; lineCm: number[][]; heightCm: number; tiers?: number }>("cliffs").map((c) => ({ id: c.id, line: c.lineCm.map(point), heightM: cm(c.heightCm), tiers: c.tiers ?? 2 })),
     ponds: list<{ id: string; atCm: number[]; radiusCm: number }>("ponds").map((p) => ({ id: p.id, at: point(p.atCm), radiusM: cm(p.radiusCm) })),
-    footpaths: list<{ id: string; from: RawAnchor; to: RawAnchor; bendPermille: number; tier?: string }>("footpaths").map((f) => ({
+    footpaths: list<{ id: string; from: RawAnchor; to: RawAnchor; bendPermille: number; tier?: string; rest?: boolean }>("footpaths").map((f) => ({
       id: f.id,
       from: anchor(f.from),
       to: anchor(f.to),
       bend: f.bendPermille / 1000,
       tier: f.tier === "main" ? "main" : "branch",
+      ...(f.rest === false ? { rest: false } : {}),
     })),
     groves: list<{ id: string; atCm: number[]; radiusCm: number; warm?: boolean; dominant?: string }>("groves").map((g) => ({
       id: g.id,

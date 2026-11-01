@@ -26,7 +26,8 @@
     "footpaths": [
       { "id": "fp-jetty", "tier": "main", "from": { "dais": 100 }, "to": { "pond": true }, "bendPermille": 60, "note": "dais plaza → pond landing (jetty when the kit has one)" },
       { "id": "fp-scree", "tier": "main", "from": { "dais": 188 }, "to": { "cliff": 222 }, "bendPermille": -120, "note": "dais plaza → scree at the south-west cliff foot" },
-      { "id": "fp-camp", "tier": "branch", "from": { "pond": 165 }, "to": { "pointCm": [1850, 1350] }, "bendPermille": 140, "note": "pond → rest spot (bench, lantern; Campfire Ring when the kit has one) inside the home view, A3 (FB-18): the forest-bay end lay outside every frame" }
+      { "id": "fp-camp", "tier": "branch", "from": { "pond": 165 }, "to": { "pointCm": [1850, 1350] }, "bendPermille": 140, "note": "pond → rest spot (bench, lantern; Campfire Ring when the kit has one) inside the home view, A3 (FB-18): the forest-bay end lay outside every frame" },
+      { "id": "fp-camp-trail", "tier": "branch", "from": { "path": "fp-camp", "atPermille": 1000 }, "to": { "edge": 158 }, "bendPermille": -80, "rest": false, "note": "quality rescue wave 1 fix (judge 01/11): the trail goes on from the rest spot into the south-east forest bay, as on main, so the rest spot is a stop on the trail, not a dead-end sand patch" }
     ],
     "groves": [
       { "id": "grove:nw-anchor", "atCm": [-900, -2450], "radiusCm": 700, "dominant": "pine-round", "warm": true, "note": "anchor across the river, merges into the forest edge (V4)" },
