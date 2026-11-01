@@ -19,10 +19,13 @@ export interface WaterView {
 const MAX_SHALLOWS = 4;
 
 const WATER_VERTEX = /* glsl */ `
+attribute float aBed;
 varying vec2 vUv;
 varying vec3 vDhWorld;
+varying float vBed;
 void main() {
   vUv = uv;
+  vBed = aBed;
   vec4 world = modelMatrix * vec4(position, 1.0);
   vDhWorld = world.xyz;
   gl_Position = projectionMatrix * viewMatrix * world;
@@ -37,6 +40,7 @@ uniform vec3 uFoam;
 uniform vec3 uShallowsC[${MAX_SHALLOWS}];
 varying vec2 vUv;
 varying vec3 vDhWorld;
+varying float vBed;
 void main() {
   // vUv.x across the river (0..1), vUv.y metres downstream.
   float across = abs(vUv.x - 0.5) * 2.0;
@@ -56,10 +60,17 @@ void main() {
   col = mix(col, uShallow * 1.18 + 0.03, streak * 0.4);
   float dark = smoothstep(0.34, 0.28, n) * depth;
   col = mix(col, uDeep * 0.82, dark * 0.35);
-  // Foam: noise-cut two-step at the banks and over the ford.
+  // Wave 1 fix (judge, 01/11): the edge follows the real waterline. vBed is the water's depth over the ground under
+  // each vertex (view/terrain.ts ground), so the sheet fades out over its last few centimetres: no see-through strip
+  // over the bank, and the terrain's 0.5 m grid never cuts a jagged line through it. The bank foam (noise-cut two-step
+  // as before) hugs that waterline instead of a fixed share of the river's width.
   float fn = dhNoise(vec2(vUv.x * 13.0, vUv.y * 1.4 + uTime * 0.8));
-  float foamEdge = step(0.84, across + fn * 0.16) ;
-  float foamSoft = smoothstep(0.7, 0.84, across + fn * 0.16) * 0.45;
+  float bedFade = smoothstep(0.0, 0.1, vBed);
+  // Over the ford's flat bed (about 0.14 m deep) the ford's own foam speaks; the bank line keeps off it.
+  float bank = 1.0 - shallow;
+  float shoreV = vBed + (fn - 0.5) * 0.22;
+  float foamEdge = (1.0 - step(0.16, shoreV)) * step(0.3, fn) * bedFade * bank;
+  float foamSoft = (1.0 - smoothstep(0.16, 0.34, shoreV)) * 0.3 * bank;
   float fordNoise = dhNoise(vDhWorld.xz * 1.5 + vec2(uTime * 0.25, -uTime * 0.9));
   float foamFord = shallow * (step(0.58, fordNoise) * 0.9 + smoothstep(0.42, 0.58, fordNoise) * 0.3);
   col = mix(col, uFoam, clamp(max(max(foamEdge * 0.85, foamSoft), foamFord), 0.0, 1.0));
@@ -67,8 +78,7 @@ void main() {
   float glint = step(0.9, dhNoise(vDhWorld.xz * 2.6 + uTime * vec2(0.35, -0.7))) * step(0.55, dhNoise(vDhWorld.xz * 0.45 - uTime * 0.2));
   col += uSunColor * glint * 0.35 * (1.0 - foamEdge);
   col = dhMist(col, vDhWorld);
-  float alpha = mix(0.9, 0.62, shallow) * (1.0 - smoothstep(0.9, 1.0, across)) ;
-  alpha = max(alpha, foamEdge * (1.0 - smoothstep(0.96, 1.0, across)));
+  float alpha = max(mix(0.9, 0.62, shallow), foamEdge * 0.95) * bedFade;
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -82,6 +92,7 @@ function riverGeometry(terrain: PaintedTerrain, columns: number): THREE.BufferGe
   const rows = line.count;
   const positions = new Float32Array(rows * columns * 3);
   const uvs = new Float32Array(rows * columns * 2);
+  const beds = new Float32Array(rows * columns);
   const y = terrain.field.waterLevel;
   for (let row = 0; row < rows; row += 1) {
     const prev = Math.max(0, row - 1);
@@ -97,9 +108,12 @@ function riverGeometry(terrain: PaintedTerrain, columns: number): THREE.BufferGe
       const u = col / (columns - 1);
       const offset = (u - 0.5) * 2 * half;
       const index = row * columns + col;
-      positions[index * 3] = line.xs[row]! - dz * offset;
+      const x = line.xs[row]! - dz * offset;
+      const z = line.zs[row]! + dx * offset;
+      positions[index * 3] = x;
       positions[index * 3 + 1] = y;
-      positions[index * 3 + 2] = line.zs[row]! + dx * offset;
+      positions[index * 3 + 2] = z;
+      beds[index] = y - terrain.field.ground(x, z);
       uvs[index * 2] = u;
       uvs[index * 2 + 1] = line.cum[row]!;
     }
@@ -118,10 +132,14 @@ function riverGeometry(terrain: PaintedTerrain, columns: number): THREE.BufferGe
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  geometry.setAttribute("aBed", new THREE.BufferAttribute(beds, 1));
   geometry.setIndex(indices);
   geometry.computeBoundingSphere();
   return geometry;
 }
+
+/** Vertices across the river ribbon: about 0.25 m apart on the widest reach, so the waterline (vBed) runs smooth. */
+export const RIVER_COLUMNS = 40;
 
 const POND_VERTEX = /* glsl */ `
 attribute float aDepth;
@@ -266,7 +284,7 @@ export function buildWater(map: MapDef, terrain: PaintedTerrain): WaterView {
     transparent: true,
     depthWrite: false,
   });
-  const surface = new THREE.Mesh(riverGeometry(terrain, 12), material);
+  const surface = new THREE.Mesh(riverGeometry(terrain, RIVER_COLUMNS), material);
   surface.name = "dh-river";
   surface.renderOrder = 2;
   surface.frustumCulled = false;
