@@ -433,11 +433,13 @@ float crowdRim = pow(max(1.0 - abs(vViewN.z), 0.0), 2.2);
 #ifdef DH_MODEL
 // A modelled body turns its normals away from the camera far more often than a primitive: a thinner, softer rim,
 // or the whole body washes toward cream (G01 at rim 0.95 read pale in the 27/10 sheets).
-crowdRim = pow(max(1.0 - abs(vViewN.z), 0.0), 3.4) * 0.55;
+// Wave 1 fix (judge, 01/11: moss-green foes had no rim against the olive ground): a foe's rim a little wider,
+// stronger and creamier than ours, still a thin edge (no D5 look change).
+crowdRim = pow(max(1.0 - abs(vViewN.z), 0.0), mix(3.4, 2.8, vFoe)) * mix(0.55, 0.75, vFoe);
 #endif
 // A bright rim in the body's own colour lifted toward cream (aLook.y), so every body reads against the ground
 // even on its shaded side; an aura rim is withered yellow.
-vec3 crowdRimColor = mix(vColorCrowd, vec3(1.0, 0.97, 0.88), 0.55) * vLook.y;
+vec3 crowdRimColor = mix(vColorCrowd, vec3(1.0, 0.97, 0.88), mix(0.55, 0.72, vFoe)) * vLook.y;
 totalEmissiveRadiance += mix(crowdRimColor, vTint * 0.35, step(3.5, vState.z) * step(vState.z, 4.5) * vState.w) * crowdRim;
 totalEmissiveRadiance += vTint * vState.w * 0.12;
 // Withered-yellow cracks on every foe's shell (05 §2.2 "khe nứt vàng úa"): each instance samples its own patch of
@@ -497,8 +499,8 @@ void main() {
   vec4 c;
   if (vKind < 0.5) {
     // Contact shadow: a dark core under the feet, a soft edge.
-    float a = (1.0 - smoothstep(0.25, 1.0, d)) * 0.8 + (1.0 - smoothstep(0.0, 0.5, d)) * 0.2;
-    c = vec4(0.035, 0.04, 0.025, min(1.0, a) * vAlpha * 0.78);
+    float a = (1.0 - smoothstep(0.3, 1.0, d)) * 0.8 + (1.0 - smoothstep(0.0, 0.5, d)) * 0.2;
+    c = vec4(0.035, 0.04, 0.025, min(0.9, min(1.0, a) * vAlpha * 0.78));
   } else if (vKind < 1.5) {
     // Flyer: a dark spot with a ring round it on the ground under the body.
     float spot = 1.0 - smoothstep(0.12, 0.5, d);
@@ -520,6 +522,14 @@ void main() {
   if (c.a < 0.004) discard;
   gl_FragColor = c;
 }`;
+
+/** A body's contact shadow over the ground point: over the road core (3 cm, view/roads.ts), under the verge crest (8 cm). */
+export const SHADOW_LIFT_M = 0.06;
+/**
+ * Wave 1 fix (judge, 01/11: moss-green foes sank into the olive ground): a foe's contact shadow reaches past its
+ * body (the body hid most of the old one from the play camera) and is darker, so every foe stands on a dark disc.
+ */
+export const FOE_CONTACT = { size: 1.35, alpha: 1.2 } as const;
 
 /** Ground rings a crowd can hold per frame (swarm clusters). */
 const RING_CAPACITY = 48;
@@ -587,6 +597,8 @@ interface HandleRec {
   hover: number;
   /** A flyer: its ground mark is a spot and ring with a tether up to it. */
   flyer: boolean;
+  /** A foe: its contact shadow is FOE_CONTACT wider and darker. */
+  foe: boolean;
   /** Last written ground point, lift and footprint for the shadow. */
   gx: number;
   gy: number;
@@ -671,9 +683,11 @@ class InstancedCrowd implements Crowd {
         transparent: true,
         depthWrite: false,
         side: THREE.DoubleSide,
+        // Wave 1 fix (judge, 01/11: "no contact shadow"): the road ribbon (view/roads.ts) lies 3–8 cm over the
+        // ground with its own offset (−2, −4) and hid the marks; they now sit over the road core and pull closer.
         polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2,
+        polygonOffsetFactor: -4,
+        polygonOffsetUnits: -8,
       });
       this.shadows = new THREE.Mesh(geometry, material);
       this.shadows.frustumCulled = false;
@@ -906,7 +920,7 @@ class InstancedCrowd implements Crowd {
     layer.owner[index] = handle;
     const k = look.scale ?? (gait === "still" ? 1 : this.characterScale);
     const [w, h, l] = shape.sizeM;
-    const rec: HandleRec = { layer, index, w: w * k, h: h * k, l: l * k, hover: shape.hoverM, flyer: gait === "flyer", gx: 0, gy: 0, gz: 0, lift: shape.hoverM, dissolve: 0 };
+    const rec: HandleRec = { layer, index, w: w * k, h: h * k, l: l * k, hover: shape.hoverM, flyer: gait === "flyer", foe, gx: 0, gy: 0, gz: 0, lift: shape.hoverM, dissolve: 0 };
     this.handles[handle] = rec;
     const color = this.colorScratch.set(shape.color);
     const c = layer.color.array as Float32Array;
@@ -1069,7 +1083,7 @@ class InstancedCrowd implements Crowd {
         // A flyer: the spot and ring right under it, and a dashed tether up to its belly (05 §6.2 flyers read as up).
         if (this.mark(n, rec.gx, rec.gy + 0.05, rec.gz, footprint * 0.95, fade, 1)) n += 1;
         if (this.mark(n, rec.gx, rec.gy + 0.05, rec.gz, 0.12, 0.55 * fade, 2, rec.lift)) n += 1;
-      } else if (this.mark(n, rec.gx, rec.gy + 0.04, rec.gz, footprint * (1 / (1 + rec.lift * 0.35) * 0.45 + 0.55), fade, 0)) {
+      } else if (this.mark(n, rec.gx, rec.gy + SHADOW_LIFT_M, rec.gz, footprint * (1 / (1 + rec.lift * 0.35) * 0.45 + 0.55) * (rec.foe ? FOE_CONTACT.size : 1), fade * (rec.foe ? FOE_CONTACT.alpha : 1), 0)) {
         n += 1;
       }
     }
